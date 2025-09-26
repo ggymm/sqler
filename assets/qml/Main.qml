@@ -16,7 +16,9 @@ ApplicationWindow {
     title: "SQLER"
 
     // 主题系统
-    Theme { id: theme }
+    Theme {
+        id: theme
+    }
 
     // 工具栏按钮组件
     Component {
@@ -35,7 +37,8 @@ ApplicationWindow {
                 radius: theme.radiusSmall
             }
 
-            onClicked: if (clickHandler) clickHandler()
+            onClicked: if (clickHandler)
+                clickHandler()
 
             contentItem: Column {
                 anchors.centerIn: parent
@@ -180,9 +183,9 @@ ApplicationWindow {
                 Loader {
                     sourceComponent: toolbarButton
                     onLoaded: {
-                        item.iconSource = "qrc:/assets/icons/new-conn.svg"
-                        item.buttonText = "新建连接"
-                        item.clickHandler = newConn
+                        item.iconSource = "qrc:/assets/icons/new-conn.svg";
+                        item.buttonText = "新建连接";
+                        item.clickHandler = newConn;
                     }
                 }
 
@@ -190,9 +193,9 @@ ApplicationWindow {
                 Loader {
                     sourceComponent: toolbarButton
                     onLoaded: {
-                        item.iconSource = "qrc:/assets/icons/new-query.svg"
-                        item.buttonText = "新建查询"
-                        item.clickHandler = newQuery
+                        item.iconSource = "qrc:/assets/icons/new-query.svg";
+                        item.buttonText = "新建查询";
+                        item.clickHandler = newQuery;
                     }
                 }
 
@@ -208,9 +211,9 @@ ApplicationWindow {
                 Loader {
                     sourceComponent: toolbarButton
                     onLoaded: {
-                        item.iconSource = "qrc:/assets/icons/table.svg"
-                        item.buttonText = "表"
-                        item.clickHandler = showTables
+                        item.iconSource = "qrc:/assets/icons/table.svg";
+                        item.buttonText = "表";
+                        item.clickHandler = showTables;
                     }
                 }
 
@@ -218,9 +221,9 @@ ApplicationWindow {
                 Loader {
                     sourceComponent: toolbarButton
                     onLoaded: {
-                        item.iconSource = "qrc:/assets/icons/query.svg"
-                        item.buttonText = "查询"
-                        item.clickHandler = showQueries
+                        item.iconSource = "qrc:/assets/icons/query.svg";
+                        item.buttonText = "查询";
+                        item.clickHandler = showQueries;
                     }
                 }
 
@@ -228,9 +231,9 @@ ApplicationWindow {
                 Loader {
                     sourceComponent: toolbarButton
                     onLoaded: {
-                        item.iconSource = "qrc:/assets/icons/function.svg"
-                        item.buttonText = "函数"
-                        item.clickHandler = showFunctions
+                        item.iconSource = "qrc:/assets/icons/function.svg";
+                        item.buttonText = "函数";
+                        item.clickHandler = showFunctions;
                     }
                 }
 
@@ -238,9 +241,9 @@ ApplicationWindow {
                 Loader {
                     sourceComponent: toolbarButton
                     onLoaded: {
-                        item.iconSource = "qrc:/assets/icons/user.svg"
-                        item.buttonText = "用户"
-                        item.clickHandler = showUsers
+                        item.iconSource = "qrc:/assets/icons/user.svg";
+                        item.buttonText = "用户";
+                        item.clickHandler = showUsers;
                     }
                 }
             }
@@ -310,8 +313,7 @@ ApplicationWindow {
                         text: (modelData.name || modelData.id)
 
                         background: Rectangle {
-                            color: parent.hovered ? theme.hoverColor :
-                                   parent.pressed ? theme.pressedColor : "transparent"
+                            color: parent.hovered ? theme.hoverColor : parent.pressed ? theme.pressedColor : "transparent"
                             radius: theme.radiusSmall
                         }
 
@@ -386,7 +388,10 @@ ApplicationWindow {
                                 }
                             }
                         }
-                        TapHandler { acceptedButtons: Qt.RightButton; onTapped: connMenu.open() }
+                        TapHandler {
+                            acceptedButtons: Qt.RightButton
+                            onTapped: connMenu.open()
+                        }
                     }
 
                     ScrollBar.vertical: ScrollBar {
@@ -481,8 +486,7 @@ ApplicationWindow {
                         text: "表"
 
                         background: Rectangle {
-                            color: parent.checked ? theme.surfaceColor :
-                                   parent.hovered ? theme.hoverColor : "transparent"
+                            color: parent.checked ? theme.surfaceColor : parent.hovered ? theme.hoverColor : "transparent"
                             border.color: parent.checked ? theme.dividerColor : "transparent"
                             border.width: theme.menuBarBorderWidth
                             radius: theme.radiusSmall
@@ -522,73 +526,79 @@ ApplicationWindow {
     }
 
     function newConn() {
-        newConnDialog.openForNew()
+        newConnDialog.openForNew();
     }
 
     function newQuery() {
         // TODO: 实现新建查询功能
-        infoDialog.show("新建查询功能开发中...")
+        infoDialog.show("新建查询功能开发中...");
     }
 
     function showTables() {
         // TODO: 实现显示表功能
-        infoDialog.show("显示表功能开发中...")
+        infoDialog.show("显示表功能开发中...");
     }
 
     function showQueries() {
         // TODO: 实现显示查询功能
-        infoDialog.show("显示查询功能开发中...")
+        infoDialog.show("显示查询功能开发中...");
     }
 
     function showFunctions() {
         // TODO: 实现显示函数功能
-        infoDialog.show("显示函数功能开发中...")
+        infoDialog.show("显示函数功能开发中...");
     }
 
     function showUsers() {
         // TODO: 实现显示用户功能
-        infoDialog.show("显示用户功能开发中...")
+        infoDialog.show("显示用户功能开发中...");
     }
 
     function editConn(c) {
-        newConnDialog.openForEdit(c)
+        newConnDialog.openForEdit(c);
     }
 
     function deleteConn(c) {
-        if (!c || !c.id) return;
+        if (!c || !c.id)
+            return;
         if (Qt.platform.os === "android" || Qt.platform.os === "ios") {
             // inline confirm fallback
-            backend.deleteConnection(c.id)
-            backend.refreshConnections()
-            return
+            backend.deleteConnection(c.id);
+            backend.refreshConnections();
+            return;
         }
         // Simple JS confirm style using Dialog
-        confirmDialog.message = `确定删除连接 '${c.name || c.id}' 吗？`
-        confirmDialog.onAccept = function() {
-            backend.deleteConnection(c.id)
-            backend.refreshConnections()
-        }
-        confirmDialog.open()
+        confirmDialog.message = `确定删除连接 '${c.name || c.id}' 吗？`;
+        confirmDialog.onAccept = function () {
+            backend.deleteConnection(c.id);
+            backend.refreshConnections();
+        };
+        confirmDialog.open();
     }
 
     // 打开连接：在右侧新增一个"表 - 名称"的 Tab，展示该连接下的表名
     function openConn(c) {
-        if (!c) return
+        if (!c)
+            return;
         // Create a new tab showing tables
-        var page = tablesComponent.createObject(stackLayout, { connection: c })
+        var page = tablesComponent.createObject(stackLayout, {
+            connection: c
+        });
 
         // Add new tab button
-        var tabButton = tabButtonComponent.createObject(tabBar)
-        tabButton.text = `表 - ${c.name || c.id}`
+        var tabButton = tabButtonComponent.createObject(tabBar);
+        tabButton.text = `表 - ${c.name || c.id}`;
 
         // Set current index to the new tab
-        tabBar.currentIndex = tabBar.count - 1
+        tabBar.currentIndex = tabBar.count - 1;
     }
 
     function testConn(c) {
-        const res = backend.testConnection(c)
-        if (res.ok) infoDialog.show("连接成功")
-        else infoDialog.show("测试连接失败: " + (res.error || ""))
+        const res = backend.testConnection(c);
+        if (res.ok)
+            infoDialog.show("连接成功");
+        else
+            infoDialog.show("测试连接失败: " + (res.error || ""));
     }
 
     // 弹窗与复用组件
@@ -644,16 +654,16 @@ ApplicationWindow {
     QtObject {
         id: infoDialog
         function show(t) {
-            var d = infoDialogComponent.createObject(win)
-            d.text = t
-            d.open()
+            var d = infoDialogComponent.createObject(win);
+            d.text = t;
+            d.open();
         }
     }
 
     Dialog {
         id: confirmDialog
         property string message: ""
-        property var onAccept: function() {}
+        property var onAccept: function () {}
         modal: true
         title: "确认"
         standardButtons: Dialog.Ok | Dialog.Cancel
@@ -691,14 +701,16 @@ ApplicationWindow {
     }
 
     // 表页组件工厂
-    Component { id: tablesComponent; Views.TablesPane { } }
+    Component {
+        id: tablesComponent
+        Views.TablesPane {}
+    }
 
     // TabButton 组件工厂
     Component {
         id: tabButtonComponent
-        TabButton {
-            // text property will be set after creation
-        }
+        // text property will be set after creation
+        TabButton {}
     }
 
     // 关于对话框

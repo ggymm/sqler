@@ -7,7 +7,10 @@ Item {
     id: root
     property var theme
     property var conn
-    function focusFirst() { if (nameField) nameField.forceActiveFocus() }
+    function focusFirst() {
+        if (nameField)
+            nameField.forceActiveFocus();
+    }
 
     Rectangle {
         anchors.fill: parent
@@ -25,7 +28,13 @@ Item {
                 width: parent.width
                 spacing: theme.spacingNormal
 
-                Label { text: "PostgreSQL 连接配置"; font.bold: true; font.pixelSize: theme.fontSizeTitle; color: theme.textPrimary; Layout.alignment: Qt.AlignHCenter }
+                Label {
+                    text: "PostgreSQL 连接配置"
+                    font.bold: true
+                    font.pixelSize: theme.fontSizeTitle
+                    color: theme.textPrimary
+                    Layout.alignment: Qt.AlignHCenter
+                }
 
                 GridLayout {
                     Layout.fillWidth: true
@@ -33,43 +42,72 @@ Item {
                     rowSpacing: theme.spacingNormal
                     columnSpacing: theme.spacingNormal
 
-                    Label { text: "连接名称"; color: theme.textPrimary; font.pixelSize: theme.fontSizeNormal; Layout.preferredWidth: theme.formLabelWidth }
+                    Label {
+                        text: "连接名称"
+                        color: theme.textPrimary
+                        font.pixelSize: theme.fontSizeNormal
+                        Layout.preferredWidth: theme.formLabelWidth
+                    }
                     TextField {
                         id: nameField
                         Layout.fillWidth: true
                         Layout.preferredWidth: theme.formInputWidth
                         text: root.conn ? root.conn.name : ""
                         placeholderText: "例如：本地Postgres"
-                        onTextChanged: if (root.conn) root.conn.name = text
+                        onTextChanged: if (root.conn)
+                            root.conn.name = text
                         color: theme.inputTextColor
                         placeholderTextColor: theme.inputPlaceholderColor
                         selectionColor: theme.inputSelectionColor
                         selectedTextColor: theme.inputSelectedTextColor
-                        background: Rectangle { color: parent.activeFocus ? theme.backgroundColor : theme.inputFieldBackground; border.color: parent.activeFocus ? theme.inputFieldActiveBorder : theme.inputFieldBorder; border.width: 1; radius: theme.radiusSmall }
+                        background: Rectangle {
+                            color: parent.activeFocus ? theme.backgroundColor : theme.inputFieldBackground
+                            border.color: parent.activeFocus ? theme.inputFieldActiveBorder : theme.inputFieldBorder
+                            border.width: 1
+                            radius: theme.radiusSmall
+                        }
                     }
 
-                    Label { text: "主机地址"; color: theme.textPrimary; font.pixelSize: theme.fontSizeNormal; Layout.preferredWidth: theme.formLabelWidth }
+                    Label {
+                        text: "主机地址"
+                        color: theme.textPrimary
+                        font.pixelSize: theme.fontSizeNormal
+                        Layout.preferredWidth: theme.formLabelWidth
+                    }
                     TextField {
                         Layout.fillWidth: true
                         Layout.preferredWidth: theme.formInputWidth
                         text: root.conn ? root.conn.host : ""
                         placeholderText: "localhost"
-                        onTextChanged: if (root.conn) root.conn.host = text
+                        onTextChanged: if (root.conn)
+                            root.conn.host = text
                         color: theme.inputTextColor
                         placeholderTextColor: theme.inputPlaceholderColor
                         selectionColor: theme.inputSelectionColor
                         selectedTextColor: theme.inputSelectedTextColor
-                        background: Rectangle { color: parent.activeFocus ? theme.backgroundColor : theme.inputFieldBackground; border.color: parent.activeFocus ? theme.inputFieldActiveBorder : theme.inputFieldBorder; border.width: 1; radius: theme.radiusSmall }
+                        background: Rectangle {
+                            color: parent.activeFocus ? theme.backgroundColor : theme.inputFieldBackground
+                            border.color: parent.activeFocus ? theme.inputFieldActiveBorder : theme.inputFieldBorder
+                            border.width: 1
+                            radius: theme.radiusSmall
+                        }
                     }
 
-                    Label { text: "端口"; color: theme.textPrimary; font.pixelSize: theme.fontSizeNormal; Layout.preferredWidth: theme.formLabelWidth }
+                    Label {
+                        text: "端口"
+                        color: theme.textPrimary
+                        font.pixelSize: theme.fontSizeNormal
+                        Layout.preferredWidth: theme.formLabelWidth
+                    }
                     SpinBox {
                         id: portSpin
                         Layout.fillWidth: true
                         Layout.preferredWidth: theme.formInputWidth
-                        from: 1; to: 65535
+                        from: 1
+                        to: 65535
                         value: root.conn ? (root.conn.port || 5432) : 5432
-                        onValueChanged: if (root.conn) root.conn.port = value
+                        onValueChanged: if (root.conn)
+                            root.conn.port = value
                         contentItem: TextInput {
                             text: portSpin.textFromValue(portSpin.value, portSpin.locale)
                             font.pixelSize: theme.fontSizeNormal
@@ -83,54 +121,93 @@ Item {
                             inputMethodHints: Qt.ImhFormattedNumbersOnly
                             onEditingFinished: portSpin.value = portSpin.valueFromText(text, portSpin.locale)
                         }
-                        background: Rectangle { color: parent.activeFocus ? theme.backgroundColor : theme.inputFieldBackground; border.color: parent.activeFocus ? theme.inputFieldActiveBorder : theme.inputFieldBorder; border.width: 1; radius: theme.radiusSmall }
+                        background: Rectangle {
+                            color: parent.activeFocus ? theme.backgroundColor : theme.inputFieldBackground
+                            border.color: parent.activeFocus ? theme.inputFieldActiveBorder : theme.inputFieldBorder
+                            border.width: 1
+                            radius: theme.radiusSmall
+                        }
                     }
 
-                    Label { text: "用户名"; color: theme.textPrimary; font.pixelSize: theme.fontSizeNormal; Layout.preferredWidth: theme.formLabelWidth }
+                    Label {
+                        text: "用户名"
+                        color: theme.textPrimary
+                        font.pixelSize: theme.fontSizeNormal
+                        Layout.preferredWidth: theme.formLabelWidth
+                    }
                     TextField {
                         Layout.fillWidth: true
                         Layout.preferredWidth: theme.formInputWidth
                         text: root.conn ? root.conn.user : ""
                         placeholderText: "postgres"
-                        onTextChanged: if (root.conn) root.conn.user = text
+                        onTextChanged: if (root.conn)
+                            root.conn.user = text
                         color: theme.inputTextColor
                         placeholderTextColor: theme.inputPlaceholderColor
                         selectionColor: theme.inputSelectionColor
                         selectedTextColor: theme.inputSelectedTextColor
-                        background: Rectangle { color: parent.activeFocus ? theme.backgroundColor : theme.inputFieldBackground; border.color: parent.activeFocus ? theme.inputFieldActiveBorder : theme.inputFieldBorder; border.width: 1; radius: theme.radiusSmall }
+                        background: Rectangle {
+                            color: parent.activeFocus ? theme.backgroundColor : theme.inputFieldBackground
+                            border.color: parent.activeFocus ? theme.inputFieldActiveBorder : theme.inputFieldBorder
+                            border.width: 1
+                            radius: theme.radiusSmall
+                        }
                     }
 
-                    Label { text: "密码"; color: theme.textPrimary; font.pixelSize: theme.fontSizeNormal; Layout.preferredWidth: theme.formLabelWidth }
+                    Label {
+                        text: "密码"
+                        color: theme.textPrimary
+                        font.pixelSize: theme.fontSizeNormal
+                        Layout.preferredWidth: theme.formLabelWidth
+                    }
                     TextField {
                         Layout.fillWidth: true
                         Layout.preferredWidth: theme.formInputWidth
                         text: root.conn ? root.conn.password : ""
                         echoMode: TextInput.Password
-                        onTextChanged: if (root.conn) root.conn.password = text
+                        onTextChanged: if (root.conn)
+                            root.conn.password = text
                         color: theme.inputTextColor
                         placeholderTextColor: theme.inputPlaceholderColor
                         selectionColor: theme.inputSelectionColor
                         selectedTextColor: theme.inputSelectedTextColor
-                        background: Rectangle { color: parent.activeFocus ? theme.backgroundColor : theme.inputFieldBackground; border.color: parent.activeFocus ? theme.inputFieldActiveBorder : theme.inputFieldBorder; border.width: 1; radius: theme.radiusSmall }
+                        background: Rectangle {
+                            color: parent.activeFocus ? theme.backgroundColor : theme.inputFieldBackground
+                            border.color: parent.activeFocus ? theme.inputFieldActiveBorder : theme.inputFieldBorder
+                            border.width: 1
+                            radius: theme.radiusSmall
+                        }
                     }
 
-                    Label { text: "数据库"; color: theme.textPrimary; font.pixelSize: theme.fontSizeNormal; Layout.preferredWidth: theme.formLabelWidth }
+                    Label {
+                        text: "数据库"
+                        color: theme.textPrimary
+                        font.pixelSize: theme.fontSizeNormal
+                        Layout.preferredWidth: theme.formLabelWidth
+                    }
                     TextField {
                         Layout.fillWidth: true
                         Layout.preferredWidth: theme.formInputWidth
                         text: root.conn ? root.conn.database : ""
                         placeholderText: "postgres"
-                        onTextChanged: if (root.conn) root.conn.database = text
+                        onTextChanged: if (root.conn)
+                            root.conn.database = text
                         color: theme.inputTextColor
                         placeholderTextColor: theme.inputPlaceholderColor
                         selectionColor: theme.inputSelectionColor
                         selectedTextColor: theme.inputSelectedTextColor
-                        background: Rectangle { color: parent.activeFocus ? theme.backgroundColor : theme.inputFieldBackground; border.color: parent.activeFocus ? theme.inputFieldActiveBorder : theme.inputFieldBorder; border.width: 1; radius: theme.radiusSmall }
+                        background: Rectangle {
+                            color: parent.activeFocus ? theme.backgroundColor : theme.inputFieldBackground
+                            border.color: parent.activeFocus ? theme.inputFieldActiveBorder : theme.inputFieldBorder
+                            border.width: 1
+                            radius: theme.radiusSmall
+                        }
                     }
                 }
             }
         }
     }
 
-    onVisibleChanged: if (visible && nameField) nameField.forceActiveFocus()
+    onVisibleChanged: if (visible && nameField)
+        nameField.forceActiveFocus()
 }

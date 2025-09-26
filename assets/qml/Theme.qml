@@ -139,16 +139,16 @@ QtObject {
 
     // 切换主题
     function toggleTheme() {
-        isDarkMode = !isDarkMode
+        isDarkMode = !isDarkMode;
     }
 
     // 设置暗色主题
     function setDarkTheme() {
-        isDarkMode = true
+        isDarkMode = true;
     }
 
     // 设置亮色主题
     function setLightTheme() {
-        isDarkMode = false
+        isDarkMode = false;
     }
 }

@@ -2,7 +2,8 @@
 
 UNAME_S := $(shell uname -s)
 
-.PHONY: help build-debug build-release run-debug run-release deploy-debug deploy-release clean
+.PHONY: help build-debug build-release run-debug run-release deploy-debug deploy-release clean \
+	format-qml lint-qml format-cpp format check-format
 
 help:
 	@echo "commands:"
@@ -13,6 +14,11 @@ help:
 	@echo "  make deploy-debug   - Deploy Debug build with Qt runtime"
 	@echo "  make deploy-release - Deploy Release build with Qt runtime"
 	@echo "  make clean          - Remove build directory"
+	@echo "  make lint-qml       - Lint all QML via qmllint"
+	@echo "  make format-qml     - Format all QML via qmlformat"
+	@echo "  make format-cpp     - Format all C/C++ via clang-format"
+	@echo "  make format-all     - Format all QML and C/C++"
+
 
 run-debug: build-debug
 ifeq ($(UNAME_S),Darwin)
@@ -44,3 +50,22 @@ deploy-release: build-release
 
 clean:
 	rm -rf build
+
+lint-qml:
+	@echo "Linting QML files..."
+	@find assets/qml -type f -name "*.qml" -exec qmllint {} + 2>/dev/null || true
+
+format-qml:
+	@echo "Formatting QML files..."
+	@find assets/qml -type f -name "*.qml" -exec qmlformat -i {} + 2>/dev/null || true
+
+format-cpp:
+	@echo "Formatting C/C++ files..."
+	@if command -v clang-format >/dev/null 2>&1; then \
+		find src -type f \( -name "*.c" -o -name "*.cc" -o -name "*.cpp" -o -name "*.cxx" -o -name "*.h" -o -name "*.hh" -o -name "*.hpp" -o -name "*.hxx" \) -exec clang-format -i {} + ; \
+	else \
+		echo "clang-format not found; install it to format C/C++"; \
+	fi
+
+format-all: format-qml format-cpp
+

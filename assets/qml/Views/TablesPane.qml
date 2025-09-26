@@ -13,13 +13,20 @@ Item {
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
-        Label { text: (connection ? `表 - ${connection.name || connection.id}` : "表"); padding: 8; font.bold: true }
+        Label {
+            text: (connection ? `表 - ${connection.name || connection.id}` : "表")
+            padding: 8
+            font.bold: true
+        }
         ListView {
             id: tableList
             Layout.fillWidth: true
             Layout.fillHeight: true
             model: tables
-            delegate: ItemDelegate { width: ListView.view.width; text: modelData }
+            delegate: ItemDelegate {
+                width: ListView.view.width
+                text: modelData
+            }
             ScrollBar.vertical: ScrollBar {}
         }
     }
@@ -31,10 +38,13 @@ Item {
 
     // 向后端请求表名列表
     function reload() {
-        tables = []
-        if (!connection) return
-        const res = backend.listTables(connection)
-        if (res.ok) tables = res.tables
-        else console.warn("listTables error:", res.error)
+        tables = [];
+        if (!connection)
+            return;
+        const res = backend.listTables(connection);
+        if (res.ok)
+            tables = res.tables;
+        else
+            console.warn("listTables error:", res.error);
     }
 }

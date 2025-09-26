@@ -36,13 +36,55 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 model: [
-                    { label: "MySQL",       type: "mysql",       description: "关系型数据库",     icon: "qrc:/assets/icons/db/mysql.svg",       supported: true },
-                    { label: "PostgreSQL",  type: "postgresql",  description: "关系型数据库",     icon: "qrc:/assets/icons/db/postgresql.svg", supported: false },
-                    { label: "SQL Server",  type: "sqlserver",   description: "关系型数据库",     icon: "qrc:/assets/icons/db/sqlserver.svg",  supported: false },
-                    { label: "SQLite",      type: "sqlite",      description: "嵌入式数据库",     icon: "qrc:/assets/icons/db/sqlite.svg",     supported: false },
-                    { label: "MongoDB",     type: "mongodb",     description: "文档数据库",       icon: "qrc:/assets/icons/db/mongodb.svg",    supported: false },
-                    { label: "Oracle",      type: "oracle",      description: "关系型数据库",     icon: "qrc:/assets/icons/db/oracle.svg",     supported: false },
-                    { label: "Redis",       type: "redis",       description: "内存数据结构存储", icon: "qrc:/assets/icons/db/redis.svg",      supported: true }
+                    {
+                        label: "MySQL",
+                        type: "mysql",
+                        description: "关系型数据库",
+                        icon: "qrc:/assets/icons/db/mysql.svg",
+                        supported: true
+                    },
+                    {
+                        label: "PostgreSQL",
+                        type: "postgresql",
+                        description: "关系型数据库",
+                        icon: "qrc:/assets/icons/db/postgresql.svg",
+                        supported: false
+                    },
+                    {
+                        label: "SQL Server",
+                        type: "sqlserver",
+                        description: "关系型数据库",
+                        icon: "qrc:/assets/icons/db/sqlserver.svg",
+                        supported: false
+                    },
+                    {
+                        label: "SQLite",
+                        type: "sqlite",
+                        description: "嵌入式数据库",
+                        icon: "qrc:/assets/icons/db/sqlite.svg",
+                        supported: false
+                    },
+                    {
+                        label: "MongoDB",
+                        type: "mongodb",
+                        description: "文档数据库",
+                        icon: "qrc:/assets/icons/db/mongodb.svg",
+                        supported: false
+                    },
+                    {
+                        label: "Oracle",
+                        type: "oracle",
+                        description: "关系型数据库",
+                        icon: "qrc:/assets/icons/db/oracle.svg",
+                        supported: false
+                    },
+                    {
+                        label: "Redis",
+                        type: "redis",
+                        description: "内存数据结构存储",
+                        icon: "qrc:/assets/icons/db/redis.svg",
+                        supported: true
+                    }
                 ]
                 spacing: theme.spacingNormal
 
@@ -103,7 +145,11 @@ Item {
                                     spacing: theme.spacingTiny
                                     anchors.margins: theme.spacingTiny
                                     anchors.fill: parent
-                                    Label { text: "未支持"; color: theme.textPrimary; font.pixelSize: theme.fontSizeSmall }
+                                    Label {
+                                        text: "未支持"
+                                        color: theme.textPrimary
+                                        font.pixelSize: theme.fontSizeSmall
+                                    }
                                 }
                             }
                         }

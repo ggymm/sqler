@@ -1,0 +1,33 @@
+BasedOnStyle: LLVM
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 120
+AccessModifierOffset: -2
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: false
+BreakBeforeBraces: Attach
+NamespaceIndentation: None
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: Consecutive
+AlignConsecutiveDeclarations: false
+AlignEscapedNewlines: Left
+PointerAlignment: Left
+SpacesInParentheses: false
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeParens: ControlStatements
+SpaceAfterCStyleCast: false
+SortIncludes: true
+IncludeBlocks: Regroup
+Cpp11BracedListStyle: true
+AllowAllArgumentsOnNextLine: true
+AllowAllConstructorInitializersOnNextLine: true
+FixNamespaceComments: true
+QualifierAlignment: Left
+
+# Qt friendly tweaks
+IndentCaseLabels: true
+BinPackArguments: false
+BinPackParameters: false
+ReflowComments: true
+StatementMacros: [ Q_OBJECT, Q_SIGNALS, Q_SLOTS ]

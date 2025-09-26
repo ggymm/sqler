@@ -53,3 +53,42 @@ add_custom_target(deploy
     COMMAND ${CMAKE_COMMAND} --install "${CMAKE_BINARY_DIR}" --prefix "${CMAKE_BINARY_DIR}/install"
     DEPENDS sqler
 )
+
+# ---------- Code Quality: Quick Style/Lint Targets (Plan A) ----------
+# QML files
+file(GLOB_RECURSE QML_FILES
+    RELATIVE ${CMAKE_SOURCE_DIR}
+    assets/qml/*.qml)
+
+add_custom_target(format-qml
+    COMMAND qmlformat -i ${QML_FILES}
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Run qmlformat on all QML files"
+)
+
+add_custom_target(lint-qml
+    COMMAND qmllint ${QML_FILES}
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Run qmllint on all QML files"
+)
+
+# C++ files
+file(GLOB_RECURSE CPP_FILES
+    RELATIVE ${CMAKE_SOURCE_DIR}
+    src/*.cpp src/*.c src/*.cc src/*.cxx
+    src/*.h src/*.hh src/*.hpp src/*.hxx)
+
+find_program(CLANG_FORMAT_EXE NAMES clang-format)
+if(CLANG_FORMAT_EXE)
+    add_custom_target(format-cpp
+        COMMAND ${CLANG_FORMAT_EXE} -i ${CPP_FILES}
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        COMMENT "Run clang-format on all C/C++ files"
+    )
+else()
+    add_custom_target(format-cpp
+        COMMAND ${CMAKE_COMMAND} -E echo "clang-format not found. Install it to enable C++ formatting."
+    )
+endif()
+
+add_custom_target(format ALL DEPENDS format-qml)

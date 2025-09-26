@@ -8,7 +8,10 @@ Item {
 
     property var theme
     property var conn
-    function focusFirst() { if (nameField) nameField.forceActiveFocus() }
+    function focusFirst() {
+        if (nameField)
+            nameField.forceActiveFocus();
+    }
 
     Rectangle {
         anchors.fill: parent
@@ -52,7 +55,8 @@ Item {
                         Layout.preferredWidth: theme.formInputWidth
                         text: root.conn ? root.conn.name : ""
                         placeholderText: "例如：本地MySQL"
-                        onTextChanged: if (root.conn) root.conn.name = text
+                        onTextChanged: if (root.conn)
+                            root.conn.name = text
                         color: theme.inputTextColor
                         placeholderTextColor: theme.inputPlaceholderColor
                         selectionColor: theme.inputSelectionColor
@@ -77,7 +81,8 @@ Item {
                         Layout.preferredWidth: theme.formInputWidth
                         text: root.conn ? root.conn.host : ""
                         placeholderText: "localhost"
-                        onTextChanged: if (root.conn) root.conn.host = text
+                        onTextChanged: if (root.conn)
+                            root.conn.host = text
                         color: theme.inputTextColor
                         placeholderTextColor: theme.inputPlaceholderColor
                         selectionColor: theme.inputSelectionColor
@@ -104,7 +109,8 @@ Item {
                         from: 1
                         to: 65535
                         value: root.conn ? root.conn.port : 3306
-                        onValueChanged: if (root.conn) root.conn.port = value
+                        onValueChanged: if (root.conn)
+                            root.conn.port = value
                         contentItem: TextInput {
                             text: portSpin.textFromValue(portSpin.value, portSpin.locale)
                             font.pixelSize: theme.fontSizeNormal
@@ -138,7 +144,8 @@ Item {
                         Layout.preferredWidth: theme.formInputWidth
                         text: root.conn ? root.conn.user : ""
                         placeholderText: "root"
-                        onTextChanged: if (root.conn) root.conn.user = text
+                        onTextChanged: if (root.conn)
+                            root.conn.user = text
                         color: theme.inputTextColor
                         placeholderTextColor: theme.inputPlaceholderColor
                         selectionColor: theme.inputSelectionColor
@@ -163,7 +170,8 @@ Item {
                         Layout.preferredWidth: theme.formInputWidth
                         text: root.conn ? root.conn.password : ""
                         echoMode: TextInput.Password
-                        onTextChanged: if (root.conn) root.conn.password = text
+                        onTextChanged: if (root.conn)
+                            root.conn.password = text
                         color: theme.inputTextColor
                         placeholderTextColor: theme.inputPlaceholderColor
                         selectionColor: theme.inputSelectionColor
@@ -188,7 +196,8 @@ Item {
                         Layout.preferredWidth: theme.formInputWidth
                         text: root.conn ? root.conn.database : ""
                         placeholderText: "留空以显示所有数据库"
-                        onTextChanged: if (root.conn) root.conn.database = text
+                        onTextChanged: if (root.conn)
+                            root.conn.database = text
                         color: theme.inputTextColor
                         placeholderTextColor: theme.inputPlaceholderColor
                         selectionColor: theme.inputSelectionColor
@@ -206,5 +215,6 @@ Item {
         }
     }
 
-    onVisibleChanged: if (visible && nameField) nameField.forceActiveFocus()
+    onVisibleChanged: if (visible && nameField)
+        nameField.forceActiveFocus()
 }
