@@ -5,100 +5,114 @@ import QtQuick.Layouts 1.15
 
 Item {
     id: root
-    property var theme
+
     property var conn
+    property var theme
+
     function focusFirst() {
         if (nameField)
             nameField.forceActiveFocus();
     }
 
+    onVisibleChanged: if (visible && nameField)
+                          nameField.forceActiveFocus()
+
     Rectangle {
         anchors.fill: parent
-        color: theme.dialogContentBackground
-        border.color: theme.dialogBorderColor
+        border.color: root.theme.dialogBorderColor
         border.width: 1
-        radius: theme.radiusSmall
+        color: root.theme.dialogContentBackground
+        radius: root.theme.radiusSmall
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: theme.spacingLarge
-            spacing: theme.spacingNormal
+            anchors.margins: root.theme.spacingLarge
+            spacing: root.theme.spacingNormal
 
             Label {
-                text: "SQLite 连接配置"
-                font.bold: true
-                font.pixelSize: theme.fontSizeTitle
-                color: theme.textPrimary
                 Layout.alignment: Qt.AlignHCenter
+                color: root.theme.textPrimary
+                font.bold: true
+                font.pixelSize: root.theme.fontSizeTitle
+                text: "SQLite 连接配置"
             }
 
             GridLayout {
                 Layout.fillWidth: true
+                columnSpacing: root.theme.spacingNormal
                 columns: 2
-                rowSpacing: theme.spacingNormal
-                columnSpacing: theme.spacingNormal
+                rowSpacing: root.theme.spacingNormal
 
                 Label {
+                    Layout.preferredWidth: root.theme.formLabelWidth
+                    color: root.theme.textPrimary
+                    font.pixelSize: root.theme.fontSizeNormal
                     text: "连接名称"
-                    color: theme.textPrimary
-                    font.pixelSize: theme.fontSizeNormal
-                    Layout.preferredWidth: theme.formLabelWidth
                 }
+
                 TextField {
                     id: nameField
+
                     Layout.fillWidth: true
-                    Layout.preferredWidth: theme.formInputWidth
-                    text: root.conn ? root.conn.name : ""
+                    Layout.preferredWidth: root.theme.formInputWidth
+                    color: root.theme.inputTextColor
                     placeholderText: "例如：本地SQLite"
-                    onTextChanged: if (root.conn)
-                        root.conn.name = text
-                    color: theme.inputTextColor
-                    placeholderTextColor: theme.inputPlaceholderColor
-                    selectionColor: theme.inputSelectionColor
-                    selectedTextColor: theme.inputSelectedTextColor
+                    placeholderTextColor: root.theme.inputPlaceholderColor
+                    selectedTextColor: root.theme.inputSelectedTextColor
+                    selectionColor: root.theme.inputSelectionColor
+                    text: root.conn ? root.conn.name : ""
+
                     background: Rectangle {
-                        color: parent.activeFocus ? theme.backgroundColor : theme.inputFieldBackground
-                        border.color: parent.activeFocus ? theme.inputFieldActiveBorder : theme.inputFieldBorder
+                        border.color: parent.activeFocus ? root.theme.inputFieldActiveBorder :
+                                                           root.theme.inputFieldBorder
                         border.width: 1
-                        radius: theme.radiusSmall
+                        color: parent.activeFocus ? root.theme.backgroundColor :
+                                                    root.theme.inputFieldBackground
+                        radius: root.theme.radiusSmall
                     }
+
+                    onTextChanged: if (root.conn)
+                                       root.conn.name = text
                 }
 
                 Label {
+                    Layout.preferredWidth: root.theme.formLabelWidth
+                    color: root.theme.textPrimary
+                    font.pixelSize: root.theme.fontSizeNormal
                     text: "数据库文件路径"
-                    color: theme.textPrimary
-                    font.pixelSize: theme.fontSizeNormal
-                    Layout.preferredWidth: theme.formLabelWidth
                 }
+
                 TextField {
                     id: pathField
+
                     Layout.fillWidth: true
-                    Layout.preferredWidth: theme.formInputWidth
-                    text: root.conn ? root.conn.database : ""
+                    Layout.preferredWidth: root.theme.formInputWidth
+                    color: root.theme.inputTextColor
                     placeholderText: "输入 .db/.sqlite 文件路径"
-                    onTextChanged: if (root.conn)
-                        root.conn.database = text
-                    color: theme.inputTextColor
-                    placeholderTextColor: theme.inputPlaceholderColor
-                    selectionColor: theme.inputSelectionColor
-                    selectedTextColor: theme.inputSelectedTextColor
+                    placeholderTextColor: root.theme.inputPlaceholderColor
+                    selectedTextColor: root.theme.inputSelectedTextColor
+                    selectionColor: root.theme.inputSelectionColor
+                    text: root.conn ? root.conn.database : ""
+
                     background: Rectangle {
-                        color: parent.activeFocus ? theme.backgroundColor : theme.inputFieldBackground
-                        border.color: parent.activeFocus ? theme.inputFieldActiveBorder : theme.inputFieldBorder
+                        border.color: parent.activeFocus ? root.theme.inputFieldActiveBorder :
+                                                           root.theme.inputFieldBorder
                         border.width: 1
-                        radius: theme.radiusSmall
+                        color: parent.activeFocus ? root.theme.backgroundColor :
+                                                    root.theme.inputFieldBackground
+                        radius: root.theme.radiusSmall
                     }
+
+                    onTextChanged: if (root.conn)
+                                       root.conn.database = text
                 }
             }
 
             Label {
+                color: root.theme.textSecondary
+                font.pixelSize: root.theme.fontSizeSmall
                 text: "提示：暂未提供文件选择对话框，请直接输入文件绝对路径。"
-                color: theme.textSecondary
-                font.pixelSize: theme.fontSizeSmall
             }
         }
     }
-
-    onVisibleChanged: if (visible && nameField)
-        nameField.forceActiveFocus()
 }

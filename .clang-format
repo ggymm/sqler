@@ -2,15 +2,15 @@ BasedOnStyle: LLVM
 IndentWidth: 4
 TabWidth: 4
 UseTab: Never
-ColumnLimit: 120
+ColumnLimit: 100
 AccessModifierOffset: -2
-AllowShortFunctionsOnASingleLine: Empty
+AllowShortFunctionsOnASingleLine: None
 AllowShortIfStatementsOnASingleLine: false
 BreakBeforeBraces: Attach
 NamespaceIndentation: None
 AlignAfterOpenBracket: Align
 AlignConsecutiveAssignments: Consecutive
-AlignConsecutiveDeclarations: false
+AlignConsecutiveDeclarations: true
 AlignEscapedNewlines: Left
 PointerAlignment: Left
 SpacesInParentheses: false
@@ -20,14 +20,17 @@ SpaceAfterCStyleCast: false
 SortIncludes: true
 IncludeBlocks: Regroup
 Cpp11BracedListStyle: true
-AllowAllArgumentsOnNextLine: true
-AllowAllConstructorInitializersOnNextLine: true
+AllowAllArgumentsOnNextLine: false
+AllowAllConstructorInitializersOnNextLine: false
 FixNamespaceComments: true
 QualifierAlignment: Left
-
-# Qt friendly tweaks
 IndentCaseLabels: true
 BinPackArguments: false
 BinPackParameters: false
 ReflowComments: true
+PenaltyReturnTypeOnItsOwnLine: 1000000
+PenaltyBreakBeforeFirstCallParameter: 1000000
+PenaltyBreakComment: 100
+PenaltyBreakString: 100
+PenaltyExcessCharacter: 1000000
 StatementMacros: [ Q_OBJECT, Q_SIGNALS, Q_SLOTS ]

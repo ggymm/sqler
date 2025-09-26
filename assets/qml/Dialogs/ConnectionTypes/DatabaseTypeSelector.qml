@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 // 数据库类型选择页面
 import QtQuick 2.15
 import QtQuick.Controls 2.15
@@ -6,35 +7,36 @@ import QtQuick.Layouts 1.15
 Item {
     id: root
 
-    property var theme
     property var conn
+    property var theme
 
     signal typeSelected(string type)
 
     Rectangle {
         anchors.fill: parent
-        color: theme.dialogContentBackground
-        border.color: theme.dialogBorderColor
+        border.color: root.theme.dialogBorderColor
         border.width: 1
-        radius: theme.radiusSmall
+        color: root.theme.dialogContentBackground
+        radius: root.theme.radiusSmall
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: theme.spacingLarge
-            spacing: theme.spacingLarge
+            anchors.margins: root.theme.spacingLarge
+            spacing: root.theme.spacingLarge
 
             Label {
-                text: "选择数据库类型"
-                font.bold: true
-                font.pixelSize: theme.fontSizeTitle
-                color: theme.textPrimary
                 Layout.alignment: Qt.AlignHCenter
+                color: root.theme.textPrimary
+                font.bold: true
+                font.pixelSize: root.theme.fontSizeTitle
+                text: "选择数据库类型"
             }
 
             ListView {
                 id: listView
-                Layout.fillWidth: true
+
                 Layout.fillHeight: true
+                Layout.fillWidth: true
                 model: [
                     {
                         label: "MySQL",
@@ -86,78 +88,82 @@ Item {
                         supported: true
                     }
                 ]
-                spacing: theme.spacingNormal
+                spacing: root.theme.spacingNormal
 
                 delegate: ItemDelegate {
-                    width: listView.width
+                    id: cell
                     height: 80
+                    width: listView.width
 
                     background: Rectangle {
-                        color: parent.hovered ? theme.selectorItemHoverBackground : theme.selectorItemBackground
-                        border.color: parent.hovered ? theme.primaryColor : theme.selectorItemBorder
+                        border.color: cell.hovered ? root.theme.primaryColor : root.theme.selectorItemBorder
                         border.width: 1
-                        radius: theme.radiusNormal
+                        color: cell.hovered ? root.theme.selectorItemHoverBackground :
+                                              root.theme.selectorItemBackground
+                        radius: root.theme.radiusNormal
                     }
-
                     contentItem: RowLayout {
-                        spacing: theme.spacingNormal
+                        spacing: root.theme.spacingNormal
 
                         Image {
-                            // Use Layout attached properties inside RowLayout
-                            Layout.preferredWidth: theme.iconSizeLarge
-                            Layout.preferredHeight: theme.iconSizeLarge
                             Layout.alignment: Qt.AlignVCenter
-                            source: modelData.icon || ""
+                            Layout.preferredHeight: root.theme.iconSizeLarge
+                            // Use Layout attached properties inside RowLayout
+                            Layout.preferredWidth: root.theme.iconSizeLarge
                             fillMode: Image.PreserveAspectFit
                             smooth: true
+                            source: modelData.icon || ""
+                            sourceSize.height: root.theme.iconSizeLarge
                             // Ensure the decoder scales image efficiently
-                            sourceSize.width: theme.iconSizeLarge
-                            sourceSize.height: theme.iconSizeLarge
+                            sourceSize.width: root.theme.iconSizeLarge
                         }
 
                         ColumnLayout {
                             Layout.fillWidth: true
-                            spacing: theme.spacingTiny
+                            spacing: root.theme.spacingTiny
 
                             Label {
-                                text: modelData.label || ""
-                                color: theme.textPrimary
+                                color: root.theme.textPrimary
                                 font.bold: true
-                                font.pixelSize: theme.fontSizeNormal
+                                font.pixelSize: root.theme.fontSizeNormal
+                                text: modelData.label || ""
                             }
 
                             Label {
+                                color: root.theme.textSecondary
+                                font.pixelSize: root.theme.fontSizeSmall
                                 text: modelData.description || ""
-                                color: theme.textSecondary
-                                font.pixelSize: theme.fontSizeSmall
                             }
+
                             // Tag when unsupported
                             Rectangle {
-                                visible: !modelData.supported
-                                radius: theme.radiusSmall
-                                color: theme.selectedColor
-                                border.color: theme.borderColor
+                                Layout.leftMargin: root.theme.spacingSmall
+                                border.color: root.theme.borderColor
                                 border.width: 1
-                                anchors.leftMargin: theme.spacingSmall
-                                width: implicitWidth
-                                height: implicitHeight
+                                color: root.theme.selectedColor
+                                Layout.preferredHeight: implicitHeight
+                                radius: root.theme.radiusSmall
+                                visible: !modelData.supported
+                                Layout.preferredWidth: implicitWidth
+
                                 Row {
-                                    spacing: theme.spacingTiny
-                                    anchors.margins: theme.spacingTiny
                                     anchors.fill: parent
+                                    anchors.margins: root.theme.spacingTiny
+                                    spacing: root.theme.spacingTiny
+
                                     Label {
+                                        color: root.theme.textPrimary
+                                        font.pixelSize: root.theme.fontSizeSmall
                                         text: "未支持"
-                                        color: theme.textPrimary
-                                        font.pixelSize: theme.fontSizeSmall
                                     }
                                 }
                             }
                         }
 
                         Label {
+                            color: root.theme.textSecondary
+                            font.pixelSize: root.theme.fontSizeLarge
                             text: ">"
-                            color: theme.textSecondary
-                            font.pixelSize: theme.fontSizeLarge
                         }
                     }
 

@@ -8,98 +8,84 @@ import "ConnectionTypes" as ConnectionTypes
 
 Window {
     id: root
-    width: theme.dialogWidth
-    height: 550
-    // 显示系统窗口控制按钮（关闭/最小化/最大化）
-    flags: Qt.Window | Qt.WindowTitleHint | Qt.WindowCloseButtonHint | Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint | Qt.WindowSystemMenuHint
-    modality: Qt.ApplicationModal
-    visible: false
-    color: theme.dialogBackgroundColor
 
-    property var theme
+    property var conn: ({
+                            id: "",
+                            name: "",
+                            type: "",
+                            host: "localhost",
+                            port: 3306,
+                            user: "",
+                            password: "",
+                            database: ""
+                        })
+    property int currentStep: 0 // 0: type selection, 1: form
     // 作为子窗口，设置父窗口用于窗口置顶与模态
     property var parentWindow: null
-    onParentWindowChanged: if (parentWindow)
-        root.transientParent = parentWindow
-    property var conn: ({
-            id: "",
-            name: "",
-            type: "",
-            host: "localhost",
-            port: 3306,
-            user: "",
-            password: "",
-            database: ""
-        })
-
-    property int currentStep: 0 // 0: type selection, 1: form
     // 当前已实现类型
     property var supportedTypes: ["mysql", "redis"]
+    property var theme
+    // Qualified backend reference injected by Main
+    property var backendRef: null
 
-    title: currentStep === 0 ? "新建连接" : (conn.type.toUpperCase() + " 连接配置")
-
-    function openForNew() {
-        conn = {
-            id: "",
-            name: "",
-            type: "",
-            host: "localhost",
-            port: 3306,
-            user: "",
-            password: "",
-            database: ""
-        };
-        currentStep = 0;
-        root.show();
-        root.raise();
-        root.requestActivate();
-    }
-
-    function openForEdit(c) {
-        conn = Object.assign({}, c);
-        if (!conn.type)
-            conn.type = "mysql";
-        currentStep = 1;
-        root.show();
-        root.raise();
-        root.requestActivate();
-    }
-
-    function closeDialog() {
+    function closeDialog(): void {
         root.close();
     }
 
-    function handlePrevious() {
-        if (currentStep > 0) {
-            currentStep--;
+    function focusFirstField(): void {
+        try {
+            if (conn.type === 'mysql' && mysqlForm.focusFirst)
+                mysqlForm.focusFirst();
+            else if (conn.type === 'redis' && redisForm.focusFirst)
+                redisForm.focusFirst();
+            else if (conn.type === 'postgresql' && pgForm.focusFirst)
+                pgForm.focusFirst();
+            else if (conn.type === 'sqlserver' && mssqlForm.focusFirst)
+                mssqlForm.focusFirst();
+            else if (conn.type === 'sqlite' && sqliteForm.focusFirst)
+                sqliteForm.focusFirst();
+            else if (conn.type === 'mongodb' && mongoForm.focusFirst)
+                mongoForm.focusFirst();
+            else if (conn.type === 'oracle' && oracleForm.focusFirst)
+                oracleForm.focusFirst();
+        } catch (e) {
+            console.warn('focusFirstField error', e);
         }
     }
 
-    function handleNext() {
+    function handleCancel(): void {
+        closeDialog();
+    }
+
+    function handleNext(): void {
         if (currentStep === 0) {
             // Need to select type first
             return;
         }
         // Save connection
-        const id = backend.saveConnection(conn);
+        if (!backendRef) { closeDialog(); return; }
+        const id = backendRef.saveConnection(conn);
         if (id && id.length > 0)
-            backend.refreshConnections();
+            backendRef.refreshConnections();
         closeDialog();
     }
 
-    function handleCancel() {
-        closeDialog();
+    function handlePrevious(): void {
+        if (currentStep > 0) {
+            currentStep--;
+        }
     }
 
-    function handleTest() {
-        const res = backend.testConnection(conn);
+    function handleTest(): void {
+        if (!backendRef) return;
+        const res = backendRef.testConnection(conn);
         if (res.ok)
             infoDialog.show("连接成功");
         else
             infoDialog.show("测试连接失败: " + (res.error || ""));
     }
 
-    function onTypeSelected(type) {
+    function onTypeSelected(type: string): void {
         console.log("Type selected:", type);
         conn.type = type;
         console.log("Connection type set to:", conn.type);
@@ -138,45 +124,66 @@ Window {
         Qt.callLater(focusFirstField);
     }
 
-    function focusFirstField() {
-        try {
-            if (conn.type === 'mysql' && mysqlForm.focusFirst)
-                mysqlForm.focusFirst();
-            else if (conn.type === 'redis' && redisForm.focusFirst)
-                redisForm.focusFirst();
-            else if (conn.type === 'postgresql' && pgForm.focusFirst)
-                pgForm.focusFirst();
-            else if (conn.type === 'sqlserver' && mssqlForm.focusFirst)
-                mssqlForm.focusFirst();
-            else if (conn.type === 'sqlite' && sqliteForm.focusFirst)
-                sqliteForm.focusFirst();
-            else if (conn.type === 'mongodb' && mongoForm.focusFirst)
-                mongoForm.focusFirst();
-            else if (conn.type === 'oracle' && oracleForm.focusFirst)
-                oracleForm.focusFirst();
-        } catch (e) {
-            console.warn('focusFirstField error', e);
-        }
+    function openForEdit(c: var): void {
+        conn = Object.assign({}, c);
+        if (!conn.type)
+            conn.type = "mysql";
+        currentStep = 1;
+        root.show();
+        root.raise();
+        root.requestActivate();
     }
+
+    function openForNew(): void {
+        conn = {
+            id: "",
+            name: "",
+            type: "",
+            host: "localhost",
+            port: 3306,
+            user: "",
+            password: "",
+            database: ""
+        };
+        currentStep = 0;
+        root.show();
+        root.raise();
+        root.requestActivate();
+    }
+
+    color: theme.dialogBackgroundColor
+    // 显示系统窗口控制按钮（关闭/最小化/最大化）
+    flags: Qt.Window | Qt.WindowTitleHint | Qt.WindowCloseButtonHint | Qt.WindowMinimizeButtonHint
+           | Qt.WindowMaximizeButtonHint | Qt.WindowSystemMenuHint
+    height: 550
+    modality: Qt.ApplicationModal
+    title: currentStep === 0 ? "新建连接" : (conn.type.toUpperCase() + " 连接配置")
+    visible: false
+    width: theme.dialogWidth
+
+    onParentWindowChanged: if (parentWindow)
+                               root.transientParent = parentWindow
 
     // Main content area
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: theme.spacingNormal
+        anchors.margins: root.theme.spacingNormal
         spacing: 0
 
         // Content area
         Item {
-            Layout.fillWidth: true
             Layout.fillHeight: true
+            Layout.fillWidth: true
 
             // Type selection page
             ConnectionTypes.DatabaseTypeSelector {
                 id: typeSelector
+
                 anchors.fill: parent
-                visible: currentStep === 0
-                theme: root.theme
                 conn: root.conn
+                theme: root.theme
+                visible: root.currentStep === 0
+
                 onTypeSelected: function (type) {
                     root.onTypeSelected(type);
                 }
@@ -185,99 +192,114 @@ Window {
             // MySQL form
             ConnectionTypes.MySQLForm {
                 id: mysqlForm
+
                 anchors.fill: parent
-                visible: currentStep === 1 && conn.type === "mysql"
-                theme: root.theme
                 conn: root.conn
+                theme: root.theme
+                visible: root.currentStep === 1 && conn.type === "mysql"
             }
 
             // Redis form
             ConnectionTypes.RedisForm {
                 id: redisForm
+
                 anchors.fill: parent
-                visible: currentStep === 1 && conn.type === "redis"
-                theme: root.theme
                 conn: root.conn
+                theme: root.theme
+                visible: root.currentStep === 1 && conn.type === "redis"
             }
 
             // PostgreSQL form
             ConnectionTypes.PostgreSQLForm {
                 id: pgForm
+
                 anchors.fill: parent
-                visible: currentStep === 1 && conn.type === "postgresql"
-                theme: root.theme
                 conn: root.conn
+                theme: root.theme
+                visible: root.currentStep === 1 && conn.type === "postgresql"
             }
 
             // SQL Server form
             ConnectionTypes.SQLServerForm {
                 id: mssqlForm
+
                 anchors.fill: parent
-                visible: currentStep === 1 && conn.type === "sqlserver"
-                theme: root.theme
                 conn: root.conn
+                theme: root.theme
+                visible: root.currentStep === 1 && conn.type === "sqlserver"
             }
 
             // SQLite form
             ConnectionTypes.SQLiteForm {
                 id: sqliteForm
+
                 anchors.fill: parent
-                visible: currentStep === 1 && conn.type === "sqlite"
-                theme: root.theme
                 conn: root.conn
+                theme: root.theme
+                visible: root.currentStep === 1 && conn.type === "sqlite"
             }
 
             // MongoDB form
             ConnectionTypes.MongoDBForm {
                 id: mongoForm
+
                 anchors.fill: parent
-                visible: currentStep === 1 && conn.type === "mongodb"
-                theme: root.theme
                 conn: root.conn
+                theme: root.theme
+                visible: root.currentStep === 1 && conn.type === "mongodb"
             }
 
             // Oracle form
             ConnectionTypes.OracleForm {
                 id: oracleForm
+
                 anchors.fill: parent
-                visible: currentStep === 1 && conn.type === "oracle"
-                theme: root.theme
                 conn: root.conn
+                theme: root.theme
+                visible: root.currentStep === 1 && conn.type === "oracle"
             }
 
             // Unsupported placeholder
             Item {
                 id: unsupported
+
                 anchors.fill: parent
-                visible: currentStep === 1 && (conn.type !== "mysql" && conn.type !== "redis" && conn.type !== "postgresql" && conn.type !== "sqlserver" && conn.type !== "sqlite" && conn.type !== "mongodb" && conn.type !== "oracle")
+                visible: root.currentStep === 1 && (root.conn.type !== "mysql" && root.conn.type
+                                                    !== "redis" && root.conn.type !== "postgresql"
+                                                    && root.conn.type !== "sqlserver"
+                                                    && root.conn.type !== "sqlite"
+                                                    && root.conn.type !== "mongodb"
+                                                    && root.conn.type !== "oracle")
 
                 Rectangle {
                     anchors.centerIn: parent
-                    width: parent.width * 0.8
-                    height: 160
-                    color: theme.dialogContentBackground
-                    border.color: theme.dialogBorderColor
+                    border.color: root.theme.dialogBorderColor
                     border.width: 1
-                    radius: theme.radiusNormal
+                    color: root.theme.dialogContentBackground
+                    height: 160
+                    radius: root.theme.radiusNormal
+                    width: parent.width * 0.8
 
                     ColumnLayout {
                         anchors.fill: parent
-                        anchors.margins: theme.spacingLarge
-                        spacing: theme.spacingSmall
+                        anchors.margins: root.theme.spacingLarge
+                        spacing: root.theme.spacingSmall
+
                         Label {
-                            text: (conn.type || '').toUpperCase() + " 暂未支持"
-                            color: theme.textPrimary
+                            Layout.alignment: Qt.AlignHCenter
+                            color: root.theme.textPrimary
                             font.bold: true
-                            font.pixelSize: theme.fontSizeTitle
-                            Layout.alignment: Qt.AlignHCenter
+                            font.pixelSize: root.theme.fontSizeTitle
+                            text: (root.conn.type || '').toUpperCase() + " 暂未支持"
                         }
+
                         Label {
-                            text: "暂不支持该数据库类型的配置与连接，敬请期待。"
-                            color: theme.textSecondary
-                            font.pixelSize: theme.fontSizeNormal
-                            wrapMode: Text.WordWrap
-                            horizontalAlignment: Text.AlignHCenter
                             Layout.alignment: Qt.AlignHCenter
+                            color: root.theme.textSecondary
+                            font.pixelSize: root.theme.fontSizeNormal
+                            horizontalAlignment: Text.AlignHCenter
+                            text: "暂不支持该数据库类型的配置与连接，敬请期待。"
+                            wrapMode: Text.WordWrap
                         }
                     }
                 }
@@ -287,104 +309,110 @@ Window {
         // Button area
         Rectangle {
             Layout.fillWidth: true
-            height: 60
-            color: theme.dialogContentBackground
-            border.color: theme.dialogBorderColor
+            border.color: root.theme.dialogBorderColor
             border.width: 1
+            color: root.theme.dialogContentBackground
+            Layout.preferredHeight: 60
 
             RowLayout {
                 anchors.fill: parent
-                anchors.margins: theme.spacingNormal
-                spacing: theme.spacingNormal
+                anchors.margins: root.theme.spacingNormal
+                spacing: root.theme.spacingNormal
 
                 Button {
-                    text: "测试连接"
-                    enabled: currentStep === 1 && supportedTypes.indexOf(conn.type) !== -1
                     Layout.preferredWidth: 100
-                    onClicked: handleTest()
+                    enabled: root.currentStep === 1 && root.supportedTypes.indexOf(root.conn.type) !==
+                             -1
+                    text: "测试连接"
 
                     background: Rectangle {
-                        color: parent.enabled ? (parent.hovered ? theme.hoverColor : "transparent") : theme.backgroundColor
-                        border.color: theme.borderColor
+                        border.color: root.theme.borderColor
                         border.width: 1
-                        radius: theme.radiusSmall
+                        color: parent.enabled ? (parent.hovered ? root.theme.hoverColor :
+                                                                  "transparent") :
+                                                root.theme.backgroundColor
+                        radius: root.theme.radiusSmall
+                    }
+                    contentItem: Text {
+                        color: parent.enabled ? root.theme.textPrimary : root.theme.textHint
+                        font.pixelSize: root.theme.fontSizeNormal
+                        horizontalAlignment: Text.AlignHCenter
+                        text: parent.text
+                        verticalAlignment: Text.AlignVCenter
                     }
 
-                    contentItem: Text {
-                        text: parent.text
-                        color: parent.enabled ? theme.textPrimary : theme.textHint
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        font.pixelSize: theme.fontSizeNormal
-                    }
+                    onClicked: handleTest()
                 }
 
                 Item {
                     Layout.fillWidth: true
                 } // Spacer
 
+
+
                 Button {
+                    Layout.preferredWidth: 80
                     text: "上一步"
-                    visible: currentStep > 0
-                    Layout.preferredWidth: 80
+                    visible: root.currentStep > 0
+
+                    background: Rectangle {
+                        border.color: root.theme.borderColor
+                        border.width: 1
+                        color: parent.hovered ? root.theme.hoverColor : "transparent"
+                        radius: root.theme.radiusSmall
+                    }
+                    contentItem: Text {
+                        color: root.theme.textPrimary
+                        font.pixelSize: root.theme.fontSizeNormal
+                        horizontalAlignment: Text.AlignHCenter
+                        text: parent.text
+                        verticalAlignment: Text.AlignVCenter
+                    }
+
                     onClicked: handlePrevious()
-
-                    background: Rectangle {
-                        color: parent.hovered ? theme.hoverColor : "transparent"
-                        border.color: theme.borderColor
-                        border.width: 1
-                        radius: theme.radiusSmall
-                    }
-
-                    contentItem: Text {
-                        text: parent.text
-                        color: theme.textPrimary
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        font.pixelSize: theme.fontSizeNormal
-                    }
                 }
 
                 Button {
-                    text: currentStep === 0 ? "下一步" : "确定"
                     Layout.preferredWidth: 80
-                    enabled: currentStep === 0 || currentStep === 1
-                    onClicked: handleNext()
+                    enabled: root.currentStep === 0 || root.currentStep === 1
+                    text: root.currentStep === 0 ? "下一步" : "确定"
 
                     background: Rectangle {
-                        color: parent.hovered ? theme.primaryColorLight : theme.primaryColor
-                        radius: theme.radiusSmall
+                        color: parent.hovered ? root.theme.primaryColorLight :
+                                                root.theme.primaryColor
+                        radius: root.theme.radiusSmall
                     }
-
                     contentItem: Text {
-                        text: parent.text
                         color: "white"
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        font.pixelSize: theme.fontSizeNormal
                         font.bold: true
+                        font.pixelSize: root.theme.fontSizeNormal
+                        horizontalAlignment: Text.AlignHCenter
+                        text: parent.text
+                        verticalAlignment: Text.AlignVCenter
                     }
+
+                    onClicked: handleNext()
                 }
 
                 Button {
-                    text: "取消"
                     Layout.preferredWidth: 80
-                    onClicked: handleCancel()
+                    text: "取消"
 
                     background: Rectangle {
-                        color: parent.hovered ? theme.hoverColor : "transparent"
-                        border.color: theme.borderColor
+                        border.color: root.theme.borderColor
                         border.width: 1
-                        radius: theme.radiusSmall
+                        color: parent.hovered ? root.theme.hoverColor : "transparent"
+                        radius: root.theme.radiusSmall
+                    }
+                    contentItem: Text {
+                        color: root.theme.textPrimary
+                        font.pixelSize: root.theme.fontSizeNormal
+                        horizontalAlignment: Text.AlignHCenter
+                        text: parent.text
+                        verticalAlignment: Text.AlignVCenter
                     }
 
-                    contentItem: Text {
-                        text: parent.text
-                        color: theme.textPrimary
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        font.pixelSize: theme.fontSizeNormal
-                    }
+                    onClicked: handleCancel()
                 }
             }
         }
@@ -393,9 +421,7 @@ Window {
     // Info dialog
     Dialog {
         id: infoDialog
-        title: "信息"
-        modal: true
-        standardButtons: Dialog.Ok
+
         property alias text: msgLabel.text
 
         function show(message) {
@@ -403,17 +429,21 @@ Window {
             open();
         }
 
-        background: Rectangle {
-            color: theme.surfaceColor
-            border.color: theme.borderColor
-            border.width: theme.dialogBorderWidth
-            radius: theme.radiusNormal
-        }
+        modal: true
+        standardButtons: Dialog.Ok
+        title: "信息"
 
+        background: Rectangle {
+            border.color: root.theme.borderColor
+            border.width: root.theme.dialogBorderWidth
+            color: root.theme.surfaceColor
+            radius: root.theme.radiusNormal
+        }
         contentItem: Label {
             id: msgLabel
-            color: theme.textPrimary
-            padding: theme.spacingNormal
+
+            color: root.theme.textPrimary
+            padding: root.theme.spacingNormal
         }
     }
 }

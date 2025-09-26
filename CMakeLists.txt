@@ -4,6 +4,7 @@ project(sqler LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
@@ -31,6 +32,13 @@ add_executable(sqler
 set_target_properties(sqler PROPERTIES MACOSX_BUNDLE TRUE)
 target_include_directories(sqler PRIVATE src)
 target_link_libraries(sqler PRIVATE Qt6::Quick Qt6::QuickControls2 Qt6::Qml Qt6::Sql Qt6::Network)
+
+# Strict warnings and warnings-as-errors
+if (MSVC)
+    target_compile_options(sqler PRIVATE /W4 /permissive- /EHsc /Zc:__cplusplus /WX)
+else()
+    target_compile_options(sqler PRIVATE -Wall -Wextra -Wpedantic -Werror)
+endif()
 
 if(COMMAND qt_finalize_executable)
     qt_finalize_executable(sqler)
@@ -91,4 +99,4 @@ else()
     )
 endif()
 
-add_custom_target(format ALL DEPENDS format-qml)
+# Note: formatting/linting is handled via Makefile targets to avoid coupling with CMake builds.

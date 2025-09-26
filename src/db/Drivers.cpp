@@ -7,7 +7,7 @@
 #include <QSqlRecord>
 #include <QThread>
 #include <QTcpSocket>
-#include <QElapsedTimer>
+#include <optional>
 
 namespace {
 // 生成一个唯一连接名（用于 Qt SQL 多连接场景）
@@ -183,4 +183,3 @@ std::unique_ptr<IDbDriver> createDriverFor(const QString& type) {
     if (t == QLatin1String("redis")) return std::make_unique<RedisDriver>();
     return {}; // 未知类型
 }
-

@@ -4,7 +4,6 @@
 #include <QStringList>
 #include <QVariant>
 #include <QVector>
-#include <optional>
 #include <memory>
 
 struct ConnectionConfig;

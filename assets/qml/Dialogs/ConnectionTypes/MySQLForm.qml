@@ -6,215 +6,227 @@ import QtQuick.Layouts 1.15
 Item {
     id: root
 
-    property var theme
     property var conn
+    property var theme
+
     function focusFirst() {
         if (nameField)
             nameField.forceActiveFocus();
     }
 
+    onVisibleChanged: if (visible && nameField)
+                          nameField.forceActiveFocus()
+
     Rectangle {
         anchors.fill: parent
-        color: theme.dialogContentBackground
-        border.color: theme.dialogBorderColor
+        border.color: root.theme.dialogBorderColor
         border.width: 1
-        radius: theme.radiusSmall
+        color: root.theme.dialogContentBackground
+        radius: root.theme.radiusSmall
 
         ScrollView {
             anchors.fill: parent
-            anchors.margins: theme.spacingLarge
+            anchors.margins: root.theme.spacingLarge
             contentWidth: availableWidth
 
             ColumnLayout {
+                spacing: root.theme.spacingNormal
                 width: parent.width
-                spacing: theme.spacingNormal
 
                 Label {
-                    text: "MySQL 连接配置"
-                    font.bold: true
-                    font.pixelSize: theme.fontSizeTitle
-                    color: theme.textPrimary
                     Layout.alignment: Qt.AlignHCenter
+                    color: root.theme.textPrimary
+                    font.bold: true
+                    font.pixelSize: root.theme.fontSizeTitle
+                    text: "MySQL 连接配置"
                 }
 
                 GridLayout {
                     Layout.fillWidth: true
+                    columnSpacing: root.theme.spacingNormal
                     columns: 2
-                    rowSpacing: theme.spacingNormal
-                    columnSpacing: theme.spacingNormal
+                    rowSpacing: root.theme.spacingNormal
 
                     Label {
+                        Layout.preferredWidth: root.theme.formLabelWidth
+                        color: root.theme.textPrimary
+                        font.pixelSize: root.theme.fontSizeNormal
                         text: "连接名称"
-                        color: theme.textPrimary
-                        font.pixelSize: theme.fontSizeNormal
-                        Layout.preferredWidth: theme.formLabelWidth
                     }
+
                     TextField {
                         id: nameField
+
                         Layout.fillWidth: true
-                        Layout.preferredWidth: theme.formInputWidth
-                        text: root.conn ? root.conn.name : ""
+                        Layout.preferredWidth: root.theme.formInputWidth
+                        color: root.theme.inputTextColor
                         placeholderText: "例如：本地MySQL"
-                        onTextChanged: if (root.conn)
-                            root.conn.name = text
-                        color: theme.inputTextColor
-                        placeholderTextColor: theme.inputPlaceholderColor
-                        selectionColor: theme.inputSelectionColor
-                        selectedTextColor: theme.inputSelectedTextColor
+                        placeholderTextColor: root.theme.inputPlaceholderColor
+                        selectedTextColor: root.theme.inputSelectedTextColor
+                        selectionColor: root.theme.inputSelectionColor
+                        text: root.conn ? root.conn.name : ""
 
                         background: Rectangle {
-                            color: parent.activeFocus ? theme.backgroundColor : theme.inputFieldBackground
-                            border.color: parent.activeFocus ? theme.inputFieldActiveBorder : theme.inputFieldBorder
+                            border.color: parent.activeFocus ? root.theme.inputFieldActiveBorder :
+                                                               root.theme.inputFieldBorder
                             border.width: 1
-                            radius: theme.radiusSmall
+                            color: parent.activeFocus ? root.theme.backgroundColor :
+                                                        root.theme.inputFieldBackground
+                            radius: root.theme.radiusSmall
                         }
+
+                        onTextChanged: if (root.conn)
+                                           root.conn.name = text
                     }
 
                     Label {
+                        Layout.preferredWidth: root.theme.formLabelWidth
+                        color: root.theme.textPrimary
+                        font.pixelSize: root.theme.fontSizeNormal
                         text: "主机地址"
-                        color: theme.textPrimary
-                        font.pixelSize: theme.fontSizeNormal
-                        Layout.preferredWidth: theme.formLabelWidth
                     }
+
                     TextField {
                         Layout.fillWidth: true
-                        Layout.preferredWidth: theme.formInputWidth
-                        text: root.conn ? root.conn.host : ""
+                        Layout.preferredWidth: root.theme.formInputWidth
+                        color: root.theme.inputTextColor
                         placeholderText: "localhost"
-                        onTextChanged: if (root.conn)
-                            root.conn.host = text
-                        color: theme.inputTextColor
-                        placeholderTextColor: theme.inputPlaceholderColor
-                        selectionColor: theme.inputSelectionColor
-                        selectedTextColor: theme.inputSelectedTextColor
+                        placeholderTextColor: root.theme.inputPlaceholderColor
+                        selectedTextColor: root.theme.inputSelectedTextColor
+                        selectionColor: root.theme.inputSelectionColor
+                        text: root.conn ? root.conn.host : ""
 
                         background: Rectangle {
-                            color: parent.activeFocus ? theme.backgroundColor : theme.inputFieldBackground
-                            border.color: parent.activeFocus ? theme.inputFieldActiveBorder : theme.inputFieldBorder
+                            border.color: parent.activeFocus ? root.theme.inputFieldActiveBorder :
+                                                               root.theme.inputFieldBorder
                             border.width: 1
-                            radius: theme.radiusSmall
+                            color: parent.activeFocus ? root.theme.backgroundColor :
+                                                        root.theme.inputFieldBackground
+                            radius: root.theme.radiusSmall
                         }
+
+                        onTextChanged: if (root.conn)
+                                           root.conn.host = text
                     }
 
                     Label {
+                        Layout.preferredWidth: root.theme.formLabelWidth
+                        color: root.theme.textPrimary
+                        font.pixelSize: root.theme.fontSizeNormal
                         text: "端口"
-                        color: theme.textPrimary
-                        font.pixelSize: theme.fontSizeNormal
-                        Layout.preferredWidth: theme.formLabelWidth
                     }
+
                     SpinBox {
                         id: portSpin
+
                         Layout.fillWidth: true
-                        Layout.preferredWidth: theme.formInputWidth
+                        Layout.preferredWidth: root.theme.formInputWidth
                         from: 1
                         to: 65535
                         value: root.conn ? root.conn.port : 3306
+
+                        background: Rectangle {
+                            border.color: parent.activeFocus ? root.theme.inputFieldActiveBorder : root.theme.inputFieldBorder
+                            border.width: 1
+                            color: parent.activeFocus ? root.theme.backgroundColor : root.theme.inputFieldBackground
+                            radius: root.theme.radiusSmall
+                        }
+
                         onValueChanged: if (root.conn)
-                            root.conn.port = value
-                        contentItem: TextInput {
-                            text: portSpin.textFromValue(portSpin.value, portSpin.locale)
-                            font.pixelSize: theme.fontSizeNormal
-                            color: theme.inputTextColor
-                            selectionColor: theme.inputSelectionColor
-                            selectedTextColor: theme.inputSelectedTextColor
-                            horizontalAlignment: Qt.AlignHCenter
-                            verticalAlignment: Qt.AlignVCenter
-                            readOnly: !portSpin.editable
-                            validator: portSpin.validator
-                            inputMethodHints: Qt.ImhFormattedNumbersOnly
-                            onEditingFinished: portSpin.value = portSpin.valueFromText(text, portSpin.locale)
-                        }
-
-                        background: Rectangle {
-                            color: parent.activeFocus ? theme.backgroundColor : theme.inputFieldBackground
-                            border.color: parent.activeFocus ? theme.inputFieldActiveBorder : theme.inputFieldBorder
-                            border.width: 1
-                            radius: theme.radiusSmall
-                        }
+                                            root.conn.port = value
                     }
 
                     Label {
+                        Layout.preferredWidth: root.theme.formLabelWidth
+                        color: root.theme.textPrimary
+                        font.pixelSize: root.theme.fontSizeNormal
                         text: "用户名"
-                        color: theme.textPrimary
-                        font.pixelSize: theme.fontSizeNormal
-                        Layout.preferredWidth: theme.formLabelWidth
                     }
+
                     TextField {
                         Layout.fillWidth: true
-                        Layout.preferredWidth: theme.formInputWidth
-                        text: root.conn ? root.conn.user : ""
+                        Layout.preferredWidth: root.theme.formInputWidth
+                        color: root.theme.inputTextColor
                         placeholderText: "root"
-                        onTextChanged: if (root.conn)
-                            root.conn.user = text
-                        color: theme.inputTextColor
-                        placeholderTextColor: theme.inputPlaceholderColor
-                        selectionColor: theme.inputSelectionColor
-                        selectedTextColor: theme.inputSelectedTextColor
+                        placeholderTextColor: root.theme.inputPlaceholderColor
+                        selectedTextColor: root.theme.inputSelectedTextColor
+                        selectionColor: root.theme.inputSelectionColor
+                        text: root.conn ? root.conn.user : ""
 
                         background: Rectangle {
-                            color: parent.activeFocus ? theme.backgroundColor : theme.inputFieldBackground
-                            border.color: parent.activeFocus ? theme.inputFieldActiveBorder : theme.inputFieldBorder
+                            border.color: parent.activeFocus ? root.theme.inputFieldActiveBorder :
+                                                               root.theme.inputFieldBorder
                             border.width: 1
-                            radius: theme.radiusSmall
+                            color: parent.activeFocus ? root.theme.backgroundColor :
+                                                        root.theme.inputFieldBackground
+                            radius: root.theme.radiusSmall
                         }
+
+                        onTextChanged: if (root.conn)
+                                           root.conn.user = text
                     }
 
                     Label {
+                        Layout.preferredWidth: root.theme.formLabelWidth
+                        color: root.theme.textPrimary
+                        font.pixelSize: root.theme.fontSizeNormal
                         text: "密码"
-                        color: theme.textPrimary
-                        font.pixelSize: theme.fontSizeNormal
-                        Layout.preferredWidth: theme.formLabelWidth
                     }
+
                     TextField {
                         Layout.fillWidth: true
-                        Layout.preferredWidth: theme.formInputWidth
-                        text: root.conn ? root.conn.password : ""
+                        Layout.preferredWidth: root.theme.formInputWidth
+                        color: root.theme.inputTextColor
                         echoMode: TextInput.Password
-                        onTextChanged: if (root.conn)
-                            root.conn.password = text
-                        color: theme.inputTextColor
-                        placeholderTextColor: theme.inputPlaceholderColor
-                        selectionColor: theme.inputSelectionColor
-                        selectedTextColor: theme.inputSelectedTextColor
+                        placeholderTextColor: root.theme.inputPlaceholderColor
+                        selectedTextColor: root.theme.inputSelectedTextColor
+                        selectionColor: root.theme.inputSelectionColor
+                        text: root.conn ? root.conn.password : ""
 
                         background: Rectangle {
-                            color: parent.activeFocus ? theme.backgroundColor : theme.inputFieldBackground
-                            border.color: parent.activeFocus ? theme.inputFieldActiveBorder : theme.inputFieldBorder
+                            border.color: parent.activeFocus ? root.theme.inputFieldActiveBorder :
+                                                               root.theme.inputFieldBorder
                             border.width: 1
-                            radius: theme.radiusSmall
+                            color: parent.activeFocus ? root.theme.backgroundColor :
+                                                        root.theme.inputFieldBackground
+                            radius: root.theme.radiusSmall
                         }
+
+                        onTextChanged: if (root.conn)
+                                           root.conn.password = text
                     }
 
                     Label {
+                        Layout.preferredWidth: root.theme.formLabelWidth
+                        color: root.theme.textPrimary
+                        font.pixelSize: root.theme.fontSizeNormal
                         text: "数据库 (可选)"
-                        color: theme.textPrimary
-                        font.pixelSize: theme.fontSizeNormal
-                        Layout.preferredWidth: theme.formLabelWidth
                     }
+
                     TextField {
                         Layout.fillWidth: true
-                        Layout.preferredWidth: theme.formInputWidth
-                        text: root.conn ? root.conn.database : ""
+                        Layout.preferredWidth: root.theme.formInputWidth
+                        color: root.theme.inputTextColor
                         placeholderText: "留空以显示所有数据库"
-                        onTextChanged: if (root.conn)
-                            root.conn.database = text
-                        color: theme.inputTextColor
-                        placeholderTextColor: theme.inputPlaceholderColor
-                        selectionColor: theme.inputSelectionColor
-                        selectedTextColor: theme.inputSelectedTextColor
+                        placeholderTextColor: root.theme.inputPlaceholderColor
+                        selectedTextColor: root.theme.inputSelectedTextColor
+                        selectionColor: root.theme.inputSelectionColor
+                        text: root.conn ? root.conn.database : ""
 
                         background: Rectangle {
-                            color: parent.activeFocus ? theme.backgroundColor : theme.inputFieldBackground
-                            border.color: parent.activeFocus ? theme.inputFieldActiveBorder : theme.inputFieldBorder
+                            border.color: parent.activeFocus ? root.theme.inputFieldActiveBorder :
+                                                               root.theme.inputFieldBorder
                             border.width: 1
-                            radius: theme.radiusSmall
+                            color: parent.activeFocus ? root.theme.backgroundColor :
+                                                        root.theme.inputFieldBackground
+                            radius: root.theme.radiusSmall
                         }
+
+                        onTextChanged: if (root.conn)
+                                           root.conn.database = text
                     }
                 }
             }
         }
     }
-
-    onVisibleChanged: if (visible && nameField)
-        nameField.forceActiveFocus()
 }
