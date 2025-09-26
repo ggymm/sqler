@@ -1,0 +1,29 @@
+<RCC>
+  <qresource prefix="/">
+    <!-- QML -->
+    <file>qml/Main.qml</file>
+    <file>qml/Theme.qml</file>
+    <file>qml/Dialogs/NewConnectionDialog.qml</file>
+    <file>qml/Dialogs/ConnectionTypes/DatabaseTypeSelector.qml</file>
+    <file>qml/Dialogs/ConnectionTypes/MySQLForm.qml</file>
+    <file>qml/Dialogs/ConnectionTypes/RedisForm.qml</file>
+    <file>qml/Views/TablesPane.qml</file>
+    <!-- Assets -->
+    <file>assets/icons/add.svg</file>
+    <file>assets/icons/remove.svg</file>
+    <file>assets/icons/new-conn.svg</file>
+    <file>assets/icons/new-query.svg</file>
+    <file>assets/icons/table.svg</file>
+    <file>assets/icons/query.svg</file>
+    <file>assets/icons/function.svg</file>
+    <file>assets/icons/user.svg</file>
+    <file>assets/icons/db/mysql.svg</file>
+    <file>assets/icons/db/postgresql.svg</file>
+    <file>assets/icons/db/sqlserver.svg</file>
+    <file>assets/icons/db/sqlite.svg</file>
+    <file>assets/icons/db/mongodb.svg</file>
+    <file>assets/icons/db/oracle.svg</file>
+    <file>assets/icons/db/redis.svg</file>
+  </qresource>
+</RCC>
+
