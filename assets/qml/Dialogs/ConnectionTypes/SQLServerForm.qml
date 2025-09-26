@@ -40,7 +40,34 @@ Item {
                     TextField { Layout.fillWidth: true; Layout.preferredWidth: theme.formInputWidth; text: root.conn ? root.conn.host : ""; placeholderText: "localhost"; onTextChanged: if (root.conn) root.conn.host = text; color: theme.inputTextColor; placeholderTextColor: theme.inputPlaceholderColor; selectionColor: theme.inputSelectionColor; selectedTextColor: theme.inputSelectedTextColor; background: Rectangle { color: parent.activeFocus ? theme.backgroundColor : theme.inputFieldBackground; border.color: parent.activeFocus ? theme.inputFieldActiveBorder : theme.inputFieldBorder; border.width: 1; radius: theme.radiusSmall } }
 
                     Label { text: "端口"; color: theme.textPrimary; font.pixelSize: theme.fontSizeNormal; Layout.preferredWidth: theme.formLabelWidth }
-                    SpinBox { id: portSpin; Layout.fillWidth: true; Layout.preferredWidth: theme.formInputWidth; from: 1; to: 65535; value: root.conn ? (root.conn.port || 1433) : 1433; onValueChanged: if (root.conn) root.conn.port = value; contentItem: TextInput { text: portSpin.textFromValue(portSpin.value, portSpin.locale); font.pixelSize: theme.fontSizeNormal; color: theme.inputTextColor; selectionColor: theme.inputSelectionColor; selectedTextColor: theme.inputSelectedTextColor; horizontalAlignment: Qt.AlignHCenter; verticalAlignment: Qt.AlignVCenter; readOnly: !portSpin.editable; validator: portSpin.validator; inputMethodHints: Qt.ImhFormattedNumbersOnly; onEditingFinished: portSpin.value = portSpin.valueFromText(text, portSpin.locale) }; background: Rectangle { color: parent.activeFocus ? theme.backgroundColor : theme.inputFieldBackground; border.color: parent.activeFocus ? theme.inputFieldActiveBorder : theme.inputFieldBorder; border.width: 1; radius: theme.radiusSmall } }
+                    SpinBox {
+                        id: portSpin
+                        Layout.fillWidth: true
+                        Layout.preferredWidth: theme.formInputWidth
+                        from: 1
+                        to: 65535
+                        value: root.conn ? (root.conn.port || 1433) : 1433
+                        onValueChanged: if (root.conn) root.conn.port = value
+                        contentItem: TextInput {
+                            text: portSpin.textFromValue(portSpin.value, portSpin.locale)
+                            font.pixelSize: theme.fontSizeNormal
+                            color: theme.inputTextColor
+                            selectionColor: theme.inputSelectionColor
+                            selectedTextColor: theme.inputSelectedTextColor
+                            horizontalAlignment: Qt.AlignHCenter
+                            verticalAlignment: Qt.AlignVCenter
+                            readOnly: !portSpin.editable
+                            validator: portSpin.validator
+                            inputMethodHints: Qt.ImhFormattedNumbersOnly
+                            onEditingFinished: portSpin.value = portSpin.valueFromText(text, portSpin.locale)
+                        }
+                        background: Rectangle {
+                            color: parent.activeFocus ? theme.backgroundColor : theme.inputFieldBackground
+                            border.color: parent.activeFocus ? theme.inputFieldActiveBorder : theme.inputFieldBorder
+                            border.width: 1
+                            radius: theme.radiusSmall
+                        }
+                    }
 
                     Label { text: "用户名"; color: theme.textPrimary; font.pixelSize: theme.fontSizeNormal; Layout.preferredWidth: theme.formLabelWidth }
                     TextField { Layout.fillWidth: true; Layout.preferredWidth: theme.formInputWidth; text: root.conn ? root.conn.user : ""; placeholderText: "sa"; onTextChanged: if (root.conn) root.conn.user = text; color: theme.inputTextColor; placeholderTextColor: theme.inputPlaceholderColor; selectionColor: theme.inputSelectionColor; selectedTextColor: theme.inputSelectedTextColor; background: Rectangle { color: parent.activeFocus ? theme.backgroundColor : theme.inputFieldBackground; border.color: parent.activeFocus ? theme.inputFieldActiveBorder : theme.inputFieldBorder; border.width: 1; radius: theme.radiusSmall } }

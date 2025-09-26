@@ -10,8 +10,14 @@ Window {
     id: root
     width: theme.dialogWidth
     height: 550
-    flags: Qt.Dialog | Qt.WindowTitleHint | Qt.WindowCloseButtonHint | Qt.WindowSystemMenuHint
-    modality: Qt.WindowModal
+    // 显示系统窗口控制按钮（关闭/最小化/最大化）
+    flags: Qt.Window
+           | Qt.WindowTitleHint
+           | Qt.WindowCloseButtonHint
+           | Qt.WindowMinimizeButtonHint
+           | Qt.WindowMaximizeButtonHint
+           | Qt.WindowSystemMenuHint
+    modality: Qt.ApplicationModal
     visible: false
     color: theme.dialogBackgroundColor
 

@@ -121,8 +121,9 @@ QtObject {
     // 输入组件文本相关颜色
     property color inputTextColor: isDarkMode ? "#FFFFFF" : "#212121"
     property color inputPlaceholderColor: isDarkMode ? "#8A8A8A" : "#9E9E9E"
-    property color inputSelectionColor: isDarkMode ? "#64B5F680" : "#1976D280" // 主色带透明度
-    property color inputSelectedTextColor: isDarkMode ? "#FFFFFF" : "#FFFFFF"
+    // 选中文本与选区颜色（亮色提高对比度，暗色维持白字）
+    property color inputSelectionColor: isDarkMode ? "#64B5F680" : "#90CAF9"   // Dark: 半透明蓝; Light: 浅蓝 #90CAF9
+    property color inputSelectedTextColor: isDarkMode ? "#FFFFFF" : "#212121"  // Dark: 白字; Light: 深色文字
     property color selectorItemBackground: isDarkMode ? "#2D2D2D" : "white"
     property color selectorItemHoverBackground: isDarkMode ? "#404040" : "#F0F8FF"
     property color selectorItemBorder: isDarkMode ? "#444444" : "#E0E0E0"
