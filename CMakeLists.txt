@@ -26,7 +26,7 @@ add_executable(sqler
     src/db/DbUtil.cpp
     src/db/Drivers.cpp
     src/qml/Backend.cpp
-    res/resources.qrc
+    qml/resources.qrc
 )
 set_target_properties(sqler PROPERTIES MACOSX_BUNDLE TRUE)
 target_include_directories(sqler PRIVATE src)

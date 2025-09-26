@@ -5,7 +5,7 @@ UNAME_S := $(shell uname -s)
 .PHONY: help build-debug build-release run-debug run-release deploy-debug deploy-release clean
 
 help:
-	@echo "Available commands:"
+	@echo "commands:"
 	@echo "  make run-debug      - Run Debug build"
 	@echo "  make run-release    - Run Release build"
 	@echo "  make build-debug    - Configure + build Debug (build/Debug)"
@@ -16,16 +16,16 @@ help:
 
 run-debug: build-debug
 ifeq ($(UNAME_S),Darwin)
-	open build/Debug/SimpleQtApp.app
+	build/Debug/sqler.app/Contents/MacOS/sqler || true
 else
-	build/Debug/SimpleQtApp
+	build/Debug/sqler
 endif
 
 run-release: build-release
 ifeq ($(UNAME_S),Darwin)
-	open build/Release/SimpleQtApp.app
+	build/Release/sqler.app/Contents/MacOS/sqler || true
 else
-	build/Release/SimpleQtApp
+	build/Release/sqler
 endif
 
 build-debug:

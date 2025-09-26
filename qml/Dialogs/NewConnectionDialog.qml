@@ -21,6 +21,8 @@ ApplicationWindow {
     })
 
     property int currentStep: 0 // 0: type selection, 1: form
+    // 当前已实现类型
+    property var supportedTypes: ["mysql", "redis"]
 
     title: currentStep === 0 ? "新建连接" :
            (conn.type.toUpperCase() + " 连接配置")
@@ -79,13 +81,19 @@ ApplicationWindow {
         console.log("Connection type set to:", conn.type)
         // Set default values based on type
         if (type === 'mysql') {
-            conn.port = 3306
-            conn.user = 'root'
-            conn.database = ''
+            conn.port = 3306; conn.user = 'root'; conn.database = ''
         } else if (type === 'redis') {
-            conn.port = 6379
-            conn.user = ''
-            conn.database = '0'
+            conn.port = 6379; conn.user = ''; conn.database = '0'
+        } else if (type === 'postgresql') {
+            conn.port = 5432; conn.user = 'postgres'; conn.database = ''
+        } else if (type === 'sqlserver') {
+            conn.port = 1433; conn.user = 'sa'; conn.database = ''
+        } else if (type === 'sqlite') {
+            conn.port = 0; conn.user = ''; conn.database = ''
+        } else if (type === 'mongodb') {
+            conn.port = 27017; conn.user = ''; conn.database = ''
+        } else if (type === 'oracle') {
+            conn.port = 1521; conn.user = ''; conn.database = ''
         }
         currentStep = 1
         console.log("Current step set to:", currentStep)
@@ -129,6 +137,44 @@ ApplicationWindow {
                 theme: root.theme
                 conn: root.conn
             }
+
+            // Unsupported placeholder
+            Item {
+                id: unsupported
+                anchors.fill: parent
+                visible: currentStep === 1 && supportedTypes.indexOf(conn.type) === -1
+
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: parent.width * 0.8
+                    height: 160
+                    color: theme.dialogContentBackground
+                    border.color: theme.dialogBorderColor
+                    border.width: 1
+                    radius: theme.radiusNormal
+
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: theme.spacingLarge
+                        spacing: theme.spacingSmall
+                        Label {
+                            text: (conn.type || '').toUpperCase() + " 暂未支持"
+                            color: theme.textPrimary
+                            font.bold: true
+                            font.pixelSize: theme.fontSizeTitle
+                            Layout.alignment: Qt.AlignHCenter
+                        }
+                        Label {
+                            text: "暂不支持该数据库类型的配置与连接，敬请期待。"
+                            color: theme.textSecondary
+                            font.pixelSize: theme.fontSizeNormal
+                            wrapMode: Text.WordWrap
+                            horizontalAlignment: Text.AlignHCenter
+                            Layout.alignment: Qt.AlignHCenter
+                        }
+                    }
+                }
+            }
         }
 
         // Button area
@@ -146,7 +192,7 @@ ApplicationWindow {
 
                 Button {
                     text: "测试连接"
-                    enabled: currentStep === 1
+                    enabled: currentStep === 1 && supportedTypes.indexOf(conn.type) !== -1
                     Layout.preferredWidth: 100
                     onClicked: handleTest()
 
@@ -195,7 +241,14 @@ ApplicationWindow {
                 Button {
                     text: currentStep === 0 ? "下一步" : "确定"
                     Layout.preferredWidth: 80
-                    onClicked: handleNext()
+                    enabled: currentStep === 0 || supportedTypes.indexOf(conn.type) !== -1
+                    onClicked: {
+                        if (currentStep === 1 && supportedTypes.indexOf(conn.type) === -1) {
+                            infoDialog.show("该数据库类型暂未支持")
+                            return
+                        }
+                        handleNext()
+                    }
 
                     background: Rectangle {
                         color: parent.hovered ? theme.primaryColorLight : theme.primaryColor
