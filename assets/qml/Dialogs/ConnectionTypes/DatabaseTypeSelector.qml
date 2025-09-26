@@ -61,10 +61,16 @@ Item {
                         spacing: theme.spacingNormal
 
                         Image {
-                            width: 48
-                            height: 48
+                            // Use Layout attached properties inside RowLayout
+                            Layout.preferredWidth: theme.iconSizeLarge
+                            Layout.preferredHeight: theme.iconSizeLarge
+                            Layout.alignment: Qt.AlignVCenter
                             source: modelData.icon || ""
                             fillMode: Image.PreserveAspectFit
+                            smooth: true
+                            // Ensure the decoder scales image efficiently
+                            sourceSize.width: theme.iconSizeLarge
+                            sourceSize.height: theme.iconSizeLarge
                         }
 
                         ColumnLayout {

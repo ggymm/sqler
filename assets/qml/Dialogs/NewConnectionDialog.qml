@@ -1,19 +1,24 @@
-// 新建/编辑连接对话框（QML）
-// 使用模块化组件：DatabaseTypeSelector, MySQLForm, RedisForm
+// 新建/编辑连接对话框（QML 子窗口模式）
+// 使用模块化组件：DatabaseTypeSelector, 各数据库表单
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import QtQuick.Window 2.15
 import "ConnectionTypes" as ConnectionTypes
 
-ApplicationWindow {
+Window {
     id: root
     width: theme.dialogWidth
     height: 550
-    flags: Qt.Dialog
-    modality: Qt.ApplicationModal
+    flags: Qt.Dialog | Qt.WindowTitleHint | Qt.WindowCloseButtonHint | Qt.WindowSystemMenuHint
+    modality: Qt.WindowModal
+    visible: false
     color: theme.dialogBackgroundColor
 
     property var theme
+    // 作为子窗口，设置父窗口用于窗口置顶与模态
+    property var parentWindow: null
+    onParentWindowChanged: if (parentWindow) root.transientParent = parentWindow
     property var conn: ({
         id: "", name: "", type: "",
         host: "localhost", port: 3306,
@@ -24,8 +29,7 @@ ApplicationWindow {
     // 当前已实现类型
     property var supportedTypes: ["mysql", "redis"]
 
-    title: currentStep === 0 ? "新建连接" :
-           (conn.type.toUpperCase() + " 连接配置")
+    title: currentStep === 0 ? "新建连接" : (conn.type.toUpperCase() + " 连接配置")
 
     function openForNew() {
         conn = {
@@ -34,19 +38,21 @@ ApplicationWindow {
             user: "", password: "", database: ""
         }
         currentStep = 0
-        show()
+        root.show()
+        root.raise()
+        root.requestActivate()
     }
 
     function openForEdit(c) {
         conn = Object.assign({}, c)
         if (!conn.type) conn.type = "mysql"
         currentStep = 1
-        show()
+        root.show()
+        root.raise()
+        root.requestActivate()
     }
 
-    function closeDialog() {
-        hide()
-    }
+    function closeDialog() { root.close() }
 
     function handlePrevious() {
         if (currentStep > 0) {
@@ -97,6 +103,19 @@ ApplicationWindow {
         }
         currentStep = 1
         console.log("Current step set to:", currentStep)
+        Qt.callLater(focusFirstField)
+    }
+
+    function focusFirstField() {
+        try {
+            if (conn.type === 'mysql' && mysqlForm.focusFirst) mysqlForm.focusFirst()
+            else if (conn.type === 'redis' && redisForm.focusFirst) redisForm.focusFirst()
+            else if (conn.type === 'postgresql' && pgForm.focusFirst) pgForm.focusFirst()
+            else if (conn.type === 'sqlserver' && mssqlForm.focusFirst) mssqlForm.focusFirst()
+            else if (conn.type === 'sqlite' && sqliteForm.focusFirst) sqliteForm.focusFirst()
+            else if (conn.type === 'mongodb' && mongoForm.focusFirst) mongoForm.focusFirst()
+            else if (conn.type === 'oracle' && oracleForm.focusFirst) oracleForm.focusFirst()
+        } catch (e) { console.warn('focusFirstField error', e) }
     }
 
     // Main content area
@@ -138,11 +157,59 @@ ApplicationWindow {
                 conn: root.conn
             }
 
+            // PostgreSQL form
+            ConnectionTypes.PostgreSQLForm {
+                id: pgForm
+                anchors.fill: parent
+                visible: currentStep === 1 && conn.type === "postgresql"
+                theme: root.theme
+                conn: root.conn
+            }
+
+            // SQL Server form
+            ConnectionTypes.SQLServerForm {
+                id: mssqlForm
+                anchors.fill: parent
+                visible: currentStep === 1 && conn.type === "sqlserver"
+                theme: root.theme
+                conn: root.conn
+            }
+
+            // SQLite form
+            ConnectionTypes.SQLiteForm {
+                id: sqliteForm
+                anchors.fill: parent
+                visible: currentStep === 1 && conn.type === "sqlite"
+                theme: root.theme
+                conn: root.conn
+            }
+
+            // MongoDB form
+            ConnectionTypes.MongoDBForm {
+                id: mongoForm
+                anchors.fill: parent
+                visible: currentStep === 1 && conn.type === "mongodb"
+                theme: root.theme
+                conn: root.conn
+            }
+
+            // Oracle form
+            ConnectionTypes.OracleForm {
+                id: oracleForm
+                anchors.fill: parent
+                visible: currentStep === 1 && conn.type === "oracle"
+                theme: root.theme
+                conn: root.conn
+            }
+
             // Unsupported placeholder
             Item {
                 id: unsupported
                 anchors.fill: parent
-                visible: currentStep === 1 && supportedTypes.indexOf(conn.type) === -1
+                visible: currentStep === 1 && (
+                    conn.type !== "mysql" && conn.type !== "redis" &&
+                    conn.type !== "postgresql" && conn.type !== "sqlserver" &&
+                    conn.type !== "sqlite" && conn.type !== "mongodb" && conn.type !== "oracle")
 
                 Rectangle {
                     anchors.centerIn: parent
@@ -241,14 +308,8 @@ ApplicationWindow {
                 Button {
                     text: currentStep === 0 ? "下一步" : "确定"
                     Layout.preferredWidth: 80
-                    enabled: currentStep === 0 || supportedTypes.indexOf(conn.type) !== -1
-                    onClicked: {
-                        if (currentStep === 1 && supportedTypes.indexOf(conn.type) === -1) {
-                            infoDialog.show("该数据库类型暂未支持")
-                            return
-                        }
-                        handleNext()
-                    }
+                    enabled: currentStep === 0 || currentStep === 1
+                    onClicked: handleNext()
 
                     background: Rectangle {
                         color: parent.hovered ? theme.primaryColorLight : theme.primaryColor

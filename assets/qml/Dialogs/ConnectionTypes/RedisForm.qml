@@ -1,4 +1,4 @@
-// MySQL连接配置页面
+// Redis连接配置页面
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
@@ -8,6 +8,7 @@ Item {
 
     property var theme
     property var conn
+    function focusFirst() { if (nameField) nameField.forceActiveFocus() }
 
     Rectangle {
         anchors.fill: parent
@@ -26,7 +27,7 @@ Item {
                 spacing: theme.spacingNormal
 
                 Label {
-                    text: "MySQL 连接配置"
+                    text: "Redis 连接配置"
                     font.bold: true
                     font.pixelSize: theme.fontSizeTitle
                     color: theme.textPrimary
@@ -46,11 +47,16 @@ Item {
                         Layout.preferredWidth: theme.formLabelWidth
                     }
                     TextField {
+                        id: nameField
                         Layout.fillWidth: true
                         Layout.preferredWidth: theme.formInputWidth
                         text: root.conn ? root.conn.name : ""
-                        placeholderText: "例如：本地MySQL"
+                        placeholderText: "例如：本地Redis"
                         onTextChanged: if (root.conn) root.conn.name = text
+                        color: theme.inputTextColor
+                        placeholderTextColor: theme.inputPlaceholderColor
+                        selectionColor: theme.inputSelectionColor
+                        selectedTextColor: theme.inputSelectedTextColor
 
                         background: Rectangle {
                             color: parent.activeFocus ? theme.backgroundColor : theme.inputFieldBackground
@@ -72,6 +78,10 @@ Item {
                         text: root.conn ? root.conn.host : ""
                         placeholderText: "localhost"
                         onTextChanged: if (root.conn) root.conn.host = text
+                        color: theme.inputTextColor
+                        placeholderTextColor: theme.inputPlaceholderColor
+                        selectionColor: theme.inputSelectionColor
+                        selectedTextColor: theme.inputSelectedTextColor
 
                         background: Rectangle {
                             color: parent.activeFocus ? theme.backgroundColor : theme.inputFieldBackground
@@ -88,12 +98,26 @@ Item {
                         Layout.preferredWidth: theme.formLabelWidth
                     }
                     SpinBox {
+                        id: portSpin
                         Layout.fillWidth: true
                         Layout.preferredWidth: theme.formInputWidth
                         from: 1
                         to: 65535
-                        value: root.conn ? root.conn.port : 3306
+                        value: root.conn ? root.conn.port : 6379
                         onValueChanged: if (root.conn) root.conn.port = value
+                        contentItem: TextInput {
+                            text: portSpin.textFromValue(portSpin.value, portSpin.locale)
+                            font.pixelSize: theme.fontSizeNormal
+                            color: theme.inputTextColor
+                            selectionColor: theme.inputSelectionColor
+                            selectedTextColor: theme.inputSelectedTextColor
+                            horizontalAlignment: Qt.AlignHCenter
+                            verticalAlignment: Qt.AlignVCenter
+                            readOnly: !portSpin.editable
+                            validator: portSpin.validator
+                            inputMethodHints: Qt.ImhFormattedNumbersOnly
+                            onEditingFinished: portSpin.value = portSpin.valueFromText(text, portSpin.locale)
+                        }
 
                         background: Rectangle {
                             color: parent.activeFocus ? theme.backgroundColor : theme.inputFieldBackground
@@ -104,7 +128,7 @@ Item {
                     }
 
                     Label {
-                        text: "用户名"
+                        text: "用户名 (可选)"
                         color: theme.textPrimary
                         font.pixelSize: theme.fontSizeNormal
                         Layout.preferredWidth: theme.formLabelWidth
@@ -113,8 +137,12 @@ Item {
                         Layout.fillWidth: true
                         Layout.preferredWidth: theme.formInputWidth
                         text: root.conn ? root.conn.user : ""
-                        placeholderText: "root"
+                        placeholderText: "Redis 6.0+ 支持用户名"
                         onTextChanged: if (root.conn) root.conn.user = text
+                        color: theme.inputTextColor
+                        placeholderTextColor: theme.inputPlaceholderColor
+                        selectionColor: theme.inputSelectionColor
+                        selectedTextColor: theme.inputSelectedTextColor
 
                         background: Rectangle {
                             color: parent.activeFocus ? theme.backgroundColor : theme.inputFieldBackground
@@ -125,7 +153,7 @@ Item {
                     }
 
                     Label {
-                        text: "密码"
+                        text: "密码 (可选)"
                         color: theme.textPrimary
                         font.pixelSize: theme.fontSizeNormal
                         Layout.preferredWidth: theme.formLabelWidth
@@ -135,7 +163,12 @@ Item {
                         Layout.preferredWidth: theme.formInputWidth
                         text: root.conn ? root.conn.password : ""
                         echoMode: TextInput.Password
+                        placeholderText: "如果设置了AUTH"
                         onTextChanged: if (root.conn) root.conn.password = text
+                        color: theme.inputTextColor
+                        placeholderTextColor: theme.inputPlaceholderColor
+                        selectionColor: theme.inputSelectionColor
+                        selectedTextColor: theme.inputSelectedTextColor
 
                         background: Rectangle {
                             color: parent.activeFocus ? theme.backgroundColor : theme.inputFieldBackground
@@ -146,17 +179,32 @@ Item {
                     }
 
                     Label {
-                        text: "数据库 (可选)"
+                        text: "数据库索引"
                         color: theme.textPrimary
                         font.pixelSize: theme.fontSizeNormal
                         Layout.preferredWidth: theme.formLabelWidth
                     }
-                    TextField {
+                    SpinBox {
+                        id: dbIndexSpin
                         Layout.fillWidth: true
                         Layout.preferredWidth: theme.formInputWidth
-                        text: root.conn ? root.conn.database : ""
-                        placeholderText: "留空以显示所有数据库"
-                        onTextChanged: if (root.conn) root.conn.database = text
+                        from: 0
+                        to: 15
+                        value: root.conn ? parseInt(root.conn.database || "0") : 0
+                        onValueChanged: if (root.conn) root.conn.database = "" + value
+                        contentItem: TextInput {
+                            text: dbIndexSpin.textFromValue(dbIndexSpin.value, dbIndexSpin.locale)
+                            font.pixelSize: theme.fontSizeNormal
+                            color: theme.inputTextColor
+                            selectionColor: theme.inputSelectionColor
+                            selectedTextColor: theme.inputSelectedTextColor
+                            horizontalAlignment: Qt.AlignHCenter
+                            verticalAlignment: Qt.AlignVCenter
+                            readOnly: !dbIndexSpin.editable
+                            validator: dbIndexSpin.validator
+                            inputMethodHints: Qt.ImhFormattedNumbersOnly
+                            onEditingFinished: dbIndexSpin.value = dbIndexSpin.valueFromText(text, dbIndexSpin.locale)
+                        }
 
                         background: Rectangle {
                             color: parent.activeFocus ? theme.backgroundColor : theme.inputFieldBackground
@@ -169,4 +217,6 @@ Item {
             }
         }
     }
+
+    onVisibleChanged: if (visible && nameField) nameField.forceActiveFocus()
 }

@@ -595,6 +595,7 @@ ApplicationWindow {
     Dialogs.NewConnectionDialog {
         id: newConnDialog
         theme: theme
+        parentWindow: win
     }
 
     // Simple confirm/info helpers

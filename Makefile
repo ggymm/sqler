@@ -16,14 +16,14 @@ help:
 
 run-debug: build-debug
 ifeq ($(UNAME_S),Darwin)
-	build/Debug/sqler.app/Contents/MacOS/sqler || true
+	open build/Debug/sqler.app || build/Debug/sqler.app/Contents/MacOS/sqler || true
 else
 	build/Debug/sqler
 endif
 
 run-release: build-release
 ifeq ($(UNAME_S),Darwin)
-	build/Release/sqler.app/Contents/MacOS/sqler || true
+	open build/Release/sqler.app || build/Release/sqler.app/Contents/MacOS/sqler || true
 else
 	build/Release/sqler
 endif

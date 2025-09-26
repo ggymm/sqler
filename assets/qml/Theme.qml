@@ -118,6 +118,11 @@ QtObject {
     property color inputFieldBackground: isDarkMode ? "#333333" : "white"
     property color inputFieldBorder: isDarkMode ? "#555555" : "#D0D0D0"
     property color inputFieldActiveBorder: isDarkMode ? "#64B5F6" : primaryColor
+    // 输入组件文本相关颜色
+    property color inputTextColor: isDarkMode ? "#FFFFFF" : "#212121"
+    property color inputPlaceholderColor: isDarkMode ? "#8A8A8A" : "#9E9E9E"
+    property color inputSelectionColor: isDarkMode ? "#64B5F680" : "#1976D280" // 主色带透明度
+    property color inputSelectedTextColor: isDarkMode ? "#FFFFFF" : "#FFFFFF"
     property color selectorItemBackground: isDarkMode ? "#2D2D2D" : "white"
     property color selectorItemHoverBackground: isDarkMode ? "#404040" : "#F0F8FF"
     property color selectorItemBorder: isDarkMode ? "#444444" : "#E0E0E0"
