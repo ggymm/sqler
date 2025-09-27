@@ -59,7 +59,7 @@ void MainWindow::setupUI() {
 void MainWindow::applyTheme() {
     const auto& colors = Theme::instance().colors();
 
-    QString styleSheet = QString(
+    const QString styleSheet = QStringLiteral(
         "QMainWindow { background-color: %1; }"
         "QFrame[frameShape=\"5\"] { color: %2; }"  // VLine separator
     ).arg(colors.background.name(), colors.border.name());

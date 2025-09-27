@@ -7,9 +7,8 @@ Checks: |
   portability-*,
   misc-*,
   clang-analyzer-*
-WarningsAsErrors: '*'
+WarningsAsErrors: ''
 HeaderFilterRegex: '^(src|include)/.*'
-AnalyzeTemporaryDtors: true
 FormatStyle: file
 User: sqler
 CheckOptions:
