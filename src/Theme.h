@@ -61,7 +61,7 @@ public:
     [[nodiscard]] const Colors& colors() const { return m_colors; }
 
     // Centralized style generators
-    [[nodiscard]] QString getButtonStyle(const QString& variant = "primary") const;
+    [[nodiscard]] QString getButtonStyle(const QString& variant = QStringLiteral("primary")) const;
     [[nodiscard]] QString getInputStyle() const;
     [[nodiscard]] QString getDialogStyle() const;
     [[nodiscard]] QString getScrollAreaStyle() const;

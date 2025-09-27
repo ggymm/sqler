@@ -54,9 +54,9 @@ void Theme::updateColors() {
 QString Theme::getButtonStyle(const QString& variant) const {
     const auto& colors = m_colors;
 
-    if (variant == "primary") {
+    if (variant == QStringLiteral("primary")) {
         return QString(
-            "QPushButton {"
+            QStringLiteral("QPushButton {"
             "    background-color: %1;"
             "    color: white;"
             "    border: none;"
@@ -71,7 +71,7 @@ QString Theme::getButtonStyle(const QString& variant) const {
             "}"
             "QPushButton:pressed {"
             "    background-color: %9;"
-            "}"
+            "}")
         ).arg(colors.primary.name())
          .arg(Sizes::borderRadius)
          .arg(Spacing::sm)
@@ -83,7 +83,7 @@ QString Theme::getButtonStyle(const QString& variant) const {
          .arg(colors.primaryHover.darker(110).name());
     }
 
-    if (variant == "secondary") {
+    if (variant == QStringLiteral("secondary")) {
         return QString(
             "QPushButton {"
             "    background-color: transparent;"

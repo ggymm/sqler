@@ -20,7 +20,7 @@ MainWindow::MainWindow(QWidget* parent)
 }
 
 void MainWindow::setupUI() {
-    setWindowTitle("SQL Database Manager");
+    setWindowTitle(QStringLiteral("SQL Database Manager"));
     resize(1200, 800);
 
     auto* centralWidget = new QWidget(this);

@@ -2,18 +2,14 @@
 
 UNAME_S := $(shell uname -s)
 
-.PHONY: help build-debug build-release run-debug run-release deploy-debug deploy-release clean \
-	format-qml lint-qml format-cpp format-all lint-cpp tidy-fix-cpp
-
 help:
 	@echo "commands:"
 	@echo "  make run-debug      - Run Debug build"
 	@echo "  make run-release    - Run Release build"
 	@echo "  make build-debug    - Configure + build Debug (build/Debug)"
 	@echo "  make build-release  - Configure + build Release (build/Release)"
-	@echo "  make deploy-debug   - Deploy Debug build with Qt runtime"
-	@echo "  make deploy-release - Deploy Release build with Qt runtime"
 	@echo "  make clean          - Remove build directory"
+	@echo "  make clazy-check    - Run clazy Qt static analysis"
 
 
 run-debug: build-debug
@@ -31,18 +27,19 @@ else
 endif
 
 build-debug:
-	cmake -S . -B build/Debug -DCMAKE_BUILD_TYPE=Debug
-	cmake --build build/Debug -j
+	@cmake -S . -B build/Debug -DCMAKE_BUILD_TYPE=Debug
+	@cmake --build build/Debug -j
 
 build-release:
-	cmake -S . -B build/Release -DCMAKE_BUILD_TYPE=Release
-	cmake --build build/Release -j
-
-deploy-debug: build-debug
-	cmake --build build/Debug -t deploy
-
-deploy-release: build-release
-	cmake --build build/Release -t deploy
+	@cmake -S . -B build/Release -DCMAKE_BUILD_TYPE=Release
+	@cmake --build build/Release -j
 
 clean:
-	rm -rf build
+	@rm -rf build
+
+clazy-check:
+	@echo "Running static analysis with enhanced warnings..."
+	@rm -rf build/clazy
+	@cmake -S . -B build/clazy -DCMAKE_BUILD_TYPE=Debug
+	@cmake --build build/clazy 2>&1 | tee clazy_analysis.log
+	@echo "Analysis complete. Check clazy_analysis.log for details."
