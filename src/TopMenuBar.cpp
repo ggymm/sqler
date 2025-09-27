@@ -5,8 +5,6 @@
 #include <QPushButton>
 #include <QToolButton>
 #include <QFrame>
-#include <QSpacerItem>
-#include <QIcon>
 
 TopMenuBar::TopMenuBar(QWidget* parent)
     : QWidget(parent) {
@@ -104,8 +102,7 @@ void TopMenuBar::applyTheme() {
         "}"
     ).arg(colors.text.name())
      .arg(Theme::Sizes::borderRadius)
-     .arg(colors.border.name())
-     .arg(colors.border.name());
+     .arg(colors.border.name(), colors.border.name());
 
     setStyleSheet(QStringLiteral("TopMenuBar { background-color: %1; border-bottom: 1px solid %2; }")
                   .arg(colors.surface.name(), colors.border.name()) + buttonStyle);

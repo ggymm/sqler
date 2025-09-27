@@ -3,23 +3,23 @@
 #include "ConnectionPanel.h"
 #include "MainContent.h"
 #include "Theme.h"
-#include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QWidget>
 #include <QFrame>
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
-    , m_topMenuBar(nullptr)
-    , m_connectionPanel(nullptr)
-    , m_mainContent(nullptr) {
+      , m_topMenuBar(nullptr)
+      , m_connectionPanel(nullptr)
+      , m_mainContent(nullptr)
+{
     setupUI();
     applyTheme();
 
     connect(&Theme::instance(), &Theme::themeChanged, this, &MainWindow::onThemeChanged);
 }
 
-void MainWindow::setupUI() {
+void MainWindow::setupUI()
+{
     setWindowTitle(QStringLiteral("SQL Database Manager"));
     resize(1200, 800);
 
@@ -56,17 +56,19 @@ void MainWindow::setupUI() {
     mainLayout->addWidget(contentWidget);
 }
 
-void MainWindow::applyTheme() {
+void MainWindow::applyTheme()
+{
     const auto& colors = Theme::instance().colors();
 
     const QString styleSheet = QStringLiteral(
         "QMainWindow { background-color: %1; }"
-        "QFrame[frameShape=\"5\"] { color: %2; }"  // VLine separator
+        "QFrame[frameShape=\"5\"] { color: %2; }" // VLine separator
     ).arg(colors.background.name(), colors.border.name());
 
     setStyleSheet(styleSheet);
 }
 
-void MainWindow::onThemeChanged() {
+void MainWindow::onThemeChanged()
+{
     applyTheme();
 }

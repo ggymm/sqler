@@ -80,7 +80,7 @@ void NewConnectionDialog::setupUI() {
 void NewConnectionDialog::showDatabaseTypeSelection() {
     if (m_typeDialog) {
         m_stackedWidget->removeWidget(m_typeDialog);
-        delete m_typeDialog;
+        m_typeDialog->deleteLater();
     }
 
     m_typeDialog = new DatabaseTypeDialog(this);
@@ -106,7 +106,7 @@ void NewConnectionDialog::showDatabaseTypeSelection() {
 void NewConnectionDialog::showConnectionForm(const QString& databaseType) {
     if (m_currentForm) {
         m_stackedWidget->removeWidget(m_currentForm);
-        delete m_currentForm;
+        m_currentForm->deleteLater();
     }
 
     m_currentDatabaseType = databaseType;
@@ -172,10 +172,7 @@ void NewConnectionDialog::applyTheme() {
         "QFrame#separator {"
         "    color: %5;"
         "}"
-    ).arg(colors.surface.name())
-     .arg(colors.text.name())
-     .arg(Theme::Sizes::borderRadius)
-     .arg(colors.border.name())
+    ).arg(colors.surface.name()), colors.surface.name(), colors.text.name()), colors.text.name())
      .arg(colors.border.name());
 
     setStyleSheet(styleSheet);

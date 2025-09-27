@@ -59,7 +59,7 @@ QListWidgetItem* ConnectionPanel::createConnectionItem(const QString& name, cons
     layout->setSpacing(Theme::Spacing::sm);
 
     auto* iconLabel = new QLabel(widget);
-    iconLabel->setPixmap(QIcon(QString(":/assets/icons/db/%1.svg").arg(type))
+    iconLabel->setPixmap(QIcon(QStringLiteral(":/assets/icons/db/%1.svg").arg(type))
                         .pixmap(Theme::Sizes::iconSize, Theme::Sizes::iconSize));
     layout->addWidget(iconLabel);
 
@@ -135,10 +135,7 @@ void ConnectionPanel::applyTheme() {
         "    color: %10;"
         "    font-size: 12px;"
         "}"
-    ).arg(colors.surface.name())
-     .arg(colors.border.name())
-     .arg(colors.text.name())
-     .arg(colors.text.name())
+    ).arg(colors.surface.name()), colors.surface.name(), colors.border.name()), colors.border.name())
      .arg(colors.border.name())
      .arg(Theme::Sizes::borderRadius)
      .arg(colors.primary.name())
@@ -154,6 +151,23 @@ void ConnectionPanel::onThemeChanged() {
 }
 
 void ConnectionPanel::onConnectionItemClicked(QListWidgetItem* item) {
-    Q_UNUSED(item)
-    // TODO: Handle connection selection
+    if (!item) return;
+
+    // Get the connection widget
+    QWidget* connectionWidget = m_connectionsList->itemWidget(item);
+    if (!connectionWidget) return;
+
+    // Highlight the selected item
+    for (int i = 0; i < m_connectionsList->count(); ++i) {
+        QListWidgetItem* listItem = m_connectionsList->item(i);
+        QWidget* widget = m_connectionsList->itemWidget(listItem);
+        if (widget) {
+            widget->setStyleSheet(widget == connectionWidget ?
+                "QWidget { background-color: " + Theme::instance().colors().primary.name() + "; }" :
+                "");
+        }
+    }
+
+    // Emit signal that a connection was selected
+    emit connectionSelected(item->text());
 }

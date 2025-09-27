@@ -115,10 +115,7 @@ void MainContent::applyTheme() {
         "    color: %3;"
         "    font-size: 12px;"
         "}"
-    ).arg(colors.background.name())
-     .arg(colors.text.name())
-     .arg(colors.textSecondary.name())
-     .arg(colors.border.name())
+    ).arg(colors.background.name(), colors.text.name(), colors.textSecondary.name(), colors.border.name())
      .arg(Theme::Sizes::borderRadius)
      .arg(colors.surface.name());
 

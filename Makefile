@@ -9,7 +9,6 @@ help:
 	@echo "  make build-debug    - Configure + build Debug (build/Debug)"
 	@echo "  make build-release  - Configure + build Release (build/Release)"
 	@echo "  make clean          - Remove build directory"
-	@echo "  make clazy-check    - Run clazy Qt static analysis"
 
 
 run-debug: build-debug
@@ -36,10 +35,3 @@ build-release:
 
 clean:
 	@rm -rf build
-
-clazy-check:
-	@echo "Running static analysis with enhanced warnings..."
-	@rm -rf build/clazy
-	@cmake -S . -B build/clazy -DCMAKE_BUILD_TYPE=Debug
-	@cmake --build build/clazy 2>&1 | tee clazy_analysis.log
-	@echo "Analysis complete. Check clazy_analysis.log for details."

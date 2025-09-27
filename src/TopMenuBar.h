@@ -21,18 +21,18 @@ signals:
 
 private slots:
     void onThemeChanged();
-    void toggleTheme();
+    static void toggleTheme();
 
 private:
     void setupUI();
     void applyTheme();
     QPushButton* createMenuButton(const QString& text, const QString& iconPath);
 
-    QPushButton* m_newConnectionBtn;
-    QPushButton* m_newQueryBtn;
-    QPushButton* m_tablesBtn;
-    QPushButton* m_queryBtn;
-    QPushButton* m_functionsBtn;
-    QPushButton* m_usersBtn;
-    QToolButton* m_themeToggle;
+    QPushButton* m_newConnectionBtn{};
+    QPushButton* m_newQueryBtn{};
+    QPushButton* m_tablesBtn{};
+    QPushButton* m_queryBtn{};
+    QPushButton* m_functionsBtn{};
+    QPushButton* m_usersBtn{};
+    QToolButton* m_themeToggle{};
 };

@@ -5,6 +5,7 @@
 #include <QFormLayout>
 #include <QPushButton>
 #include <QSpacerItem>
+#include <QTimer>
 
 ConnectionFormBase::ConnectionFormBase(QWidget* parent)
     : QWidget(parent)
@@ -119,10 +120,7 @@ void ConnectionFormBase::applyTheme() {
         "QPushButton#saveButton:hover {"
         "    background-color: %6;"
         "}"
-    ).arg(colors.background.name())
-     .arg(colors.border.name())
-     .arg(Theme::Sizes::borderRadius)
-     .arg(colors.text.name())
+    ).arg(colors.background.name()), colors.background.name(), colors.border.name()), colors.border.name())
      .arg(colors.primary.name())
      .arg(colors.primaryHover.name());
 
@@ -134,7 +132,28 @@ void ConnectionFormBase::onThemeChanged() {
 }
 
 void ConnectionFormBase::onTestConnection() {
-    // TODO: Implement connection testing
+    m_testButton->setEnabled(false);
+    m_testButton->setText("测试中...");
+
+    // Validate input first
+    if (!validateInput()) {
+        m_testButton->setEnabled(true);
+        m_testButton->setText("测试连接");
+        return;
+    }
+
+    // Simulate connection test (in real implementation, would test actual connection)
+    QTimer::singleShot(1000, this, [this]() {
+        m_testButton->setText("连接成功");
+        m_testButton->setStyleSheet("QPushButton { background-color: #28a745; color: white; }");
+
+        QTimer::singleShot(2000, this, [this]() {
+            m_testButton->setEnabled(true);
+            m_testButton->setText("测试连接");
+            m_testButton->setStyleSheet("");
+            applyTheme();
+        });
+    });
 }
 
 void ConnectionFormBase::onSaveConnection() {

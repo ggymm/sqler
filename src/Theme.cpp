@@ -7,33 +7,33 @@ Theme& Theme::instance() {
 
 Theme::Theme(QObject* parent) : QObject(parent) {
     m_lightColors = {
-        .background = QColor("#ffffff"),
-        .surface = QColor("#f8f9fa"),
-        .border = QColor("#e9ecef"),
-        .primary = QColor("#007bff"),
-        .primaryHover = QColor("#0056b3"),
-        .text = QColor("#212529"),
-        .textSecondary = QColor("#6c757d"),
-        .textMuted = QColor("#adb5bd"),
-        .success = QColor("#28a745"),
-        .warning = QColor("#ffc107"),
-        .danger = QColor("#dc3545"),
-        .info = QColor("#17a2b8")
+        .background = QColor(0xffffff),
+        .surface = QColor(0xf8f9fa),
+        .border = QColor(0xe9ecef),
+        .primary = QColor(0x007bff),
+        .primaryHover = QColor(0x0056b3),
+        .text = QColor(0x212529),
+        .textSecondary = QColor(0x6c757d),
+        .textMuted = QColor(0xadb5bd),
+        .success = QColor(0x28a745),
+        .warning = QColor(0xffc107),
+        .danger = QColor(0xdc3545),
+        .info = QColor(0x17a2b8)
     };
 
     m_darkColors = {
-        .background = QColor("#1e1e1e"),
-        .surface = QColor("#2d2d30"),
-        .border = QColor("#3e3e42"),
-        .primary = QColor("#0d7377"),
-        .primaryHover = QColor("#14a085"),
-        .text = QColor("#ffffff"),
-        .textSecondary = QColor("#cccccc"),
-        .textMuted = QColor("#969696"),
-        .success = QColor("#4caf50"),
-        .warning = QColor("#ff9800"),
-        .danger = QColor("#f44336"),
-        .info = QColor("#2196f3")
+        .background = QColor(0x1e1e1e),
+        .surface = QColor(0x2d2d30),
+        .border = QColor(0x3e3e42),
+        .primary = QColor(0x0d7377),
+        .primaryHover = QColor(0x14a085),
+        .text = QColor(0xffffff),
+        .textSecondary = QColor(0xcccccc),
+        .textMuted = QColor(0x969696),
+        .success = QColor(0x4caf50),
+        .warning = QColor(0xff9800),
+        .danger = QColor(0xf44336),
+        .info = QColor(0x2196f3)
     };
 
     updateColors();
@@ -79,8 +79,7 @@ QString Theme::getButtonStyle(const QString& variant) const {
          .arg(Typography::buttonTextSize)
          .arg(Typography::bodyWeight)
          .arg(Sizes::formButtonWidth)
-         .arg(colors.primaryHover.name())
-         .arg(colors.primaryHover.darker(110).name());
+         .arg(colors.primaryHover.name(), colors.primaryHover.darker(110).name());
     }
 
     if (variant == QStringLiteral("secondary")) {
@@ -101,16 +100,14 @@ QString Theme::getButtonStyle(const QString& variant) const {
             "QPushButton:pressed {"
             "    background-color: %10;"
             "}"
-        ).arg(colors.text.name())
-         .arg(colors.border.name())
+        ).arg(colors.text.name(), colors.border.name())
          .arg(Sizes::borderRadius)
          .arg(Spacing::sm)
          .arg(Spacing::md)
          .arg(Typography::buttonTextSize)
          .arg(Typography::bodyWeight)
          .arg(Sizes::formButtonWidth)
-         .arg(colors.surface.name())
-         .arg(colors.border.name());
+         .arg(colors.surface.name(), colors.border.name());
     }
 
     if (variant == "dialog") {
@@ -132,14 +129,11 @@ QString Theme::getButtonStyle(const QString& variant) const {
             "    background-color: %8;"
             "    border-color: %7;"
             "}"
-        ).arg(colors.background.name())
-         .arg(colors.border.name())
+        ).arg(colors.background.name(), colors.border.name())
          .arg(Sizes::borderRadius)
          .arg(Spacing::xs)
          .arg(Sizes::dialogButtonHeight)
-         .arg(colors.surface.name())
-         .arg(colors.primary.name())
-         .arg(colors.surface.darker(110).name());
+         .arg(colors.surface.name(), colors.primary.name(), colors.surface.darker(110).name());
     }
 
     return getButtonStyle("primary"); // Default fallback
@@ -236,8 +230,7 @@ QString Theme::getInputStyle() const {
         "    font-size: %6px;"
         "    font-weight: %12;"
         "}"
-    ).arg(colors.surface.name())
-     .arg(colors.border.name())
+    ).arg(colors.surface.name(), colors.border.name())
      .arg(Sizes::borderRadius)
      .arg(Spacing::sm)
      .arg(Spacing::md)
@@ -271,8 +264,7 @@ QString Theme::getDialogStyle() const {
         "    font-size: %9px;"
         "    margin-top: 2px;"
         "}"
-    ).arg(colors.background.name())
-     .arg(colors.text.name())
+    ).arg(colors.background.name(), colors.text.name())
      .arg(Typography::titleSize)
      .arg(Typography::titleWeight)
      .arg(Spacing::sm)
@@ -310,8 +302,5 @@ QString Theme::getScrollAreaStyle() const {
         "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {"
         "    height: 0px;"
         "}"
-    ).arg(colors.background.name())
-     .arg(colors.surface.name())
-     .arg(colors.border.name())
-     .arg(colors.textMuted.name());
+    ).arg(colors.background.name(), colors.surface.name(), colors.border.name(), colors.textMuted.name());
 }

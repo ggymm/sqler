@@ -12,6 +12,9 @@ class ConnectionPanel : public QWidget {
 public:
     explicit ConnectionPanel(QWidget* parent = nullptr);
 
+signals:
+    void connectionSelected(const QString& connectionName);
+
 private slots:
     void onThemeChanged();
     void onConnectionItemClicked(QListWidgetItem* item);
