@@ -37,15 +37,34 @@ public:
     };
 
     struct Sizes {
-        static constexpr int topBarHeight  = 48;
-        static constexpr int sideBarWidth  = 280;
-        static constexpr int iconSize      = 20;
-        static constexpr int buttonHeight  = 36;
-        static constexpr int inputHeight   = 32;
-        static constexpr int borderRadius  = 6;
+        static constexpr int topBarHeight     = 48;
+        static constexpr int sideBarWidth     = 280;
+        static constexpr int iconSize         = 20;
+        static constexpr int buttonHeight     = 36;
+        static constexpr int inputHeight      = 32;
+        static constexpr int borderRadius     = 6;
+        static constexpr int dialogButtonHeight = 70;
+        static constexpr int formButtonWidth = 80;
+    };
+
+    struct Typography {
+        static constexpr int titleSize         = 18;
+        static constexpr int subtitleSize      = 16;
+        static constexpr int bodySize          = 14;
+        static constexpr int captionSize       = 12;
+        static constexpr int buttonTextSize    = 14;
+        static constexpr int titleWeight       = 700;
+        static constexpr int subtitleWeight    = 600;
+        static constexpr int bodyWeight        = 400;
     };
 
     [[nodiscard]] const Colors& colors() const { return m_colors; }
+
+    // Centralized style generators
+    [[nodiscard]] QString getButtonStyle(const QString& variant = "primary") const;
+    [[nodiscard]] QString getInputStyle() const;
+    [[nodiscard]] QString getDialogStyle() const;
+    [[nodiscard]] QString getScrollAreaStyle() const;
 
 signals:
     void themeChanged();

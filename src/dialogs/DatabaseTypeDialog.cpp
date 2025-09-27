@@ -1,14 +1,14 @@
 #include "DatabaseTypeDialog.h"
+#include "../components/ThemedScrollArea.h"
+#include "../components/ThemedButton.h"
 #include "../Theme.h"
 #include <QVBoxLayout>
-#include <QGridLayout>
 #include <QHBoxLayout>
-#include <QPushButton>
 #include <QLabel>
 #include <QIcon>
 
 DatabaseTypeDialog::DatabaseTypeDialog(QWidget* parent)
-    : QDialog(parent) {
+    : ThemedDialog(parent) {
     m_databaseTypes = {
         {"mysql", "MySQL", "流行的开源关系型数据库", ":/assets/icons/db/mysql.svg"},
         {"postgresql", "PostgreSQL", "高级开源关系型数据库", ":/assets/icons/db/postgresql.svg"},
@@ -20,139 +20,86 @@ DatabaseTypeDialog::DatabaseTypeDialog(QWidget* parent)
     };
 
     setupUI();
-    applyTheme();
 
-    connect(&Theme::instance(), &Theme::themeChanged, this, &DatabaseTypeDialog::onThemeChanged);
+    // No need to connect theme signals as ThemedDialog handles it
 }
 
 void DatabaseTypeDialog::setupUI() {
-    setWindowTitle("选择数据库类型");
-    setModal(true);
-    resize(600, 500);
+    // Don't set window title, let parent dialog handle it
+    resize(500, 400);
 
     auto* layout = new QVBoxLayout(this);
-    layout->setContentsMargins(Theme::Spacing::lg, Theme::Spacing::lg, Theme::Spacing::lg, Theme::Spacing::lg);
-    layout->setSpacing(Theme::Spacing::lg);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0);
 
-    auto* titleLabel = new QLabel("选择数据库类型", this);
-    titleLabel->setObjectName("titleLabel");
-    layout->addWidget(titleLabel);
+    // Create scroll area for database types
+    auto* scrollArea = new ThemedScrollArea(this);
 
-    m_gridLayout = new QGridLayout();
-    m_gridLayout->setSpacing(Theme::Spacing::md);
+    auto* scrollWidget = new QWidget();
+    scrollWidget->setObjectName("scrollContent");
+    auto* scrollLayout = new QVBoxLayout(scrollWidget);
+    scrollLayout->setSpacing(Theme::Spacing::sm);
+    scrollLayout->setContentsMargins(Theme::Spacing::lg, Theme::Spacing::lg, Theme::Spacing::lg, Theme::Spacing::lg);
 
-    int row = 0, col = 0;
+    // Add database type items in vertical list
     for (const auto& dbType : m_databaseTypes) {
         auto* button = createDatabaseTypeButton(dbType);
-        m_gridLayout->addWidget(button, row, col);
-
-        col++;
-        if (col >= 2) {
-            col = 0;
-            row++;
-        }
+        scrollLayout->addWidget(button);
     }
 
-    layout->addLayout(m_gridLayout);
-    layout->addStretch();
+    scrollArea->setWidget(scrollWidget);
+    layout->addWidget(scrollArea);
 
-    auto* buttonLayout = new QHBoxLayout();
-    buttonLayout->addStretch();
-
-    auto* cancelButton = new QPushButton("取消", this);
-    cancelButton->setObjectName("cancelButton");
-    connect(cancelButton, &QPushButton::clicked, this, &QDialog::reject);
-    buttonLayout->addWidget(cancelButton);
-
-    layout->addLayout(buttonLayout);
+    // Remove the cancel button as NewConnectionDialog handles it
+    // auto* buttonLayout = new QHBoxLayout();
+    // buttonLayout->addStretch();
+    // auto* cancelButton = new QPushButton("取消", this);
+    // cancelButton->setObjectName("cancelButton");
+    // connect(cancelButton, &QPushButton::clicked, this, &QDialog::reject);
+    // buttonLayout->addWidget(cancelButton);
+    // layout->addLayout(buttonLayout);
 }
 
-QPushButton* DatabaseTypeDialog::createDatabaseTypeButton(const DatabaseType& dbType) {
-    auto* button = new QPushButton(this);
-    button->setFixedSize(250, 100);
-    button->setObjectName("databaseTypeButton");
+ThemedButton* DatabaseTypeDialog::createDatabaseTypeButton(const DatabaseType& dbType) {
+    auto* button = new ThemedButton(this);
+    button->setVariant(ThemedButton::Variant::Dialog);
+    button->setFixedHeight(Theme::Sizes::dialogButtonHeight);
 
     auto* layout = new QHBoxLayout(button);
-    layout->setContentsMargins(Theme::Spacing::md, Theme::Spacing::md, Theme::Spacing::md, Theme::Spacing::md);
-    layout->setSpacing(Theme::Spacing::md);
+    layout->setContentsMargins(Theme::Spacing::lg, Theme::Spacing::md, Theme::Spacing::lg, Theme::Spacing::md);
+    layout->setSpacing(Theme::Spacing::lg);
 
+    // Icon on the left
     auto* iconLabel = new QLabel(button);
     iconLabel->setPixmap(QIcon(dbType.iconPath).pixmap(32, 32));
+    iconLabel->setFixedSize(40, 40);
+    iconLabel->setAlignment(Qt::AlignCenter);
     layout->addWidget(iconLabel);
 
+    // Text content on the right
     auto* textLayout = new QVBoxLayout();
     textLayout->setSpacing(Theme::Spacing::xs);
+    textLayout->setContentsMargins(0, 0, 0, 0);
 
     auto* nameLabel = new QLabel(dbType.displayName, button);
-    nameLabel->setObjectName("databaseName");
+    nameLabel->setProperty("class", "subtitle");
+    nameLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     textLayout->addWidget(nameLabel);
 
     auto* descLabel = new QLabel(dbType.description, button);
-    descLabel->setObjectName("databaseDescription");
+    descLabel->setProperty("class", "description");
+    descLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     descLabel->setWordWrap(true);
     textLayout->addWidget(descLabel);
 
     layout->addLayout(textLayout);
+    layout->addStretch(); // Push content to the left
 
     connect(button, &QPushButton::clicked, [this, dbType]() {
         onDatabaseTypeSelected(dbType.id);
     });
 
     return button;
-}
-
-void DatabaseTypeDialog::applyTheme() {
-    const auto& colors = Theme::instance().colors();
-
-    QString styleSheet = QString(
-        "DatabaseTypeDialog {"
-        "    background-color: %1;"
-        "}"
-        "QLabel#titleLabel {"
-        "    color: %2;"
-        "    font-size: 16px;"
-        "    font-weight: bold;"
-        "}"
-        "QPushButton#databaseTypeButton {"
-        "    background-color: %1;"
-        "    border: 1px solid %3;"
-        "    border-radius: %4px;"
-        "    text-align: left;"
-        "}"
-        "QPushButton#databaseTypeButton:hover {"
-        "    background-color: %5;"
-        "}"
-        "QLabel#databaseName {"
-        "    color: %2;"
-        "    font-size: 14px;"
-        "    font-weight: bold;"
-        "}"
-        "QLabel#databaseDescription {"
-        "    color: %6;"
-        "    font-size: 12px;"
-        "}"
-        "QPushButton#cancelButton {"
-        "    color: %2;"
-        "    background-color: transparent;"
-        "    border: 1px solid %3;"
-        "    border-radius: %4px;"
-        "    padding: 8px 16px;"
-        "}"
-        "QPushButton#cancelButton:hover {"
-        "    background-color: %5;"
-        "}"
-    ).arg(colors.background.name())
-     .arg(colors.text.name())
-     .arg(colors.border.name())
-     .arg(Theme::Sizes::borderRadius)
-     .arg(colors.surface.name())
-     .arg(colors.textSecondary.name());
-
-    setStyleSheet(styleSheet);
-}
-
-void DatabaseTypeDialog::onThemeChanged() {
-    applyTheme();
 }
 
 void DatabaseTypeDialog::onDatabaseTypeSelected(const QString& type) {

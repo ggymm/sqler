@@ -1,0 +1,36 @@
+# Clazy configuration for Qt static analysis
+# Enable all recommended checks for Qt best practices
+
+# Level 0 checks (most important)
+level0
+
+# Level 1 checks (recommended)
+level1
+
+# Level 2 checks (additional improvements)
+level2
+
+# Specific checks to enable
+qstring-allocations
+qstring-ref
+container-anti-pattern
+function-args-by-ref
+function-args-by-value
+implicit-casts
+inefficient-qlist-soft
+old-style-connect
+qcolor-from-literal
+qenums
+qfileinfo-exists
+qgetenv
+qt-macros
+range-loop
+raw-environment-function
+returning-data-from-temporary
+strict-iterators
+temporary-iterator
+unused-non-trivial-variable
+virtual-signal
+
+# Ignore specific checks that might be too strict
+ignore-dirs=build,build_*

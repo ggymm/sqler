@@ -19,6 +19,8 @@ public:
 
 signals:
     void connectionSaved();
+    void backClicked();
+    void cancelClicked();
 
 protected slots:
     virtual void onThemeChanged();
@@ -31,5 +33,7 @@ protected:
 
     QFormLayout* m_formLayout;
     QPushButton* m_testButton;
+    QPushButton* m_backButton;
+    QPushButton* m_cancelButton;
     QPushButton* m_saveButton;
 };

@@ -47,6 +47,14 @@ qt_add_executable(sqler
         src/dialogs/MongoDBConnectionForm.h
         src/dialogs/RedisConnectionForm.cpp
         src/dialogs/RedisConnectionForm.h
+        src/components/ThemedButton.cpp
+        src/components/ThemedButton.h
+        src/components/ThemedScrollArea.cpp
+        src/components/ThemedScrollArea.h
+        src/components/ThemedDialog.cpp
+        src/components/ThemedDialog.h
+        src/components/ThemedFormWidget.cpp
+        src/components/ThemedFormWidget.h
         src/Theme.cpp
         src/Theme.h
 )

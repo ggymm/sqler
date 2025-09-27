@@ -13,26 +13,40 @@ ConnectionFormBase::ConnectionFormBase(QWidget* parent)
     , m_saveButton(nullptr) {
 
     auto* layout = new QVBoxLayout(this);
-    layout->setContentsMargins(Theme::Spacing::lg, Theme::Spacing::lg, Theme::Spacing::lg, Theme::Spacing::lg);
+    layout->setContentsMargins(Theme::Spacing::lg, Theme::Spacing::lg, Theme::Spacing::lg, Theme::Spacing::sm);
     layout->setSpacing(Theme::Spacing::lg);
 
     m_formLayout = new QFormLayout();
     m_formLayout->setSpacing(Theme::Spacing::md);
+    m_formLayout->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
+    m_formLayout->setFormAlignment(Qt::AlignTop | Qt::AlignLeft);
+    m_formLayout->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);
     layout->addLayout(m_formLayout);
-
-    // setupUI(); // Remove this - will be called by subclasses
 
     layout->addStretch();
 
+    // Button layout: test connection on left, other buttons on right
     auto* buttonLayout = new QHBoxLayout();
     buttonLayout->setSpacing(Theme::Spacing::md);
 
+    // Left side: Test connection button
     m_testButton = new QPushButton("测试连接", this);
     m_testButton->setObjectName("testButton");
     connect(m_testButton, &QPushButton::clicked, this, &ConnectionFormBase::onTestConnection);
     buttonLayout->addWidget(m_testButton);
 
-    buttonLayout->addStretch();
+    buttonLayout->addStretch(); // Spacer between left and right buttons
+
+    // Right side: Previous, Cancel, Save buttons
+    m_backButton = new QPushButton("上一步", this);
+    m_backButton->setObjectName("backButton");
+    connect(m_backButton, &QPushButton::clicked, this, &ConnectionFormBase::backClicked);
+    buttonLayout->addWidget(m_backButton);
+
+    m_cancelButton = new QPushButton("取消", this);
+    m_cancelButton->setObjectName("cancelButton");
+    connect(m_cancelButton, &QPushButton::clicked, this, &ConnectionFormBase::cancelClicked);
+    buttonLayout->addWidget(m_cancelButton);
 
     m_saveButton = new QPushButton("保存", this);
     m_saveButton->setObjectName("saveButton");
@@ -48,7 +62,7 @@ ConnectionFormBase::ConnectionFormBase(QWidget* parent)
 void ConnectionFormBase::applyTheme() {
     const auto& colors = Theme::instance().colors();
 
-    QString styleSheet = QString(
+    const QString styleSheet = QStringLiteral(
         "ConnectionFormBase {"
         "    background-color: %1;"
         "}"
@@ -59,6 +73,7 @@ void ConnectionFormBase::applyTheme() {
         "    padding: 8px;"
         "    color: %4;"
         "    font-size: 14px;"
+        "    min-height: 20px;"
         "}"
         "QLineEdit:focus, QSpinBox:focus {"
         "    border-color: %5;"
@@ -66,6 +81,7 @@ void ConnectionFormBase::applyTheme() {
         "QLabel {"
         "    color: %4;"
         "    font-size: 14px;"
+        "    font-weight: 500;"
         "}"
         "QPushButton#testButton {"
         "    background-color: %5;"
@@ -74,9 +90,22 @@ void ConnectionFormBase::applyTheme() {
         "    border-radius: %3px;"
         "    padding: 8px 16px;"
         "    font-size: 14px;"
+        "    min-width: 80px;"
         "}"
         "QPushButton#testButton:hover {"
         "    background-color: %6;"
+        "}"
+        "QPushButton#backButton, QPushButton#cancelButton {"
+        "    background-color: transparent;"
+        "    color: %4;"
+        "    border: 1px solid %2;"
+        "    border-radius: %3px;"
+        "    padding: 8px 16px;"
+        "    font-size: 14px;"
+        "    min-width: 80px;"
+        "}"
+        "QPushButton#backButton:hover, QPushButton#cancelButton:hover {"
+        "    background-color: %2;"
         "}"
         "QPushButton#saveButton {"
         "    background-color: %5;"
@@ -85,6 +114,7 @@ void ConnectionFormBase::applyTheme() {
         "    border-radius: %3px;"
         "    padding: 8px 16px;"
         "    font-size: 14px;"
+        "    min-width: 80px;"
         "}"
         "QPushButton#saveButton:hover {"
         "    background-color: %6;"

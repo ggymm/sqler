@@ -12,11 +12,13 @@ SQLiteConnectionForm::SQLiteConnectionForm(QWidget* parent)
 }
 
 void SQLiteConnectionForm::setupUI() {
+    // Connection Name
     m_nameEdit = new QLineEdit(this);
     m_nameEdit->setText("SQLite 数据库");
     m_nameEdit->setPlaceholderText("我的SQLite数据库");
     m_formLayout->addRow("连接名称:", m_nameEdit);
 
+    // File Path with buttons
     auto* fileWidget = new QWidget(this);
     auto* fileLayout = new QHBoxLayout(fileWidget);
     fileLayout->setContentsMargins(0, 0, 0, 0);
@@ -29,11 +31,13 @@ void SQLiteConnectionForm::setupUI() {
 
     m_browseButton = new QPushButton("浏览", fileWidget);
     m_browseButton->setFixedWidth(80);
+    m_browseButton->setObjectName("browseButton");
     connect(m_browseButton, &QPushButton::clicked, this, &SQLiteConnectionForm::browseFile);
     fileLayout->addWidget(m_browseButton);
 
     m_newFileButton = new QPushButton("新建", fileWidget);
     m_newFileButton->setFixedWidth(80);
+    m_newFileButton->setObjectName("newFileButton");
     connect(m_newFileButton, &QPushButton::clicked, this, &SQLiteConnectionForm::createNewFile);
     fileLayout->addWidget(m_newFileButton);
 

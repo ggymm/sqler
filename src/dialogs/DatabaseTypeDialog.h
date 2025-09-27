@@ -1,9 +1,9 @@
 #pragma once
 
-#include <QDialog>
+#include "../components/ThemedDialog.h"
 
-class QGridLayout;
-class QPushButton;
+class ThemedScrollArea;
+class ThemedButton;
 
 struct DatabaseType {
     QString id;
@@ -12,24 +12,21 @@ struct DatabaseType {
     QString iconPath;
 };
 
-class DatabaseTypeDialog : public QDialog {
+class DatabaseTypeDialog : public ThemedDialog {
     Q_OBJECT
 
 public:
     explicit DatabaseTypeDialog(QWidget* parent = nullptr);
 
-    QString selectedDatabaseType() const { return m_selectedType; }
+    [[nodiscard]] QString selectedDatabaseType() const { return m_selectedType; }
 
 private slots:
-    void onThemeChanged();
     void onDatabaseTypeSelected(const QString& type);
 
 private:
     void setupUI();
-    void applyTheme();
-    QPushButton* createDatabaseTypeButton(const DatabaseType& dbType);
+    ThemedButton* createDatabaseTypeButton(const DatabaseType& dbType);
 
-    QGridLayout* m_gridLayout;
     QString m_selectedType;
     QList<DatabaseType> m_databaseTypes;
 };

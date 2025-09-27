@@ -4,6 +4,7 @@
 
 class QStackedWidget;
 class QPushButton;
+class QHBoxLayout;
 class DatabaseTypeDialog;
 class ConnectionFormBase;
 
@@ -28,6 +29,7 @@ private:
     QStackedWidget* m_stackedWidget;
     QPushButton* m_backButton;
     QPushButton* m_cancelButton;
+    QHBoxLayout* m_buttonLayout;
 
     DatabaseTypeDialog* m_typeDialog;
     ConnectionFormBase* m_currentForm;

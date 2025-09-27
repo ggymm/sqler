@@ -63,16 +63,16 @@ void NewConnectionDialog::setupUI() {
     m_stackedWidget = new QStackedWidget(this);
     layout->addWidget(m_stackedWidget);
 
-    auto* buttonLayout = new QHBoxLayout();
-    buttonLayout->setContentsMargins(Theme::Spacing::lg, Theme::Spacing::md, Theme::Spacing::lg, Theme::Spacing::lg);
-    buttonLayout->addStretch();
+    m_buttonLayout = new QHBoxLayout();
+    m_buttonLayout->setContentsMargins(Theme::Spacing::lg, Theme::Spacing::md, Theme::Spacing::lg, Theme::Spacing::lg);
+    m_buttonLayout->addStretch();
 
     m_cancelButton = new QPushButton("取消", this);
     m_cancelButton->setObjectName("cancelButton");
     connect(m_cancelButton, &QPushButton::clicked, this, &QDialog::reject);
-    buttonLayout->addWidget(m_cancelButton);
+    m_buttonLayout->addWidget(m_cancelButton);
 
-    layout->addLayout(buttonLayout);
+    layout->addLayout(m_buttonLayout);
 
     showDatabaseTypeSelection();
 }
@@ -92,6 +92,15 @@ void NewConnectionDialog::showDatabaseTypeSelection() {
     m_stackedWidget->addWidget(m_typeDialog);
     m_stackedWidget->setCurrentWidget(m_typeDialog);
     m_backButton->setVisible(false);
+
+    // Show bottom button layout for database type selection
+    for (int i = 0; i < m_buttonLayout->count(); ++i) {
+        if (auto* item = m_buttonLayout->itemAt(i)) {
+            if (auto* widget = item->widget()) {
+                widget->setVisible(true);
+            }
+        }
+    }
 }
 
 void NewConnectionDialog::showConnectionForm(const QString& databaseType) {
@@ -105,9 +114,20 @@ void NewConnectionDialog::showConnectionForm(const QString& databaseType) {
 
     if (m_currentForm) {
         connect(m_currentForm, &ConnectionFormBase::connectionSaved, this, &NewConnectionDialog::onConnectionSaved);
+        connect(m_currentForm, &ConnectionFormBase::backClicked, this, &NewConnectionDialog::onBackClicked);
+        connect(m_currentForm, &ConnectionFormBase::cancelClicked, this, &QDialog::reject);
         m_stackedWidget->addWidget(m_currentForm);
         m_stackedWidget->setCurrentWidget(m_currentForm);
-        m_backButton->setVisible(true);
+        m_backButton->setVisible(false); // Hide header back button since form has its own
+
+        // Hide bottom button layout when showing connection form
+        for (int i = 0; i < m_buttonLayout->count(); ++i) {
+            if (auto* item = m_buttonLayout->itemAt(i)) {
+                if (auto* widget = item->widget()) {
+                    widget->setVisible(false);
+                }
+            }
+        }
     }
 }
 
