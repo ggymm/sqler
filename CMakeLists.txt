@@ -1,12 +1,12 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(sqler LANGUAGES CXX)
+project(SimpleQtApp LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
 set(QT_ROOT "" CACHE PATH "Qt 6 installation prefix (optional)")
@@ -14,31 +14,62 @@ if(QT_ROOT)
     list(PREPEND CMAKE_PREFIX_PATH "${QT_ROOT}")
 endif()
 
-find_package(Qt6 6.2 COMPONENTS Quick QuickControls2 Qml Sql Network REQUIRED)
+find_package(Qt6 6.2 COMPONENTS Core Widgets REQUIRED)
 
 if(COMMAND qt_standard_project_setup)
     qt_standard_project_setup()
 endif()
 
-add_executable(sqler
-    src/main.cpp
-    src/core/Config.cpp
-    src/core/ConnectionStore.cpp
-    src/db/DbUtil.cpp
-    src/db/Drivers.cpp
-    src/qml/Backend.cpp
-    assets/resources.qrc
+qt_add_executable(sqler
+        MANUAL_FINALIZATION
+        src/main.cpp
+        src/MainWindow.cpp
+        src/MainWindow.h
+        src/TopMenuBar.cpp
+        src/TopMenuBar.h
+        src/ConnectionPanel.cpp
+        src/ConnectionPanel.h
+        src/MainContent.cpp
+        src/MainContent.h
+        src/dialogs/NewConnectionDialog.cpp
+        src/dialogs/NewConnectionDialog.h
+        src/dialogs/DatabaseTypeDialog.cpp
+        src/dialogs/DatabaseTypeDialog.h
+        src/dialogs/ConnectionFormBase.cpp
+        src/dialogs/ConnectionFormBase.h
+        src/dialogs/MySQLConnectionForm.cpp
+        src/dialogs/MySQLConnectionForm.h
+        src/dialogs/PostgreSQLConnectionForm.cpp
+        src/dialogs/PostgreSQLConnectionForm.h
+        src/dialogs/SQLiteConnectionForm.cpp
+        src/dialogs/SQLiteConnectionForm.h
+        src/dialogs/MongoDBConnectionForm.cpp
+        src/dialogs/MongoDBConnectionForm.h
+        src/dialogs/RedisConnectionForm.cpp
+        src/dialogs/RedisConnectionForm.h
+        src/Theme.cpp
+        src/Theme.h
+)
+
+qt_add_resources(sqler "assets"
+    PREFIX "/"
+    FILES
+        assets/icons/new-conn.svg
+        assets/icons/new-query.svg
+        assets/icons/table.svg
+        assets/icons/query.svg
+        assets/icons/function.svg
+        assets/icons/user.svg
+        assets/icons/db/mysql.svg
+        assets/icons/db/postgresql.svg
+        assets/icons/db/sqlite.svg
+        assets/icons/db/mongodb.svg
+        assets/icons/db/redis.svg
+        assets/icons/db/oracle.svg
+        assets/icons/db/sqlserver.svg
 )
 set_target_properties(sqler PROPERTIES MACOSX_BUNDLE TRUE)
-target_include_directories(sqler PRIVATE src)
-target_link_libraries(sqler PRIVATE Qt6::Quick Qt6::QuickControls2 Qt6::Qml Qt6::Sql Qt6::Network)
-
-# Strict warnings and warnings-as-errors
-if (MSVC)
-    target_compile_options(sqler PRIVATE /W4 /permissive- /EHsc /Zc:__cplusplus /WX)
-else()
-    target_compile_options(sqler PRIVATE -Wall -Wextra -Wpedantic -Werror)
-endif()
+target_link_libraries(sqler PRIVATE Qt6::Core Qt6::Widgets)
 
 if(COMMAND qt_finalize_executable)
     qt_finalize_executable(sqler)
@@ -58,45 +89,6 @@ if(COMMAND qt_generate_deploy_app_script)
 endif()
 
 add_custom_target(deploy
-    COMMAND ${CMAKE_COMMAND} --install "${CMAKE_BINARY_DIR}" --prefix "${CMAKE_BINARY_DIR}/install"
-    DEPENDS sqler
+        COMMAND ${CMAKE_COMMAND} --install "${CMAKE_BINARY_DIR}" --prefix "${CMAKE_BINARY_DIR}/install"
+        DEPENDS SimpleQtApp
 )
-
-# ---------- Code Quality: Quick Style/Lint Targets (Plan A) ----------
-# QML files
-file(GLOB_RECURSE QML_FILES
-    RELATIVE ${CMAKE_SOURCE_DIR}
-    assets/qml/*.qml)
-
-add_custom_target(format-qml
-    COMMAND qmlformat -i ${QML_FILES}
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    COMMENT "Run qmlformat on all QML files"
-)
-
-add_custom_target(lint-qml
-    COMMAND qmllint ${QML_FILES}
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    COMMENT "Run qmllint on all QML files"
-)
-
-# C++ files
-file(GLOB_RECURSE CPP_FILES
-    RELATIVE ${CMAKE_SOURCE_DIR}
-    src/*.cpp src/*.c src/*.cc src/*.cxx
-    src/*.h src/*.hh src/*.hpp src/*.hxx)
-
-find_program(CLANG_FORMAT_EXE NAMES clang-format)
-if(CLANG_FORMAT_EXE)
-    add_custom_target(format-cpp
-        COMMAND ${CLANG_FORMAT_EXE} -i ${CPP_FILES}
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-        COMMENT "Run clang-format on all C/C++ files"
-    )
-else()
-    add_custom_target(format-cpp
-        COMMAND ${CMAKE_COMMAND} -E echo "clang-format not found. Install it to enable C++ formatting."
-    )
-endif()
-
-# Note: formatting/linting is handled via Makefile targets to avoid coupling with CMake builds.

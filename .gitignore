@@ -3,13 +3,3 @@
 build
 cmake-build-debug
 cmake-build-release
-*.user
-.DS_Store
-
-# qmllint backups
-assets/qml/**/*.bak
-assets/qml/*.bak
-
-# compile_commands
-build/Debug/compile_commands.json
-build/Release/compile_commands.json
