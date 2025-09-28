@@ -5,7 +5,6 @@
 #include "../components/GStyle.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QLabel>
 #include <QIcon>
 
 DatabaseTypeDialog::DatabaseTypeDialog(QWidget* parent)
@@ -21,8 +20,6 @@ DatabaseTypeDialog::DatabaseTypeDialog(QWidget* parent)
     };
 
     setupUI();
-
-    // No need to connect theme signals as ThemedDialog handles it
 }
 
 void DatabaseTypeDialog::setupUI() {

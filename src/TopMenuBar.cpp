@@ -59,6 +59,3 @@ GPushButton* TopMenuBar::createMenuButton(const QString& text, const QString& ic
     return button;
 }
 
-void TopMenuBar::toggleTheme() {
-    // No-op (no global theme now)
-}

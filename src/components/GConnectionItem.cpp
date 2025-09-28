@@ -40,8 +40,8 @@ void GConnectionItem::buildUI(const QString& name, const QString& type) {
 }
 
 void GConnectionItem::applyStyle() {
-    setProperty("g-selected", m_selected ? "true" : "false");
-    m_statusDot->setProperty("g-status", m_connected ? "connected" : "disconnected");
+    setProperty("gSelected", m_selected ? "true" : "false");
+    m_statusDot->setProperty("gStatus", m_connected ? "connected" : "disconnected");
     style()->unpolish(this);
     style()->polish(this);
     update();

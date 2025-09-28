@@ -27,7 +27,7 @@ void GLabel::setRole(Role role) {
 }
 
 void GLabel::applyStyle() {
-    setProperty("g-role", roleToString(m_role));
+    setProperty("gRole", roleToString(m_role));
     style()->unpolish(this);
     style()->polish(this);
     update();

@@ -51,11 +51,9 @@ ConnectionFormBase::ConnectionFormBase(QWidget* parent)
     buttonLayout->addWidget(m_saveButton);
 
     layout->addLayout(buttonLayout);
-
-    applyTheme();
 }
 
-void ConnectionFormBase::applyTheme() { /* no page-level styles */ }
+ 
 
 void ConnectionFormBase::onTestConnection() {
     m_testButton->setEnabled(false);

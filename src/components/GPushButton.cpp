@@ -41,7 +41,7 @@ void GPushButton::setVariant(Variant variant) {
 }
 
 void GPushButton::applyStyle() {
-    setProperty("g-variant", variantToString(m_variant));
+    setProperty("gVariant", variantToString(m_variant));
     style()->unpolish(this);
     style()->polish(this);
     update();

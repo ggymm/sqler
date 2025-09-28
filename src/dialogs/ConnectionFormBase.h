@@ -26,7 +26,6 @@ protected slots:
 
 protected:
     virtual void setupUI() = 0;
-    virtual void applyTheme(); // deprecated, no-op
 
     QFormLayout* m_formLayout;
     GPushButton* m_testButton;

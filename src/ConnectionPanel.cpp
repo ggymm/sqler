@@ -6,6 +6,7 @@
 #include "components/GConnectionItem.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QListWidget>
 #include <QListWidgetItem>
 #include <QIcon>
 
@@ -53,9 +54,7 @@ QListWidgetItem* ConnectionPanel::createConnectionItem(const QString& name, cons
     return item;
 }
 
-void ConnectionPanel::applyTheme() {}
-
-void ConnectionPanel::onThemeChanged() {}
+ 
 
 void ConnectionPanel::onConnectionItemClicked(QListWidgetItem* item) {
     if (!item) return;

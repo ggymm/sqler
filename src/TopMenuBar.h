@@ -18,12 +18,8 @@ signals:
     void functionsClicked();
     void usersClicked();
 
-private slots:
-    static void toggleTheme();
-
 private:
     void setupUI();
-    void applyTheme();
     GPushButton* createMenuButton(const QString& text, const QString& iconPath);
 
     GPushButton* m_newConnectionBtn{};
