@@ -2,11 +2,13 @@
 
 #include <QPushButton>
 
-class GPushButton : public QPushButton {
+class GPushButton : public QPushButton
+{
     Q_OBJECT
 
-public:
-    enum class Variant {
+  public:
+    enum class Variant
+    {
         Primary,
         Secondary,
         Dialog,
@@ -21,10 +23,9 @@ public:
     void setVariant(Variant variant);
     [[nodiscard]] Variant variant() const { return m_variant; }
 
-private:
+  private:
     void setup();
     void applyStyle();
 
     Variant m_variant = Variant::Primary;
 };
-

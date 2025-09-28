@@ -1,16 +1,12 @@
 #include "MainWindow.h"
-#include "TopMenuBar.h"
 #include "ConnectionPanel.h"
 #include "MainContent.h"
-#include "components/GStyle.h"
+#include "TopMenuBar.h"
 #include "components/GSeparator.h"
+#include "components/GStyle.h"
 #include <QHBoxLayout>
 
-MainWindow::MainWindow(QWidget* parent)
-    : QMainWindow(parent)
-      , m_topMenuBar(nullptr)
-      , m_connectionPanel(nullptr)
-      , m_mainContent(nullptr)
+MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), m_topMenuBar(nullptr), m_connectionPanel(nullptr), m_mainContent(nullptr)
 {
     setupUI();
 }

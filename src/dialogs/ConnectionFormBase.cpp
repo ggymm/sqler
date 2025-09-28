@@ -1,17 +1,14 @@
 #include "ConnectionFormBase.h"
-#include "../components/GStyle.h"
 #include "../components/GPushButton.h"
-#include <QVBoxLayout>
-#include <QHBoxLayout>
+#include "../components/GStyle.h"
 #include <QFormLayout>
+#include <QHBoxLayout>
 #include <QSpacerItem>
 #include <QTimer>
+#include <QVBoxLayout>
 
-ConnectionFormBase::ConnectionFormBase(QWidget* parent)
-    : QWidget(parent)
-    , m_formLayout(nullptr)
-    , m_testButton(nullptr)
-    , m_saveButton(nullptr) {
+ConnectionFormBase::ConnectionFormBase(QWidget* parent) : QWidget(parent), m_formLayout(nullptr), m_testButton(nullptr), m_saveButton(nullptr)
+{
 
     auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(GStyle::Spacing::lg, GStyle::Spacing::lg, GStyle::Spacing::lg, GStyle::Spacing::sm);
@@ -53,14 +50,14 @@ ConnectionFormBase::ConnectionFormBase(QWidget* parent)
     layout->addLayout(buttonLayout);
 }
 
- 
-
-void ConnectionFormBase::onTestConnection() {
+void ConnectionFormBase::onTestConnection()
+{
     m_testButton->setEnabled(false);
     m_testButton->setText("测试中...");
 
     // Validate input first
-    if (!validateInput()) {
+    if (!validateInput())
+    {
         m_testButton->setEnabled(true);
         m_testButton->setText("测试连接");
         return;
@@ -76,8 +73,10 @@ void ConnectionFormBase::onTestConnection() {
     });
 }
 
-void ConnectionFormBase::onSaveConnection() {
-    if (validateInput()) {
+void ConnectionFormBase::onSaveConnection()
+{
+    if (validateInput())
+    {
         emit connectionSaved();
     }
 }

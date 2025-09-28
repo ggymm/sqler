@@ -1,17 +1,15 @@
 #include "SQLiteConnectionForm.h"
-#include <QFormLayout>
-#include <QHBoxLayout>
-#include <QFileDialog>
 #include "../components/GLabel.h"
 #include "../components/GLineEdit.h"
 #include "../components/GPushButton.h"
+#include <QFileDialog>
+#include <QFormLayout>
+#include <QHBoxLayout>
 
-SQLiteConnectionForm::SQLiteConnectionForm(QWidget* parent)
-    : ConnectionFormBase(parent) {
-    setupUI();
-}
+SQLiteConnectionForm::SQLiteConnectionForm(QWidget* parent) : ConnectionFormBase(parent) { setupUI(); }
 
-void SQLiteConnectionForm::setupUI() {
+void SQLiteConnectionForm::setupUI()
+{
     // Connection Name
     m_nameEdit = new GLineEdit(this);
     m_nameEdit->setText("SQLite 数据库");
@@ -44,33 +42,28 @@ void SQLiteConnectionForm::setupUI() {
     m_formLayout->addRow(new GLabel("数据库文件:"), fileWidget);
 }
 
-void SQLiteConnectionForm::browseFile() {
-    QString fileName = QFileDialog::getOpenFileName(
-        this,
-        "选择SQLite数据库文件",
-        QString(),
-        "SQLite数据库 (*.db *.sqlite *.sqlite3);;所有文件 (*)"
-    );
+void SQLiteConnectionForm::browseFile()
+{
+    QString fileName = QFileDialog::getOpenFileName(this, "选择SQLite数据库文件", QString(), "SQLite数据库 (*.db *.sqlite *.sqlite3);;所有文件 (*)");
 
-    if (!fileName.isEmpty()) {
+    if (!fileName.isEmpty())
+    {
         m_filePathEdit->setText(fileName);
     }
 }
 
-void SQLiteConnectionForm::createNewFile() {
-    QString fileName = QFileDialog::getSaveFileName(
-        this,
-        "新建SQLite数据库文件",
-        QString(),
-        "SQLite数据库 (*.db *.sqlite *.sqlite3);;所有文件 (*)"
-    );
+void SQLiteConnectionForm::createNewFile()
+{
+    QString fileName = QFileDialog::getSaveFileName(this, "新建SQLite数据库文件", QString(), "SQLite数据库 (*.db *.sqlite *.sqlite3);;所有文件 (*)");
 
-    if (!fileName.isEmpty()) {
+    if (!fileName.isEmpty())
+    {
         m_filePathEdit->setText(fileName);
     }
 }
 
-QVariantMap SQLiteConnectionForm::getConnectionData() const {
+QVariantMap SQLiteConnectionForm::getConnectionData() const
+{
     QVariantMap data;
     data["type"] = "sqlite";
     data["name"] = m_nameEdit->text();
@@ -78,7 +71,4 @@ QVariantMap SQLiteConnectionForm::getConnectionData() const {
     return data;
 }
 
-bool SQLiteConnectionForm::validateInput() const {
-    return !m_nameEdit->text().isEmpty() &&
-           !m_filePathEdit->text().isEmpty();
-}
+bool SQLiteConnectionForm::validateInput() const { return !m_nameEdit->text().isEmpty() && !m_filePathEdit->text().isEmpty(); }

@@ -1,16 +1,14 @@
 #include "PostgreSQLConnectionForm.h"
-#include <QFormLayout>
-#include <QSizePolicy>
 #include "../components/GLabel.h"
 #include "../components/GLineEdit.h"
 #include "../components/GSpinBox.h"
+#include <QFormLayout>
+#include <QSizePolicy>
 
-PostgreSQLConnectionForm::PostgreSQLConnectionForm(QWidget* parent)
-    : ConnectionFormBase(parent) {
-    setupUI();
-}
+PostgreSQLConnectionForm::PostgreSQLConnectionForm(QWidget* parent) : ConnectionFormBase(parent) { setupUI(); }
 
-void PostgreSQLConnectionForm::setupUI() {
+void PostgreSQLConnectionForm::setupUI()
+{
     // Connection Name
     m_nameEdit = new GLineEdit(this);
     m_nameEdit->setText("PostgreSQL 连接");
@@ -47,7 +45,8 @@ void PostgreSQLConnectionForm::setupUI() {
     m_formLayout->addRow(new GLabel("数据库名:"), m_databaseEdit);
 }
 
-QVariantMap PostgreSQLConnectionForm::getConnectionData() const {
+QVariantMap PostgreSQLConnectionForm::getConnectionData() const
+{
     QVariantMap data;
     data["type"] = "postgresql";
     data["name"] = m_nameEdit->text();
@@ -59,8 +58,7 @@ QVariantMap PostgreSQLConnectionForm::getConnectionData() const {
     return data;
 }
 
-bool PostgreSQLConnectionForm::validateInput() const {
-    return !m_nameEdit->text().isEmpty() &&
-           !m_hostEdit->text().isEmpty() &&
-           !m_usernameEdit->text().isEmpty();
+bool PostgreSQLConnectionForm::validateInput() const
+{
+    return !m_nameEdit->text().isEmpty() && !m_hostEdit->text().isEmpty() && !m_usernameEdit->text().isEmpty();
 }

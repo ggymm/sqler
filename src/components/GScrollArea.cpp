@@ -1,7 +1,7 @@
 #include "GScrollArea.h"
 
-GScrollArea::GScrollArea(QWidget* parent)
-    : QScrollArea(parent) {
+GScrollArea::GScrollArea(QWidget* parent) : QScrollArea(parent)
+{
     setWidgetResizable(true);
     applyStyle();
 }

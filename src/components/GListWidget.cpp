@@ -1,7 +1,7 @@
 #include "GListWidget.h"
 
-GListWidget::GListWidget(QWidget* parent)
-    : QListWidget(parent) {
+GListWidget::GListWidget(QWidget* parent) : QListWidget(parent)
+{
     setFrameShape(QFrame::NoFrame);
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);

@@ -1,28 +1,28 @@
 #include "NewConnectionDialog.h"
-#include "DatabaseTypeDialog.h"
-#include "ConnectionFormBase.h"
-#include "MySQLConnectionForm.h"
-#include "PostgreSQLConnectionForm.h"
-#include "SQLiteConnectionForm.h"
-#include "MongoDBConnectionForm.h"
-#include "RedisConnectionForm.h"
-#include "../components/GStyle.h"
-#include "../components/GPushButton.h"
 #include "../components/GLabel.h"
+#include "../components/GPushButton.h"
 #include "../components/GSeparator.h"
-#include <QVBoxLayout>
+#include "../components/GStyle.h"
+#include "ConnectionFormBase.h"
+#include "DatabaseTypeDialog.h"
+#include "MongoDBConnectionForm.h"
+#include "MySQLConnectionForm.h"
+#include "OracleConnectionForm.h"
+#include "PostgreSQLConnectionForm.h"
+#include "RedisConnectionForm.h"
+#include "SQLServerConnectionForm.h"
+#include "SQLiteConnectionForm.h"
 #include <QHBoxLayout>
 #include <QStackedWidget>
+#include <QVBoxLayout>
 
-NewConnectionDialog::NewConnectionDialog(QWidget* parent)
-    : GDialog(parent)
-    , m_stackedWidget(nullptr)
-    , m_typeDialog(nullptr)
-    , m_currentForm(nullptr) {
+NewConnectionDialog::NewConnectionDialog(QWidget* parent) : GDialog(parent), m_stackedWidget(nullptr), m_typeDialog(nullptr), m_currentForm(nullptr)
+{
     setupUI();
 }
 
-void NewConnectionDialog::setupUI() {
+void NewConnectionDialog::setupUI()
+{
     setWindowTitle("新建数据库连接");
     resize(600, 500);
 
@@ -67,34 +67,38 @@ void NewConnectionDialog::setupUI() {
     showDatabaseTypeSelection();
 }
 
-void NewConnectionDialog::showDatabaseTypeSelection() {
-    if (m_typeDialog) {
+void NewConnectionDialog::showDatabaseTypeSelection()
+{
+    if (m_typeDialog)
+    {
         m_stackedWidget->removeWidget(m_typeDialog);
         m_typeDialog->deleteLater();
     }
 
     m_typeDialog = new DatabaseTypeDialog(this);
-    connect(m_typeDialog, &QDialog::accepted, [this]() {
-        showConnectionForm(m_typeDialog->selectedDatabaseType());
-    });
-    connect(m_typeDialog, &QDialog::rejected, this, &QDialog::reject);
+    connect(m_typeDialog, &DatabaseTypeDialog::selected, this, &NewConnectionDialog::showConnectionForm);
 
     m_stackedWidget->addWidget(m_typeDialog);
     m_stackedWidget->setCurrentWidget(m_typeDialog);
     m_backButton->setVisible(false);
 
     // Show bottom button layout for database type selection
-    for (int i = 0; i < m_buttonLayout->count(); ++i) {
-        if (auto* item = m_buttonLayout->itemAt(i)) {
-            if (auto* widget = item->widget()) {
+    for (int i = 0; i < m_buttonLayout->count(); ++i)
+    {
+        if (auto* item = m_buttonLayout->itemAt(i))
+        {
+            if (auto* widget = item->widget())
+            {
                 widget->setVisible(true);
             }
         }
     }
 }
 
-void NewConnectionDialog::showConnectionForm(const QString& databaseType) {
-    if (m_currentForm) {
+void NewConnectionDialog::showConnectionForm(const QString& databaseType)
+{
+    if (m_currentForm)
+    {
         m_stackedWidget->removeWidget(m_currentForm);
         m_currentForm->deleteLater();
     }
@@ -102,7 +106,8 @@ void NewConnectionDialog::showConnectionForm(const QString& databaseType) {
     m_currentDatabaseType = databaseType;
     m_currentForm = createConnectionForm(databaseType);
 
-    if (m_currentForm) {
+    if (m_currentForm)
+    {
         connect(m_currentForm, &ConnectionFormBase::connectionSaved, this, &NewConnectionDialog::onConnectionSaved);
         connect(m_currentForm, &ConnectionFormBase::backClicked, this, &NewConnectionDialog::onBackClicked);
         connect(m_currentForm, &ConnectionFormBase::cancelClicked, this, &QDialog::reject);
@@ -111,9 +116,12 @@ void NewConnectionDialog::showConnectionForm(const QString& databaseType) {
         m_backButton->setVisible(false); // Hide header back button since form has its own
 
         // Hide bottom button layout when showing connection form
-        for (int i = 0; i < m_buttonLayout->count(); ++i) {
-            if (auto* item = m_buttonLayout->itemAt(i)) {
-                if (auto* widget = item->widget()) {
+        for (int i = 0; i < m_buttonLayout->count(); ++i)
+        {
+            if (auto* item = m_buttonLayout->itemAt(i))
+            {
+                if (auto* widget = item->widget())
+                {
                     widget->setVisible(false);
                 }
             }
@@ -121,28 +129,44 @@ void NewConnectionDialog::showConnectionForm(const QString& databaseType) {
     }
 }
 
-ConnectionFormBase* NewConnectionDialog::createConnectionForm(const QString& databaseType) {
-    if (databaseType == "mysql") {
+ConnectionFormBase* NewConnectionDialog::createConnectionForm(const QString& databaseType)
+{
+    if (databaseType == "mysql")
+    {
         return new MySQLConnectionForm(this);
-    } else if (databaseType == "postgresql") {
+    }
+    else if (databaseType == "postgresql")
+    {
         return new PostgreSQLConnectionForm(this);
-    } else if (databaseType == "sqlite") {
+    }
+    else if (databaseType == "sqlite")
+    {
         return new SQLiteConnectionForm(this);
-    } else if (databaseType == "mongodb") {
+    }
+    else if (databaseType == "mongodb")
+    {
         return new MongoDBConnectionForm(this);
-    } else if (databaseType == "redis") {
+    }
+    else if (databaseType == "redis")
+    {
         return new RedisConnectionForm(this);
-    } else {
+    }
+    else if (databaseType == "oracle")
+    {
+        return new OracleConnectionForm(this);
+    }
+    else if (databaseType == "sqlserver")
+    {
+        return new SQLServerConnectionForm(this);
+    }
+    else
+    {
         return nullptr;
     }
 }
 
 // No page-level styles
 
-void NewConnectionDialog::onBackClicked() {
-    showDatabaseTypeSelection();
-}
+void NewConnectionDialog::onBackClicked() { showDatabaseTypeSelection(); }
 
-void NewConnectionDialog::onConnectionSaved() {
-    accept();
-}
+void NewConnectionDialog::onConnectionSaved() { accept(); }

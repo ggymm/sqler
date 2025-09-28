@@ -2,11 +2,19 @@
 
 #include <QLabel>
 
-class GLabel : public QLabel {
+class GLabel : public QLabel
+{
     Q_OBJECT
 
-public:
-    enum class Role { Title, Subtitle, Body, Caption, Emphasis };
+  public:
+    enum class Role
+    {
+        Title,
+        Subtitle,
+        Body,
+        Caption,
+        Emphasis
+    };
 
     explicit GLabel(QWidget* parent = nullptr);
     explicit GLabel(const QString& text, QWidget* parent = nullptr);
@@ -14,10 +22,9 @@ public:
 
     void setRole(Role role);
 
-private:
+  private:
     void setup();
     void applyStyle();
 
     Role m_role = Role::Body;
 };
-

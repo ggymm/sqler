@@ -6,13 +6,14 @@ class TopMenuBar;
 class ConnectionPanel;
 class MainContent;
 
-class MainWindow : public QMainWindow {
+class MainWindow : public QMainWindow
+{
     Q_OBJECT
 
-public:
+  public:
     explicit MainWindow(QWidget* parent = nullptr);
 
-private:
+  private:
     void setupUI();
 
     TopMenuBar* m_topMenuBar;

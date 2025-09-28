@@ -8,19 +8,20 @@ class QHBoxLayout;
 class DatabaseTypeDialog;
 class ConnectionFormBase;
 
-class NewConnectionDialog : public GDialog {
+class NewConnectionDialog : public GDialog
+{
     Q_OBJECT
 
-public:
+  public:
     explicit NewConnectionDialog(QWidget* parent = nullptr);
 
-private slots:
+  private slots:
     void showDatabaseTypeSelection();
     void showConnectionForm(const QString& databaseType);
     void onBackClicked();
     void onConnectionSaved();
 
-private:
+  private:
     void setupUI();
     ConnectionFormBase* createConnectionForm(const QString& databaseType);
 

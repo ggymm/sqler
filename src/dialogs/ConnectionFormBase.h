@@ -1,30 +1,31 @@
 #pragma once
 
-#include <QWidget>
 #include <QVariantMap>
+#include <QWidget>
 
 class QFormLayout;
 class GPushButton;
 
-class ConnectionFormBase : public QWidget {
+class ConnectionFormBase : public QWidget
+{
     Q_OBJECT
 
-public:
+  public:
     explicit ConnectionFormBase(QWidget* parent = nullptr);
 
     virtual QVariantMap getConnectionData() const = 0;
     virtual bool validateInput() const = 0;
 
-signals:
+  signals:
     void connectionSaved();
     void backClicked();
     void cancelClicked();
 
-protected slots:
+  protected slots:
     virtual void onTestConnection();
     virtual void onSaveConnection();
 
-protected:
+  protected:
     virtual void setupUI() = 0;
 
     QFormLayout* m_formLayout;

@@ -2,13 +2,13 @@
 
 #include <QScrollArea>
 
-class GScrollArea : public QScrollArea {
+class GScrollArea : public QScrollArea
+{
     Q_OBJECT
 
-public:
+  public:
     explicit GScrollArea(QWidget* parent = nullptr);
 
-private:
+  private:
     void applyStyle();
 };
-

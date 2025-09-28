@@ -4,13 +4,14 @@
 
 class GPushButton;
 
-class TopMenuBar : public QWidget {
+class TopMenuBar : public QWidget
+{
     Q_OBJECT
 
-public:
+  public:
     explicit TopMenuBar(QWidget* parent = nullptr);
 
-signals:
+  signals:
     void newConnectionClicked();
     void newQueryClicked();
     void tablesClicked();
@@ -18,7 +19,7 @@ signals:
     void functionsClicked();
     void usersClicked();
 
-private:
+  private:
     void setupUI();
     GPushButton* createMenuButton(const QString& text, const QString& iconPath);
 

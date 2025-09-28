@@ -1,18 +1,18 @@
-#include "RedisConnectionForm.h"
+#include "OracleConnectionForm.h"
 #include "../components/GLabel.h"
 #include "../components/GLineEdit.h"
 #include "../components/GSpinBox.h"
 #include <QFormLayout>
 #include <QSizePolicy>
 
-RedisConnectionForm::RedisConnectionForm(QWidget* parent) : ConnectionFormBase(parent) { setupUI(); }
+OracleConnectionForm::OracleConnectionForm(QWidget* parent) : ConnectionFormBase(parent) { setupUI(); }
 
-void RedisConnectionForm::setupUI()
+void OracleConnectionForm::setupUI()
 {
     // Connection Name
     m_nameEdit = new GLineEdit(this);
-    m_nameEdit->setText("Redis 缓存");
-    m_nameEdit->setPlaceholderText("我的Redis连接");
+    m_nameEdit->setText("Oracle 连接");
+    m_nameEdit->setPlaceholderText("我的Oracle连接");
     m_formLayout->addRow(new GLabel("连接名称:"), m_nameEdit);
 
     // Host Address
@@ -24,40 +24,41 @@ void RedisConnectionForm::setupUI()
     // Port
     m_portSpin = new GSpinBox(this);
     m_portSpin->setRange(1, 65535);
-    m_portSpin->setValue(6379);
+    m_portSpin->setValue(1521);
     m_portSpin->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     m_formLayout->addRow(new GLabel("端口号:"), m_portSpin);
 
     // Username
     m_usernameEdit = new GLineEdit(this);
-    m_usernameEdit->setPlaceholderText("用户名 (可选, Redis 6.0+)");
+    m_usernameEdit->setPlaceholderText("数据库用户名 (例如: system)");
     m_formLayout->addRow(new GLabel("用户名:"), m_usernameEdit);
 
     // Password
     m_passwordEdit = new GLineEdit(this);
     m_passwordEdit->setEchoMode(QLineEdit::Password);
-    m_passwordEdit->setPlaceholderText("认证密码 (可选)");
+    m_passwordEdit->setPlaceholderText("数据库密码");
     m_formLayout->addRow(new GLabel("密码:"), m_passwordEdit);
 
-    // Database Index
-    m_databaseSpin = new GSpinBox(this);
-    m_databaseSpin->setRange(0, 15);
-    m_databaseSpin->setValue(0);
-    m_databaseSpin->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-    m_formLayout->addRow(new GLabel("数据库索引:"), m_databaseSpin);
+    // Service Name / SID
+    m_serviceNameEdit = new GLineEdit(this);
+    m_serviceNameEdit->setPlaceholderText("服务名或SID (例如: ORCL)");
+    m_formLayout->addRow(new GLabel("服务名/SID:"), m_serviceNameEdit);
 }
 
-QVariantMap RedisConnectionForm::getConnectionData() const
+QVariantMap OracleConnectionForm::getConnectionData() const
 {
     QVariantMap data;
-    data["type"] = "redis";
+    data["type"] = "oracle";
     data["name"] = m_nameEdit->text();
     data["host"] = m_hostEdit->text();
     data["port"] = m_portSpin->value();
     data["username"] = m_usernameEdit->text();
     data["password"] = m_passwordEdit->text();
-    data["database"] = m_databaseSpin->value();
+    data["serviceName"] = m_serviceNameEdit->text();
     return data;
 }
 
-bool RedisConnectionForm::validateInput() const { return !m_nameEdit->text().isEmpty() && !m_hostEdit->text().isEmpty(); }
+bool OracleConnectionForm::validateInput() const
+{
+    return !m_nameEdit->text().isEmpty() && !m_hostEdit->text().isEmpty() && !m_usernameEdit->text().isEmpty();
+}

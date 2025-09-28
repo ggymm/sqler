@@ -5,19 +5,20 @@
 class GLineEdit;
 class GSpinBox;
 
-class RedisConnectionForm : public ConnectionFormBase {
+class RedisConnectionForm : public ConnectionFormBase
+{
     Q_OBJECT
 
-public:
+  public:
     explicit RedisConnectionForm(QWidget* parent = nullptr);
 
     QVariantMap getConnectionData() const override;
     bool validateInput() const override;
 
-protected:
+  protected:
     void setupUI() override;
 
-private:
+  private:
     GLineEdit* m_nameEdit;
     GLineEdit* m_hostEdit;
     GSpinBox* m_portSpin;

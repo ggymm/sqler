@@ -5,19 +5,20 @@
 class GLineEdit;
 class GSpinBox;
 
-class MongoDBConnectionForm : public ConnectionFormBase {
+class MongoDBConnectionForm : public ConnectionFormBase
+{
     Q_OBJECT
 
-public:
+  public:
     explicit MongoDBConnectionForm(QWidget* parent = nullptr);
 
     QVariantMap getConnectionData() const override;
     bool validateInput() const override;
 
-protected:
+  protected:
     void setupUI() override;
 
-private:
+  private:
     GLineEdit* m_nameEdit;
     GLineEdit* m_connectionStringEdit;
     GLineEdit* m_hostEdit;

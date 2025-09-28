@@ -2,13 +2,13 @@
 
 #include <QListWidget>
 
-class GListWidget : public QListWidget {
+class GListWidget : public QListWidget
+{
     Q_OBJECT
 
-public:
+  public:
     explicit GListWidget(QWidget* parent = nullptr);
 
-private:
+  private:
     void applyStyle();
 };
-

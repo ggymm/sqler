@@ -1,16 +1,22 @@
 #pragma once
 
-#include <QObject>
 #include <QColor>
+#include <QObject>
 #include <QString>
 
-class GTheme : public QObject {
+class GTheme : public QObject
+{
     Q_OBJECT
 
-public:
-    enum class Mode { Light, Dark };
+  public:
+    enum class Mode
+    {
+        Light,
+        Dark
+    };
 
-    struct Palette {
+    struct Palette
+    {
         QColor background;
         QColor surface;
         QColor border;
@@ -31,10 +37,10 @@ public:
     // Apply global app stylesheet covering all components
     void applyToApp();
 
-signals:
+  signals:
     void themeChanged();
 
-private:
+  private:
     explicit GTheme(QObject* parent = nullptr);
     void updatePalette();
     [[nodiscard]] QString buildGlobalStyleSheet() const;
@@ -44,4 +50,3 @@ private:
     Palette m_light{};
     Palette m_dark{};
 };
-

@@ -5,13 +5,14 @@
 class GLabel;
 class GPushButton;
 
-class MainContent : public QWidget {
+class MainContent : public QWidget
+{
     Q_OBJECT
 
-public:
+  public:
     explicit MainContent(QWidget* parent = nullptr);
 
-private:
+  private:
     void setupUI();
     GPushButton* createQuickActionButton(const QString& title, const QString& description, const QString& iconPath);
 

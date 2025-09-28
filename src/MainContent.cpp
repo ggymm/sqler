@@ -1,19 +1,17 @@
 #include "MainContent.h"
-#include "components/GStyle.h"
 #include "components/GLabel.h"
 #include "components/GPushButton.h"
-#include <QVBoxLayout>
-#include <QHBoxLayout>
+#include "components/GStyle.h"
 #include <QGridLayout>
-#include <QSpacerItem>
+#include <QHBoxLayout>
 #include <QIcon>
+#include <QSpacerItem>
+#include <QVBoxLayout>
 
-MainContent::MainContent(QWidget* parent)
-    : QWidget(parent) {
-    setupUI();
-}
+MainContent::MainContent(QWidget* parent) : QWidget(parent) { setupUI(); }
 
-void MainContent::setupUI() {
+void MainContent::setupUI()
+{
     auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(GStyle::Spacing::lg, GStyle::Spacing::lg, GStyle::Spacing::lg, GStyle::Spacing::lg);
     layout->setSpacing(GStyle::Spacing::lg);
@@ -49,7 +47,8 @@ void MainContent::setupUI() {
     layout->addStretch();
 }
 
-GPushButton* MainContent::createQuickActionButton(const QString& title, const QString& description, const QString& iconPath) {
+GPushButton* MainContent::createQuickActionButton(const QString& title, const QString& description, const QString& iconPath)
+{
     auto* button = new GPushButton(this);
     button->setVariant(GPushButton::Variant::Secondary);
     button->setFixedSize(200, 120);

@@ -6,16 +6,17 @@ class GListWidget;
 class QListWidgetItem;
 class GPushButton;
 
-class ConnectionPanel : public QWidget {
+class ConnectionPanel : public QWidget
+{
     Q_OBJECT
 
-public:
+  public:
     explicit ConnectionPanel(QWidget* parent = nullptr);
 
-signals:
+  signals:
     void connectionSelected(const QString& connectionName);
 
-private:
+  private:
     void onConnectionItemClicked(QListWidgetItem* item);
     void setupUI();
     void populateConnections();

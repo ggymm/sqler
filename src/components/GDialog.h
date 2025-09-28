@@ -2,13 +2,13 @@
 
 #include <QDialog>
 
-class GDialog : public QDialog {
+class GDialog : public QDialog
+{
     Q_OBJECT
 
-public:
+  public:
     explicit GDialog(QWidget* parent = nullptr);
 
-private:
+  private:
     void applyStyle();
 };
-

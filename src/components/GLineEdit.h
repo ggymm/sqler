@@ -2,14 +2,14 @@
 
 #include <QLineEdit>
 
-class GLineEdit : public QLineEdit {
+class GLineEdit : public QLineEdit
+{
     Q_OBJECT
 
-public:
+  public:
     explicit GLineEdit(QWidget* parent = nullptr);
     explicit GLineEdit(const QString& text, QWidget* parent = nullptr);
 
-private:
+  private:
     void applyStyle();
 };
-

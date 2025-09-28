@@ -5,19 +5,20 @@
 class GLineEdit;
 class GSpinBox;
 
-class MySQLConnectionForm : public ConnectionFormBase {
+class MySQLConnectionForm : public ConnectionFormBase
+{
     Q_OBJECT
 
-public:
+  public:
     explicit MySQLConnectionForm(QWidget* parent = nullptr);
 
     QVariantMap getConnectionData() const override;
     bool validateInput() const override;
 
-protected:
+  protected:
     void setupUI() override;
 
-private:
+  private:
     GLineEdit* m_nameEdit;
     GLineEdit* m_hostEdit;
     GSpinBox* m_portSpin;

@@ -5,23 +5,24 @@
 class GLineEdit;
 class GPushButton;
 
-class SQLiteConnectionForm : public ConnectionFormBase {
+class SQLiteConnectionForm : public ConnectionFormBase
+{
     Q_OBJECT
 
-public:
+  public:
     explicit SQLiteConnectionForm(QWidget* parent = nullptr);
 
     QVariantMap getConnectionData() const override;
     bool validateInput() const override;
 
-protected:
+  protected:
     void setupUI() override;
 
-private slots:
+  private slots:
     void browseFile();
     void createNewFile();
 
-private:
+  private:
     GLineEdit* m_nameEdit;
     GLineEdit* m_filePathEdit;
     GPushButton* m_browseButton;

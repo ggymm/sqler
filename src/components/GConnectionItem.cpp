@@ -2,17 +2,18 @@
 #include "GLabel.h"
 #include "GStyle.h"
 #include <QHBoxLayout>
-#include <QVBoxLayout>
 #include <QIcon>
 #include <QStyle>
+#include <QVBoxLayout>
 
-GConnectionItem::GConnectionItem(const QString& name, const QString& type, bool connected, QWidget* parent)
-    : QWidget(parent), m_connected(connected) {
+GConnectionItem::GConnectionItem(const QString& name, const QString& type, bool connected, QWidget* parent) : QWidget(parent), m_connected(connected)
+{
     buildUI(name, type);
     applyStyle();
 }
 
-void GConnectionItem::buildUI(const QString& name, const QString& type) {
+void GConnectionItem::buildUI(const QString& name, const QString& type)
+{
     using namespace GStyle;
     auto* layout = new QHBoxLayout(this);
     layout->setContentsMargins(Spacing::sm, Spacing::sm, Spacing::sm, Spacing::sm);
@@ -26,7 +27,7 @@ void GConnectionItem::buildUI(const QString& name, const QString& type) {
 
     auto* textLayout = new QVBoxLayout();
     textLayout->setSpacing(2);
-    textLayout->setContentsMargins(0,0,0,0);
+    textLayout->setContentsMargins(0, 0, 0, 0);
     m_nameLabel = new GLabel(name, GLabel::Role::Body, this);
     textLayout->addWidget(m_nameLabel);
     m_typeLabel = new GLabel(type.toUpper(), GLabel::Role::Caption, this);
@@ -39,7 +40,8 @@ void GConnectionItem::buildUI(const QString& name, const QString& type) {
     layout->addWidget(m_statusDot);
 }
 
-void GConnectionItem::applyStyle() {
+void GConnectionItem::applyStyle()
+{
     setProperty("gSelected", m_selected ? "true" : "false");
     m_statusDot->setProperty("gStatus", m_connected ? "connected" : "disconnected");
     style()->unpolish(this);
@@ -50,10 +52,20 @@ void GConnectionItem::applyStyle() {
     m_statusDot->update();
 }
 
-void GConnectionItem::setSelected(bool sel) {
-    if (m_selected != sel) { m_selected = sel; applyStyle(); }
+void GConnectionItem::setSelected(bool sel)
+{
+    if (m_selected != sel)
+    {
+        m_selected = sel;
+        applyStyle();
+    }
 }
 
-void GConnectionItem::setConnected(bool connected) {
-    if (m_connected != connected) { m_connected = connected; applyStyle(); }
+void GConnectionItem::setConnected(bool connected)
+{
+    if (m_connected != connected)
+    {
+        m_connected = connected;
+        applyStyle();
+    }
 }

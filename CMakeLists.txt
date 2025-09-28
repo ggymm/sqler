@@ -25,6 +25,8 @@ qt_add_executable(sqler
     src/dialogs/SQLiteConnectionForm.cpp src/dialogs/SQLiteConnectionForm.h
     src/dialogs/MongoDBConnectionForm.cpp src/dialogs/MongoDBConnectionForm.h
     src/dialogs/RedisConnectionForm.cpp src/dialogs/RedisConnectionForm.h
+    src/dialogs/OracleConnectionForm.cpp src/dialogs/OracleConnectionForm.h
+    src/dialogs/SQLServerConnectionForm.cpp src/dialogs/SQLServerConnectionForm.h
     src/components/GStyle.h
     src/components/GPushButton.cpp src/components/GPushButton.h
     src/components/GLineEdit.cpp src/components/GLineEdit.h

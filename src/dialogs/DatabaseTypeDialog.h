@@ -1,33 +1,39 @@
 #pragma once
 
-#include "../components/GDialog.h"
+#include <QWidget>
 
 class GScrollArea;
 class GPushButton;
 class GLabel;
 
-struct DatabaseType {
+struct DatabaseType
+{
     QString id;
     QString displayName;
     QString description;
     QString iconPath;
 };
 
-class DatabaseTypeDialog : public GDialog {
+class DatabaseTypeDialog : public QWidget
+{
     Q_OBJECT
 
-public:
+  public:
     explicit DatabaseTypeDialog(QWidget* parent = nullptr);
 
     [[nodiscard]] QString selectedDatabaseType() const { return m_selectedType; }
 
-private slots:
+  private slots:
     void onDatabaseTypeSelected(const QString& type);
 
-private:
+  private:
     void setupUI();
     GPushButton* createDatabaseTypeButton(const DatabaseType& dbType);
 
     QString m_selectedType;
     QList<DatabaseType> m_databaseTypes;
+
+  signals:
+    void selected(const QString& type);
+    void cancelled();
 };

@@ -2,13 +2,13 @@
 
 #include <QSpinBox>
 
-class GSpinBox : public QSpinBox {
+class GSpinBox : public QSpinBox
+{
     Q_OBJECT
 
-public:
+  public:
     explicit GSpinBox(QWidget* parent = nullptr);
 
-private:
+  private:
     void applyStyle();
 };
-

@@ -4,19 +4,17 @@
 
 class GLabel;
 
-class GConnectionItem : public QWidget {
+class GConnectionItem : public QWidget
+{
     Q_OBJECT
 
-public:
-    explicit GConnectionItem(const QString& name,
-                              const QString& type,
-                              bool connected,
-                              QWidget* parent = nullptr);
+  public:
+    explicit GConnectionItem(const QString& name, const QString& type, bool connected, QWidget* parent = nullptr);
 
     void setSelected(bool sel);
     void setConnected(bool connected);
 
-private:
+  private:
     void buildUI(const QString& name, const QString& type);
     void applyStyle();
 
@@ -26,4 +24,3 @@ private:
     GLabel* m_typeLabel = nullptr;
     GLabel* m_statusDot = nullptr;
 };
-

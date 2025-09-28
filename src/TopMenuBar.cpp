@@ -1,18 +1,16 @@
 #include "TopMenuBar.h"
-#include "dialogs/NewConnectionDialog.h"
-#include "components/GStyle.h"
 #include "components/GPushButton.h"
 #include "components/GSeparator.h"
+#include "components/GStyle.h"
+#include "dialogs/NewConnectionDialog.h"
 #include <QHBoxLayout>
 #include <QIcon>
 #include <QSize>
 
-TopMenuBar::TopMenuBar(QWidget* parent)
-    : QWidget(parent) {
-    setupUI();
-}
+TopMenuBar::TopMenuBar(QWidget* parent) : QWidget(parent) { setupUI(); }
 
-void TopMenuBar::setupUI() {
+void TopMenuBar::setupUI()
+{
     auto* layout = new QHBoxLayout(this);
     layout->setContentsMargins(GStyle::Spacing::sm, GStyle::Spacing::sm, GStyle::Spacing::sm, GStyle::Spacing::sm);
     layout->setSpacing(GStyle::Spacing::sm);
@@ -51,11 +49,11 @@ void TopMenuBar::setupUI() {
     layout->addStretch();
 }
 
-GPushButton* TopMenuBar::createMenuButton(const QString& text, const QString& iconPath) {
+GPushButton* TopMenuBar::createMenuButton(const QString& text, const QString& iconPath)
+{
     auto* button = new GPushButton(text, GPushButton::Variant::Toolbar, this);
     button->setIcon(QIcon(iconPath));
     button->setIconSize(QSize(GStyle::Sizes::iconSize, GStyle::Sizes::iconSize));
     button->setFixedHeight(GStyle::Sizes::buttonHeight);
     return button;
 }
-
