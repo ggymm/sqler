@@ -2,7 +2,7 @@
 
 #include <QPushButton>
 
-class GPushButton : public QPushButton
+class GPushButton final : public QPushButton
 {
     Q_OBJECT
 

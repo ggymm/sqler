@@ -4,7 +4,7 @@
 
 class GLabel;
 
-class GConnectionItem : public QWidget
+class GConnectionItem final : public QWidget
 {
     Q_OBJECT
 

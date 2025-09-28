@@ -2,7 +2,7 @@
 
 #include <QLineEdit>
 
-class GLineEdit : public QLineEdit
+class GLineEdit final : public QLineEdit
 {
     Q_OBJECT
 

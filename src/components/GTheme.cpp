@@ -13,17 +13,17 @@ GTheme& GTheme::instance()
 
 GTheme::GTheme(QObject* parent) : QObject(parent)
 {
-    // Light palette
+    // Light palette - 基于现代设计系统重新设计
     m_light = {
-        QColor(0xffffff), // background
-        QColor(0xf0f0f0), // surface - 稍微深一点的灰色，不再接近黑色
-        QColor(0xd0d0d0), // border - 更明显的边框
-        QColor(0x007bff), // primary
-        QColor(0x0056b3), // primaryHover
-        QColor(0x212529), // text
-        QColor(0x6c757d), // textSecondary
-        QColor(0xadb5bd), // textMuted
-        QColor(0x28a745)  // success
+        QColor(0xfafafa), // background - 主背景，非纯白
+        QColor(0xf5f5f5), // surface - 面板背景，稍深于主背景
+        QColor(0xe0e0e0), // border - 边框，明显但不突兀
+        QColor(0x1976d2), // primary - 主色调，Material Design Blue
+        QColor(0x1565c0), // primaryHover - 主色调悬停
+        QColor(0x212121), // text - 主文本色
+        QColor(0x757575), // textSecondary - 次要文本色
+        QColor(0x9e9e9e), // textMuted - 弱化文本色
+        QColor(0x4caf50)  // success - 成功色
     };
 
     // Dark palette
@@ -74,11 +74,15 @@ QString GTheme::buildGlobalStyleSheet() const
             "QMainWindow { background-color: %1; color: %2; }"
             "GDialog { background-color: %3; color: %2; }"
             // Labels (transparent background to avoid tiles on buttons)
+            "QLabel { background-color: transparent; }"
             "GLabel { color: %2; font-size: 14px; background-color: transparent; }"
-            "GLabel[gRole=\"title\"] { font-size: 20px; font-weight: 700; color: %2; }"
-            "GLabel[gRole=\"subtitle\"] { font-size: 14px; font-weight: 500; color: %4; }"
-            "GLabel[gRole=\"caption\"] { font-size: 12px; color: %4; }"
-            "GLabel[gRole=\"emphasis\"] { font-size: 14px; font-weight: 600; color: %2; }"
+            "GLabel[gRole=\"title\"] { font-size: 20px; font-weight: 700; color: %2; background-color: transparent; }"
+            "GLabel[gRole=\"subtitle\"] { font-size: 14px; font-weight: 500; color: %4; background-color: transparent; }"
+            "GLabel[gRole=\"caption\"] { font-size: 12px; color: %4; background-color: transparent; }"
+            "GLabel[gRole=\"emphasis\"] { font-size: 14px; font-weight: 600; color: %2; background-color: transparent; }"
+            "GLabel[gRole=\"body\"] { font-size: 14px; color: %2; background-color: transparent; }"
+            // Form layout labels
+            "QFormLayout QLabel { background-color: transparent; }"
             // Buttons
             "GPushButton { border-radius: %5px; }"
             "GPushButton[gVariant=\"primary\"] { background-color: %6; color: white; border: none; padding: %7px %8px; min-width: %9px; }"
@@ -92,19 +96,19 @@ QString GTheme::buildGlobalStyleSheet() const
             "GPushButton[gVariant=\"dialog\"]:pressed { background-color: %20; border-color: %15; }"
             "GPushButton[gVariant=\"toolbar\"] { color: %2; background-color: transparent; border: none; padding: 4px 8px; }"
             "GPushButton[gVariant=\"toolbar\"]:hover { background-color: %11; }"
-            // Inputs
-            "GLineEdit { background-color: %3; border: 1px solid %11; border-radius: %5px; padding: %7px %8px; font-size: 14px; min-height: %16px; "
+            // Inputs - 使用白色背景提供更好的视觉层次
+            "GLineEdit { background-color: %1; border: 1px solid %11; border-radius: %5px; padding: %7px %8px; font-size: 14px; min-height: %16px; "
             "color: %2; }"
-            "GLineEdit:focus { border-color: %6; }"
+            "GLineEdit:focus { border-color: %6; box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2); }"
             "GLineEdit::placeholder { color: %4; }"
-            "GSpinBox { background-color: %3; border: 1px solid %11; border-radius: %5px; padding: %7px %8px; font-size: 14px; min-height: %16px; "
+            "GSpinBox { background-color: %1; border: 1px solid %11; border-radius: %5px; padding: %7px %8px; font-size: 14px; min-height: %16px; "
             "color: %2; selection-background-color: %6; }"
-            "GSpinBox:focus { border-color: %6; }"
+            "GSpinBox:focus { border-color: %6; box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2); }"
             "GSpinBox::up-button { subcontrol-origin: border; subcontrol-position: top right; width: 16px; height: 50%; border-left: 1px solid %11; "
-            "border-top-right-radius: %5px; background-color: %17; margin: 1px; }"
+            "border-top-right-radius: %5px; background-color: %1; margin: 1px; }"
             "GSpinBox::up-button:hover { background-color: %6; }"
             "GSpinBox::down-button { subcontrol-origin: border; subcontrol-position: bottom right; width: 16px; height: 50%; border-left: 1px solid "
-            "%11; border-bottom-right-radius: %5px; background-color: %17; margin: 1px; }"
+            "%11; border-bottom-right-radius: %5px; background-color: %1; margin: 1px; }"
             "GSpinBox::down-button:hover { background-color: %6; }"
             "GSpinBox::up-arrow { image: none; border-left: 3px solid transparent; border-right: 3px solid transparent; border-bottom: 4px solid %2; "
             "}"
@@ -136,6 +140,7 @@ QString GTheme::buildGlobalStyleSheet() const
             "ConnectionPanel { background-color: %3; border-right: 1px solid %11; }"
             "QWidget#connectionPanel { background-color: %3; border-right: 1px solid %11; }"
             "QWidget#dbTypePage { background-color: %3; }"
+            "QWidget#connectionFormPage { background-color: %1; }"
             // Separator
             "GSeparator { background-color: %11; color: %11; }")
             .arg(c.background.name())           // 1

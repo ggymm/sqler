@@ -8,6 +8,8 @@
 
 ConnectionFormBase::ConnectionFormBase(QWidget* parent) : QWidget(parent), m_formLayout(nullptr), m_testButton(nullptr), m_saveButton(nullptr)
 {
+    setAttribute(Qt::WA_StyledBackground, true);
+    setObjectName("connectionFormPage");
 
     auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(GStyle::Spacing::lg, GStyle::Spacing::lg, GStyle::Spacing::lg, GStyle::Spacing::sm);

@@ -2,7 +2,7 @@
 
 #include <QSpinBox>
 
-class GSpinBox : public QSpinBox
+class GSpinBox final : public QSpinBox
 {
     Q_OBJECT
 
