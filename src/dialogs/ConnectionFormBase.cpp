@@ -1,11 +1,10 @@
 #include "ConnectionFormBase.h"
+
 #include "../components/GPushButton.h"
 #include "../components/GStyle.h"
+
 #include <QFormLayout>
-#include <QHBoxLayout>
-#include <QSpacerItem>
 #include <QTimer>
-#include <QVBoxLayout>
 
 ConnectionFormBase::ConnectionFormBase(QWidget* parent) : QWidget(parent), m_formLayout(nullptr), m_testButton(nullptr), m_saveButton(nullptr)
 {
@@ -64,13 +63,17 @@ void ConnectionFormBase::onTestConnection()
     }
 
     // Simulate connection test (in real implementation, would test actual connection)
-    QTimer::singleShot(1000, this, [this]() {
-        m_testButton->setText("连接成功");
-        QTimer::singleShot(1500, this, [this]() {
-            m_testButton->setEnabled(true);
-            m_testButton->setText("测试连接");
-        });
-    });
+    QTimer::singleShot(1000, this,
+                       [this]()
+                       {
+                           m_testButton->setText("连接成功");
+                           QTimer::singleShot(1500, this,
+                                              [this]()
+                                              {
+                                                  m_testButton->setEnabled(true);
+                                                  m_testButton->setText("测试连接");
+                                              });
+                       });
 }
 
 void ConnectionFormBase::onSaveConnection()

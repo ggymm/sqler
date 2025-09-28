@@ -9,4 +9,6 @@ GListWidget::GListWidget(QWidget* parent) : QListWidget(parent)
     applyStyle();
 }
 
-void GListWidget::applyStyle() {}
+void GListWidget::applyStyle()
+{
+}

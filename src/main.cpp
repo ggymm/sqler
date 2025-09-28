@@ -1,5 +1,6 @@
 #include "MainWindow.h"
 #include "components/GTheme.h"
+
 #include <QApplication>
 
 int main(int argc, char* argv[])

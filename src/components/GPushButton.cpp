@@ -1,5 +1,7 @@
 #include "GPushButton.h"
+
 #include "GStyle.h"
+
 #include <QStyle>
 
 static QString variantToString(GPushButton::Variant v)
@@ -20,11 +22,20 @@ static QString variantToString(GPushButton::Variant v)
     return "neutral";
 }
 
-GPushButton::GPushButton(QWidget* parent) : QPushButton(parent) { setup(); }
+GPushButton::GPushButton(QWidget* parent) : QPushButton(parent)
+{
+    setup();
+}
 
-GPushButton::GPushButton(const QString& text, QWidget* parent) : QPushButton(text, parent) { setup(); }
+GPushButton::GPushButton(const QString& text, QWidget* parent) : QPushButton(text, parent)
+{
+    setup();
+}
 
-GPushButton::GPushButton(const QString& text, Variant variant, QWidget* parent) : QPushButton(text, parent), m_variant(variant) { setup(); }
+GPushButton::GPushButton(const QString& text, Variant variant, QWidget* parent) : QPushButton(text, parent), m_variant(variant)
+{
+    setup();
+}
 
 void GPushButton::setup()
 {

@@ -1,13 +1,12 @@
 #include "ConnectionPanel.h"
+
 #include "components/GConnectionItem.h"
 #include "components/GLabel.h"
 #include "components/GListWidget.h"
 #include "components/GPushButton.h"
 #include "components/GStyle.h"
-#include <QHBoxLayout>
-#include <QIcon>
+
 #include <QListWidget>
-#include <QListWidgetItem>
 #include <QVBoxLayout>
 
 ConnectionPanel::ConnectionPanel(QWidget* parent) : QWidget(parent)

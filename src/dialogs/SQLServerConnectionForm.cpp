@@ -1,11 +1,15 @@
 #include "SQLServerConnectionForm.h"
+
 #include "../components/GLabel.h"
 #include "../components/GLineEdit.h"
 #include "../components/GSpinBox.h"
-#include <QFormLayout>
-#include <QSizePolicy>
 
-SQLServerConnectionForm::SQLServerConnectionForm(QWidget* parent) : ConnectionFormBase(parent) { setupUI(); }
+#include <QFormLayout>
+
+SQLServerConnectionForm::SQLServerConnectionForm(QWidget* parent) : ConnectionFormBase(parent)
+{
+    setupUI();
+}
 
 void SQLServerConnectionForm::setupUI()
 {

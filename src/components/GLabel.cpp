@@ -1,4 +1,5 @@
 #include "GLabel.h"
+
 #include <QStyle>
 
 static QString roleToString(GLabel::Role r)
@@ -19,9 +20,18 @@ static QString roleToString(GLabel::Role r)
     return "body";
 }
 
-GLabel::GLabel(QWidget* parent) : QLabel(parent) { setup(); }
-GLabel::GLabel(const QString& text, QWidget* parent) : QLabel(text, parent) { setup(); }
-GLabel::GLabel(const QString& text, Role role, QWidget* parent) : QLabel(text, parent), m_role(role) { setup(); }
+GLabel::GLabel(QWidget* parent) : QLabel(parent)
+{
+    setup();
+}
+GLabel::GLabel(const QString& text, QWidget* parent) : QLabel(text, parent)
+{
+    setup();
+}
+GLabel::GLabel(const QString& text, Role role, QWidget* parent) : QLabel(text, parent), m_role(role)
+{
+    setup();
+}
 
 void GLabel::setup()
 {

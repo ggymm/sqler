@@ -1,8 +1,8 @@
 #include "GConnectionItem.h"
+
 #include "GLabel.h"
 #include "GStyle.h"
-#include <QHBoxLayout>
-#include <QIcon>
+
 #include <QStyle>
 #include <QVBoxLayout>
 

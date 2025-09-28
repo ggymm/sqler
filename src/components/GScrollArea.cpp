@@ -6,4 +6,6 @@ GScrollArea::GScrollArea(QWidget* parent) : QScrollArea(parent)
     applyStyle();
 }
 
-void GScrollArea::applyStyle() {}
+void GScrollArea::applyStyle()
+{
+}

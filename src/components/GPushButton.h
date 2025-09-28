@@ -21,7 +21,10 @@ class GPushButton : public QPushButton
     GPushButton(const QString& text, Variant variant, QWidget* parent = nullptr);
 
     void setVariant(Variant variant);
-    [[nodiscard]] Variant variant() const { return m_variant; }
+    [[nodiscard]] Variant variant() const
+    {
+        return m_variant;
+    }
 
   private:
     void setup();

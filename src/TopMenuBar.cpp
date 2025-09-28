@@ -1,13 +1,16 @@
 #include "TopMenuBar.h"
+
 #include "components/GPushButton.h"
 #include "components/GSeparator.h"
 #include "components/GStyle.h"
 #include "dialogs/NewConnectionDialog.h"
-#include <QHBoxLayout>
-#include <QIcon>
-#include <QSize>
 
-TopMenuBar::TopMenuBar(QWidget* parent) : QWidget(parent) { setupUI(); }
+#include <QHBoxLayout>
+
+TopMenuBar::TopMenuBar(QWidget* parent) : QWidget(parent)
+{
+    setupUI();
+}
 
 void TopMenuBar::setupUI()
 {
@@ -17,11 +20,13 @@ void TopMenuBar::setupUI()
 
     m_newConnectionBtn = createMenuButton(QStringLiteral("新建连接"), QStringLiteral(":/assets/icons/new-conn.svg"));
     layout->addWidget(m_newConnectionBtn);
-    connect(m_newConnectionBtn, &QPushButton::clicked, [this]() {
-        auto* dialog = new NewConnectionDialog(this);
-        dialog->exec();
-        dialog->deleteLater();
-    });
+    connect(m_newConnectionBtn, &QPushButton::clicked,
+            [this]()
+            {
+                auto* dialog = new NewConnectionDialog(this);
+                dialog->exec();
+                dialog->deleteLater();
+            });
 
     m_newQueryBtn = createMenuButton(QStringLiteral("新建查询"), QStringLiteral(":/assets/icons/new-query.svg"));
     layout->addWidget(m_newQueryBtn);

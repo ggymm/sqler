@@ -1,11 +1,15 @@
 #include "OracleConnectionForm.h"
+
 #include "../components/GLabel.h"
 #include "../components/GLineEdit.h"
 #include "../components/GSpinBox.h"
-#include <QFormLayout>
-#include <QSizePolicy>
 
-OracleConnectionForm::OracleConnectionForm(QWidget* parent) : ConnectionFormBase(parent) { setupUI(); }
+#include <QFormLayout>
+
+OracleConnectionForm::OracleConnectionForm(QWidget* parent) : ConnectionFormBase(parent)
+{
+    setupUI();
+}
 
 void OracleConnectionForm::setupUI()
 {

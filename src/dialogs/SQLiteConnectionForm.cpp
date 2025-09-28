@@ -1,12 +1,16 @@
 #include "SQLiteConnectionForm.h"
+
 #include "../components/GLabel.h"
 #include "../components/GLineEdit.h"
 #include "../components/GPushButton.h"
+
 #include <QFileDialog>
 #include <QFormLayout>
-#include <QHBoxLayout>
 
-SQLiteConnectionForm::SQLiteConnectionForm(QWidget* parent) : ConnectionFormBase(parent) { setupUI(); }
+SQLiteConnectionForm::SQLiteConnectionForm(QWidget* parent) : ConnectionFormBase(parent)
+{
+    setupUI();
+}
 
 void SQLiteConnectionForm::setupUI()
 {
@@ -71,4 +75,7 @@ QVariantMap SQLiteConnectionForm::getConnectionData() const
     return data;
 }
 
-bool SQLiteConnectionForm::validateInput() const { return !m_nameEdit->text().isEmpty() && !m_filePathEdit->text().isEmpty(); }
+bool SQLiteConnectionForm::validateInput() const
+{
+    return !m_nameEdit->text().isEmpty() && !m_filePathEdit->text().isEmpty();
+}

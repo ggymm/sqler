@@ -7,4 +7,6 @@ GDialog::GDialog(QWidget* parent) : QDialog(parent)
     applyStyle();
 }
 
-void GDialog::applyStyle() {}
+void GDialog::applyStyle()
+{
+}

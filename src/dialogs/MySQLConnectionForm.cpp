@@ -1,11 +1,15 @@
 #include "MySQLConnectionForm.h"
+
 #include "../components/GLabel.h"
 #include "../components/GLineEdit.h"
 #include "../components/GSpinBox.h"
-#include <QFormLayout>
-#include <QSizePolicy>
 
-MySQLConnectionForm::MySQLConnectionForm(QWidget* parent) : ConnectionFormBase(parent) { setupUI(); }
+#include <QFormLayout>
+
+MySQLConnectionForm::MySQLConnectionForm(QWidget* parent) : ConnectionFormBase(parent)
+{
+    setupUI();
+}
 
 void MySQLConnectionForm::setupUI()
 {

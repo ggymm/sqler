@@ -1,5 +1,7 @@
 #include "GTheme.h"
+
 #include "GStyle.h"
+
 #include <QApplication>
 
 GTheme& GTheme::instance()
@@ -50,9 +52,15 @@ void GTheme::setMode(Mode mode)
     }
 }
 
-void GTheme::updatePalette() { m_palette = (m_mode == Mode::Light) ? m_light : m_dark; }
+void GTheme::updatePalette()
+{
+    m_palette = (m_mode == Mode::Light) ? m_light : m_dark;
+}
 
-void GTheme::applyToApp() { qApp->setStyleSheet(buildGlobalStyleSheet()); }
+void GTheme::applyToApp()
+{
+    qApp->setStyleSheet(buildGlobalStyleSheet());
+}
 
 QString GTheme::buildGlobalStyleSheet() const
 {

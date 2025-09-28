@@ -1,4 +1,5 @@
 #include "NewConnectionDialog.h"
+
 #include "../components/GLabel.h"
 #include "../components/GPushButton.h"
 #include "../components/GSeparator.h"
@@ -12,7 +13,7 @@
 #include "RedisConnectionForm.h"
 #include "SQLServerConnectionForm.h"
 #include "SQLiteConnectionForm.h"
-#include <QHBoxLayout>
+
 #include <QStackedWidget>
 #include <QVBoxLayout>
 
@@ -167,6 +168,12 @@ ConnectionFormBase* NewConnectionDialog::createConnectionForm(const QString& dat
 
 // No page-level styles
 
-void NewConnectionDialog::onBackClicked() { showDatabaseTypeSelection(); }
+void NewConnectionDialog::onBackClicked()
+{
+    showDatabaseTypeSelection();
+}
 
-void NewConnectionDialog::onConnectionSaved() { accept(); }
+void NewConnectionDialog::onConnectionSaved()
+{
+    accept();
+}

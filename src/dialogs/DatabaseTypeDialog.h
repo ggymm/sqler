@@ -21,7 +21,10 @@ class DatabaseTypeDialog : public QWidget
   public:
     explicit DatabaseTypeDialog(QWidget* parent = nullptr);
 
-    [[nodiscard]] QString selectedDatabaseType() const { return m_selectedType; }
+    [[nodiscard]] QString selectedDatabaseType() const
+    {
+        return m_selectedType;
+    }
 
   private slots:
     void onDatabaseTypeSelected(const QString& type);

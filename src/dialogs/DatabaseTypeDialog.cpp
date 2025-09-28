@@ -1,10 +1,10 @@
 #include "DatabaseTypeDialog.h"
+
 #include "../components/GLabel.h"
 #include "../components/GPushButton.h"
 #include "../components/GScrollArea.h"
 #include "../components/GStyle.h"
-#include <QHBoxLayout>
-#include <QIcon>
+
 #include <QVBoxLayout>
 
 DatabaseTypeDialog::DatabaseTypeDialog(QWidget* parent) : QWidget(parent)

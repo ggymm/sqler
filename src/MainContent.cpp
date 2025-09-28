@@ -1,14 +1,15 @@
 #include "MainContent.h"
+
 #include "components/GLabel.h"
 #include "components/GPushButton.h"
 #include "components/GStyle.h"
-#include <QGridLayout>
-#include <QHBoxLayout>
-#include <QIcon>
-#include <QSpacerItem>
-#include <QVBoxLayout>
 
-MainContent::MainContent(QWidget* parent) : QWidget(parent) { setupUI(); }
+#include <QGridLayout>
+
+MainContent::MainContent(QWidget* parent) : QWidget(parent)
+{
+    setupUI();
+}
 
 void MainContent::setupUI()
 {

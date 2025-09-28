@@ -2,7 +2,6 @@
 
 #include <QColor>
 #include <QObject>
-#include <QString>
 
 class GTheme : public QObject
 {
@@ -31,8 +30,14 @@ class GTheme : public QObject
     static GTheme& instance();
 
     void setMode(Mode mode);
-    [[nodiscard]] Mode mode() const { return m_mode; }
-    [[nodiscard]] const Palette& palette() const { return m_palette; }
+    [[nodiscard]] Mode mode() const
+    {
+        return m_mode;
+    }
+    [[nodiscard]] const Palette& palette() const
+    {
+        return m_palette;
+    }
 
     // Apply global app stylesheet covering all components
     void applyToApp();

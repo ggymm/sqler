@@ -19,10 +19,10 @@ class RedisConnectionForm : public ConnectionFormBase
     void setupUI() override;
 
   private:
-    GLineEdit* m_nameEdit;
-    GLineEdit* m_hostEdit;
-    GSpinBox* m_portSpin;
-    GLineEdit* m_usernameEdit;
-    GLineEdit* m_passwordEdit;
-    GSpinBox* m_databaseSpin;
+    GLineEdit* m_nameEdit{};
+    GLineEdit* m_hostEdit{};
+    GSpinBox* m_portSpin{};
+    GLineEdit* m_usernameEdit{};
+    GLineEdit* m_passwordEdit{};
+    GSpinBox* m_databaseSpin{};
 };

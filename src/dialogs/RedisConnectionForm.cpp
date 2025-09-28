@@ -1,11 +1,15 @@
 #include "RedisConnectionForm.h"
+
 #include "../components/GLabel.h"
 #include "../components/GLineEdit.h"
 #include "../components/GSpinBox.h"
-#include <QFormLayout>
-#include <QSizePolicy>
 
-RedisConnectionForm::RedisConnectionForm(QWidget* parent) : ConnectionFormBase(parent) { setupUI(); }
+#include <QFormLayout>
+
+RedisConnectionForm::RedisConnectionForm(QWidget* parent) : ConnectionFormBase(parent)
+{
+    RedisConnectionForm::setupUI();
+}
 
 void RedisConnectionForm::setupUI()
 {
@@ -60,4 +64,7 @@ QVariantMap RedisConnectionForm::getConnectionData() const
     return data;
 }
 
-bool RedisConnectionForm::validateInput() const { return !m_nameEdit->text().isEmpty() && !m_hostEdit->text().isEmpty(); }
+bool RedisConnectionForm::validateInput() const
+{
+    return !m_nameEdit->text().isEmpty() && !m_hostEdit->text().isEmpty();
+}
