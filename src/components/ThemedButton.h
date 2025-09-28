@@ -9,7 +9,8 @@ public:
     enum class Variant {
         Primary,
         Secondary,
-        Dialog
+        Dialog,
+        Toolbar
     };
 
     explicit ThemedButton(QWidget* parent = nullptr);

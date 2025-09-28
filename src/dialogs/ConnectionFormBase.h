@@ -4,9 +4,7 @@
 #include <QVariantMap>
 
 class QFormLayout;
-class QLineEdit;
-class QSpinBox;
-class QPushButton;
+class GPushButton;
 
 class ConnectionFormBase : public QWidget {
     Q_OBJECT
@@ -23,17 +21,16 @@ signals:
     void cancelClicked();
 
 protected slots:
-    virtual void onThemeChanged();
     virtual void onTestConnection();
     virtual void onSaveConnection();
 
 protected:
     virtual void setupUI() = 0;
-    virtual void applyTheme();
+    virtual void applyTheme(); // deprecated, no-op
 
     QFormLayout* m_formLayout;
-    QPushButton* m_testButton;
-    QPushButton* m_backButton;
-    QPushButton* m_cancelButton;
-    QPushButton* m_saveButton;
+    GPushButton* m_testButton;
+    GPushButton* m_backButton;
+    GPushButton* m_cancelButton;
+    GPushButton* m_saveButton;
 };

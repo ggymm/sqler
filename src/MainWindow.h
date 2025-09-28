@@ -12,12 +12,8 @@ class MainWindow : public QMainWindow {
 public:
     explicit MainWindow(QWidget* parent = nullptr);
 
-private slots:
-    void onThemeChanged();
-
 private:
     void setupUI();
-    void applyTheme();
 
     TopMenuBar* m_topMenuBar;
     ConnectionPanel* m_connectionPanel;

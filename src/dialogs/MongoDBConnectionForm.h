@@ -2,8 +2,8 @@
 
 #include "ConnectionFormBase.h"
 
-class QLineEdit;
-class QSpinBox;
+class GLineEdit;
+class GSpinBox;
 
 class MongoDBConnectionForm : public ConnectionFormBase {
     Q_OBJECT
@@ -18,11 +18,11 @@ protected:
     void setupUI() override;
 
 private:
-    QLineEdit* m_nameEdit;
-    QLineEdit* m_connectionStringEdit;
-    QLineEdit* m_hostEdit;
-    QSpinBox* m_portSpin;
-    QLineEdit* m_usernameEdit;
-    QLineEdit* m_passwordEdit;
-    QLineEdit* m_databaseEdit;
+    GLineEdit* m_nameEdit;
+    GLineEdit* m_connectionStringEdit;
+    GLineEdit* m_hostEdit;
+    GSpinBox* m_portSpin;
+    GLineEdit* m_usernameEdit;
+    GLineEdit* m_passwordEdit;
+    GLineEdit* m_databaseEdit;
 };

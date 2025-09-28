@@ -2,8 +2,8 @@
 
 #include "ConnectionFormBase.h"
 
-class QLineEdit;
-class QSpinBox;
+class GLineEdit;
+class GSpinBox;
 
 class RedisConnectionForm : public ConnectionFormBase {
     Q_OBJECT
@@ -18,10 +18,10 @@ protected:
     void setupUI() override;
 
 private:
-    QLineEdit* m_nameEdit;
-    QLineEdit* m_hostEdit;
-    QSpinBox* m_portSpin;
-    QLineEdit* m_usernameEdit;
-    QLineEdit* m_passwordEdit;
-    QSpinBox* m_databaseSpin;
+    GLineEdit* m_nameEdit;
+    GLineEdit* m_hostEdit;
+    GSpinBox* m_portSpin;
+    GLineEdit* m_usernameEdit;
+    GLineEdit* m_passwordEdit;
+    GSpinBox* m_databaseSpin;
 };

@@ -136,6 +136,24 @@ QString Theme::getButtonStyle(const QString& variant) const {
          .arg(colors.surface.name(), colors.primary.name(), colors.surface.darker(110).name());
     }
 
+    if (variant == "toolbar") {
+        return QString(
+            "QPushButton {"
+            "    color: %1;"
+            "    background-color: transparent;"
+            "    border: none;"
+            "    padding: 4px 8px;"
+            "    border-radius: %2px;"
+            "    font-size: 14px;"
+            "}"
+            "QPushButton:hover {"
+            "    background-color: %3;"
+            "}"
+        ).arg(colors.text.name())
+         .arg(Sizes::borderRadius)
+         .arg(colors.border.name());
+    }
+
     return getButtonStyle("primary"); // Default fallback
 }
 

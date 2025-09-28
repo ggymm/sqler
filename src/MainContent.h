@@ -2,8 +2,8 @@
 
 #include <QWidget>
 
-class QLabel;
-class QPushButton;
+class GLabel;
+class GPushButton;
 
 class MainContent : public QWidget {
     Q_OBJECT
@@ -11,17 +11,13 @@ class MainContent : public QWidget {
 public:
     explicit MainContent(QWidget* parent = nullptr);
 
-private slots:
-    void onThemeChanged();
-
 private:
     void setupUI();
-    void applyTheme();
-    QPushButton* createQuickActionButton(const QString& title, const QString& description, const QString& iconPath);
+    GPushButton* createQuickActionButton(const QString& title, const QString& description, const QString& iconPath);
 
-    QLabel* m_titleLabel;
-    QLabel* m_subtitleLabel;
-    QPushButton* m_newConnectionAction;
-    QPushButton* m_newQueryAction;
-    QPushButton* m_browseTablesAction;
+    GLabel* m_titleLabel;
+    GLabel* m_subtitleLabel;
+    GPushButton* m_newConnectionAction;
+    GPushButton* m_newQueryAction;
+    GPushButton* m_browseTablesAction;
 };

@@ -2,8 +2,8 @@
 
 #include "ConnectionFormBase.h"
 
-class QLineEdit;
-class QPushButton;
+class GLineEdit;
+class GPushButton;
 
 class SQLiteConnectionForm : public ConnectionFormBase {
     Q_OBJECT
@@ -22,8 +22,8 @@ private slots:
     void createNewFile();
 
 private:
-    QLineEdit* m_nameEdit;
-    QLineEdit* m_filePathEdit;
-    QPushButton* m_browseButton;
-    QPushButton* m_newFileButton;
+    GLineEdit* m_nameEdit;
+    GLineEdit* m_filePathEdit;
+    GPushButton* m_browseButton;
+    GPushButton* m_newFileButton;
 };

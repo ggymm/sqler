@@ -2,8 +2,7 @@
 
 #include <QWidget>
 
-class QPushButton;
-class QToolButton;
+class GPushButton;
 
 class TopMenuBar : public QWidget {
     Q_OBJECT
@@ -20,19 +19,17 @@ signals:
     void usersClicked();
 
 private slots:
-    void onThemeChanged();
     static void toggleTheme();
 
 private:
     void setupUI();
     void applyTheme();
-    QPushButton* createMenuButton(const QString& text, const QString& iconPath);
+    GPushButton* createMenuButton(const QString& text, const QString& iconPath);
 
-    QPushButton* m_newConnectionBtn{};
-    QPushButton* m_newQueryBtn{};
-    QPushButton* m_tablesBtn{};
-    QPushButton* m_queryBtn{};
-    QPushButton* m_functionsBtn{};
-    QPushButton* m_usersBtn{};
-    QToolButton* m_themeToggle{};
+    GPushButton* m_newConnectionBtn{};
+    GPushButton* m_newQueryBtn{};
+    GPushButton* m_tablesBtn{};
+    GPushButton* m_queryBtn{};
+    GPushButton* m_functionsBtn{};
+    GPushButton* m_usersBtn{};
 };

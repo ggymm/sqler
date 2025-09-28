@@ -2,9 +2,9 @@
 #include "TopMenuBar.h"
 #include "ConnectionPanel.h"
 #include "MainContent.h"
-#include "Theme.h"
+#include "components/GStyle.h"
+#include "components/GSeparator.h"
 #include <QHBoxLayout>
-#include <QFrame>
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
@@ -13,9 +13,6 @@ MainWindow::MainWindow(QWidget* parent)
       , m_mainContent(nullptr)
 {
     setupUI();
-    applyTheme();
-
-    connect(&Theme::instance(), &Theme::themeChanged, this, &MainWindow::onThemeChanged);
 }
 
 void MainWindow::setupUI()
@@ -31,7 +28,7 @@ void MainWindow::setupUI()
     mainLayout->setSpacing(0);
 
     m_topMenuBar = new TopMenuBar(this);
-    m_topMenuBar->setFixedHeight(Theme::Sizes::topBarHeight);
+    m_topMenuBar->setFixedHeight(GStyle::Sizes::topBarHeight);
     mainLayout->addWidget(m_topMenuBar);
 
     auto* contentLayout = new QHBoxLayout();
@@ -39,13 +36,10 @@ void MainWindow::setupUI()
     contentLayout->setSpacing(0);
 
     m_connectionPanel = new ConnectionPanel(this);
-    m_connectionPanel->setFixedWidth(Theme::Sizes::sideBarWidth);
+    m_connectionPanel->setFixedWidth(GStyle::Sizes::sideBarWidth);
     contentLayout->addWidget(m_connectionPanel);
 
-    auto* separator = new QFrame(this);
-    separator->setFrameShape(QFrame::VLine);
-    separator->setLineWidth(1);
-    separator->setFixedWidth(1);
+    auto* separator = new GSeparator(GSeparator::Orientation::Vertical, this);
     contentLayout->addWidget(separator);
 
     m_mainContent = new MainContent(this);
@@ -56,19 +50,4 @@ void MainWindow::setupUI()
     mainLayout->addWidget(contentWidget);
 }
 
-void MainWindow::applyTheme()
-{
-    const auto& colors = Theme::instance().colors();
-
-    const QString styleSheet = QStringLiteral(
-        "QMainWindow { background-color: %1; }"
-        "QFrame[frameShape=\"5\"] { color: %2; }" // VLine separator
-    ).arg(colors.background.name(), colors.border.name());
-
-    setStyleSheet(styleSheet);
-}
-
-void MainWindow::onThemeChanged()
-{
-    applyTheme();
-}
+// No page-level styles

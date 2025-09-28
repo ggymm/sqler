@@ -39,6 +39,7 @@ void ThemedButton::applyTheme() {
         case Variant::Primary:  variantName = "primary"; break;
         case Variant::Secondary: variantName = "secondary"; break;
         case Variant::Dialog:   variantName = "dialog"; break;
+        case Variant::Toolbar:  variantName = "toolbar"; break;
     }
 
     setStyleSheet(Theme::instance().getButtonStyle(variantName));

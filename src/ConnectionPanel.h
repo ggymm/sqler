@@ -2,9 +2,9 @@
 
 #include <QWidget>
 
-class QListWidget;
+class GListWidget;
 class QListWidgetItem;
-class QPushButton;
+class GPushButton;
 
 class ConnectionPanel : public QWidget {
     Q_OBJECT
@@ -25,6 +25,6 @@ private:
     void populateConnections();
     QListWidgetItem* createConnectionItem(const QString& name, const QString& type, bool connected);
 
-    QListWidget* m_connectionsList;
-    QPushButton* m_addButton;
+    GListWidget* m_connectionsList;
+    GPushButton* m_addButton;
 };

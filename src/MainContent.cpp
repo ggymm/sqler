@@ -1,42 +1,37 @@
 #include "MainContent.h"
-#include "Theme.h"
+#include "components/GStyle.h"
+#include "components/GLabel.h"
+#include "components/GPushButton.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGridLayout>
-#include <QLabel>
-#include <QPushButton>
 #include <QSpacerItem>
 #include <QIcon>
 
 MainContent::MainContent(QWidget* parent)
     : QWidget(parent) {
     setupUI();
-    applyTheme();
-
-    connect(&Theme::instance(), &Theme::themeChanged, this, &MainContent::onThemeChanged);
 }
 
 void MainContent::setupUI() {
     auto* layout = new QVBoxLayout(this);
-    layout->setContentsMargins(Theme::Spacing::lg, Theme::Spacing::lg, Theme::Spacing::lg, Theme::Spacing::lg);
-    layout->setSpacing(Theme::Spacing::lg);
+    layout->setContentsMargins(GStyle::Spacing::lg, GStyle::Spacing::lg, GStyle::Spacing::lg, GStyle::Spacing::lg);
+    layout->setSpacing(GStyle::Spacing::lg);
 
     layout->addStretch();
 
-    m_titleLabel = new QLabel("欢迎使用 SQL 数据库管理器", this);
-    m_titleLabel->setObjectName("titleLabel");
+    m_titleLabel = new GLabel("欢迎使用 SQL 数据库管理器", GLabel::Role::Title, this);
     m_titleLabel->setAlignment(Qt::AlignCenter);
     layout->addWidget(m_titleLabel);
 
-    m_subtitleLabel = new QLabel("请从左侧选择数据库连接开始使用", this);
-    m_subtitleLabel->setObjectName("subtitleLabel");
+    m_subtitleLabel = new GLabel("请从左侧选择数据库连接开始使用", GLabel::Role::Subtitle, this);
     m_subtitleLabel->setAlignment(Qt::AlignCenter);
     layout->addWidget(m_subtitleLabel);
 
-    layout->addSpacerItem(new QSpacerItem(0, Theme::Spacing::xl, QSizePolicy::Minimum, QSizePolicy::Fixed));
+    layout->addSpacerItem(new QSpacerItem(0, GStyle::Spacing::xl, QSizePolicy::Minimum, QSizePolicy::Fixed));
 
     auto* actionsLayout = new QHBoxLayout();
-    actionsLayout->setSpacing(Theme::Spacing::lg);
+    actionsLayout->setSpacing(GStyle::Spacing::lg);
 
     m_newConnectionAction = createQuickActionButton("新建连接", "连接到新的数据库", ":/assets/icons/new-conn.svg");
     actionsLayout->addWidget(m_newConnectionAction);
@@ -54,74 +49,28 @@ void MainContent::setupUI() {
     layout->addStretch();
 }
 
-QPushButton* MainContent::createQuickActionButton(const QString& title, const QString& description, const QString& iconPath) {
-    auto* button = new QPushButton(this);
+GPushButton* MainContent::createQuickActionButton(const QString& title, const QString& description, const QString& iconPath) {
+    auto* button = new GPushButton(this);
+    button->setVariant(GPushButton::Variant::Secondary);
     button->setFixedSize(200, 120);
-    button->setObjectName("quickActionButton");
 
     auto* layout = new QVBoxLayout(button);
     layout->setAlignment(Qt::AlignCenter);
-    layout->setSpacing(Theme::Spacing::sm);
+    layout->setSpacing(GStyle::Spacing::sm);
 
-    auto* iconLabel = new QLabel(button);
+    auto* iconLabel = new GLabel(button);
     iconLabel->setPixmap(QIcon(iconPath).pixmap(32, 32));
     iconLabel->setAlignment(Qt::AlignCenter);
     layout->addWidget(iconLabel);
 
-    auto* titleLabel = new QLabel(title, button);
-    titleLabel->setObjectName("actionTitle");
+    auto* titleLabel = new GLabel(title, GLabel::Role::Emphasis, button);
     titleLabel->setAlignment(Qt::AlignCenter);
     layout->addWidget(titleLabel);
 
-    auto* descLabel = new QLabel(description, button);
-    descLabel->setObjectName("actionDescription");
+    auto* descLabel = new GLabel(description, GLabel::Role::Caption, button);
     descLabel->setAlignment(Qt::AlignCenter);
     descLabel->setWordWrap(true);
     layout->addWidget(descLabel);
 
     return button;
-}
-
-void MainContent::applyTheme() {
-    const auto& colors = Theme::instance().colors();
-
-    QString styleSheet = QString(
-        "MainContent {"
-        "    background-color: %1;"
-        "}"
-        "QLabel#titleLabel {"
-        "    color: %2;"
-        "    font-size: 20px;"
-        "    font-weight: bold;"
-        "}"
-        "QLabel#subtitleLabel {"
-        "    color: %3;"
-        "    font-size: 14px;"
-        "}"
-        "QPushButton#quickActionButton {"
-        "    background-color: %1;"
-        "    border: 1px solid %4;"
-        "    border-radius: %5px;"
-        "}"
-        "QPushButton#quickActionButton:hover {"
-        "    background-color: %6;"
-        "}"
-        "QLabel#actionTitle {"
-        "    color: %2;"
-        "    font-size: 14px;"
-        "    font-weight: bold;"
-        "}"
-        "QLabel#actionDescription {"
-        "    color: %3;"
-        "    font-size: 12px;"
-        "}"
-    ).arg(colors.background.name(), colors.text.name(), colors.textSecondary.name(), colors.border.name())
-     .arg(Theme::Sizes::borderRadius)
-     .arg(colors.surface.name());
-
-    setStyleSheet(styleSheet);
-}
-
-void MainContent::onThemeChanged() {
-    applyTheme();
 }

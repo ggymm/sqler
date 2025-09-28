@@ -1,0 +1,37 @@
+---
+Language: Cpp
+BasedOnStyle: LLVM
+
+TabWidth: 4
+IndentWidth: 4
+UseTab: Never
+ColumnLimit: 150
+
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass: true
+  AfterControlStatement: true
+  AfterEnum: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterStruct: true
+  AfterUnion: true
+  BeforeCatch: true
+  BeforeElse: true
+
+SpaceBeforeParens: ControlStatements
+AlignAfterOpenBracket: Align
+
+SortIncludes: true
+IncludeCategories:
+  - Regex: '^".*\.h"'
+    Priority: 1
+  - Regex: '^<Q.*>'
+    Priority: 2
+  - Regex: '^<.*\.h>'
+    Priority: 3
+  - Regex: '^<.*>'
+    Priority: 4
+
+PointerAlignment: Left
+ReferenceAlignment: Left

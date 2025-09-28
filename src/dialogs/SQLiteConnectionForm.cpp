@@ -1,10 +1,10 @@
 #include "SQLiteConnectionForm.h"
 #include <QFormLayout>
-#include <QLineEdit>
-#include <QPushButton>
 #include <QHBoxLayout>
 #include <QFileDialog>
-#include <QLabel>
+#include "../components/GLabel.h"
+#include "../components/GLineEdit.h"
+#include "../components/GPushButton.h"
 
 SQLiteConnectionForm::SQLiteConnectionForm(QWidget* parent)
     : ConnectionFormBase(parent) {
@@ -13,10 +13,10 @@ SQLiteConnectionForm::SQLiteConnectionForm(QWidget* parent)
 
 void SQLiteConnectionForm::setupUI() {
     // Connection Name
-    m_nameEdit = new QLineEdit(this);
+    m_nameEdit = new GLineEdit(this);
     m_nameEdit->setText("SQLite 数据库");
     m_nameEdit->setPlaceholderText("我的SQLite数据库");
-    m_formLayout->addRow("连接名称:", m_nameEdit);
+    m_formLayout->addRow(new GLabel("连接名称:"), m_nameEdit);
 
     // File Path with buttons
     auto* fileWidget = new QWidget(this);
@@ -24,24 +24,24 @@ void SQLiteConnectionForm::setupUI() {
     fileLayout->setContentsMargins(0, 0, 0, 0);
     fileLayout->setSpacing(8);
 
-    m_filePathEdit = new QLineEdit(fileWidget);
+    m_filePathEdit = new GLineEdit(fileWidget);
     m_filePathEdit->setPlaceholderText("选择或输入数据库文件路径");
     m_filePathEdit->setReadOnly(true);
     fileLayout->addWidget(m_filePathEdit);
 
-    m_browseButton = new QPushButton("浏览", fileWidget);
+    m_browseButton = new GPushButton("浏览", GPushButton::Variant::Secondary, fileWidget);
     m_browseButton->setFixedWidth(80);
     m_browseButton->setObjectName("browseButton");
     connect(m_browseButton, &QPushButton::clicked, this, &SQLiteConnectionForm::browseFile);
     fileLayout->addWidget(m_browseButton);
 
-    m_newFileButton = new QPushButton("新建", fileWidget);
+    m_newFileButton = new GPushButton("新建", GPushButton::Variant::Secondary, fileWidget);
     m_newFileButton->setFixedWidth(80);
     m_newFileButton->setObjectName("newFileButton");
     connect(m_newFileButton, &QPushButton::clicked, this, &SQLiteConnectionForm::createNewFile);
     fileLayout->addWidget(m_newFileButton);
 
-    m_formLayout->addRow("数据库文件:", fileWidget);
+    m_formLayout->addRow(new GLabel("数据库文件:"), fileWidget);
 }
 
 void SQLiteConnectionForm::browseFile() {

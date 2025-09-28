@@ -8,6 +8,7 @@ help:
 	@echo "  make run-release    - Run Release build"
 	@echo "  make build-debug    - Configure + build Debug (build/Debug)"
 	@echo "  make build-release  - Configure + build Release (build/Release)"
+	@echo "  make format         - Format all .cpp and .h files with clang-format"
 	@echo "  make clean          - Remove build directory"
 
 
@@ -35,3 +36,6 @@ build-release:
 
 clean:
 	@rm -rf build
+
+format:
+	@find . -name "*.cpp" -o -name "*.h" | xargs clang-format -i

@@ -6,28 +6,24 @@
 #include "SQLiteConnectionForm.h"
 #include "MongoDBConnectionForm.h"
 #include "RedisConnectionForm.h"
-#include "../Theme.h"
+#include "../components/GStyle.h"
+#include "../components/GPushButton.h"
+#include "../components/GLabel.h"
+#include "../components/GSeparator.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QStackedWidget>
-#include <QPushButton>
-#include <QLabel>
-#include <QFrame>
 
 NewConnectionDialog::NewConnectionDialog(QWidget* parent)
-    : QDialog(parent)
+    : GDialog(parent)
     , m_stackedWidget(nullptr)
     , m_typeDialog(nullptr)
     , m_currentForm(nullptr) {
     setupUI();
-    applyTheme();
-
-    connect(&Theme::instance(), &Theme::themeChanged, this, &NewConnectionDialog::onThemeChanged);
 }
 
 void NewConnectionDialog::setupUI() {
     setWindowTitle("新建数据库连接");
-    setModal(true);
     resize(600, 500);
 
     auto* layout = new QVBoxLayout(this);
@@ -35,40 +31,34 @@ void NewConnectionDialog::setupUI() {
     layout->setSpacing(0);
 
     auto* headerLayout = new QHBoxLayout();
-    headerLayout->setContentsMargins(Theme::Spacing::lg, Theme::Spacing::lg, Theme::Spacing::lg, Theme::Spacing::md);
-    headerLayout->setSpacing(Theme::Spacing::md);
+    headerLayout->setContentsMargins(GStyle::Spacing::lg, GStyle::Spacing::lg, GStyle::Spacing::lg, GStyle::Spacing::md);
+    headerLayout->setSpacing(GStyle::Spacing::md);
 
-    m_backButton = new QPushButton("← 返回", this);
-    m_backButton->setObjectName("backButton");
+    m_backButton = new GPushButton("← 返回", GPushButton::Variant::Secondary, this);
     m_backButton->setVisible(false);
     connect(m_backButton, &QPushButton::clicked, this, &NewConnectionDialog::onBackClicked);
     headerLayout->addWidget(m_backButton);
 
     headerLayout->addStretch();
 
-    auto* titleLabel = new QLabel("新建数据库连接", this);
-    titleLabel->setObjectName("titleLabel");
+    auto* titleLabel = new GLabel("新建数据库连接", GLabel::Role::Emphasis, this);
     headerLayout->addWidget(titleLabel);
 
     headerLayout->addStretch();
 
     layout->addLayout(headerLayout);
 
-    auto* separator = new QFrame(this);
-    separator->setFrameShape(QFrame::HLine);
-    separator->setLineWidth(1);
-    separator->setObjectName("separator");
+    auto* separator = new GSeparator(GSeparator::Orientation::Horizontal, this);
     layout->addWidget(separator);
 
     m_stackedWidget = new QStackedWidget(this);
     layout->addWidget(m_stackedWidget);
 
     m_buttonLayout = new QHBoxLayout();
-    m_buttonLayout->setContentsMargins(Theme::Spacing::lg, Theme::Spacing::md, Theme::Spacing::lg, Theme::Spacing::lg);
+    m_buttonLayout->setContentsMargins(GStyle::Spacing::lg, GStyle::Spacing::md, GStyle::Spacing::lg, GStyle::Spacing::lg);
     m_buttonLayout->addStretch();
 
-    m_cancelButton = new QPushButton("取消", this);
-    m_cancelButton->setObjectName("cancelButton");
+    m_cancelButton = new GPushButton("取消", GPushButton::Variant::Secondary, this);
     connect(m_cancelButton, &QPushButton::clicked, this, &QDialog::reject);
     m_buttonLayout->addWidget(m_cancelButton);
 
@@ -147,40 +137,7 @@ ConnectionFormBase* NewConnectionDialog::createConnectionForm(const QString& dat
     }
 }
 
-void NewConnectionDialog::applyTheme() {
-    const auto& colors = Theme::instance().colors();
-
-    QString styleSheet = QString(
-        "NewConnectionDialog {"
-        "    background-color: %1;"
-        "}"
-        "QLabel#titleLabel {"
-        "    color: %2;"
-        "    font-size: 16px;"
-        "    font-weight: bold;"
-        "}"
-        "QPushButton#backButton, QPushButton#cancelButton {"
-        "    color: %2;"
-        "    background-color: transparent;"
-        "    border: none;"
-        "    padding: 8px 16px;"
-        "    border-radius: %3px;"
-        "}"
-        "QPushButton#backButton:hover, QPushButton#cancelButton:hover {"
-        "    background-color: %4;"
-        "}"
-        "QFrame#separator {"
-        "    color: %5;"
-        "}"
-    ).arg(colors.surface.name()), colors.surface.name(), colors.text.name()), colors.text.name())
-     .arg(colors.border.name());
-
-    setStyleSheet(styleSheet);
-}
-
-void NewConnectionDialog::onThemeChanged() {
-    applyTheme();
-}
+// No page-level styles
 
 void NewConnectionDialog::onBackClicked() {
     showDatabaseTypeSelection();

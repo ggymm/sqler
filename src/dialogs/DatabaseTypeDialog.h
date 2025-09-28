@@ -1,9 +1,10 @@
 #pragma once
 
-#include "../components/ThemedDialog.h"
+#include "../components/GDialog.h"
 
-class ThemedScrollArea;
-class ThemedButton;
+class GScrollArea;
+class GPushButton;
+class GLabel;
 
 struct DatabaseType {
     QString id;
@@ -12,7 +13,7 @@ struct DatabaseType {
     QString iconPath;
 };
 
-class DatabaseTypeDialog : public ThemedDialog {
+class DatabaseTypeDialog : public GDialog {
     Q_OBJECT
 
 public:
@@ -25,7 +26,7 @@ private slots:
 
 private:
     void setupUI();
-    ThemedButton* createDatabaseTypeButton(const DatabaseType& dbType);
+    GPushButton* createDatabaseTypeButton(const DatabaseType& dbType);
 
     QString m_selectedType;
     QList<DatabaseType> m_databaseTypes;

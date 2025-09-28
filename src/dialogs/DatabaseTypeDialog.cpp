@@ -1,14 +1,15 @@
 #include "DatabaseTypeDialog.h"
-#include "../components/ThemedScrollArea.h"
-#include "../components/ThemedButton.h"
-#include "../Theme.h"
+#include "../components/GScrollArea.h"
+#include "../components/GPushButton.h"
+#include "../components/GLabel.h"
+#include "../components/GStyle.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QIcon>
 
 DatabaseTypeDialog::DatabaseTypeDialog(QWidget* parent)
-    : ThemedDialog(parent) {
+    : GDialog(parent) {
     m_databaseTypes = {
         {"mysql", "MySQL", "流行的开源关系型数据库", ":/assets/icons/db/mysql.svg"},
         {"postgresql", "PostgreSQL", "高级开源关系型数据库", ":/assets/icons/db/postgresql.svg"},
@@ -33,13 +34,13 @@ void DatabaseTypeDialog::setupUI() {
     layout->setSpacing(0);
 
     // Create scroll area for database types
-    auto* scrollArea = new ThemedScrollArea(this);
+    auto* scrollArea = new GScrollArea(this);
 
     auto* scrollWidget = new QWidget();
     scrollWidget->setObjectName("scrollContent");
     auto* scrollLayout = new QVBoxLayout(scrollWidget);
-    scrollLayout->setSpacing(Theme::Spacing::sm);
-    scrollLayout->setContentsMargins(Theme::Spacing::lg, Theme::Spacing::lg, Theme::Spacing::lg, Theme::Spacing::lg);
+    scrollLayout->setSpacing(GStyle::Spacing::sm);
+    scrollLayout->setContentsMargins(GStyle::Spacing::lg, GStyle::Spacing::lg, GStyle::Spacing::lg, GStyle::Spacing::lg);
 
     // Add database type items in vertical list
     for (const auto& dbType : m_databaseTypes) {
@@ -60,17 +61,17 @@ void DatabaseTypeDialog::setupUI() {
     // layout->addLayout(buttonLayout);
 }
 
-ThemedButton* DatabaseTypeDialog::createDatabaseTypeButton(const DatabaseType& dbType) {
-    auto* button = new ThemedButton(this);
-    button->setVariant(ThemedButton::Variant::Dialog);
-    button->setFixedHeight(Theme::Sizes::dialogButtonHeight);
+GPushButton* DatabaseTypeDialog::createDatabaseTypeButton(const DatabaseType& dbType) {
+    auto* button = new GPushButton(this);
+    button->setVariant(GPushButton::Variant::Dialog);
+    button->setFixedHeight(GStyle::Sizes::dialogButtonHeight);
 
     auto* layout = new QHBoxLayout(button);
-    layout->setContentsMargins(Theme::Spacing::lg, Theme::Spacing::md, Theme::Spacing::lg, Theme::Spacing::md);
-    layout->setSpacing(Theme::Spacing::lg);
+    layout->setContentsMargins(GStyle::Spacing::lg, GStyle::Spacing::md, GStyle::Spacing::lg, GStyle::Spacing::md);
+    layout->setSpacing(GStyle::Spacing::lg);
 
     // Icon on the left
-    auto* iconLabel = new QLabel(button);
+    auto* iconLabel = new GLabel(button);
     iconLabel->setPixmap(QIcon(dbType.iconPath).pixmap(32, 32));
     iconLabel->setFixedSize(40, 40);
     iconLabel->setAlignment(Qt::AlignCenter);
@@ -78,16 +79,14 @@ ThemedButton* DatabaseTypeDialog::createDatabaseTypeButton(const DatabaseType& d
 
     // Text content on the right
     auto* textLayout = new QVBoxLayout();
-    textLayout->setSpacing(Theme::Spacing::xs);
+    textLayout->setSpacing(GStyle::Spacing::xs);
     textLayout->setContentsMargins(0, 0, 0, 0);
 
-    auto* nameLabel = new QLabel(dbType.displayName, button);
-    nameLabel->setProperty("class", "subtitle");
+    auto* nameLabel = new GLabel(dbType.displayName, GLabel::Role::Emphasis, button);
     nameLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     textLayout->addWidget(nameLabel);
 
-    auto* descLabel = new QLabel(dbType.description, button);
-    descLabel->setProperty("class", "description");
+    auto* descLabel = new GLabel(dbType.description, GLabel::Role::Caption, button);
     descLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     descLabel->setWordWrap(true);
     textLayout->addWidget(descLabel);

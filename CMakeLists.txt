@@ -17,7 +17,6 @@ qt_add_executable(sqler
     src/TopMenuBar.cpp src/TopMenuBar.h
     src/ConnectionPanel.cpp src/ConnectionPanel.h
     src/MainContent.cpp src/MainContent.h
-    src/Theme.cpp src/Theme.h
     src/dialogs/NewConnectionDialog.cpp src/dialogs/NewConnectionDialog.h
     src/dialogs/DatabaseTypeDialog.cpp src/dialogs/DatabaseTypeDialog.h
     src/dialogs/ConnectionFormBase.cpp src/dialogs/ConnectionFormBase.h
@@ -26,10 +25,17 @@ qt_add_executable(sqler
     src/dialogs/SQLiteConnectionForm.cpp src/dialogs/SQLiteConnectionForm.h
     src/dialogs/MongoDBConnectionForm.cpp src/dialogs/MongoDBConnectionForm.h
     src/dialogs/RedisConnectionForm.cpp src/dialogs/RedisConnectionForm.h
-    src/components/ThemedButton.cpp src/components/ThemedButton.h
-    src/components/ThemedScrollArea.cpp src/components/ThemedScrollArea.h
-    src/components/ThemedDialog.cpp src/components/ThemedDialog.h
-    src/components/ThemedFormWidget.cpp src/components/ThemedFormWidget.h
+    src/components/GStyle.h
+    src/components/GPushButton.cpp src/components/GPushButton.h
+    src/components/GLineEdit.cpp src/components/GLineEdit.h
+    src/components/GSpinBox.cpp src/components/GSpinBox.h
+    src/components/GLabel.cpp src/components/GLabel.h
+    src/components/GScrollArea.cpp src/components/GScrollArea.h
+    src/components/GDialog.cpp src/components/GDialog.h
+    src/components/GListWidget.cpp src/components/GListWidget.h
+    src/components/GSeparator.cpp src/components/GSeparator.h
+    src/components/GConnectionItem.cpp src/components/GConnectionItem.h
+    src/components/GTheme.cpp src/components/GTheme.h
 )
 
 qt_add_resources(sqler "assets"

@@ -1,21 +1,20 @@
 #pragma once
 
-#include <QDialog>
+#include "../components/GDialog.h"
 
 class QStackedWidget;
-class QPushButton;
+class GPushButton;
 class QHBoxLayout;
 class DatabaseTypeDialog;
 class ConnectionFormBase;
 
-class NewConnectionDialog : public QDialog {
+class NewConnectionDialog : public GDialog {
     Q_OBJECT
 
 public:
     explicit NewConnectionDialog(QWidget* parent = nullptr);
 
 private slots:
-    void onThemeChanged();
     void showDatabaseTypeSelection();
     void showConnectionForm(const QString& databaseType);
     void onBackClicked();
@@ -23,12 +22,11 @@ private slots:
 
 private:
     void setupUI();
-    void applyTheme();
     ConnectionFormBase* createConnectionForm(const QString& databaseType);
 
     QStackedWidget* m_stackedWidget;
-    QPushButton* m_backButton;
-    QPushButton* m_cancelButton;
+    GPushButton* m_backButton;
+    GPushButton* m_cancelButton;
     QHBoxLayout* m_buttonLayout;
 
     DatabaseTypeDialog* m_typeDialog;
