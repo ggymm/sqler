@@ -3,6 +3,7 @@
 #include "GStyle.h"
 
 #include <QApplication>
+#include <QDebug>
 
 GTheme& GTheme::instance()
 {
@@ -15,8 +16,8 @@ GTheme::GTheme(QObject* parent) : QObject(parent)
     // Light palette
     m_light = {
         QColor(0xffffff), // background
-        QColor(0xf8f9fa), // surface
-        QColor(0xe9ecef), // border
+        QColor(0xf0f0f0), // surface - 稍微深一点的灰色，不再接近黑色
+        QColor(0xd0d0d0), // border - 更明显的边框
         QColor(0x007bff), // primary
         QColor(0x0056b3), // primaryHover
         QColor(0x212529), // text
@@ -28,8 +29,8 @@ GTheme::GTheme(QObject* parent) : QObject(parent)
     // Dark palette
     m_dark = {
         QColor(0x1e1e1e), // background
-        QColor(0x2d2d30), // surface
-        QColor(0x3e3e42), // border
+        QColor(0x4a4a4a), // surface - 更亮的灰色
+        QColor(0x5a5a5a), // border - 更亮的边框
         QColor(0x0d7377), // primary
         QColor(0x14a085), // primaryHover
         QColor(0xffffff), // text
@@ -99,10 +100,10 @@ QString GTheme::buildGlobalStyleSheet() const
             "GSpinBox { background-color: %3; border: 1px solid %11; border-radius: %5px; padding: %7px %8px; font-size: 14px; min-height: %16px; "
             "color: %2; selection-background-color: %6; }"
             "GSpinBox:focus { border-color: %6; }"
-            "GSpinBox::up-button { subcontrol-origin: border; subcontrol-position: top right; width: 16px; height: 50%%; border-left: 1px solid %11; "
+            "GSpinBox::up-button { subcontrol-origin: border; subcontrol-position: top right; width: 16px; height: 50%; border-left: 1px solid %11; "
             "border-top-right-radius: %5px; background-color: %17; margin: 1px; }"
             "GSpinBox::up-button:hover { background-color: %6; }"
-            "GSpinBox::down-button { subcontrol-origin: border; subcontrol-position: bottom right; width: 16px; height: 50%%; border-left: 1px solid "
+            "GSpinBox::down-button { subcontrol-origin: border; subcontrol-position: bottom right; width: 16px; height: 50%; border-left: 1px solid "
             "%11; border-bottom-right-radius: %5px; background-color: %17; margin: 1px; }"
             "GSpinBox::down-button:hover { background-color: %6; }"
             "GSpinBox::up-arrow { image: none; border-left: 3px solid transparent; border-right: 3px solid transparent; border-bottom: 4px solid %2; "
@@ -153,10 +154,7 @@ QString GTheme::buildGlobalStyleSheet() const
             .arg(c.surface.darker(108).name())  // 14 (hover: slightly darker)
             .arg(c.border.darker(110).name())   // 15
             .arg(Sizes::inputHeight)            // 16
-            .arg(c.surface.lighter(110).name()) // 17
-            .arg(c.primary.lighter(180).name()) // 18
-            .arg(c.success.name())              // 19
-            .arg(c.surface.darker(116).name()); // 20 (pressed: deeper)
+            .arg(c.surface.lighter(110).name(), c.primary.lighter(180).name(), c.success.name(), c.surface.darker(116).name()); // 20 (pressed: deeper)
 
     return base;
 }
