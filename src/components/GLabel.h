@@ -2,7 +2,7 @@
 
 #include <QLabel>
 
-class GLabel : public QLabel
+class GLabel final : public QLabel
 {
     Q_OBJECT
 
