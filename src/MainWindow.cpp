@@ -5,6 +5,7 @@
 #include "TopMenuBar.h"
 #include "components/GSeparator.h"
 #include "components/GStyle.h"
+#include "components/GTheme.h"
 
 #include <QHBoxLayout>
 
@@ -28,6 +29,15 @@ void MainWindow::setupUI()
     m_topMenuBar = new TopMenuBar(this);
     m_topMenuBar->setFixedHeight(GStyle::Sizes::topBarHeight);
     mainLayout->addWidget(m_topMenuBar);
+
+    // Connect theme toggle signal
+    connect(m_topMenuBar, &TopMenuBar::themeToggleClicked, this,
+            [this]()
+            {
+                auto& theme = GTheme::instance();
+                const auto newMode = theme.mode() == GTheme::Mode::Light ? GTheme::Mode::Dark : GTheme::Mode::Light;
+                theme.setMode(newMode);
+            });
 
     auto* contentLayout = new QHBoxLayout();
     contentLayout->setContentsMargins(0, 0, 0, 0);

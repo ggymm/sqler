@@ -18,9 +18,11 @@ class TopMenuBar final : public QWidget
     void queryClicked();
     void functionsClicked();
     void usersClicked();
+    void themeToggleClicked();
 
   private:
     void setupUI();
+    void updateThemeIcon();
     GPushButton* createMenuButton(const QString& text, const QString& iconPath);
 
     GPushButton* m_newConnectionBtn{};
@@ -29,4 +31,5 @@ class TopMenuBar final : public QWidget
     GPushButton* m_queryBtn{};
     GPushButton* m_functionsBtn{};
     GPushButton* m_usersBtn{};
+    GPushButton* m_themeToggleBtn{};
 };

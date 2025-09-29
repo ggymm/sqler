@@ -3,6 +3,7 @@
 #include "components/GPushButton.h"
 #include "components/GSeparator.h"
 #include "components/GStyle.h"
+#include "components/GTheme.h"
 #include "dialogs/NewConnectionDialog.h"
 
 #include <QHBoxLayout>
@@ -10,6 +11,10 @@
 TopMenuBar::TopMenuBar(QWidget* parent) : QWidget(parent)
 {
     setupUI();
+    updateThemeIcon();
+
+    // Connect to theme changes to update icon
+    connect(&GTheme::instance(), &GTheme::themeChanged, this, &TopMenuBar::updateThemeIcon);
 }
 
 void TopMenuBar::setupUI()
@@ -52,6 +57,14 @@ void TopMenuBar::setupUI()
     connect(m_usersBtn, &QPushButton::clicked, this, &TopMenuBar::usersClicked);
 
     layout->addStretch();
+
+    // Add theme toggle button at the right end
+    m_themeToggleBtn = new GPushButton(QString(), GPushButton::Variant::Toolbar, this);
+    m_themeToggleBtn->setIconSize(QSize(GStyle::Sizes::iconSize, GStyle::Sizes::iconSize));
+    m_themeToggleBtn->setFixedHeight(GStyle::Sizes::buttonHeight);
+    m_themeToggleBtn->setToolTip(QStringLiteral("切换主题"));
+    layout->addWidget(m_themeToggleBtn);
+    connect(m_themeToggleBtn, &QPushButton::clicked, this, &TopMenuBar::themeToggleClicked);
 }
 
 GPushButton* TopMenuBar::createMenuButton(const QString& text, const QString& iconPath)
@@ -61,4 +74,16 @@ GPushButton* TopMenuBar::createMenuButton(const QString& text, const QString& ic
     button->setIconSize(QSize(GStyle::Sizes::iconSize, GStyle::Sizes::iconSize));
     button->setFixedHeight(GStyle::Sizes::buttonHeight);
     return button;
+}
+
+void TopMenuBar::updateThemeIcon()
+{
+    if (!m_themeToggleBtn)
+        return;
+
+    const auto& theme = GTheme::instance();
+    const QString iconPath =
+        theme.mode() == GTheme::Mode::Light ? QStringLiteral(":/assets/icons/theme-dark.svg") : QStringLiteral(":/assets/icons/theme-light.svg");
+
+    m_themeToggleBtn->setIcon(QIcon(iconPath));
 }

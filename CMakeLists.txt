@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(SimpleQtApp LANGUAGES CXX)
+project(sqler LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -49,6 +49,8 @@ qt_add_resources(sqler "assets"
         assets/icons/query.svg
         assets/icons/function.svg
         assets/icons/user.svg
+        assets/icons/theme-light.svg
+        assets/icons/theme-dark.svg
         assets/icons/db/mysql.svg
         assets/icons/db/postgresql.svg
         assets/icons/db/sqlite.svg
