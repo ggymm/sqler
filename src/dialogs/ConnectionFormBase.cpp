@@ -4,6 +4,8 @@
 #include "../components/GStyle.h"
 
 #include <QFormLayout>
+#include <QLabel>
+#include <QShowEvent>
 #include <QTimer>
 
 ConnectionFormBase::ConnectionFormBase(QWidget* parent) : QWidget(parent), m_formLayout(nullptr), m_testButton(nullptr), m_saveButton(nullptr) {
@@ -104,5 +106,35 @@ void ConnectionFormBase::onTestConnection() {
 void ConnectionFormBase::onSaveConnection() {
     if (validateInput()) {
         emit connectionSaved();
+    }
+}
+
+void ConnectionFormBase::showEvent(QShowEvent* event) {
+    QWidget::showEvent(event);
+    if (!m_formLayout)
+        return;
+
+    // Normalize label alignment and height to vertically center with fields
+    for (int row = 0; row < m_formLayout->rowCount(); ++row) {
+        auto* labelItem = m_formLayout->itemAt(row, QFormLayout::LabelRole);
+        auto* fieldItem = m_formLayout->itemAt(row, QFormLayout::FieldRole);
+        if (!labelItem || !fieldItem)
+            continue;
+
+        QWidget* labelW = labelItem->widget();
+        QWidget* fieldW = fieldItem->widget();
+        if (!labelW || !fieldW)
+            continue;
+
+        if (auto* lbl = qobject_cast<QLabel*>(labelW)) {
+            // Align label text to right and vertically centered
+            lbl->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+
+            // Match label min-height to the field's size hint to center visually
+            const int h = qMax(fieldW->sizeHint().height(), fieldW->minimumSizeHint().height());
+            if (h > 0) {
+                lbl->setMinimumHeight(h);
+            }
+        }
     }
 }

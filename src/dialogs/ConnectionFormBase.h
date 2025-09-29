@@ -31,6 +31,7 @@ class ConnectionFormBase : public QWidget {
 
   protected:
     virtual void setupUI() = 0;
+    void showEvent(QShowEvent* event) override;
 
     QFormLayout* m_formLayout;
     GPushButton* m_testButton;
