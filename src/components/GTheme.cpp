@@ -92,36 +92,52 @@ QString GTheme::buildButtonStyles() const {
     const auto& c = m_palette;
 
     const bool isLight = (m_mode == Mode::Light);
-    const QString dialogHoverColor = isLight ? NaiveUI::LightColors::hoverColor : NaiveUI::DarkColors::hoverColor;
-    const QString dialogPressedColor = isLight ? NaiveUI::LightColors::pressedColor : NaiveUI::DarkColors::pressedColor;
+    const QString neutralHoverColor = isLight ? NaiveUI::LightColors::hoverColor : NaiveUI::DarkColors::hoverColor;
+    const QString neutralPressedColor = isLight ? NaiveUI::LightColors::pressedColor : NaiveUI::DarkColors::pressedColor;
     const QString primaryColor = isLight ? NaiveUI::LightColors::primaryDefault : NaiveUI::DarkColors::primaryDefault;
     const QString primaryHoverColor = isLight ? NaiveUI::LightColors::primaryHover : NaiveUI::DarkColors::primaryHover;
+    const QString primaryActiveColor = isLight ? NaiveUI::LightColors::primaryActive : NaiveUI::DarkColors::primaryActive;
     const QString borderColor = isLight ? NaiveUI::LightColors::borderColor : NaiveUI::DarkColors::borderColor;
+    const QString toolbarHoverBg = isLight ? NaiveUI::LightColors::buttonColor2Hover : NaiveUI::DarkColors::buttonColor2Hover;
+    const QString toolbarPressedBg = isLight ? NaiveUI::LightColors::buttonColor2Pressed : NaiveUI::DarkColors::buttonColor2Pressed;
 
     return QString(
                "GPushButton { border-radius: %1px; }"
                "GPushButton[gVariant=\"primary\"] { background-color: %2; border: none; padding: %3px %4px; min-width: %5px; color: white; }"
                "GPushButton[gVariant=\"primary\"]:hover { background-color: %6; }"
-               "GPushButton[gVariant=\"secondary\"] { background-color: transparent; border: 1px solid %8; padding: %3px %4px; min-width: %5px; color: %7; }"
-               "GPushButton[gVariant=\"secondary\"]:hover { background-color: %9; }"
-               "GPushButton[gVariant=\"dialog\"] { background-color: %9; border: 1px solid %8; padding: 0px; margin-bottom: %10px; min-height: %11px; text-align: left; }"
-               "GPushButton[gVariant=\"dialog\"]:hover { background-color: %12; border-color: %2; }"
-               "GPushButton[gVariant=\"dialog\"]:pressed { background-color: %13; border-color: %2; }"
-               "GPushButton[gVariant=\"toolbar\"] { background-color: transparent; border: none; padding: 4px 8px; color: %7; }"
-               "GPushButton[gVariant=\"toolbar\"]:hover { background-color: %8; }")
+               "GPushButton[gVariant=\"primary\"]:pressed { background-color: %7; }"
+
+               "GPushButton[gVariant=\"secondary\"] { background-color: transparent; border: 1px solid %8; padding: %3px %4px; min-width: %5px; color: %9; }"
+               "GPushButton[gVariant=\"secondary\"]:hover { background-color: %10; }"
+               "GPushButton[gVariant=\"secondary\"]:pressed { background-color: %11; }"
+
+               "GPushButton[gVariant=\"dialog\"] { background-color: %12; border: 1px solid %8; padding: 0px; margin-bottom: %13px; min-height: %14px; text-align: left; }"
+               "GPushButton[gVariant=\"dialog\"]:hover { background-color: %10; border-color: %2; }"
+               "GPushButton[gVariant=\"dialog\"]:pressed { background-color: %11; border-color: %2; }"
+
+               "GPushButton[gVariant=\"toolbar\"] { background-color: transparent; border: none; padding: 4px 8px; color: %9; }"
+               "GPushButton[gVariant=\"toolbar\"]:hover { background-color: %15; }"
+               "GPushButton[gVariant=\"toolbar\"]:pressed { background-color: %16; }"
+
+               "GPushButton[gVariant=\"neutral\"] { background-color: %12; border: 1px solid %8; padding: %3px %4px; min-width: %5px; color: %9; }"
+               "GPushButton[gVariant=\"neutral\"]:hover { background-color: %10; }"
+               "GPushButton[gVariant=\"neutral\"]:pressed { background-color: %11; }")
         .arg(QString::number(Sizes::borderRadius))
         .arg(primaryColor)
         .arg(QString::number(Spacing::sm))
         .arg(QString::number(Spacing::md))
         .arg(QString::number(Sizes::formButtonWidth))
         .arg(primaryHoverColor)
-        .arg(c.text.name())
+        .arg(primaryActiveColor)
         .arg(borderColor)
+        .arg(c.text.name())
+        .arg(neutralHoverColor)
+        .arg(neutralPressedColor)
         .arg(c.surface.name())
         .arg(QString::number(Spacing::xs))
         .arg(QString::number(Sizes::dialogButtonHeight))
-        .arg(dialogHoverColor)
-        .arg(dialogPressedColor);
+        .arg(toolbarHoverBg)
+        .arg(toolbarPressedBg);
 }
 
 QString GTheme::buildInputStyles() const {

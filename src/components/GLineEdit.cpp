@@ -1,4 +1,5 @@
 #include "GLineEdit.h"
+
 #include <QFocusEvent>
 
 GLineEdit::GLineEdit(QWidget* parent) : QLineEdit(parent) {}
