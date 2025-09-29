@@ -5,7 +5,7 @@
 class GLineEdit;
 class GSpinBox;
 
-class PostgreSQLConnectionForm : public ConnectionFormBase
+class PostgreSQLConnectionForm final : public ConnectionFormBase
 {
     Q_OBJECT
 

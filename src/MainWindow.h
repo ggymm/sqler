@@ -6,7 +6,7 @@ class TopMenuBar;
 class ConnectionPanel;
 class MainContent;
 
-class MainWindow : public QMainWindow
+class MainWindow final : public QMainWindow
 {
     Q_OBJECT
 

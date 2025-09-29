@@ -50,6 +50,16 @@ class GTheme : public QObject
     void updatePalette();
     [[nodiscard]] QString buildGlobalStyleSheet() const;
 
+    // Modular stylesheet builders
+    [[nodiscard]] QString buildBaseStyles() const;
+    [[nodiscard]] QString buildLabelStyles() const;
+    [[nodiscard]] QString buildButtonStyles() const;
+    [[nodiscard]] QString buildInputStyles() const;
+    [[nodiscard]] QString buildScrollAreaStyles() const;
+    [[nodiscard]] QString buildListStyles() const;
+    [[nodiscard]] QString buildConnectionStyles() const;
+    [[nodiscard]] QString buildSeparatorStyles() const;
+
     Mode m_mode{Mode::Light};
     Palette m_palette{};
     Palette m_light{};

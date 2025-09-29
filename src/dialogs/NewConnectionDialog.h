@@ -8,7 +8,7 @@ class QHBoxLayout;
 class DatabaseTypeDialog;
 class ConnectionFormBase;
 
-class NewConnectionDialog : public GDialog
+class NewConnectionDialog final : public GDialog
 {
     Q_OBJECT
 

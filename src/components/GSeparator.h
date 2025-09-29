@@ -2,7 +2,7 @@
 
 #include <QFrame>
 
-class GSeparator : public QFrame
+class GSeparator final : public QFrame
 {
     Q_OBJECT
 

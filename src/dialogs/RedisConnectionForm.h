@@ -5,7 +5,7 @@
 class GLineEdit;
 class GSpinBox;
 
-class RedisConnectionForm : public ConnectionFormBase
+class RedisConnectionForm final : public ConnectionFormBase
 {
     Q_OBJECT
 

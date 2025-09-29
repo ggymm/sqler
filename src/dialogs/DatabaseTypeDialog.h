@@ -14,7 +14,7 @@ struct DatabaseType
     QString iconPath;
 };
 
-class DatabaseTypeDialog : public QWidget
+class DatabaseTypeDialog final : public QWidget
 {
     Q_OBJECT
 
