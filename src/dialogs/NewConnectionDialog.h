@@ -5,6 +5,7 @@
 class QStackedWidget;
 class GPushButton;
 class QHBoxLayout;
+class QWidget;
 class DatabaseTypeDialog;
 class ConnectionFormBase;
 
@@ -29,6 +30,7 @@ class NewConnectionDialog final : public GDialog
     GPushButton* m_backButton;
     GPushButton* m_cancelButton;
     QHBoxLayout* m_buttonLayout;
+    QWidget* m_footerWidget;
 
     DatabaseTypeDialog* m_typeDialog;
     ConnectionFormBase* m_currentForm;

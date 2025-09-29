@@ -7,6 +7,7 @@
 #include "dialogs/NewConnectionDialog.h"
 
 #include <QHBoxLayout>
+#include <algorithm>
 
 TopMenuBar::TopMenuBar(QWidget* parent) : QWidget(parent)
 {
@@ -20,7 +21,10 @@ TopMenuBar::TopMenuBar(QWidget* parent) : QWidget(parent)
 void TopMenuBar::setupUI()
 {
     auto* layout = new QHBoxLayout(this);
-    layout->setContentsMargins(GStyle::Spacing::sm, GStyle::Spacing::sm, GStyle::Spacing::sm, GStyle::Spacing::sm);
+    // Compute vertical margins so toolbar buttons (fixed height)
+    // are vertically centered within the top bar height.
+    const int vMargin = std::max(0, (GStyle::Sizes::topBarHeight - GStyle::Sizes::buttonHeight) / 2);
+    layout->setContentsMargins(GStyle::Spacing::sm, vMargin, GStyle::Spacing::sm, vMargin);
     layout->setSpacing(GStyle::Spacing::sm);
 
     m_newConnectionBtn = createMenuButton(QStringLiteral("新建连接"), QStringLiteral(":/assets/icons/new-conn.svg"));

@@ -12,7 +12,7 @@ ConnectionFormBase::ConnectionFormBase(QWidget* parent) : QWidget(parent), m_for
     setObjectName("connectionFormPage");
 
     auto* layout = new QVBoxLayout(this);
-    layout->setContentsMargins(GStyle::Spacing::lg, GStyle::Spacing::lg, GStyle::Spacing::lg, GStyle::Spacing::sm);
+    layout->setContentsMargins(GStyle::Spacing::lg, GStyle::Spacing::lg, GStyle::Spacing::lg, GStyle::Spacing::lg);
     layout->setSpacing(GStyle::Spacing::lg);
 
     m_formLayout = new QFormLayout();

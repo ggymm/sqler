@@ -28,15 +28,15 @@ GTheme::GTheme(QObject* parent) : QObject(parent)
 
     // Dark palette - 使用 Naive UI 暗色主题颜色
     m_dark = {
-        QColor(16, 16, 20),   // background - Naive UI neutralBody
-        QColor(24, 24, 28),   // surface - Naive UI neutralCard
+        QColor(16, 16, 20),         // background - Naive UI neutralBody
+        QColor(24, 24, 28),         // surface - Naive UI neutralCard
         QColor(255, 255, 255, 61),  // border - rgba(255, 255, 255, 0.24)
-        QColor(0x63e2b7),     // primary - Naive UI primaryDefault
-        QColor(0x7fe7c4),     // primaryHover - Naive UI primaryHover
+        QColor(0x63e2b7),           // primary - Naive UI primaryDefault
+        QColor(0x7fe7c4),           // primaryHover - Naive UI primaryHover
         QColor(255, 255, 255, 230), // text - rgba(255, 255, 255, 0.9)
         QColor(255, 255, 255, 209), // textSecondary - rgba(255, 255, 255, 0.82)
         QColor(255, 255, 255, 133), // textMuted - rgba(255, 255, 255, 0.52)
-        QColor(0x63e2b7)      // success - Naive UI successDefault
+        QColor(0x63e2b7)            // success - Naive UI successDefault
     };
 
     updatePalette();
@@ -221,14 +221,14 @@ QString GTheme::buildInputStyles() const
                    "border-right: 3px solid transparent; "
                    "border-top: 4px solid %3; "
                    "}")
-        .arg(inputBgColor)         // 1 - background (Naive UI theme-aware)
-        .arg(borderColor)          // 2 - default border (Naive UI theme-aware)
-        .arg(c.text.name())        // 3 - text color
-        .arg(hoverColor)           // 4 - hover border (Naive UI theme-aware)
-        .arg(focusColor)           // 5 - focus border (Naive UI theme-aware)
-        .arg(placeholderColor)     // 6 - placeholder (Naive UI theme-aware)
-        .arg(selectionBgColor)     // 7 - selection background (Naive UI theme-aware)
-        .arg(buttonHoverColor);    // 8 - button hover (Naive UI theme-aware)
+        .arg(inputBgColor)      // 1 - background (Naive UI theme-aware)
+        .arg(borderColor)       // 2 - default border (Naive UI theme-aware)
+        .arg(c.text.name())     // 3 - text color
+        .arg(hoverColor)        // 4 - hover border (Naive UI theme-aware)
+        .arg(focusColor)        // 5 - focus border (Naive UI theme-aware)
+        .arg(placeholderColor)  // 6 - placeholder (Naive UI theme-aware)
+        .arg(selectionBgColor)  // 7 - selection background (Naive UI theme-aware)
+        .arg(buttonHoverColor); // 8 - button hover (Naive UI theme-aware)
 }
 
 QString GTheme::buildScrollAreaStyles() const

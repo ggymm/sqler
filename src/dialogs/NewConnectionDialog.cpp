@@ -53,9 +53,12 @@ void NewConnectionDialog::setupUI()
     layout->addWidget(separator);
 
     m_stackedWidget = new QStackedWidget(this);
-    layout->addWidget(m_stackedWidget);
+    m_stackedWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    layout->addWidget(m_stackedWidget, 1); // Give it stretch factor so it expands
 
-    m_buttonLayout = new QHBoxLayout();
+    // Footer container so we can show/hide the whole footer without leaving blank space
+    m_footerWidget = new QWidget(this);
+    m_buttonLayout = new QHBoxLayout(m_footerWidget);
     m_buttonLayout->setContentsMargins(GStyle::Spacing::lg, GStyle::Spacing::md, GStyle::Spacing::lg, GStyle::Spacing::lg);
     m_buttonLayout->addStretch();
 
@@ -63,7 +66,7 @@ void NewConnectionDialog::setupUI()
     connect(m_cancelButton, &QPushButton::clicked, this, &QDialog::reject);
     m_buttonLayout->addWidget(m_cancelButton);
 
-    layout->addLayout(m_buttonLayout);
+    layout->addWidget(m_footerWidget);
 
     showDatabaseTypeSelection();
 }
@@ -83,17 +86,8 @@ void NewConnectionDialog::showDatabaseTypeSelection()
     m_stackedWidget->setCurrentWidget(m_typeDialog);
     m_backButton->setVisible(false);
 
-    // Show bottom button layout for database type selection
-    for (int i = 0; i < m_buttonLayout->count(); ++i)
-    {
-        if (auto* item = m_buttonLayout->itemAt(i))
-        {
-            if (auto* widget = item->widget())
-            {
-                widget->setVisible(true);
-            }
-        }
-    }
+    // Show bottom footer for database type selection
+    m_footerWidget->setVisible(true);
 }
 
 void NewConnectionDialog::showConnectionForm(const QString& databaseType)
@@ -116,17 +110,8 @@ void NewConnectionDialog::showConnectionForm(const QString& databaseType)
         m_stackedWidget->setCurrentWidget(m_currentForm);
         m_backButton->setVisible(false); // Hide header back button since form has its own
 
-        // Hide bottom button layout when showing connection form
-        for (int i = 0; i < m_buttonLayout->count(); ++i)
-        {
-            if (auto* item = m_buttonLayout->itemAt(i))
-            {
-                if (auto* widget = item->widget())
-                {
-                    widget->setVisible(false);
-                }
-            }
-        }
+        // Hide bottom footer when showing connection form to avoid extra blank space
+        m_footerWidget->setVisible(false);
     }
 }
 
