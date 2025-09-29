@@ -24,8 +24,10 @@ ConnectionFormBase::ConnectionFormBase(QWidget* parent) : QWidget(parent), m_for
 
     layout->addStretch();
 
-    // Button layout: test connection on left, other buttons on right
-    auto* buttonLayout = new QHBoxLayout();
+    // Footer area container to ensure dark header/footer vs light content
+    m_footerWidget = new QWidget(this);
+    m_footerWidget->setObjectName("dialogFooter");
+    auto* buttonLayout = new QHBoxLayout(m_footerWidget);
     buttonLayout->setSpacing(GStyle::Spacing::md);
 
     // Left side: Test connection button
@@ -48,7 +50,38 @@ ConnectionFormBase::ConnectionFormBase(QWidget* parent) : QWidget(parent), m_for
     connect(m_saveButton, &QPushButton::clicked, this, &ConnectionFormBase::onSaveConnection);
     buttonLayout->addWidget(m_saveButton);
 
-    layout->addLayout(buttonLayout);
+    layout->addWidget(m_footerWidget);
+}
+
+void ConnectionFormBase::attachFooterTo(QHBoxLayout* destLayout)
+{
+    if (!destLayout)
+        return;
+
+    // Hide local footer to avoid duplicate area inside the form
+    if (m_footerWidget)
+        m_footerWidget->setVisible(false);
+
+    // Clear destination layout before populating
+    while (QLayoutItem* item = destLayout->takeAt(0))
+    {
+        if (auto* w = item->widget())
+        {
+            w->setParent(nullptr);
+        }
+        delete item;
+    }
+
+    // Rebuild footer: left test, stretch, right actions
+    if (m_testButton)
+        destLayout->addWidget(m_testButton);
+    destLayout->addStretch();
+    if (m_backButton)
+        destLayout->addWidget(m_backButton);
+    if (m_cancelButton)
+        destLayout->addWidget(m_cancelButton);
+    if (m_saveButton)
+        destLayout->addWidget(m_saveButton);
 }
 
 void ConnectionFormBase::onTestConnection()

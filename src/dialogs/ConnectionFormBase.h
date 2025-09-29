@@ -5,6 +5,8 @@
 
 class QFormLayout;
 class GPushButton;
+class QHBoxLayout;
+class QWidget;
 
 class ConnectionFormBase : public QWidget
 {
@@ -15,6 +17,9 @@ class ConnectionFormBase : public QWidget
 
     virtual QVariantMap getConnectionData() const = 0;
     virtual bool validateInput() const = 0;
+
+    // Attach this form's footer buttons into an external footer layout
+    void attachFooterTo(QHBoxLayout* destLayout);
 
   signals:
     void connectionSaved();
@@ -33,4 +38,5 @@ class ConnectionFormBase : public QWidget
     GPushButton* m_backButton;
     GPushButton* m_cancelButton;
     GPushButton* m_saveButton;
+    QWidget* m_footerWidget{};
 };

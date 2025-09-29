@@ -31,7 +31,10 @@ void NewConnectionDialog::setupUI()
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
 
-    auto* headerLayout = new QHBoxLayout();
+    // Header container so we can style title color specifically
+    auto* headerWidget = new QWidget(this);
+    headerWidget->setObjectName("dialogHeader");
+    auto* headerLayout = new QHBoxLayout(headerWidget);
     headerLayout->setContentsMargins(GStyle::Spacing::lg, GStyle::Spacing::lg, GStyle::Spacing::lg, GStyle::Spacing::md);
     headerLayout->setSpacing(GStyle::Spacing::md);
 
@@ -47,7 +50,7 @@ void NewConnectionDialog::setupUI()
 
     headerLayout->addStretch();
 
-    layout->addLayout(headerLayout);
+    layout->addWidget(headerWidget);
 
     auto* separator = new GSeparator(GSeparator::Orientation::Horizontal, this);
     layout->addWidget(separator);
@@ -58,6 +61,7 @@ void NewConnectionDialog::setupUI()
 
     // Footer container so we can show/hide the whole footer without leaving blank space
     m_footerWidget = new QWidget(this);
+    m_footerWidget->setObjectName("dialogFooter");
     m_buttonLayout = new QHBoxLayout(m_footerWidget);
     m_buttonLayout->setContentsMargins(GStyle::Spacing::lg, GStyle::Spacing::md, GStyle::Spacing::lg, GStyle::Spacing::lg);
     m_buttonLayout->addStretch();
@@ -86,7 +90,17 @@ void NewConnectionDialog::showDatabaseTypeSelection()
     m_stackedWidget->setCurrentWidget(m_typeDialog);
     m_backButton->setVisible(false);
 
-    // Show bottom footer for database type selection
+    // Reset footer to show only Cancel for database type selection
+    while (QLayoutItem* item = m_buttonLayout->takeAt(0))
+    {
+        if (auto* w = item->widget())
+        {
+            w->setParent(nullptr);
+        }
+        delete item;
+    }
+    m_buttonLayout->addStretch();
+    m_buttonLayout->addWidget(m_cancelButton);
     m_footerWidget->setVisible(true);
 }
 
@@ -110,8 +124,9 @@ void NewConnectionDialog::showConnectionForm(const QString& databaseType)
         m_stackedWidget->setCurrentWidget(m_currentForm);
         m_backButton->setVisible(false); // Hide header back button since form has its own
 
-        // Hide bottom footer when showing connection form to avoid extra blank space
-        m_footerWidget->setVisible(false);
+        // Populate dialog footer with form's footer buttons (full-width, bottom-anchored)
+        m_currentForm->attachFooterTo(m_buttonLayout);
+        m_footerWidget->setVisible(true);
     }
 }
 

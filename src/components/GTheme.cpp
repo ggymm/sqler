@@ -72,11 +72,20 @@ QString GTheme::buildGlobalStyleSheet() const
 QString GTheme::buildBaseStyles() const
 {
     const auto& c = m_palette;
-    return QString("QMainWindow { background-color: %1; color: %2; }"
-                   "GDialog { background-color: %3; color: %2; }"
-                   "QWidget#connectionFormPage { background-color: %1; }"
-                   "QWidget#dbTypePage { background-color: %3; }")
-        .arg(c.background.name(), c.text.name(), c.surface.name());
+    const bool isLight = (m_mode == Mode::Light);
+    const QString headerFooterBg = isLight ? NaiveUI::LightColors::hoverColor : NaiveUI::DarkColors::neutralBody;
+
+    return QString(
+               "QMainWindow { background-color: %1; color: %2; }"
+               "GDialog { background-color: %3; color: %2; }"
+               // Dialog pages
+               "QWidget#connectionFormPage { background-color: %3; }"
+               "QWidget#dbTypePage { background-color: %3; }"
+               // Dialog header/footer should be deeper than content
+               "QWidget#dialogHeader, QWidget#dialogFooter { background-color: %4; }"
+               "QWidget#dialogHeader { border-bottom: 1px solid %5; }"
+               "QWidget#dialogFooter { border-top: 1px solid %5; }")
+        .arg(c.background.name(), c.text.name(), c.surface.name(), headerFooterBg, c.border.name());
 }
 
 QString GTheme::buildLabelStyles() const
@@ -89,7 +98,9 @@ QString GTheme::buildLabelStyles() const
                    "GLabel[gRole=\"caption\"] { font-size: 12px; color: %2; background-color: transparent; }"
                    "GLabel[gRole=\"emphasis\"] { font-size: 14px; font-weight: 600; color: %1; background-color: transparent; }"
                    "GLabel[gRole=\"body\"] { font-size: 14px; color: %1; background-color: transparent; }"
-                   "QFormLayout QLabel { background-color: transparent; color: %1; font-weight: 500; }")
+                   "QFormLayout QLabel { background-color: transparent; color: %1; font-weight: 500; }"
+                   // Dialog header: make title look secondary to contrast with content
+                   "QWidget#dialogHeader GLabel { color: %2; }")
         .arg(c.text.name(), c.textSecondary.name());
 }
 
@@ -243,7 +254,7 @@ QString GTheme::buildScrollAreaStyles() const
                    "QScrollBar::handle:vertical { background: %3; border-radius: 4px; min-height: 20px; }"
                    "QScrollBar::handle:vertical:hover { background: %4; }"
                    "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }")
-        .arg(c.background.name())
+        .arg(c.surface.name())
         .arg(c.surface.name())
         .arg(c.border.name())
         .arg(c.textSecondary.name());
