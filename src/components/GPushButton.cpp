@@ -4,10 +4,8 @@
 
 #include <QStyle>
 
-static QString variantToString(GPushButton::Variant v)
-{
-    switch (v)
-    {
+static QString variantToString(GPushButton::Variant v) {
+    switch (v) {
     case GPushButton::Variant::Primary:
         return "primary";
     case GPushButton::Variant::Secondary:
@@ -22,38 +20,25 @@ static QString variantToString(GPushButton::Variant v)
     return "neutral";
 }
 
-GPushButton::GPushButton(QWidget* parent) : QPushButton(parent)
-{
-    setup();
-}
+GPushButton::GPushButton(QWidget* parent) : QPushButton(parent) { setup(); }
 
-GPushButton::GPushButton(const QString& text, QWidget* parent) : QPushButton(text, parent)
-{
-    setup();
-}
+GPushButton::GPushButton(const QString& text, QWidget* parent) : QPushButton(text, parent) { setup(); }
 
-GPushButton::GPushButton(const QString& text, Variant variant, QWidget* parent) : QPushButton(text, parent), m_variant(variant)
-{
-    setup();
-}
+GPushButton::GPushButton(const QString& text, Variant variant, QWidget* parent) : QPushButton(text, parent), m_variant(variant) { setup(); }
 
-void GPushButton::setup()
-{
+void GPushButton::setup() {
     setCursor(Qt::PointingHandCursor);
     applyStyle();
 }
 
-void GPushButton::setVariant(Variant variant)
-{
-    if (m_variant != variant)
-    {
+void GPushButton::setVariant(Variant variant) {
+    if (m_variant != variant) {
         m_variant = variant;
         applyStyle();
     }
 }
 
-void GPushButton::applyStyle()
-{
+void GPushButton::applyStyle() {
     setProperty("gVariant", variantToString(m_variant));
     style()->unpolish(this);
     style()->polish(this);

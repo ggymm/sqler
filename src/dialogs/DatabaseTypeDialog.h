@@ -6,25 +6,20 @@ class GScrollArea;
 class GPushButton;
 class GLabel;
 
-struct DatabaseType
-{
+struct DatabaseType {
     QString id;
     QString displayName;
     QString description;
     QString iconPath;
 };
 
-class DatabaseTypeDialog final : public QWidget
-{
+class DatabaseTypeDialog final : public QWidget {
     Q_OBJECT
 
   public:
     explicit DatabaseTypeDialog(QWidget* parent = nullptr);
 
-    [[nodiscard]] QString selectedDatabaseType() const
-    {
-        return m_selectedType;
-    }
+    [[nodiscard]] QString selectedDatabaseType() const { return m_selectedType; }
 
   private slots:
     void onDatabaseTypeSelected(const QString& type);

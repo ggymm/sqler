@@ -2,8 +2,7 @@
 
 #include <QScrollArea>
 
-class GScrollArea final : public QScrollArea
-{
+class GScrollArea final : public QScrollArea {
     Q_OBJECT
 
   public:

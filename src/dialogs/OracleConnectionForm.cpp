@@ -6,13 +6,9 @@
 
 #include <QFormLayout>
 
-OracleConnectionForm::OracleConnectionForm(QWidget* parent) : ConnectionFormBase(parent)
-{
-    setupUI();
-}
+OracleConnectionForm::OracleConnectionForm(QWidget* parent) : ConnectionFormBase(parent) { setupUI(); }
 
-void OracleConnectionForm::setupUI()
-{
+void OracleConnectionForm::setupUI() {
     // Connection Name
     m_nameEdit = new GLineEdit(this);
     m_nameEdit->setText("Oracle 连接");
@@ -49,8 +45,7 @@ void OracleConnectionForm::setupUI()
     m_formLayout->addRow(new GLabel("服务名/SID:"), m_serviceNameEdit);
 }
 
-QVariantMap OracleConnectionForm::getConnectionData() const
-{
+QVariantMap OracleConnectionForm::getConnectionData() const {
     QVariantMap data;
     data["type"] = "oracle";
     data["name"] = m_nameEdit->text();
@@ -62,7 +57,6 @@ QVariantMap OracleConnectionForm::getConnectionData() const
     return data;
 }
 
-bool OracleConnectionForm::validateInput() const
-{
+bool OracleConnectionForm::validateInput() const {
     return !m_nameEdit->text().isEmpty() && !m_hostEdit->text().isEmpty() && !m_usernameEdit->text().isEmpty();
 }

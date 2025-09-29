@@ -6,13 +6,9 @@
 
 #include <QFormLayout>
 
-SQLServerConnectionForm::SQLServerConnectionForm(QWidget* parent) : ConnectionFormBase(parent)
-{
-    setupUI();
-}
+SQLServerConnectionForm::SQLServerConnectionForm(QWidget* parent) : ConnectionFormBase(parent) { setupUI(); }
 
-void SQLServerConnectionForm::setupUI()
-{
+void SQLServerConnectionForm::setupUI() {
     // Connection Name
     m_nameEdit = new GLineEdit(this);
     m_nameEdit->setText("SQL Server 连接");
@@ -54,8 +50,7 @@ void SQLServerConnectionForm::setupUI()
     m_formLayout->addRow(new GLabel("数据库名:"), m_databaseEdit);
 }
 
-QVariantMap SQLServerConnectionForm::getConnectionData() const
-{
+QVariantMap SQLServerConnectionForm::getConnectionData() const {
     QVariantMap data;
     data["type"] = "sqlserver";
     data["name"] = m_nameEdit->text();
@@ -68,7 +63,6 @@ QVariantMap SQLServerConnectionForm::getConnectionData() const
     return data;
 }
 
-bool SQLServerConnectionForm::validateInput() const
-{
+bool SQLServerConnectionForm::validateInput() const {
     return !m_nameEdit->text().isEmpty() && !m_hostEdit->text().isEmpty() && !m_usernameEdit->text().isEmpty();
 }

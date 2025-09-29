@@ -8,8 +8,7 @@ class GPushButton;
 class QHBoxLayout;
 class QWidget;
 
-class ConnectionFormBase : public QWidget
-{
+class ConnectionFormBase : public QWidget {
     Q_OBJECT
 
   public:

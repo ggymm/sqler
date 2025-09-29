@@ -5,8 +5,7 @@
 class GLineEdit;
 class GSpinBox;
 
-class OracleConnectionForm : public ConnectionFormBase
-{
+class OracleConnectionForm : public ConnectionFormBase {
     Q_OBJECT
 
   public:

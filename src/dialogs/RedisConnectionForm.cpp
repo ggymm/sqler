@@ -6,13 +6,9 @@
 
 #include <QFormLayout>
 
-RedisConnectionForm::RedisConnectionForm(QWidget* parent) : ConnectionFormBase(parent)
-{
-    RedisConnectionForm::setupUI();
-}
+RedisConnectionForm::RedisConnectionForm(QWidget* parent) : ConnectionFormBase(parent) { RedisConnectionForm::setupUI(); }
 
-void RedisConnectionForm::setupUI()
-{
+void RedisConnectionForm::setupUI() {
     // Connection Name
     m_nameEdit = new GLineEdit(this);
     m_nameEdit->setText("Redis 缓存");
@@ -51,8 +47,7 @@ void RedisConnectionForm::setupUI()
     m_formLayout->addRow(new GLabel("数据库索引:"), m_databaseSpin);
 }
 
-QVariantMap RedisConnectionForm::getConnectionData() const
-{
+QVariantMap RedisConnectionForm::getConnectionData() const {
     QVariantMap data;
     data["type"] = "redis";
     data["name"] = m_nameEdit->text();
@@ -64,7 +59,4 @@ QVariantMap RedisConnectionForm::getConnectionData() const
     return data;
 }
 
-bool RedisConnectionForm::validateInput() const
-{
-    return !m_nameEdit->text().isEmpty() && !m_hostEdit->text().isEmpty();
-}
+bool RedisConnectionForm::validateInput() const { return !m_nameEdit->text().isEmpty() && !m_hostEdit->text().isEmpty(); }

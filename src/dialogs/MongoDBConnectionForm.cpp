@@ -6,13 +6,9 @@
 
 #include <QFormLayout>
 
-MongoDBConnectionForm::MongoDBConnectionForm(QWidget* parent) : ConnectionFormBase(parent)
-{
-    setupUI();
-}
+MongoDBConnectionForm::MongoDBConnectionForm(QWidget* parent) : ConnectionFormBase(parent) { setupUI(); }
 
-void MongoDBConnectionForm::setupUI()
-{
+void MongoDBConnectionForm::setupUI() {
     // Connection Name
     m_nameEdit = new GLineEdit(this);
     m_nameEdit->setText("MongoDB 数据库");
@@ -54,8 +50,7 @@ void MongoDBConnectionForm::setupUI()
     m_formLayout->addRow(new GLabel("数据库名:"), m_databaseEdit);
 }
 
-QVariantMap MongoDBConnectionForm::getConnectionData() const
-{
+QVariantMap MongoDBConnectionForm::getConnectionData() const {
     QVariantMap data;
     data["type"] = "mongodb";
     data["name"] = m_nameEdit->text();
@@ -68,7 +63,6 @@ QVariantMap MongoDBConnectionForm::getConnectionData() const
     return data;
 }
 
-bool MongoDBConnectionForm::validateInput() const
-{
+bool MongoDBConnectionForm::validateInput() const {
     return !m_nameEdit->text().isEmpty() && (!m_connectionStringEdit->text().isEmpty() || !m_hostEdit->text().isEmpty());
 }

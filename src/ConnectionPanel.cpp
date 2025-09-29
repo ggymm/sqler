@@ -9,16 +9,14 @@
 #include <QListWidget>
 #include <QVBoxLayout>
 
-ConnectionPanel::ConnectionPanel(QWidget* parent) : QWidget(parent)
-{
+ConnectionPanel::ConnectionPanel(QWidget* parent) : QWidget(parent) {
     setAttribute(Qt::WA_StyledBackground, true);
     setObjectName("connectionPanel");
     setupUI();
     populateConnections();
 }
 
-void ConnectionPanel::setupUI()
-{
+void ConnectionPanel::setupUI() {
     auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(GStyle::Spacing::md, GStyle::Spacing::md, GStyle::Spacing::md, GStyle::Spacing::md);
     layout->setSpacing(GStyle::Spacing::md);
@@ -42,15 +40,13 @@ void ConnectionPanel::setupUI()
     connect(m_connectionsList, &QListWidget::itemClicked, this, &ConnectionPanel::onConnectionItemClicked);
 }
 
-void ConnectionPanel::populateConnections()
-{
+void ConnectionPanel::populateConnections() {
     createConnectionItem("本地 MySQL", "mysql", true);
     createConnectionItem("测试 PostgreSQL", "postgresql", false);
     createConnectionItem("Redis 缓存", "redis", true);
 }
 
-QListWidgetItem* ConnectionPanel::createConnectionItem(const QString& name, const QString& type, bool connected)
-{
+QListWidgetItem* ConnectionPanel::createConnectionItem(const QString& name, const QString& type, bool connected) {
     auto* item = new QListWidgetItem(m_connectionsList);
     auto* widget = new GConnectionItem(name, type, connected);
     item->setSizeHint(QSize(0, 48));
@@ -58,8 +54,7 @@ QListWidgetItem* ConnectionPanel::createConnectionItem(const QString& name, cons
     return item;
 }
 
-void ConnectionPanel::onConnectionItemClicked(QListWidgetItem* item)
-{
+void ConnectionPanel::onConnectionItemClicked(QListWidgetItem* item) {
     if (!item)
         return;
 
@@ -69,11 +64,9 @@ void ConnectionPanel::onConnectionItemClicked(QListWidgetItem* item)
         return;
 
     // Highlight the selected item using component API
-    for (int i = 0; i < m_connectionsList->count(); ++i)
-    {
+    for (int i = 0; i < m_connectionsList->count(); ++i) {
         QListWidgetItem* listItem = m_connectionsList->item(i);
-        if (auto* widget = qobject_cast<GConnectionItem*>(m_connectionsList->itemWidget(listItem)))
-        {
+        if (auto* widget = qobject_cast<GConnectionItem*>(m_connectionsList->itemWidget(listItem))) {
             widget->setSelected(widget == connectionWidget);
         }
     }

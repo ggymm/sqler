@@ -9,13 +9,11 @@
 
 #include <QHBoxLayout>
 
-MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), m_topMenuBar(nullptr), m_connectionPanel(nullptr), m_mainContent(nullptr)
-{
+MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), m_topMenuBar(nullptr), m_connectionPanel(nullptr), m_mainContent(nullptr) {
     setupUI();
 }
 
-void MainWindow::setupUI()
-{
+void MainWindow::setupUI() {
     setWindowTitle(QStringLiteral("SQL Database Manager"));
     resize(1200, 800);
 
@@ -31,13 +29,11 @@ void MainWindow::setupUI()
     mainLayout->addWidget(m_topMenuBar);
 
     // Connect theme toggle signal
-    connect(m_topMenuBar, &TopMenuBar::themeToggleClicked, this,
-            [this]()
-            {
-                auto& theme = GTheme::instance();
-                const auto newMode = theme.mode() == GTheme::Mode::Light ? GTheme::Mode::Dark : GTheme::Mode::Light;
-                theme.setMode(newMode);
-            });
+    connect(m_topMenuBar, &TopMenuBar::themeToggleClicked, this, [this]() {
+        auto& theme = GTheme::instance();
+        const auto newMode = theme.mode() == GTheme::Mode::Light ? GTheme::Mode::Dark : GTheme::Mode::Light;
+        theme.setMode(newMode);
+    });
 
     auto* contentLayout = new QHBoxLayout();
     contentLayout->setContentsMargins(0, 0, 0, 0);

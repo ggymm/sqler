@@ -6,8 +6,7 @@ class GListWidget;
 class QListWidgetItem;
 class GPushButton;
 
-class ConnectionPanel final : public QWidget
-{
+class ConnectionPanel final : public QWidget {
     Q_OBJECT
 
   public:

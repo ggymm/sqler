@@ -5,8 +5,7 @@
 class GLineEdit;
 class GSpinBox;
 
-class MongoDBConnectionForm final : public ConnectionFormBase
-{
+class MongoDBConnectionForm final : public ConnectionFormBase {
     Q_OBJECT
 
   public:

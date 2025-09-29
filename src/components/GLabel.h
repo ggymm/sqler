@@ -2,19 +2,11 @@
 
 #include <QLabel>
 
-class GLabel final : public QLabel
-{
+class GLabel final : public QLabel {
     Q_OBJECT
 
   public:
-    enum class Role
-    {
-        Title,
-        Subtitle,
-        Body,
-        Caption,
-        Emphasis
-    };
+    enum class Role { Title, Subtitle, Body, Caption, Emphasis };
 
     explicit GLabel(QWidget* parent = nullptr);
     explicit GLabel(const QString& text, QWidget* parent = nullptr);

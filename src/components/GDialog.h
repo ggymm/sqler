@@ -2,8 +2,7 @@
 
 #include <QDialog>
 
-class GDialog : public QDialog
-{
+class GDialog : public QDialog {
     Q_OBJECT
 
   public:

@@ -9,8 +9,7 @@ class QWidget;
 class DatabaseTypeDialog;
 class ConnectionFormBase;
 
-class NewConnectionDialog final : public GDialog
-{
+class NewConnectionDialog final : public GDialog {
     Q_OBJECT
 
   public:

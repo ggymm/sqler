@@ -7,23 +7,22 @@
 
 #include <QVBoxLayout>
 
-DatabaseTypeDialog::DatabaseTypeDialog(QWidget* parent) : QWidget(parent)
-{
+DatabaseTypeDialog::DatabaseTypeDialog(QWidget* parent) : QWidget(parent) {
     setAttribute(Qt::WA_StyledBackground, true);
     setObjectName("dbTypePage");
-    m_databaseTypes = {{"mysql", "MySQL", "流行的开源关系型数据库", ":/assets/icons/db/mysql.svg"},
-                       {"postgresql", "PostgreSQL", "高级开源关系型数据库", ":/assets/icons/db/postgresql.svg"},
-                       {"sqlite", "SQLite", "轻量级文件数据库", ":/assets/icons/db/sqlite.svg"},
-                       {"mongodb", "MongoDB", "文档型NoSQL数据库", ":/assets/icons/db/mongodb.svg"},
-                       {"redis", "Redis", "内存键值存储数据库", ":/assets/icons/db/redis.svg"},
-                       {"oracle", "Oracle", "企业级关系型数据库", ":/assets/icons/db/oracle.svg"},
-                       {"sqlserver", "SQL Server", "微软关系型数据库", ":/assets/icons/db/sqlserver.svg"}};
+    m_databaseTypes = {
+        {"mysql", "MySQL", "流行的开源关系型数据库", ":/assets/icons/db/mysql.svg"},
+        {"postgresql", "PostgreSQL", "高级开源关系型数据库", ":/assets/icons/db/postgresql.svg"},
+        {"sqlite", "SQLite", "轻量级文件数据库", ":/assets/icons/db/sqlite.svg"},
+        {"mongodb", "MongoDB", "文档型NoSQL数据库", ":/assets/icons/db/mongodb.svg"},
+        {"redis", "Redis", "内存键值存储数据库", ":/assets/icons/db/redis.svg"},
+        {"oracle", "Oracle", "企业级关系型数据库", ":/assets/icons/db/oracle.svg"},
+        {"sqlserver", "SQL Server", "微软关系型数据库", ":/assets/icons/db/sqlserver.svg"}};
 
     setupUI();
 }
 
-void DatabaseTypeDialog::setupUI()
-{
+void DatabaseTypeDialog::setupUI() {
     // Don't set window title, let parent dialog handle it
     resize(500, 400);
 
@@ -41,8 +40,7 @@ void DatabaseTypeDialog::setupUI()
     scrollLayout->setContentsMargins(GStyle::Spacing::lg, GStyle::Spacing::lg, GStyle::Spacing::lg, GStyle::Spacing::lg);
 
     // Add database type items in vertical list
-    for (const auto& dbType : m_databaseTypes)
-    {
+    for (const auto& dbType : m_databaseTypes) {
         auto* button = createDatabaseTypeButton(dbType);
         scrollLayout->addWidget(button);
     }
@@ -60,8 +58,7 @@ void DatabaseTypeDialog::setupUI()
     // layout->addLayout(buttonLayout);
 }
 
-GPushButton* DatabaseTypeDialog::createDatabaseTypeButton(const DatabaseType& dbType)
-{
+GPushButton* DatabaseTypeDialog::createDatabaseTypeButton(const DatabaseType& dbType) {
     auto* button = new GPushButton(this);
     button->setVariant(GPushButton::Variant::Dialog);
     button->setFixedHeight(GStyle::Sizes::dialogButtonHeight);
@@ -99,8 +96,7 @@ GPushButton* DatabaseTypeDialog::createDatabaseTypeButton(const DatabaseType& db
     return button;
 }
 
-void DatabaseTypeDialog::onDatabaseTypeSelected(const QString& type)
-{
+void DatabaseTypeDialog::onDatabaseTypeSelected(const QString& type) {
     m_selectedType = type;
     emit selected(type);
 }

@@ -7,10 +7,10 @@
 #include "dialogs/NewConnectionDialog.h"
 
 #include <QHBoxLayout>
+
 #include <algorithm>
 
-TopMenuBar::TopMenuBar(QWidget* parent) : QWidget(parent)
-{
+TopMenuBar::TopMenuBar(QWidget* parent) : QWidget(parent) {
     setupUI();
     updateThemeIcon();
 
@@ -18,8 +18,7 @@ TopMenuBar::TopMenuBar(QWidget* parent) : QWidget(parent)
     connect(&GTheme::instance(), &GTheme::themeChanged, this, &TopMenuBar::updateThemeIcon);
 }
 
-void TopMenuBar::setupUI()
-{
+void TopMenuBar::setupUI() {
     auto* layout = new QHBoxLayout(this);
     // Compute vertical margins so toolbar buttons (fixed height)
     // are vertically centered within the top bar height.
@@ -29,13 +28,11 @@ void TopMenuBar::setupUI()
 
     m_newConnectionBtn = createMenuButton(QStringLiteral("新建连接"), QStringLiteral(":/assets/icons/new-conn.svg"));
     layout->addWidget(m_newConnectionBtn);
-    connect(m_newConnectionBtn, &QPushButton::clicked,
-            [this]()
-            {
-                auto* dialog = new NewConnectionDialog(this);
-                dialog->exec();
-                dialog->deleteLater();
-            });
+    connect(m_newConnectionBtn, &QPushButton::clicked, [this]() {
+        auto* dialog = new NewConnectionDialog(this);
+        dialog->exec();
+        dialog->deleteLater();
+    });
 
     m_newQueryBtn = createMenuButton(QStringLiteral("新建查询"), QStringLiteral(":/assets/icons/new-query.svg"));
     layout->addWidget(m_newQueryBtn);
@@ -71,8 +68,7 @@ void TopMenuBar::setupUI()
     connect(m_themeToggleBtn, &QPushButton::clicked, this, &TopMenuBar::themeToggleClicked);
 }
 
-GPushButton* TopMenuBar::createMenuButton(const QString& text, const QString& iconPath)
-{
+GPushButton* TopMenuBar::createMenuButton(const QString& text, const QString& iconPath) {
     auto* button = new GPushButton(text, GPushButton::Variant::Toolbar, this);
     button->setIcon(QIcon(iconPath));
     button->setIconSize(QSize(GStyle::Sizes::iconSize, GStyle::Sizes::iconSize));
@@ -80,8 +76,7 @@ GPushButton* TopMenuBar::createMenuButton(const QString& text, const QString& ic
     return button;
 }
 
-void TopMenuBar::updateThemeIcon()
-{
+void TopMenuBar::updateThemeIcon() {
     if (!m_themeToggleBtn)
         return;
 

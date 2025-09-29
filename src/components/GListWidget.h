@@ -2,8 +2,7 @@
 
 #include <QListWidget>
 
-class GListWidget final : public QListWidget
-{
+class GListWidget final : public QListWidget {
     Q_OBJECT
 
   public:

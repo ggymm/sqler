@@ -5,8 +5,7 @@
 class GLineEdit;
 class GSpinBox;
 
-class SQLServerConnectionForm : public ConnectionFormBase
-{
+class SQLServerConnectionForm : public ConnectionFormBase {
     Q_OBJECT
 
   public:

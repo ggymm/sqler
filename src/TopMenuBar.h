@@ -4,8 +4,7 @@
 
 class GPushButton;
 
-class TopMenuBar final : public QWidget
-{
+class TopMenuBar final : public QWidget {
     Q_OBJECT
 
   public:

@@ -4,11 +4,9 @@
 #include <QObject>
 
 // Naive UI 颜色系统
-namespace NaiveUI
-{
+namespace NaiveUI {
 // 亮色主题颜色 (来自 naive-ui/src/_styles/common/light.ts)
-struct LightColors
-{
+struct LightColors {
     // Primary colors
     static constexpr const char* primaryDefault = "#18a058";
     static constexpr const char* primaryHover = "#36ad6a";
@@ -73,8 +71,7 @@ struct LightColors
 };
 
 // 暗色主题颜色 (来自 naive-ui/src/_styles/common/dark.ts)
-struct DarkColors
-{
+struct DarkColors {
     // Primary colors
     static constexpr const char* primaryDefault = "#63e2b7";
     static constexpr const char* primaryHover = "#7fe7c4";
@@ -139,19 +136,13 @@ struct DarkColors
 };
 } // namespace NaiveUI
 
-class GTheme : public QObject
-{
+class GTheme : public QObject {
     Q_OBJECT
 
   public:
-    enum class Mode
-    {
-        Light,
-        Dark
-    };
+    enum class Mode { Light, Dark };
 
-    struct Palette
-    {
+    struct Palette {
         QColor background;
         QColor surface;
         QColor border;
@@ -166,14 +157,8 @@ class GTheme : public QObject
     static GTheme& instance();
 
     void setMode(Mode mode);
-    [[nodiscard]] Mode mode() const
-    {
-        return m_mode;
-    }
-    [[nodiscard]] const Palette& palette() const
-    {
-        return m_palette;
-    }
+    [[nodiscard]] Mode mode() const { return m_mode; }
+    [[nodiscard]] const Palette& palette() const { return m_palette; }
 
     // Apply global app stylesheet covering all components
     void applyToApp();

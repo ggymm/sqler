@@ -5,18 +5,7 @@ BasedOnStyle: LLVM
 TabWidth: 4
 IndentWidth: 4
 UseTab: Never
-ColumnLimit: 180
-
-BreakBeforeBraces: Allman
-BraceWrapping:
-  AfterClass: true
-  AfterControlStatement: Always
-  AfterEnum: true
-  AfterFunction: true
-  AfterNamespace: true
-  AfterStruct: true
-  BeforeCatch: true
-  BeforeElse: true
+ColumnLimit: 150
 
 SortIncludes: CaseSensitive
 IncludeBlocks: Regroup
@@ -49,11 +38,15 @@ SpaceAfterCStyleCast: true
 SpaceBeforeParens: ControlStatements
 SpacesInParentheses: false
 
-AlignAfterOpenBracket: Align
 AlignConsecutiveAssignments: false
 AlignTrailingComments: true
 
-AllowShortFunctionsOnASingleLine: None
-AllowShortIfStatementsOnASingleLine: Never
-AllowShortLoopsOnASingleLine: false
-FixNamespaceComments: true
+BinPackArguments: false
+BinPackParameters: false
+
+BreakStringLiterals: false
+AlwaysBreakBeforeMultilineStrings: false
+PenaltyBreakString: 1000
+PenaltyExcessCharacter: 1000000
+
+AlignAfterOpenBracket: AlwaysBreak

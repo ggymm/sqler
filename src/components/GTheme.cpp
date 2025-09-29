@@ -4,14 +4,12 @@
 
 #include <QApplication>
 
-GTheme& GTheme::instance()
-{
+GTheme& GTheme::instance() {
     static GTheme inst;
     return inst;
 }
 
-GTheme::GTheme(QObject* parent) : QObject(parent)
-{
+GTheme::GTheme(QObject* parent) : QObject(parent) {
     m_light = {
         QColor(0xfafafa),
         QColor(0xffffff),
@@ -21,9 +19,7 @@ GTheme::GTheme(QObject* parent) : QObject(parent)
         QColor(0x1f2225),
         QColor(0x333639),
         QColor(0x767c82),
-        QColor(0x18a058)
-    };
-
+        QColor(0x18a058)};
 
     m_dark = {
         QColor(16, 16, 20),
@@ -34,16 +30,13 @@ GTheme::GTheme(QObject* parent) : QObject(parent)
         QColor(255, 255, 255, 230),
         QColor(255, 255, 255, 209),
         QColor(255, 255, 255, 133),
-        QColor(0x63e2b7)
-    };
+        QColor(0x63e2b7)};
 
     updatePalette();
 }
 
-void GTheme::setMode(Mode mode)
-{
-    if (m_mode != mode)
-    {
+void GTheme::setMode(Mode mode) {
+    if (m_mode != mode) {
         m_mode = mode;
         updatePalette();
         applyToApp();
@@ -51,24 +44,16 @@ void GTheme::setMode(Mode mode)
     }
 }
 
-void GTheme::updatePalette()
-{
-    m_palette = (m_mode == Mode::Light) ? m_light : m_dark;
-}
+void GTheme::updatePalette() { m_palette = (m_mode == Mode::Light) ? m_light : m_dark; }
 
-void GTheme::applyToApp()
-{
-    qApp->setStyleSheet(buildGlobalStyleSheet());
-}
+void GTheme::applyToApp() { qApp->setStyleSheet(buildGlobalStyleSheet()); }
 
-QString GTheme::buildGlobalStyleSheet() const
-{
+QString GTheme::buildGlobalStyleSheet() const {
     return buildBaseStyles() + buildLabelStyles() + buildButtonStyles() + buildInputStyles() + buildScrollAreaStyles() + buildListStyles() +
            buildConnectionStyles() + buildSeparatorStyles();
 }
 
-QString GTheme::buildBaseStyles() const
-{
+QString GTheme::buildBaseStyles() const {
     const auto& c = m_palette;
     const bool isLight = (m_mode == Mode::Light);
     const QString headerFooterBg = isLight ? NaiveUI::LightColors::hoverColor : NaiveUI::DarkColors::neutralBody;
@@ -84,24 +69,23 @@ QString GTheme::buildBaseStyles() const
         .arg(c.background.name(), c.text.name(), c.surface.name(), headerFooterBg, c.border.name());
 }
 
-QString GTheme::buildLabelStyles() const
-{
+QString GTheme::buildLabelStyles() const {
     const auto& c = m_palette;
-    return QString("QLabel { background-color: transparent; color: %1; }"
-                   "GLabel { background-color: transparent; color: %1; font-size: 14px; }"
-                   "GLabel[gRole=\"title\"] { background-color: transparent; color: %1; font-size: 20px; font-weight: 700; }"
-                   "GLabel[gRole=\"subtitle\"] { background-color: transparent; color: %2; font-size: 14px; font-weight: 500; }"
-                   "GLabel[gRole=\"caption\"] { background-color: transparent; color: %2; font-size: 12px; }"
-                   "GLabel[gRole=\"emphasis\"] { background-color: transparent; color: %1; font-size: 14px; font-weight: 600; }"
-                   "GLabel[gRole=\"body\"] { background-color: transparent; color: %1; font-size: 14px; }"
-                   "QFormLayout QLabel { background-color: transparent; color: %1; font-weight: 500; }"
+    return QString(
+               "QLabel { background-color: transparent; color: %1; }"
+               "GLabel { background-color: transparent; color: %1; font-size: 14px; }"
+               "GLabel[gRole=\"title\"] { background-color: transparent; color: %1; font-size: 20px; font-weight: 700; }"
+               "GLabel[gRole=\"subtitle\"] { background-color: transparent; color: %2; font-size: 14px; font-weight: 500; }"
+               "GLabel[gRole=\"caption\"] { background-color: transparent; color: %2; font-size: 12px; }"
+               "GLabel[gRole=\"emphasis\"] { background-color: transparent; color: %1; font-size: 14px; font-weight: 600; }"
+               "GLabel[gRole=\"body\"] { background-color: transparent; color: %1; font-size: 14px; }"
+               "QFormLayout QLabel { background-color: transparent; color: %1; font-weight: 500; }"
 
-                   "QWidget#dialogHeader GLabel { color: %2; }")
+               "QWidget#dialogHeader GLabel { color: %2; }")
         .arg(c.text.name(), c.textSecondary.name());
 }
 
-QString GTheme::buildButtonStyles() const
-{
+QString GTheme::buildButtonStyles() const {
     using namespace GStyle;
     const auto& c = m_palette;
 
@@ -112,16 +96,17 @@ QString GTheme::buildButtonStyles() const
     const QString primaryHoverColor = isLight ? NaiveUI::LightColors::primaryHover : NaiveUI::DarkColors::primaryHover;
     const QString borderColor = isLight ? NaiveUI::LightColors::borderColor : NaiveUI::DarkColors::borderColor;
 
-    return QString("GPushButton { border-radius: %1px; }"
-                   "GPushButton[gVariant=\"primary\"] { background-color: %2; border: none; padding: %3px %4px; min-width: %5px; color: white; }"
-                   "GPushButton[gVariant=\"primary\"]:hover { background-color: %6; }"
-                   "GPushButton[gVariant=\"secondary\"] { background-color: transparent; border: 1px solid %8; padding: %3px %4px; min-width: %5px; color: %7; }"
-                   "GPushButton[gVariant=\"secondary\"]:hover { background-color: %9; }"
-                   "GPushButton[gVariant=\"dialog\"] { background-color: %9; border: 1px solid %8; padding: 0px; margin-bottom: %10px; min-height: %11px; text-align: left; }"
-                   "GPushButton[gVariant=\"dialog\"]:hover { background-color: %12; border-color: %2; }"
-                   "GPushButton[gVariant=\"dialog\"]:pressed { background-color: %13; border-color: %2; }"
-                   "GPushButton[gVariant=\"toolbar\"] { background-color: transparent; border: none; padding: 4px 8px; color: %7; }"
-                   "GPushButton[gVariant=\"toolbar\"]:hover { background-color: %8; }")
+    return QString(
+               "GPushButton { border-radius: %1px; }"
+               "GPushButton[gVariant=\"primary\"] { background-color: %2; border: none; padding: %3px %4px; min-width: %5px; color: white; }"
+               "GPushButton[gVariant=\"primary\"]:hover { background-color: %6; }"
+               "GPushButton[gVariant=\"secondary\"] { background-color: transparent; border: 1px solid %8; padding: %3px %4px; min-width: %5px; color: %7; }"
+               "GPushButton[gVariant=\"secondary\"]:hover { background-color: %9; }"
+               "GPushButton[gVariant=\"dialog\"] { background-color: %9; border: 1px solid %8; padding: 0px; margin-bottom: %10px; min-height: %11px; text-align: left; }"
+               "GPushButton[gVariant=\"dialog\"]:hover { background-color: %12; border-color: %2; }"
+               "GPushButton[gVariant=\"dialog\"]:pressed { background-color: %13; border-color: %2; }"
+               "GPushButton[gVariant=\"toolbar\"] { background-color: transparent; border: none; padding: 4px 8px; color: %7; }"
+               "GPushButton[gVariant=\"toolbar\"]:hover { background-color: %8; }")
         .arg(QString::number(Sizes::borderRadius))
         .arg(primaryColor)
         .arg(QString::number(Spacing::sm))
@@ -137,8 +122,7 @@ QString GTheme::buildButtonStyles() const
         .arg(dialogPressedColor);
 }
 
-QString GTheme::buildInputStyles() const
-{
+QString GTheme::buildInputStyles() const {
     const auto& c = m_palette;
 
     const bool isLight = (m_mode == Mode::Light);
@@ -150,64 +134,64 @@ QString GTheme::buildInputStyles() const
     const QString buttonHoverColor = isLight ? NaiveUI::LightColors::actionColorAlpha02 : NaiveUI::DarkColors::actionColorAlpha02;
     const QString inputBgColor = isLight ? NaiveUI::LightColors::inputColor : NaiveUI::DarkColors::inputColor;
 
-    return QString("GLineEdit { background-color: %1; border: 1px solid %2; border-radius: 6px; padding: 10px 12px; min-height: 20px; color: %3; font-size: 14px; }"
-                   "GLineEdit:hover { border-color: %4; }"
-                   "GLineEdit:focus { border-color: %5; outline: none; }"
-                   "GLineEdit::placeholder { color: %6; }"
-                   "GSpinBox { background-color: %1; border: 1px solid %2; border-radius: 6px; padding: 10px 12px; min-height: 20px; color: %3; font-size: 14px; selection-background-color: %7; }"
-                   "GSpinBox:hover { border-color: %4; }"
-                   "GSpinBox:focus { border-color: %5; outline: none; }"
-                   "GSpinBox::up-button { background-color: %1; border-left: 1px solid %2; border-top-right-radius: 4px; subcontrol-origin: border; subcontrol-position: top right; width: 20px; height: 50%; margin: 1px; }"
-                   "GSpinBox::up-button:hover { background-color: %8; }"
-                   "GSpinBox::down-button { background-color: %1; border-left: 1px solid %2; border-bottom-right-radius: 4px; subcontrol-origin: border; subcontrol-position: bottom right; width: 20px; height: 50%; margin: 1px; }"
-                   "GSpinBox::down-button:hover { background-color: %8; }"
-                   "GSpinBox::up-arrow { border-left: 3px solid transparent; border-right: 3px solid transparent; border-bottom: 4px solid %3; image: none; }"
-                   "GSpinBox::down-arrow { border-left: 3px solid transparent; border-right: 3px solid transparent; border-top: 4px solid %3; image: none; }")
+    return QString(
+               "GLineEdit { background-color: %1; border: 1px solid %2; border-radius: 6px; padding: 10px 12px; min-height: 20px; color: %3; font-size: 14px; }"
+               "GLineEdit:hover { border-color: %4; }"
+               "GLineEdit:focus { border-color: %5; outline: none; }"
+               "GLineEdit::placeholder { color: %6; }"
+               "GSpinBox { background-color: %1; border: 1px solid %2; border-radius: 6px; padding: 10px 12px; min-height: 20px; color: %3; font-size: 14px; selection-background-color: %7; }"
+               "GSpinBox:hover { border-color: %4; }"
+               "GSpinBox:focus { border-color: %5; outline: none; }"
+               "GSpinBox::up-button { background-color: %1; border-left: 1px solid %2; border-top-right-radius: 4px; subcontrol-origin: border; subcontrol-position: top right; width: 20px; height: 50%; margin: 1px; }"
+               "GSpinBox::up-button:hover { background-color: %8; }"
+               "GSpinBox::down-button { background-color: %1; border-left: 1px solid %2; border-bottom-right-radius: 4px; subcontrol-origin: border; subcontrol-position: bottom right; width: 20px; height: 50%; margin: 1px; }"
+               "GSpinBox::down-button:hover { background-color: %8; }"
+               "GSpinBox::up-arrow { border-left: 3px solid transparent; border-right: 3px solid transparent; border-bottom: 4px solid %3; image: none; }"
+               "GSpinBox::down-arrow { border-left: 3px solid transparent; border-right: 3px solid transparent; border-top: 4px solid %3; image: none; }")
         .arg(inputBgColor, borderColor, c.text.name(), hoverColor, focusColor, placeholderColor, selectionBgColor, buttonHoverColor);
 }
 
-QString GTheme::buildScrollAreaStyles() const
-{
+QString GTheme::buildScrollAreaStyles() const {
     const auto& c = m_palette;
-    return QString("GScrollArea { background-color: %1; border: none; }"
-                   "QScrollArea, QScrollArea > QWidget, QScrollArea > QWidget > QWidget { background-color: %1; }"
-                   "QWidget#scrollContent { background-color: %1; }"
-                   "QStackedWidget, QStackedWidget > QWidget { background-color: %2; }"
-                   "GDialog QWidget { background-color: %2; }"
-                   "QScrollBar:vertical { border: none; background: %2; width: 8px; border-radius: 4px; }"
-                   "QScrollBar::handle:vertical { background: %3; border-radius: 4px; min-height: 20px; }"
-                   "QScrollBar::handle:vertical:hover { background: %4; }"
-                   "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }")
+    return QString(
+               "GScrollArea { background-color: %1; border: none; }"
+               "QScrollArea, QScrollArea > QWidget, QScrollArea > QWidget > QWidget { background-color: %1; }"
+               "QWidget#scrollContent { background-color: %1; }"
+               "QStackedWidget, QStackedWidget > QWidget { background-color: %2; }"
+               "GDialog QWidget { background-color: %2; }"
+               "QScrollBar:vertical { border: none; background: %2; width: 8px; border-radius: 4px; }"
+               "QScrollBar::handle:vertical { background: %3; border-radius: 4px; min-height: 20px; }"
+               "QScrollBar::handle:vertical:hover { background: %4; }"
+               "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }")
         .arg(c.surface.name(), c.surface.name(), c.border.name(), c.textSecondary.name());
 }
 
-QString GTheme::buildListStyles() const
-{
-    return QString("GListWidget { background-color: transparent; border: none; outline: none; }"
-                   "GListWidget::item { background-color: transparent; border: none; }"
-                   "GListWidget::item:selected { background-color: transparent; }"
-                   "GListWidget::item:hover { background-color: transparent; }"
-                   "GListWidget::viewport { background-color: transparent; }"
-                   "QAbstractItemView { background-color: transparent; }"
-                   "QAbstractItemView::viewport { background-color: transparent; }");
+QString GTheme::buildListStyles() const {
+    return QString(
+        "GListWidget { background-color: transparent; border: none; outline: none; }"
+        "GListWidget::item { background-color: transparent; border: none; }"
+        "GListWidget::item:selected { background-color: transparent; }"
+        "GListWidget::item:hover { background-color: transparent; }"
+        "GListWidget::viewport { background-color: transparent; }"
+        "QAbstractItemView { background-color: transparent; }"
+        "QAbstractItemView::viewport { background-color: transparent; }");
 }
 
-QString GTheme::buildConnectionStyles() const
-{
+QString GTheme::buildConnectionStyles() const {
     using namespace GStyle;
     const auto& c = m_palette;
-    return QString("GConnectionItem { background-color: %1; border-radius: %2px; }"
-                   "GConnectionItem:hover { background-color: %3; }"
-                   "GConnectionItem[gSelected=\"true\"] { background-color: #dbeafe; }"
-                   "QLabel[gStatus=\"connected\"] { color: #10b981; }"
-                   "QLabel[gStatus=\"disconnected\"] { color: %4; }"
-                   "ConnectionPanel { background-color: %1; border-right: 1px solid %5; }"
-                   "QWidget#connectionPanel { background-color: %1; border-right: 1px solid %5; }")
+    return QString(
+               "GConnectionItem { background-color: %1; border-radius: %2px; }"
+               "GConnectionItem:hover { background-color: %3; }"
+               "GConnectionItem[gSelected=\"true\"] { background-color: #dbeafe; }"
+               "QLabel[gStatus=\"connected\"] { color: #10b981; }"
+               "QLabel[gStatus=\"disconnected\"] { color: %4; }"
+               "ConnectionPanel { background-color: %1; border-right: 1px solid %5; }"
+               "QWidget#connectionPanel { background-color: %1; border-right: 1px solid %5; }")
         .arg(c.surface.name(), QString::number(Sizes::borderRadius), c.textMuted.name(), c.textSecondary.name(), c.border.name());
 }
 
-QString GTheme::buildSeparatorStyles() const
-{
+QString GTheme::buildSeparatorStyles() const {
     const auto& c = m_palette;
     return QString("GSeparator { background-color: %1; color: %1; }").arg(c.border.name());
 }

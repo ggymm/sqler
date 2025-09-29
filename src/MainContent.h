@@ -5,8 +5,7 @@
 class GLabel;
 class GPushButton;
 
-class MainContent final : public QWidget
-{
+class MainContent final : public QWidget {
     Q_OBJECT
 
   public:

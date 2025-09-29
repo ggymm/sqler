@@ -6,13 +6,9 @@
 
 #include <QFormLayout>
 
-MySQLConnectionForm::MySQLConnectionForm(QWidget* parent) : ConnectionFormBase(parent)
-{
-    setupUI();
-}
+MySQLConnectionForm::MySQLConnectionForm(QWidget* parent) : ConnectionFormBase(parent) { setupUI(); }
 
-void MySQLConnectionForm::setupUI()
-{
+void MySQLConnectionForm::setupUI() {
     // Connection Name
     m_nameEdit = new GLineEdit(this);
     m_nameEdit->setText("MySQL 连接");
@@ -49,8 +45,7 @@ void MySQLConnectionForm::setupUI()
     m_formLayout->addRow(new GLabel("数据库名:"), m_databaseEdit);
 }
 
-QVariantMap MySQLConnectionForm::getConnectionData() const
-{
+QVariantMap MySQLConnectionForm::getConnectionData() const {
     QVariantMap data;
     data["type"] = "mysql";
     data["name"] = m_nameEdit->text();
@@ -62,7 +57,6 @@ QVariantMap MySQLConnectionForm::getConnectionData() const
     return data;
 }
 
-bool MySQLConnectionForm::validateInput() const
-{
+bool MySQLConnectionForm::validateInput() const {
     return !m_nameEdit->text().isEmpty() && !m_hostEdit->text().isEmpty() && !m_usernameEdit->text().isEmpty();
 }

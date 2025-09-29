@@ -6,8 +6,7 @@
 #include <QFormLayout>
 #include <QTimer>
 
-ConnectionFormBase::ConnectionFormBase(QWidget* parent) : QWidget(parent), m_formLayout(nullptr), m_testButton(nullptr), m_saveButton(nullptr)
-{
+ConnectionFormBase::ConnectionFormBase(QWidget* parent) : QWidget(parent), m_formLayout(nullptr), m_testButton(nullptr), m_saveButton(nullptr) {
     setAttribute(Qt::WA_StyledBackground, true);
     setObjectName("connectionFormPage");
 
@@ -53,8 +52,7 @@ ConnectionFormBase::ConnectionFormBase(QWidget* parent) : QWidget(parent), m_for
     layout->addWidget(m_footerWidget);
 }
 
-void ConnectionFormBase::attachFooterTo(QHBoxLayout* destLayout)
-{
+void ConnectionFormBase::attachFooterTo(QHBoxLayout* destLayout) {
     if (!destLayout)
         return;
 
@@ -63,10 +61,8 @@ void ConnectionFormBase::attachFooterTo(QHBoxLayout* destLayout)
         m_footerWidget->setVisible(false);
 
     // Clear destination layout before populating
-    while (QLayoutItem* item = destLayout->takeAt(0))
-    {
-        if (auto* w = item->widget())
-        {
+    while (QLayoutItem* item = destLayout->takeAt(0)) {
+        if (auto* w = item->widget()) {
             w->setParent(nullptr);
         }
         delete item;
@@ -84,37 +80,29 @@ void ConnectionFormBase::attachFooterTo(QHBoxLayout* destLayout)
         destLayout->addWidget(m_saveButton);
 }
 
-void ConnectionFormBase::onTestConnection()
-{
+void ConnectionFormBase::onTestConnection() {
     m_testButton->setEnabled(false);
     m_testButton->setText("测试中...");
 
     // Validate input first
-    if (!validateInput())
-    {
+    if (!validateInput()) {
         m_testButton->setEnabled(true);
         m_testButton->setText("测试连接");
         return;
     }
 
     // Simulate connection test (in real implementation, would test actual connection)
-    QTimer::singleShot(1000, this,
-                       [this]()
-                       {
-                           m_testButton->setText("连接成功");
-                           QTimer::singleShot(1500, this,
-                                              [this]()
-                                              {
-                                                  m_testButton->setEnabled(true);
-                                                  m_testButton->setText("测试连接");
-                                              });
-                       });
+    QTimer::singleShot(1000, this, [this]() {
+        m_testButton->setText("连接成功");
+        QTimer::singleShot(1500, this, [this]() {
+            m_testButton->setEnabled(true);
+            m_testButton->setText("测试连接");
+        });
+    });
 }
 
-void ConnectionFormBase::onSaveConnection()
-{
-    if (validateInput())
-    {
+void ConnectionFormBase::onSaveConnection() {
+    if (validateInput()) {
         emit connectionSaved();
     }
 }

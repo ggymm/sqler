@@ -5,8 +5,7 @@
 class GLineEdit;
 class GSpinBox;
 
-class MySQLConnectionForm final : public ConnectionFormBase
-{
+class MySQLConnectionForm final : public ConnectionFormBase {
     Q_OBJECT
 
   public:

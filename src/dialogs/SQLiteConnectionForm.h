@@ -5,8 +5,7 @@
 class GLineEdit;
 class GPushButton;
 
-class SQLiteConnectionForm final : public ConnectionFormBase
-{
+class SQLiteConnectionForm final : public ConnectionFormBase {
     Q_OBJECT
 
   public:

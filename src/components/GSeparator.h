@@ -2,16 +2,11 @@
 
 #include <QFrame>
 
-class GSeparator final : public QFrame
-{
+class GSeparator final : public QFrame {
     Q_OBJECT
 
   public:
-    enum class Orientation
-    {
-        Horizontal,
-        Vertical
-    };
+    enum class Orientation { Horizontal, Vertical };
 
     explicit GSeparator(Orientation orientation, QWidget* parent = nullptr);
 };

@@ -1,11 +1,9 @@
 #pragma once
 
-namespace GStyle
-{
+namespace GStyle {
 
 // Spacing + sizes used across components
-struct Spacing
-{
+struct Spacing {
     static constexpr int xs = 4;
     static constexpr int sm = 8;
     static constexpr int md = 16;
@@ -13,8 +11,7 @@ struct Spacing
     static constexpr int xl = 32;
 };
 
-struct Sizes
-{
+struct Sizes {
     static constexpr int topBarHeight = 48;
     static constexpr int sideBarWidth = 280;
     static constexpr int iconSize = 20;
