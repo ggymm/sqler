@@ -11,6 +11,8 @@
 #include <algorithm>
 
 TopMenuBar::TopMenuBar(QWidget* parent) : QWidget(parent) {
+    setObjectName("topMenuBar");
+    setAttribute(Qt::WA_StyledBackground, true);
     setupUI();
     updateThemeIcon();
 

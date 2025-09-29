@@ -65,7 +65,9 @@ QString GTheme::buildBaseStyles() const {
                "QWidget#dbTypePage { background-color: %3; }"
                "QWidget#dialogHeader, QWidget#dialogFooter { background-color: %4; }"
                "QWidget#dialogHeader { border-bottom: 1px solid %5; }"
-               "QWidget#dialogFooter { border-top: 1px solid %5; }")
+               "QWidget#dialogFooter { border-top: 1px solid %5; }"
+               "QWidget#topMenuBar { border-bottom: 1px solid %5; }"
+               "TopMenuBar { border-bottom: 1px solid %5; }")
         .arg(c.background.name(), c.text.name(), c.surface.name(), headerFooterBg, c.border.name());
 }
 
