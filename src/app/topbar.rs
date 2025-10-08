@@ -3,8 +3,7 @@ use iced::widget::svg::Handle as SvgHandle;
 use iced::widget::{Rule, button, horizontal_space, row, svg};
 use iced::{Alignment, Background, Color, Element, Length, Theme};
 
-use super::theme::{Palette, ThemeMode};
-use super::{App, ContentTab, Message};
+use super::{App, ContentTab, Message, Palette, ThemeMode};
 
 pub fn topbar(
     app: &App,

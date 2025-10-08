@@ -1,10 +1,9 @@
 use iced::widget::{column, container, scrollable, text};
 use iced::{Background, Color, Element, Length, Shadow};
 
-use super::theme::Palette;
-use super::{App, ContentTab, Message};
+use super::{App, ContentTab, Message, Palette};
 
-pub fn content_panel(
+pub fn content(
     app: &App,
     palette: Palette,
 ) -> Element<'_, Message> {

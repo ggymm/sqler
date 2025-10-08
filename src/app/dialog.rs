@@ -4,9 +4,8 @@ use iced::{Alignment, Background, Color, Element, Length, Shadow, Theme, Vector}
 
 use crate::comps::form::labeled_input;
 
-use super::Message;
-use super::sidebar::{Connection, DatabaseKind};
-use super::theme::Palette;
+use super::{Connection, DatabaseKind};
+use super::{Message, Palette};
 
 #[derive(Debug, Clone)]
 pub enum DialogState {

@@ -3,8 +3,7 @@ use iced::widget::svg::Handle as SvgHandle;
 use iced::widget::{button, column, container, row, scrollable, svg, text};
 use iced::{Alignment, Background, Color, Element, Length, Shadow, Theme};
 
-use super::Message;
-use super::theme::Palette;
+use super::{Message, Palette};
 
 #[derive(Debug, Default)]
 pub struct ConnectionsState {
