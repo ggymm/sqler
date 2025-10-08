@@ -2,15 +2,15 @@ use iced::Color;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ThemeMode {
-    Light,
     Dark,
+    Light,
 }
 
 impl ThemeMode {
     pub fn toggle(&mut self) {
         *self = match self {
-            ThemeMode::Light => ThemeMode::Dark,
             ThemeMode::Dark => ThemeMode::Light,
+            ThemeMode::Light => ThemeMode::Dark,
         };
     }
 

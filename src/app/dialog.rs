@@ -33,7 +33,10 @@ impl ConnectionFormState {
         }
     }
 
-    pub fn build_connection(&self, id: usize) -> Result<Connection, String> {
+    pub fn build_connection(
+        &self,
+        id: usize,
+    ) -> Result<Connection, String> {
         self.form.build_connection(id)
     }
 
@@ -134,7 +137,11 @@ impl ConnectionForm {
         }
     }
 
-    pub fn update(&mut self, field: FormField, value: String) {
+    pub fn update(
+        &mut self,
+        field: FormField,
+        value: String,
+    ) {
         match self {
             ConnectionForm::Relational {
                 name,
@@ -181,7 +188,10 @@ impl ConnectionForm {
         }
     }
 
-    fn build_connection(&self, id: usize) -> Result<Connection, String> {
+    fn build_connection(
+        &self,
+        id: usize,
+    ) -> Result<Connection, String> {
         match self {
             ConnectionForm::Relational {
                 kind,
@@ -198,10 +208,7 @@ impl ConnectionForm {
                 if host.trim().is_empty() {
                     return Err("请输入主机地址".into());
                 }
-                let port_num = port
-                    .trim()
-                    .parse::<u16>()
-                    .map_err(|_| "端口必须为数字".to_string())?;
+                let port_num = port.trim().parse::<u16>().map_err(|_| "端口必须为数字".to_string())?;
                 if username.trim().is_empty() {
                     return Err("请输入用户名".into());
                 }
@@ -249,19 +256,14 @@ impl ConnectionForm {
                     summary: connection_string.trim().to_string(),
                 })
             }
-            ConnectionForm::Redis {
-                name, host, port, ..
-            } => {
+            ConnectionForm::Redis { name, host, port, .. } => {
                 if name.trim().is_empty() {
                     return Err("请输入连接名称".into());
                 }
                 if host.trim().is_empty() {
                     return Err("请输入主机地址".into());
                 }
-                let port_num = port
-                    .trim()
-                    .parse::<u16>()
-                    .map_err(|_| "端口必须为数字".to_string())?;
+                let port_num = port.trim().parse::<u16>().map_err(|_| "端口必须为数字".to_string())?;
 
                 Ok(Connection {
                     id,
@@ -286,13 +288,19 @@ pub enum FormField {
     ConnectionString,
 }
 
-pub fn modal_view(dialog: &DialogState, palette: Palette) -> Element<'_, Message> {
+pub fn modal_view(
+    dialog: &DialogState,
+    palette: Palette,
+) -> Element<'_, Message> {
     match dialog {
         DialogState::NewConnection(state) => new_connection_modal(state, palette),
     }
 }
 
-fn new_connection_modal(dialog: &NewConnectionDialog, palette: Palette) -> Element<'_, Message> {
+fn new_connection_modal(
+    dialog: &NewConnectionDialog,
+    palette: Palette,
+) -> Element<'_, Message> {
     let content = match dialog {
         NewConnectionDialog::SelectingType => connection_type_selector(palette),
         NewConnectionDialog::Editing(form_state) => connection_form(form_state, palette),
@@ -338,9 +346,7 @@ fn new_connection_modal(dialog: &NewConnectionDialog, palette: Palette) -> Eleme
 fn connection_type_selector(palette: Palette) -> Element<'static, Message> {
     let mut content = column![
         text("选择数据库类型").size(22).color(palette.text),
-        text("请选择需要连接的数据库类型。")
-            .color(palette.text_muted)
-            .size(15),
+        text("请选择需要连接的数据库类型。").color(palette.text_muted).size(15),
     ]
     .spacing(12);
 
@@ -379,7 +385,10 @@ fn connection_type_selector(palette: Palette) -> Element<'static, Message> {
         .into()
 }
 
-fn database_type_card(kind: DatabaseKind, palette: Palette) -> Element<'static, Message> {
+fn database_type_card(
+    kind: DatabaseKind,
+    palette: Palette,
+) -> Element<'static, Message> {
     let icon = svg::<Theme>(SvgHandle::from_path(kind.icon_path()))
         .width(48)
         .height(48);
@@ -413,7 +422,10 @@ fn database_type_card(kind: DatabaseKind, palette: Palette) -> Element<'static, 
         .into()
 }
 
-fn connection_form(form_state: &ConnectionFormState, palette: Palette) -> Element<'_, Message> {
+fn connection_form(
+    form_state: &ConnectionFormState,
+    palette: Palette,
+) -> Element<'_, Message> {
     let form = &form_state.form;
     let kind = form.kind();
 
@@ -426,9 +438,7 @@ fn connection_form(form_state: &ConnectionFormState, palette: Palette) -> Elemen
                 text(format!("配置 {}", kind.display_name()))
                     .color(palette.text)
                     .size(22),
-                text("填写数据库连接信息。")
-                    .color(palette.text_muted)
-                    .size(15),
+                text("填写数据库连接信息。").color(palette.text_muted).size(15),
             ]
             .spacing(6),
         ]

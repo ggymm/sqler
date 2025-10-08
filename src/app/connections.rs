@@ -30,7 +30,10 @@ impl ConnectionsState {
         self.selected
     }
 
-    pub fn select(&mut self, id: usize) {
+    pub fn select(
+        &mut self,
+        id: usize,
+    ) {
         if self.entries.iter().any(|conn| conn.id == id) {
             self.selected = Some(id);
         }
@@ -40,13 +43,19 @@ impl ConnectionsState {
         self.next_id
     }
 
-    pub fn add(&mut self, connection: Connection) {
+    pub fn add(
+        &mut self,
+        connection: Connection,
+    ) {
         self.selected = Some(connection.id);
         self.entries.push(connection);
         self.next_id += 1;
     }
 
-    pub fn find(&self, id: usize) -> Option<&Connection> {
+    pub fn find(
+        &self,
+        id: usize,
+    ) -> Option<&Connection> {
         self.entries.iter().find(|conn| conn.id == id)
     }
 }
@@ -120,7 +129,10 @@ impl DatabaseKind {
     }
 }
 
-pub fn sidebar(connections: &ConnectionsState, palette: Palette) -> Element<'_, Message> {
+pub fn sidebar(
+    connections: &ConnectionsState,
+    palette: Palette,
+) -> Element<'_, Message> {
     let header = container(text("连接管理").color(palette.text).size(18))
         .padding([12, 16])
         .style(move |_| iced::widget::container::Style {
@@ -186,11 +198,7 @@ fn connection_item<'a>(
         .height(28);
 
     let name = text(&connection.name)
-        .color(if is_selected {
-            palette.accent
-        } else {
-            palette.text
-        })
+        .color(if is_selected { palette.accent } else { palette.text })
         .size(16);
 
     let summary = text(&connection.summary)
@@ -217,11 +225,7 @@ fn connection_item<'a>(
                 Color::TRANSPARENT
             };
 
-            let border_color = if is_selected {
-                palette.accent
-            } else {
-                palette.border
-            };
+            let border_color = if is_selected { palette.accent } else { palette.border };
 
             iced::widget::button::Style {
                 background: Some(Background::Color(background)),

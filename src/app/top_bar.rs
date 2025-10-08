@@ -6,7 +6,10 @@ use iced::{Alignment, Background, Color, Element, Length, Theme};
 use super::theme::{Palette, ThemeMode};
 use super::{App, ContentTab, Message};
 
-pub fn top_bar(app: &App, palette: Palette) -> Element<'_, Message> {
+pub fn top_bar(
+    app: &App,
+    palette: Palette,
+) -> Element<'_, Message> {
     let divider = container(Rule::vertical(1).style(move |_| iced::widget::rule::Style {
         color: palette.border,
         width: 1,
@@ -63,9 +66,7 @@ fn icon_action_button<'a>(
     message: Message,
     palette: Palette,
 ) -> Element<'a, Message> {
-    let icon = svg::<Theme>(SvgHandle::from_path(icon_path))
-        .width(24)
-        .height(24);
+    let icon = svg::<Theme>(SvgHandle::from_path(icon_path)).width(24).height(24);
 
     button(
         row![icon, iced::widget::text(label).color(palette.text).size(16)]
@@ -102,9 +103,7 @@ fn icon_tab_button(
     palette: Palette,
 ) -> Element<'static, Message> {
     let is_active = active_tab == tab;
-    let icon = svg::<Theme>(SvgHandle::from_path(tab.icon_path()))
-        .width(24)
-        .height(24);
+    let icon = svg::<Theme>(SvgHandle::from_path(tab.icon_path())).width(24).height(24);
     let label = iced::widget::text(tab.title()).size(16);
 
     button(row![icon, label].spacing(8).align_y(Alignment::Center))
@@ -114,11 +113,7 @@ fn icon_tab_button(
 
             let mut style = iced::widget::button::Style::default();
             style.border = iced::border::Border {
-                color: if is_active {
-                    palette.accent
-                } else {
-                    palette.border
-                },
+                color: if is_active { palette.accent } else { palette.border },
                 width: if is_active { 1.5 } else { 1.0 },
                 radius: 8.0.into(),
             };
@@ -132,11 +127,7 @@ fn icon_tab_button(
             };
 
             style.background = Some(Background::Color(background));
-            style.text_color = if is_active {
-                palette.accent
-            } else {
-                palette.text
-            };
+            style.text_color = if is_active { palette.accent } else { palette.text };
 
             style
         })

@@ -1,5 +1,5 @@
 use iced::widget::{Stack, column, container, row};
-use iced::{Background, Element, Length, Shadow, Task};
+use iced::{Background, Element, Font, Length, Shadow, Task};
 
 mod connections;
 mod content;
@@ -57,12 +57,18 @@ impl App {
         self.dialog.as_ref()
     }
 
-    pub fn connection(&self, id: usize) -> Option<&Connection> {
+    pub fn connection(
+        &self,
+        id: usize,
+    ) -> Option<&Connection> {
         self.connections.find(id)
     }
 }
 
-pub fn update(app: &mut App, message: Message) -> Task<Message> {
+pub fn update(
+    app: &mut App,
+    message: Message,
+) -> Task<Message> {
     match message {
         Message::ToggleTheme => {
             app.theme.toggle();
@@ -71,9 +77,7 @@ pub fn update(app: &mut App, message: Message) -> Task<Message> {
             app.active_tab = tab;
         }
         Message::ShowNewConnectionDialog => {
-            app.dialog = Some(DialogState::NewConnection(
-                NewConnectionDialog::SelectingType,
-            ));
+            app.dialog = Some(DialogState::NewConnection(NewConnectionDialog::SelectingType));
         }
         Message::ShowNewQueryWorkspace => {
             app.active_tab = ContentTab::Queries;
@@ -102,9 +106,7 @@ pub fn update(app: &mut App, message: Message) -> Task<Message> {
             }
         }
         Message::UpdateFormField(field, value) => {
-            if let Some(DialogState::NewConnection(NewConnectionDialog::Editing(form_state))) =
-                &mut app.dialog
-            {
+            if let Some(DialogState::NewConnection(NewConnectionDialog::Editing(form_state))) = &mut app.dialog {
                 form_state.clear_error();
                 form_state.form.update(field, value);
             }
@@ -121,16 +123,12 @@ pub fn update(app: &mut App, message: Message) -> Task<Message> {
                             }
                             Err(error) => {
                                 form_state.error = Some(error);
-                                app.dialog = Some(DialogState::NewConnection(
-                                    NewConnectionDialog::Editing(form_state),
-                                ));
+                                app.dialog = Some(DialogState::NewConnection(NewConnectionDialog::Editing(form_state)));
                             }
                         }
                     }
                     NewConnectionDialog::SelectingType => {
-                        app.dialog = Some(DialogState::NewConnection(
-                            NewConnectionDialog::SelectingType,
-                        ));
+                        app.dialog = Some(DialogState::NewConnection(NewConnectionDialog::SelectingType));
                     }
                 }
             }
@@ -170,7 +168,10 @@ pub fn view(app: &App) -> Element<'_, Message> {
     }
 }
 
-fn body(app: &App, palette: Palette) -> Element<'_, Message> {
+fn body(
+    app: &App,
+    palette: Palette,
+) -> Element<'_, Message> {
     row![
         container(sidebar(&app.connections, palette))
             .width(Length::Fixed(260.0))
@@ -199,6 +200,20 @@ fn body(app: &App, palette: Palette) -> Element<'_, Message> {
     ]
     .height(Length::Fill)
     .into()
+}
+
+pub fn default_font() -> Font {
+    if cfg!(target_os = "macos") {
+        Font::with_name("PingFang SC")
+    } else if cfg!(target_os = "windows") {
+        Font::with_name("Microsoft YaHei UI")
+    } else if cfg!(any(target_os = "android", target_os = "linux")) {
+        Font::with_name("Noto Sans CJK SC")
+    } else if cfg!(target_os = "ios") {
+        Font::with_name("PingFang TC")
+    } else {
+        Font::with_name("Noto Sans CJK SC")
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

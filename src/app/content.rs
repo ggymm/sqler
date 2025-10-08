@@ -4,7 +4,10 @@ use iced::{Background, Color, Element, Length, Shadow};
 use super::theme::Palette;
 use super::{App, ContentTab, Message};
 
-pub fn content_panel(app: &App, palette: Palette) -> Element<'_, Message> {
+pub fn content_panel(
+    app: &App,
+    palette: Palette,
+) -> Element<'_, Message> {
     let title = text(app.active_tab().title()).size(22).color(palette.text);
 
     let intro = text(match app.active_tab() {
@@ -52,7 +55,10 @@ pub fn content_panel(app: &App, palette: Palette) -> Element<'_, Message> {
     .into()
 }
 
-fn current_connection_section(app: &App, palette: Palette) -> Element<'_, Message> {
+fn current_connection_section(
+    app: &App,
+    palette: Palette,
+) -> Element<'_, Message> {
     if let Some(selected) = app.selected_connection() {
         if let Some(connection) = app.connection(selected) {
             return column![
@@ -74,7 +80,10 @@ fn current_connection_section(app: &App, palette: Palette) -> Element<'_, Messag
         .into()
 }
 
-fn tab_body(active_tab: ContentTab, palette: Palette) -> Element<'static, Message> {
+fn tab_body(
+    active_tab: ContentTab,
+    palette: Palette,
+) -> Element<'static, Message> {
     match active_tab {
         ContentTab::Tables => column![
             text("表管理功能即将上线").size(18).color(palette.text),
