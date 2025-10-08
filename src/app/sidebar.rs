@@ -69,61 +69,61 @@ pub struct Connection {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DatabaseKind {
-    PostgreSql,
-    MySql,
+    Postgresql,
+    Mysql,
     Sqlite,
-    MongoDb,
+    Mongodb,
     Oracle,
     Redis,
-    SqlServer,
+    Sqlserver,
 }
 
 impl DatabaseKind {
     pub fn all() -> &'static [DatabaseKind] {
         &[
-            DatabaseKind::PostgreSql,
-            DatabaseKind::MySql,
+            DatabaseKind::Postgresql,
+            DatabaseKind::Mysql,
             DatabaseKind::Sqlite,
-            DatabaseKind::MongoDb,
+            DatabaseKind::Mongodb,
             DatabaseKind::Oracle,
             DatabaseKind::Redis,
-            DatabaseKind::SqlServer,
+            DatabaseKind::Sqlserver,
         ]
     }
 
     pub fn display_name(&self) -> &'static str {
         match self {
-            DatabaseKind::PostgreSql => "PostgreSQL",
-            DatabaseKind::MySql => "MySQL",
+            DatabaseKind::Postgresql => "PostgreSQL",
+            DatabaseKind::Mysql => "MySQL",
             DatabaseKind::Sqlite => "SQLite",
-            DatabaseKind::MongoDb => "MongoDB",
+            DatabaseKind::Mongodb => "MongoDB",
             DatabaseKind::Oracle => "Oracle",
             DatabaseKind::Redis => "Redis",
-            DatabaseKind::SqlServer => "SQL Server",
+            DatabaseKind::Sqlserver => "SQL Server",
         }
     }
 
     pub fn icon_path(&self) -> &'static str {
         match self {
-            DatabaseKind::PostgreSql => "assets/icons/db/postgresql.svg",
-            DatabaseKind::MySql => "assets/icons/db/mysql.svg",
+            DatabaseKind::Postgresql => "assets/icons/db/postgresql.svg",
+            DatabaseKind::Mysql => "assets/icons/db/mysql.svg",
             DatabaseKind::Sqlite => "assets/icons/db/sqlite.svg",
-            DatabaseKind::MongoDb => "assets/icons/db/mongodb.svg",
+            DatabaseKind::Mongodb => "assets/icons/db/mongodb.svg",
             DatabaseKind::Oracle => "assets/icons/db/oracle.svg",
             DatabaseKind::Redis => "assets/icons/db/redis.svg",
-            DatabaseKind::SqlServer => "assets/icons/db/sqlserver.svg",
+            DatabaseKind::Sqlserver => "assets/icons/db/sqlserver.svg",
         }
     }
 
     pub fn default_port(&self) -> Option<u16> {
         match self {
-            DatabaseKind::PostgreSql => Some(5432),
-            DatabaseKind::MySql => Some(3306),
+            DatabaseKind::Postgresql => Some(5432),
+            DatabaseKind::Mysql => Some(3306),
             DatabaseKind::Sqlite => None,
-            DatabaseKind::MongoDb => Some(27017),
+            DatabaseKind::Mongodb => Some(27017),
             DatabaseKind::Oracle => Some(1521),
             DatabaseKind::Redis => Some(6379),
-            DatabaseKind::SqlServer => Some(1433),
+            DatabaseKind::Sqlserver => Some(1433),
         }
     }
 }

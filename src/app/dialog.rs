@@ -74,7 +74,7 @@ pub enum ConnectionForm {
 impl ConnectionForm {
     fn from_kind(kind: DatabaseKind) -> Self {
         match kind {
-            DatabaseKind::PostgreSql => ConnectionForm::Relational {
+            DatabaseKind::Postgresql => ConnectionForm::Relational {
                 kind,
                 name: format!("{} 连接", kind.display_name()),
                 host: "localhost".into(),
@@ -83,7 +83,7 @@ impl ConnectionForm {
                 username: "postgres".into(),
                 password: String::new(),
             },
-            DatabaseKind::MySql => ConnectionForm::Relational {
+            DatabaseKind::Mysql => ConnectionForm::Relational {
                 kind,
                 name: format!("{} 连接", kind.display_name()),
                 host: "localhost".into(),
@@ -101,7 +101,7 @@ impl ConnectionForm {
                 username: "system".into(),
                 password: String::new(),
             },
-            DatabaseKind::SqlServer => ConnectionForm::Relational {
+            DatabaseKind::Sqlserver => ConnectionForm::Relational {
                 kind,
                 name: format!("{} 连接", kind.display_name()),
                 host: "localhost".into(),
@@ -114,7 +114,7 @@ impl ConnectionForm {
                 name: "SQLite 连接".into(),
                 file_path: "./database.sqlite3".into(),
             },
-            DatabaseKind::MongoDb => ConnectionForm::Mongo {
+            DatabaseKind::Mongodb => ConnectionForm::Mongo {
                 name: "MongoDB 连接".into(),
                 connection_string: "mongodb://localhost:27017".into(),
             },
@@ -131,7 +131,7 @@ impl ConnectionForm {
         match self {
             ConnectionForm::Relational { kind, .. } => *kind,
             ConnectionForm::Sqlite { .. } => DatabaseKind::Sqlite,
-            ConnectionForm::Mongo { .. } => DatabaseKind::MongoDb,
+            ConnectionForm::Mongo { .. } => DatabaseKind::Mongodb,
             ConnectionForm::Redis { .. } => DatabaseKind::Redis,
         }
     }
@@ -251,7 +251,7 @@ impl ConnectionForm {
                 Ok(Connection {
                     id,
                     name: name.trim().to_string(),
-                    kind: DatabaseKind::MongoDb,
+                    kind: DatabaseKind::Mongodb,
                     summary: connection_string.trim().to_string(),
                 })
             }
