@@ -3,13 +3,71 @@ use iced::widget::{button, column, container, horizontal_space, row, svg, text};
 use iced::{Alignment, Background, Color, Element, Length, Shadow, Theme, Vector};
 
 use crate::comps::form::labeled_input;
+use crate::driver::ConnectionParams;
 
-use super::{Connection, DatabaseKind};
-use super::{Message, Palette};
+use super::{DatabaseKind, Message, Palette};
 
-#[derive(Debug, Clone)]
-pub enum DialogState {
-    NewConnection(NewConnectionDialog),
+pub fn modal_view(
+    state: &NewConnectionDialog,
+    palette: Palette,
+    minimized: bool,
+) -> Element<'_, Message> {
+    let title = match state {
+        NewConnectionDialog::SelectingType => "新建连接",
+        NewConnectionDialog::Editing(_) => "编辑连接",
+    };
+
+    if minimized {
+        return container(minimized_header(title, palette))
+            .padding([12, 16])
+            .style(move |_| container::Style {
+                background: Some(Background::Color(palette.surface)),
+                text_color: Some(palette.text),
+                border: iced::border::Border {
+                    color: palette.border,
+                    width: 1.0,
+                    radius: 12.0.into(),
+                },
+                shadow: Shadow::default(),
+            })
+            .center_x(Length::Fill)
+            .center_y(Length::Fill)
+            .into();
+    }
+
+    let body = match state {
+        NewConnectionDialog::SelectingType => connection_type_selector(palette),
+        NewConnectionDialog::Editing(form_state) => connection_form(form_state, palette),
+    };
+
+    container(
+        column![window_header(title, palette), body]
+            .spacing(18)
+            .width(Length::Fill),
+    )
+    .padding(24)
+    .style(move |_| container::Style {
+        background: Some(Background::Color(palette.surface)),
+        text_color: Some(palette.text),
+        border: iced::border::Border {
+            color: palette.border,
+            width: 1.0,
+            radius: 16.0.into(),
+        },
+        shadow: Shadow {
+            color: Color {
+                r: 0.0,
+                g: 0.0,
+                b: 0.0,
+                a: 0.35,
+            },
+            blur_radius: 24.0,
+            offset: Vector::new(0.0, 12.0),
+        },
+    })
+    .center_x(Length::Fill)
+    .center_y(Length::Fill)
+    .into()
 }
 
 #[derive(Debug, Clone)]
@@ -22,6 +80,8 @@ pub enum NewConnectionDialog {
 pub struct ConnectionFormState {
     pub form: ConnectionForm,
     pub error: Option<String>,
+    pub testing: bool,
+    pub test_result: Option<Result<(), String>>,
 }
 
 impl ConnectionFormState {
@@ -29,13 +89,15 @@ impl ConnectionFormState {
         Self {
             form: ConnectionForm::from_kind(kind),
             error: None,
+            testing: false,
+            test_result: None,
         }
     }
 
     pub fn build_connection(
         &self,
         id: usize,
-    ) -> Result<Connection, String> {
+    ) -> Result<super::Connection, String> {
         self.form.build_connection(id)
     }
 
@@ -187,10 +249,116 @@ impl ConnectionForm {
         }
     }
 
+    pub fn to_params(&self) -> Result<ConnectionParams, String> {
+        match self {
+            ConnectionForm::Relational {
+                kind,
+                host,
+                port,
+                username,
+                password,
+                database,
+                ..
+            } => {
+                let host = host.trim();
+                if host.is_empty() {
+                    return Err("请输入主机地址".into());
+                }
+
+                let port = port.trim().parse::<u16>().map_err(|_| "端口必须为数字".to_string())?;
+
+                let username = username.trim();
+                if username.is_empty() {
+                    return Err("请输入用户名".into());
+                }
+
+                let database = database.trim();
+
+                Ok(ConnectionParams {
+                    kind: *kind,
+                    host: Some(host.to_string()),
+                    port: Some(port),
+                    username: Some(username.to_string()),
+                    password: if password.is_empty() {
+                        None
+                    } else {
+                        Some(password.clone())
+                    },
+                    database: if database.is_empty() {
+                        None
+                    } else {
+                        Some(database.to_string())
+                    },
+                    file_path: None,
+                    connection_string: None,
+                })
+            }
+            ConnectionForm::Sqlite { file_path, .. } => {
+                let path = file_path.trim();
+                if path.is_empty() {
+                    return Err("请输入数据库文件路径".into());
+                }
+
+                Ok(ConnectionParams {
+                    kind: DatabaseKind::Sqlite,
+                    host: None,
+                    port: None,
+                    username: None,
+                    password: None,
+                    database: None,
+                    file_path: Some(path.to_string()),
+                    connection_string: None,
+                })
+            }
+            ConnectionForm::Mongo { connection_string, .. } => {
+                let conn = connection_string.trim();
+                if conn.is_empty() {
+                    return Err("请输入连接字符串".into());
+                }
+
+                Ok(ConnectionParams {
+                    kind: DatabaseKind::Mongodb,
+                    host: None,
+                    port: None,
+                    username: None,
+                    password: None,
+                    database: None,
+                    file_path: None,
+                    connection_string: Some(conn.to_string()),
+                })
+            }
+            ConnectionForm::Redis {
+                host, port, password, ..
+            } => {
+                let host = host.trim();
+                if host.is_empty() {
+                    return Err("请输入主机地址".into());
+                }
+
+                let port = port.trim().parse::<u16>().map_err(|_| "端口必须为数字".to_string())?;
+
+                Ok(ConnectionParams {
+                    kind: DatabaseKind::Redis,
+                    host: Some(host.to_string()),
+                    port: Some(port),
+                    username: None,
+                    password: if password.is_empty() {
+                        None
+                    } else {
+                        Some(password.clone())
+                    },
+                    database: None,
+                    file_path: None,
+                    connection_string: None,
+                })
+            }
+        }
+    }
+
     fn build_connection(
         &self,
         id: usize,
-    ) -> Result<Connection, String> {
+    ) -> Result<super::Connection, String> {
         match self {
             ConnectionForm::Relational {
                 kind,
@@ -215,7 +383,7 @@ impl ConnectionForm {
                     return Err("请输入数据库名".into());
                 }
 
-                Ok(Connection {
+                Ok(super::Connection {
                     id,
                     name: name.trim().to_string(),
                     kind: *kind,
@@ -230,7 +398,7 @@ impl ConnectionForm {
                     return Err("请输入数据库文件路径".into());
                 }
 
-                Ok(Connection {
+                Ok(super::Connection {
                     id,
                     name: name.trim().to_string(),
                     kind: DatabaseKind::Sqlite,
@@ -248,7 +416,7 @@ impl ConnectionForm {
                     return Err("请输入连接字符串".into());
                 }
 
-                Ok(Connection {
+                Ok(super::Connection {
                     id,
                     name: name.trim().to_string(),
                     kind: DatabaseKind::Mongodb,
@@ -264,7 +432,7 @@ impl ConnectionForm {
                 }
                 let port_num = port.trim().parse::<u16>().map_err(|_| "端口必须为数字".to_string())?;
 
-                Ok(Connection {
+                Ok(super::Connection {
                     id,
                     name: name.trim().to_string(),
                     kind: DatabaseKind::Redis,
@@ -285,61 +453,6 @@ pub enum FormField {
     Password,
     FilePath,
     ConnectionString,
-}
-
-pub fn modal_view(
-    dialog: &DialogState,
-    palette: Palette,
-) -> Element<'_, Message> {
-    match dialog {
-        DialogState::NewConnection(state) => new_connection_modal(state, palette),
-    }
-}
-
-fn new_connection_modal(
-    dialog: &NewConnectionDialog,
-    palette: Palette,
-) -> Element<'_, Message> {
-    let content = match dialog {
-        NewConnectionDialog::SelectingType => connection_type_selector(palette),
-        NewConnectionDialog::Editing(form_state) => connection_form(form_state, palette),
-    };
-
-    let modal = container(content)
-        .width(Length::Fixed(540.0))
-        .style(move |_| container::Style {
-            background: Some(Background::Color(palette.surface)),
-            text_color: Some(palette.text),
-            border: iced::border::Border {
-                color: palette.border,
-                width: 1.0,
-                radius: 16.0.into(),
-            },
-            shadow: Shadow {
-                color: Color {
-                    r: 0.0,
-                    g: 0.0,
-                    b: 0.0,
-                    a: 0.35,
-                },
-                blur_radius: 24.0,
-                offset: Vector::new(0.0, 12.0),
-            },
-        })
-        .padding(24);
-
-    container(modal)
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .center_x(Length::Fill)
-        .center_y(Length::Fill)
-        .style(move |_| container::Style {
-            background: Some(Background::Color(palette.overlay)),
-            text_color: Some(palette.text),
-            border: iced::border::Border::default(),
-            shadow: Shadow::default(),
-        })
-        .into()
 }
 
 fn connection_type_selector(palette: Palette) -> Element<'static, Message> {
@@ -406,7 +519,7 @@ fn database_type_card(
                 _ => palette.surface,
             };
 
-            button::Style {
+            iced::widget::button::Style {
                 background: Some(Background::Color(background)),
                 border: iced::border::Border {
                     color: palette.border,
@@ -547,6 +660,34 @@ fn connection_form(
         );
     }
 
+    if form_state.testing {
+        content = content.push(text("正在测试连接...").color(palette.text_muted).size(14));
+    } else if let Some(result) = &form_state.test_result {
+        let feedback = match result {
+            Ok(_) => text("连接成功").color(Color::from_rgb8(0x1f, 0xaa, 0x5c)).size(14),
+            Err(err) => text(err).color(Color::from_rgb8(0xff, 0x4d, 0x4f)).size(14),
+        };
+
+        content = content.push(feedback);
+    }
+
+    let mut test_button = button(text("测试连接").color(palette.text))
+        .padding([8, 18])
+        .style(move |_, _| iced::widget::button::Style {
+            background: Some(Background::Color(palette.surface_muted)),
+            border: iced::border::Border {
+                color: palette.border,
+                width: 1.0,
+                radius: 8.0.into(),
+            },
+            text_color: palette.text,
+            shadow: Shadow::default(),
+        });
+
+    if !form_state.testing {
+        test_button = test_button.on_press(Message::TestConnection);
+    }
+
     content
         .push(
             row![
@@ -564,6 +705,7 @@ fn connection_form(
                     })
                     .on_press(Message::BackToConnectionTypeSelection),
                 horizontal_space().width(Length::Fill),
+                test_button,
                 button(text("取消").color(palette.text))
                     .padding([8, 18])
                     .style(move |_, _| iced::widget::button::Style {
@@ -606,4 +748,67 @@ fn connection_form(
         )
         .spacing(20)
         .into()
+}
+
+fn window_header(
+    title: &str,
+    palette: Palette,
+) -> Element<'_, Message> {
+    row![
+        text(title).color(palette.text).size(20),
+        horizontal_space().width(Length::Fill),
+        window_controls(palette, false),
+    ]
+    .align_y(Alignment::Center)
+    .into()
+}
+
+fn minimized_header(
+    title: &str,
+    palette: Palette,
+) -> Element<'_, Message> {
+    row![
+        text(title).color(palette.text).size(18),
+        horizontal_space().width(Length::Fill),
+        window_controls(palette, true),
+    ]
+    .align_y(Alignment::Center)
+    .into()
+}
+
+fn window_controls(
+    palette: Palette,
+    minimized: bool,
+) -> Element<'static, Message> {
+    let minimize_label = if minimized { "□" } else { "–" };
+    let minimize_message = if minimized {
+        Message::RestoreDialog
+    } else {
+        Message::MinimizeDialog
+    };
+
+    row![
+        control_button(minimize_label, palette).on_press(minimize_message),
+        control_button("×", palette).on_press(Message::CancelDialog),
+    ]
+    .spacing(6)
+    .into()
+}
+
+fn control_button(
+    label: &'static str,
+    palette: Palette,
+) -> iced::widget::Button<'static, Message> {
+    button(text(label).size(16).color(palette.text))
+        .padding([4, 10])
+        .style(move |_, _| iced::widget::button::Style {
+            background: Some(Background::Color(palette.surface_muted)),
+            border: iced::border::Border {
+                color: palette.border,
+                width: 1.0,
+                radius: 10.0.into(),
+            },
+            text_color: palette.text,
+            shadow: Shadow::default(),
+        })
 }

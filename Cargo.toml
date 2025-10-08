@@ -5,3 +5,5 @@ edition = "2024"
 
 [dependencies]
 iced = { version = "0.13", features = ["svg"] }
+mysql = "26"
+thiserror = "1.0"

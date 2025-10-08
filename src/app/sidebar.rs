@@ -189,7 +189,7 @@ fn connection_item(
     connection: &Connection,
     selected: Option<usize>,
     palette: Palette,
-) -> Element<Message> {
+) -> Element<'_, Message> {
     let is_selected = selected == Some(connection.id);
 
     let icon = svg::<Theme>(SvgHandle::from_path(connection.kind.icon_path()))

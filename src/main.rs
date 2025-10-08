@@ -1,8 +1,14 @@
+use iced::Task;
+
 mod app;
 mod comps;
+mod driver;
 
 pub fn main() -> iced::Result {
-    iced::application("SQLER", app::update, app::view)
+    iced::application("SQler", app::update, app::view)
+        .subscription(app::subscription)
+        .theme(app::theme)
+        .centered()
         .default_font(app::default_font())
-        .run()
+        .run_with(|| (app::App::default(), Task::none()))
 }
