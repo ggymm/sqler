@@ -1,21 +1,21 @@
 use iced::widget::{Stack, column, container, row};
 use iced::{Background, Element, Font, Length, Shadow, Task};
 
-mod connections;
+mod sidebar;
 mod content;
 mod dialog;
 mod theme;
-mod top_bar;
+mod topbar;
 
-pub use connections::{Connection, ConnectionsState, DatabaseKind};
+pub use sidebar::{Connection, ConnectionsState, DatabaseKind};
 pub use dialog::{ConnectionFormState, DialogState, FormField, NewConnectionDialog};
 pub use theme::Palette;
 
-use connections::sidebar;
+use sidebar::sidebar;
 use content::content_panel;
 use dialog::modal_view;
 use theme::ThemeMode;
-use top_bar::top_bar;
+use topbar::topbar;
 
 #[derive(Debug)]
 pub struct App {
@@ -141,14 +141,14 @@ pub fn update(
 pub fn view(app: &App) -> Element<'_, Message> {
     let palette = app.palette();
 
-    let content = column![top_bar(app, palette), body(app, palette)]
+    let content = column![topbar(app, palette), body(app, palette)]
         .spacing(0)
         .height(Length::Fill);
 
     let base = container(content)
         .width(Length::Fill)
         .height(Length::Fill)
-        .style(move |_| iced::widget::container::Style {
+        .style(move |_| container::Style {
             background: Some(Background::Color(palette.background)),
             text_color: Some(palette.text),
             border: iced::border::Border::default(),
@@ -175,7 +175,7 @@ fn body(
     row![
         container(sidebar(&app.connections, palette))
             .width(Length::Fixed(260.0))
-            .style(move |_| iced::widget::container::Style {
+            .style(move |_| container::Style {
                 background: Some(Background::Color(palette.surface)),
                 border: iced::border::Border {
                     color: palette.border,
@@ -187,7 +187,7 @@ fn body(
             }),
         container(content_panel(app, palette))
             .width(Length::Fill)
-            .style(move |_| iced::widget::container::Style {
+            .style(move |_| container::Style {
                 background: Some(Background::Color(palette.surface)),
                 border: iced::border::Border {
                     color: palette.border,

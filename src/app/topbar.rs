@@ -6,7 +6,7 @@ use iced::{Alignment, Background, Color, Element, Length, Theme};
 use super::theme::{Palette, ThemeMode};
 use super::{App, ContentTab, Message};
 
-pub fn top_bar(
+pub fn topbar(
     app: &App,
     palette: Palette,
 ) -> Element<'_, Message> {
@@ -77,7 +77,7 @@ fn icon_action_button<'a>(
     .style(move |_, status| {
         use iced::widget::button::Status;
 
-        let mut style = iced::widget::button::Style::default();
+        let mut style = button::Style::default();
         style.border = iced::border::Border {
             color: palette.border,
             width: 1.0,
@@ -111,7 +111,7 @@ fn icon_tab_button(
         .style(move |_, status| {
             use iced::widget::button::Status;
 
-            let mut style = iced::widget::button::Style::default();
+            let mut style = button::Style::default();
             style.border = iced::border::Border {
                 color: if is_active { palette.accent } else { palette.border },
                 width: if is_active { 1.5 } else { 1.0 },

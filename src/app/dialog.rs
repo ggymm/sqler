@@ -5,7 +5,7 @@ use iced::{Alignment, Background, Color, Element, Length, Shadow, Theme, Vector}
 use crate::comps::form::labeled_input;
 
 use super::Message;
-use super::connections::{Connection, DatabaseKind};
+use super::sidebar::{Connection, DatabaseKind};
 use super::theme::Palette;
 
 #[derive(Debug, Clone)]
@@ -308,7 +308,7 @@ fn new_connection_modal(
 
     let modal = container(content)
         .width(Length::Fixed(540.0))
-        .style(move |_| iced::widget::container::Style {
+        .style(move |_| container::Style {
             background: Some(Background::Color(palette.surface)),
             text_color: Some(palette.text),
             border: iced::border::Border {
@@ -334,7 +334,7 @@ fn new_connection_modal(
         .height(Length::Fill)
         .center_x(Length::Fill)
         .center_y(Length::Fill)
-        .style(move |_| iced::widget::container::Style {
+        .style(move |_| container::Style {
             background: Some(Background::Color(palette.overlay)),
             text_color: Some(palette.text),
             border: iced::border::Border::default(),
@@ -407,7 +407,7 @@ fn database_type_card(
                 _ => palette.surface,
             };
 
-            iced::widget::button::Style {
+            button::Style {
                 background: Some(Background::Color(background)),
                 border: iced::border::Border {
                     color: palette.border,
@@ -535,7 +535,7 @@ fn connection_form(
         content = content.push(
             container(text(error).color(error_color).size(14))
                 .padding([8, 12])
-                .style(move |_| iced::widget::container::Style {
+                .style(move |_| container::Style {
                     background: Some(Background::Color(Color::from_rgba(0.98, 0.29, 0.3, 0.12))),
                     text_color: Some(error_color),
                     border: iced::border::Border {

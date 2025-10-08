@@ -17,7 +17,7 @@ where
         text(label).color(palette.text_muted).size(14),
         text_input("", value)
             .padding([10, 12])
-            .style(move |_, _| iced::widget::text_input::Style {
+            .style(move |_, _| text_input::Style {
                 background: Background::Color(palette.surface_muted),
                 border: iced::border::Border {
                     color: palette.border,

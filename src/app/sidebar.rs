@@ -135,7 +135,7 @@ pub fn sidebar(
 ) -> Element<'_, Message> {
     let header = container(text("连接管理").color(palette.text).size(18))
         .padding([12, 16])
-        .style(move |_| iced::widget::container::Style {
+        .style(move |_| container::Style {
             background: Some(Background::Color(palette.surface_muted)),
             text_color: Some(palette.text),
             border: iced::border::Border {
@@ -186,11 +186,11 @@ fn empty_state(palette: Palette) -> Element<'static, Message> {
         .into()
 }
 
-fn connection_item<'a>(
-    connection: &'a Connection,
+fn connection_item(
+    connection: &Connection,
     selected: Option<usize>,
     palette: Palette,
-) -> Element<'a, Message> {
+) -> Element<Message> {
     let is_selected = selected == Some(connection.id);
 
     let icon = svg::<Theme>(SvgHandle::from_path(connection.kind.icon_path()))
@@ -227,7 +227,7 @@ fn connection_item<'a>(
 
             let border_color = if is_selected { palette.accent } else { palette.border };
 
-            iced::widget::button::Style {
+            button::Style {
                 background: Some(Background::Color(background)),
                 border: iced::border::Border {
                     color: border_color,

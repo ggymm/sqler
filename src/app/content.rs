@@ -24,7 +24,7 @@ pub fn content_panel(
     column![
         container(column![title, intro, detail].spacing(12))
             .padding([18, 24])
-            .style(move |_| iced::widget::container::Style {
+            .style(move |_| container::Style {
                 background: Some(Background::Color(palette.surface)),
                 text_color: Some(palette.text),
                 border: iced::border::Border {
@@ -37,7 +37,7 @@ pub fn content_panel(
         scrollable(
             container(tab_body(app.active_tab(), palette))
                 .padding(24)
-                .style(move |_| iced::widget::container::Style {
+                .style(move |_| container::Style {
                     background: Some(Background::Color(palette.surface)),
                     text_color: Some(palette.text),
                     border: iced::border::Border {
