@@ -1,4 +1,4 @@
-use iced::Task;
+use iced::{Size, Task};
 
 mod app;
 mod cache;
@@ -7,6 +7,7 @@ mod driver;
 
 pub fn main() -> iced::Result {
     iced::application("SQler", app::update, app::view)
+        .window_size(Size::new(1280.0, 800.0))
         .centered()
         .theme(app::theme)
         .default_font(app::default_font())

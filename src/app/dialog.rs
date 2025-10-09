@@ -1,6 +1,6 @@
 use iced::widget::svg::Handle as SvgHandle;
-use iced::widget::{button, column, container, horizontal_space, row, svg, text};
-use iced::{Alignment, Background, Color, Element, Length, Shadow, Theme, Vector};
+use iced::widget::{button, column, container, horizontal_space, row, scrollable, svg, text};
+use iced::{Alignment, Background, Color, Element, Length, Shadow, Size, Theme, Vector};
 
 use crate::comps::form::labeled_input;
 use crate::driver::ConnectionParams;
@@ -11,6 +11,7 @@ pub fn modal_view(
     state: &NewConnectionDialog,
     palette: Palette,
     minimized: bool,
+    window_size: Size,
 ) -> Element<'_, Message> {
     let title = match state {
         NewConnectionDialog::SelectingType => "新建连接",
@@ -35,39 +36,58 @@ pub fn modal_view(
             .into();
     }
 
-    let body = match state {
-        NewConnectionDialog::SelectingType => connection_type_selector(palette),
-        NewConnectionDialog::Editing(form_state) => connection_form(form_state, palette),
+    let layout = match state {
+        NewConnectionDialog::SelectingType => selecting_type_layout(palette),
+        NewConnectionDialog::Editing(form_state) => connection_form_layout(form_state, palette),
     };
 
-    container(
-        column![window_header(title, palette), body]
-            .spacing(18)
-            .width(Length::Fill),
-    )
-    .padding(24)
-    .style(move |_| container::Style {
-        background: Some(Background::Color(palette.surface)),
-        text_color: Some(palette.text),
-        border: iced::border::Border {
-            color: palette.border,
-            width: 1.0,
-            radius: 16.0.into(),
-        },
-        shadow: Shadow {
-            color: Color {
-                r: 0.0,
-                g: 0.0,
-                b: 0.0,
-                a: 0.35,
+    let header = window_header(title, palette);
+    let footer = layout.footer;
+    let body = scrollable(container(layout.main).width(Length::Fill).padding([0, 4])).height(Length::Fill);
+
+    let content = column![header, body, footer]
+        .spacing(18)
+        .width(Length::Fill)
+        .height(Length::Fill);
+
+    let width = scale_dimension(window_size.width, 0.6, 360.0, 64.0);
+    let height = scale_dimension(window_size.height, 0.6, 320.0, 80.0);
+
+    let dialog_box = container(content)
+        .padding(24)
+        .style(move |_| container::Style {
+            background: Some(Background::Color(palette.surface)),
+            text_color: Some(palette.text),
+            border: iced::border::Border {
+                color: palette.border,
+                width: 1.0,
+                radius: 16.0.into(),
             },
-            blur_radius: 24.0,
-            offset: Vector::new(0.0, 12.0),
-        },
-    })
-    .center_x(Length::Fill)
-    .center_y(Length::Fill)
-    .into()
+            shadow: Shadow {
+                color: Color {
+                    r: 0.0,
+                    g: 0.0,
+                    b: 0.0,
+                    a: 0.35,
+                },
+                blur_radius: 24.0,
+                offset: Vector::new(0.0, 12.0),
+            },
+        })
+        .width(Length::Fixed(width))
+        .height(Length::Fixed(height));
+
+    container(dialog_box)
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .center_x(Length::Fill)
+        .center_y(Length::Fill)
+        .into()
+}
+
+struct DialogSections<'a> {
+    main: Element<'a, Message>,
+    footer: Element<'a, Message>,
 }
 
 #[derive(Debug, Clone)]
@@ -456,7 +476,7 @@ pub enum FormField {
     ConnectionString,
 }
 
-fn connection_type_selector(palette: Palette) -> Element<'static, Message> {
+fn selecting_type_layout(palette: Palette) -> DialogSections<'static> {
     let mut content = column![
         text("选择数据库类型").size(22).color(palette.text),
         text("请选择需要连接的数据库类型。").color(palette.text_muted).size(15),
@@ -473,29 +493,29 @@ fn connection_type_selector(palette: Palette) -> Element<'static, Message> {
         content = content.push(row_widget);
     }
 
-    content
-        .push(
-            row![
-                horizontal_space().width(Length::Fill),
-                button(text("取消").color(palette.text))
-                    .padding([8, 18])
-                    .style(move |_, _| iced::widget::button::Style {
-                        background: Some(Background::Color(palette.surface_muted)),
-                        border: iced::border::Border {
-                            color: palette.border,
-                            width: 1.0,
-                            radius: 8.0.into(),
-                        },
-                        text_color: palette.text,
-                        shadow: Shadow::default(),
-                    })
-                    .on_press(Message::CancelDialog),
-            ]
-            .spacing(12)
-            .align_y(Alignment::Center),
-        )
-        .spacing(20)
-        .into()
+    let footer = row![
+        horizontal_space().width(Length::Fill),
+        button(text("取消").color(palette.text))
+            .padding([8, 18])
+            .style(move |_, _| iced::widget::button::Style {
+                background: Some(Background::Color(palette.surface_muted)),
+                border: iced::border::Border {
+                    color: palette.border,
+                    width: 1.0,
+                    radius: 8.0.into(),
+                },
+                text_color: palette.text,
+                shadow: Shadow::default(),
+            })
+            .on_press(Message::CancelDialog),
+    ]
+    .spacing(12)
+    .align_y(Alignment::Center);
+
+    DialogSections {
+        main: content.spacing(20).into(),
+        footer: container(footer).width(Length::Fill).align_x(Alignment::End).into(),
+    }
 }
 
 fn database_type_card(
@@ -535,10 +555,10 @@ fn database_type_card(
         .into()
 }
 
-fn connection_form(
-    form_state: &ConnectionFormState,
+fn connection_form_layout<'a>(
+    form_state: &'a ConnectionFormState,
     palette: Palette,
-) -> Element<'_, Message> {
+) -> DialogSections<'a> {
     let form = &form_state.form;
     let kind = form.kind();
 
@@ -689,66 +709,66 @@ fn connection_form(
         test_button = test_button.on_press(Message::TestConnection);
     }
 
-    content
-        .push(
-            row![
-                button(text("返回").color(palette.text))
-                    .padding([8, 18])
-                    .style(move |_, _| iced::widget::button::Style {
-                        background: Some(Background::Color(palette.surface_muted)),
-                        border: iced::border::Border {
-                            color: palette.border,
-                            width: 1.0,
-                            radius: 8.0.into(),
-                        },
-                        text_color: palette.text,
-                        shadow: Shadow::default(),
-                    })
-                    .on_press(Message::BackToConnectionTypeSelection),
-                horizontal_space().width(Length::Fill),
-                test_button,
-                button(text("取消").color(palette.text))
-                    .padding([8, 18])
-                    .style(move |_, _| iced::widget::button::Style {
-                        background: Some(Background::Color(palette.surface_muted)),
-                        border: iced::border::Border {
-                            color: palette.border,
-                            width: 1.0,
-                            radius: 8.0.into(),
-                        },
-                        text_color: palette.text,
-                        shadow: Shadow::default(),
-                    })
-                    .on_press(Message::CancelDialog),
-                button(text("保存连接").color(palette.accent_text))
-                    .padding([8, 20])
-                    .style(move |_, status| {
-                        use iced::widget::button::Status;
+    let footer = row![
+        button(text("返回").color(palette.text))
+            .padding([8, 18])
+            .style(move |_, _| iced::widget::button::Style {
+                background: Some(Background::Color(palette.surface_muted)),
+                border: iced::border::Border {
+                    color: palette.border,
+                    width: 1.0,
+                    radius: 8.0.into(),
+                },
+                text_color: palette.text,
+                shadow: Shadow::default(),
+            })
+            .on_press(Message::BackToConnectionTypeSelection),
+        horizontal_space().width(Length::Fill),
+        test_button,
+        button(text("取消").color(palette.text))
+            .padding([8, 18])
+            .style(move |_, _| iced::widget::button::Style {
+                background: Some(Background::Color(palette.surface_muted)),
+                border: iced::border::Border {
+                    color: palette.border,
+                    width: 1.0,
+                    radius: 8.0.into(),
+                },
+                text_color: palette.text,
+                shadow: Shadow::default(),
+            })
+            .on_press(Message::CancelDialog),
+        button(text("保存连接").color(palette.accent_text))
+            .padding([8, 20])
+            .style(move |_, status| {
+                use iced::widget::button::Status;
 
-                        let background = match status {
-                            Status::Hovered => palette.accent.scale_alpha(0.9),
-                            Status::Pressed => palette.accent.scale_alpha(1.0),
-                            _ => palette.accent,
-                        };
+                let background = match status {
+                    Status::Hovered => palette.accent.scale_alpha(0.9),
+                    Status::Pressed => palette.accent.scale_alpha(1.0),
+                    _ => palette.accent,
+                };
 
-                        iced::widget::button::Style {
-                            background: Some(Background::Color(background)),
-                            border: iced::border::Border {
-                                color: background,
-                                width: 1.0,
-                                radius: 8.0.into(),
-                            },
-                            text_color: palette.accent_text,
-                            shadow: Shadow::default(),
-                        }
-                    })
-                    .on_press(Message::SubmitNewConnection),
-            ]
-            .spacing(12)
-            .align_y(Alignment::Center),
-        )
-        .spacing(20)
-        .into()
+                iced::widget::button::Style {
+                    background: Some(Background::Color(background)),
+                    border: iced::border::Border {
+                        color: background,
+                        width: 1.0,
+                        radius: 8.0.into(),
+                    },
+                    text_color: palette.accent_text,
+                    shadow: Shadow::default(),
+                }
+            })
+            .on_press(Message::SubmitNewConnection),
+    ]
+    .spacing(12)
+    .align_y(Alignment::Center);
+
+    DialogSections {
+        main: content.spacing(18).into(),
+        footer: container(footer).width(Length::Fill).align_x(Alignment::End).into(),
+    }
 }
 
 fn window_header(
@@ -794,6 +814,20 @@ fn window_controls(
     ]
     .spacing(6)
     .into()
+}
+
+fn scale_dimension(
+    size: f32,
+    ratio: f32,
+    minimum: f32,
+    padding: f32,
+) -> f32 {
+    let mut value = (size * ratio).max(minimum);
+    let available = (size - padding).max(minimum);
+    if size > padding {
+        value = value.min(available);
+    }
+    value
 }
 
 fn control_button(

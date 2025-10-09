@@ -1,5 +1,5 @@
 use iced::widget::{Stack, column, container, row};
-use iced::{Background, Color, Element, Font, Length, Shadow, Subscription, Task, Theme};
+use iced::{Background, Color, Element, Font, Length, Shadow, Size, Subscription, Task, Theme, window};
 
 mod content;
 mod dialog;
@@ -22,6 +22,7 @@ pub struct App {
     dialog: Option<NewConnectionDialog>,
     dialog_minimized: bool,
     drivers: DriverRegistry,
+    window_size: Size,
 }
 
 impl Default for App {
@@ -33,6 +34,7 @@ impl Default for App {
             dialog: None,
             dialog_minimized: false,
             drivers: DriverRegistry::new(),
+            window_size: Size::new(1280.0, 800.0),
         }
     }
 }
@@ -59,6 +61,10 @@ impl App {
         id: usize,
     ) -> Option<&Connection> {
         self.connections.find(id)
+    }
+
+    pub fn window_size(&self) -> Size {
+        self.window_size
     }
 }
 
@@ -126,6 +132,9 @@ pub fn update(
                 app.dialog_minimized = false;
             }
         }
+        Message::WindowResized(_id, size) => {
+            app.window_size = size;
+        }
         Message::TestConnection => {
             if let Some(NewConnectionDialog::Editing(form_state)) = &mut app.dialog {
                 match form_state.form.to_params() {
@@ -192,7 +201,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
             .height(Length::Fill)
             .push(base)
             .push(overlay)
-            .push(modal_view(dialog, palette, app.dialog_minimized))
+            .push(modal_view(dialog, palette, app.dialog_minimized, app.window_size()))
             .into()
     } else {
         base
@@ -234,7 +243,7 @@ fn body(
 }
 
 pub fn subscription(_app: &App) -> Subscription<Message> {
-    Subscription::none()
+    window::resize_events().map(|(id, size)| Message::WindowResized(id, size))
 }
 
 pub fn theme(app: &App) -> Theme {
@@ -274,6 +283,7 @@ impl ContentTab {
 
 #[derive(Debug, Clone)]
 pub enum Message {
+    WindowResized(window::Id, Size),
     ToggleTheme,
     SelectContentTab(ContentTab),
     ShowNewConnectionDialog,
