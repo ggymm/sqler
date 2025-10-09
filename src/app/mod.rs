@@ -1,4 +1,4 @@
-use iced::widget::{Stack, column, container, row};
+use iced::widget::{Space, Stack, column, container, row};
 use iced::{Background, Color, Element, Font, Length, Shadow, Size, Subscription, Task, Theme, window};
 
 mod content;
@@ -7,9 +7,11 @@ mod sidebar;
 mod topbar;
 
 use content::content;
-use dialog::{ConnectionFormState, FormField, NewConnectionDialog, modal_view};
+use dialog::{ConnectionFormState, FormField, NewConnectionDialog, connection_info_modal, modal_view};
 use sidebar::sidebar;
 pub use sidebar::{Connection, ConnectionsState, DatabaseKind};
+#[allow(unused_imports)]
+pub use sidebar::ConnectionConfig;
 use topbar::topbar;
 
 use crate::driver::DriverRegistry;
@@ -24,6 +26,7 @@ pub struct App {
     drivers: DriverRegistry,
     active_connection: Option<usize>,
     connection_status: Option<ConnectionStatusInfo>,
+    context_menu: Option<usize>,
     window_size: Size,
 }
 
@@ -38,6 +41,7 @@ impl Default for App {
             drivers: DriverRegistry::new(),
             active_connection: None,
             connection_status: None,
+            context_menu: None,
             window_size: Size::new(1280.0, 800.0),
         }
     }
@@ -73,6 +77,13 @@ impl ConnectionStatusInfo {
             status: ConnectionStatus::Failed(reason),
         }
     }
+
+    pub fn details(connection_id: usize) -> Self {
+        Self {
+            connection_id,
+            status: ConnectionStatus::Details,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -80,6 +91,7 @@ pub enum ConnectionStatus {
     Connecting,
     Success,
     Failed(String),
+    Details,
 }
 
 impl App {
@@ -109,6 +121,11 @@ impl App {
     pub fn window_size(&self) -> Size {
         self.window_size
     }
+
+    #[allow(dead_code)]
+    pub fn active_connection(&self) -> Option<&Connection> {
+        self.active_connection.and_then(|id| self.connections.find(id))
+    }
 }
 
 pub fn update(
@@ -126,9 +143,16 @@ pub fn update(
             app.active_tab = ContentTab::Queries;
         }
         Message::SelectConnection(id) => {
-            app.connections.select(id);
+            let double_clicked = app.connections.select(id);
+            app.context_menu = None;
+
+            if double_clicked {
+                return Task::done(Message::ActivateConnection(id));
+            }
         }
         Message::ActivateConnection(id) => {
+            app.context_menu = None;
+
             if let Some(connection) = app.connections.find(id) {
                 let params = connection.to_params();
                 app.connection_status = Some(ConnectionStatusInfo::connecting(id));
@@ -142,6 +166,9 @@ pub fn update(
             } else {
                 app.connection_status = Some(ConnectionStatusInfo::failed(id, "连接不存在".into()));
             }
+        }
+        Message::OpenConnectionContextMenu(id) => {
+            app.context_menu = Some(id);
         }
         Message::CancelDialog => {
             app.dialog = None;
@@ -165,10 +192,16 @@ pub fn update(
         }
         Message::SubmitNewConnection => {
             if let Some(NewConnectionDialog::Editing(form_state)) = app.dialog.take() {
-                let id = app.connections.next_id();
-                match form_state.build_connection(id) {
+                let next_id = app.connections.next_id();
+                let is_edit = form_state.existing_id.is_some();
+
+                match form_state.build_connection(next_id) {
                     Ok(connection) => {
-                        app.connections.add(connection);
+                        if is_edit {
+                            app.connections.update(connection);
+                        } else {
+                            app.connections.add(connection);
+                        }
                         app.dialog = None;
                         app.dialog_minimized = false;
                     }
@@ -222,13 +255,50 @@ pub fn update(
         }
         Message::ConnectionActivationFinished(id, result) => match result {
             Ok(()) => {
+                app.connections.activate(id);
                 app.active_connection = Some(id);
                 app.connection_status = Some(ConnectionStatusInfo::success(id));
             }
             Err(error) => {
+                if app.active_connection == Some(id) {
+                    app.active_connection = None;
+                    app.connections.deactivate();
+                }
                 app.connection_status = Some(ConnectionStatusInfo::failed(id, error));
             }
         },
+        Message::ViewConnection(id) => {
+            app.context_menu = None;
+            if app.connections.find(id).is_some() {
+                app.connection_status = Some(ConnectionStatusInfo::details(id));
+            } else {
+                app.connection_status = Some(ConnectionStatusInfo::failed(id, "连接不存在".into()));
+            }
+        }
+        Message::EditConnection(id) => {
+            app.context_menu = None;
+            if let Some(connection) = app.connections.find(id) {
+                let form_state = ConnectionFormState::from_connection(connection);
+                app.dialog = Some(NewConnectionDialog::Editing(form_state));
+                app.dialog_minimized = false;
+            } else {
+                app.connection_status = Some(ConnectionStatusInfo::failed(id, "连接不存在".into()));
+            }
+        }
+        Message::DeleteConnection(id) => {
+            app.context_menu = None;
+            app.connections.remove(id);
+            if app.active_connection == Some(id) {
+                app.active_connection = None;
+                app.connection_status = None;
+            }
+            if app.connection_status.as_ref().map(|info| info.connection_id) == Some(id) {
+                app.connection_status = None;
+            }
+        }
+        Message::DismissConnectionStatus => {
+            app.connection_status = None;
+        }
     }
 
     Task::none()
@@ -237,8 +307,8 @@ pub fn update(
 pub fn view(app: &App) -> Element<'_, Message> {
     let palette = app.palette();
 
-    let base = container(
-        column![topbar(app, palette), body(app, palette)]
+    let base: Element<'_, Message> = container(
+        column![topbar(app, palette), body(app, palette, app.context_menu)]
             .spacing(0)
             .height(Length::Fill),
     )
@@ -252,8 +322,10 @@ pub fn view(app: &App) -> Element<'_, Message> {
     })
     .into();
 
-    if let Some(dialog) = &app.dialog {
-        let overlay = container(iced::widget::Space::with_width(Length::Fill))
+    let mut stack = Stack::new().width(Length::Fill).height(Length::Fill).push(base);
+
+    if let Some(info) = &app.connection_status {
+        let overlay = container(Space::with_width(Length::Fill).height(Length::Fill))
             .width(Length::Fill)
             .height(Length::Fill)
             .style(move |_| container::Style {
@@ -263,24 +335,39 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 shadow: Shadow::default(),
             });
 
-        Stack::new()
+        let connection = app.connections.find(info.connection_id);
+
+        stack = stack
+            .push(overlay)
+            .push(connection_info_modal(info, connection, palette));
+    }
+
+    if let Some(dialog) = &app.dialog {
+        let overlay = container(Space::with_width(Length::Fill).height(Length::Fill))
             .width(Length::Fill)
             .height(Length::Fill)
-            .push(base)
+            .style(move |_| container::Style {
+                background: Some(Background::Color(palette.overlay)),
+                text_color: None,
+                border: iced::border::Border::default(),
+                shadow: Shadow::default(),
+            });
+
+        stack = stack
             .push(overlay)
-            .push(modal_view(dialog, palette, app.dialog_minimized, app.window_size()))
-            .into()
-    } else {
-        base
+            .push(modal_view(dialog, palette, app.dialog_minimized, app.window_size()));
     }
+
+    stack.into()
 }
 
 fn body(
     app: &App,
     palette: Palette,
+    context_menu: Option<usize>,
 ) -> Element<'_, Message> {
     row![
-        container(sidebar(&app.connections, palette))
+        container(sidebar(&app.connections, palette, context_menu))
             .width(Length::Fixed(260.0))
             .style(move |_| container::Style {
                 background: Some(Background::Color(palette.surface)),
@@ -357,6 +444,10 @@ pub enum Message {
     ShowNewQueryWorkspace,
     SelectConnection(usize),
     ActivateConnection(usize),
+    OpenConnectionContextMenu(usize),
+    ViewConnection(usize),
+    EditConnection(usize),
+    DeleteConnection(usize),
     CancelDialog,
     NewConnectionTypeSelected(DatabaseKind),
     BackToConnectionTypeSelection,
@@ -367,6 +458,7 @@ pub enum Message {
     TestConnection,
     TestConnectionFinished(Result<(), String>),
     ConnectionActivationFinished(usize, Result<(), String>),
+    DismissConnectionStatus,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

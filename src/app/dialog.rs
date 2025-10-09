@@ -5,8 +5,8 @@ use iced::{Alignment, Background, Color, Element, Length, Shadow, Size, Theme, V
 use crate::comps::form::labeled_input;
 use crate::driver::ConnectionParams;
 
-use super::sidebar::ConnectionConfig;
-use super::{DatabaseKind, Message, Palette};
+use super::sidebar::{Connection, ConnectionConfig};
+use super::{ConnectionStatus, ConnectionStatusInfo, DatabaseKind, Message, Palette};
 
 pub fn modal_view(
     state: &NewConnectionDialog,
@@ -86,6 +86,101 @@ pub fn modal_view(
         .into()
 }
 
+pub fn connection_info_modal<'a>(
+    info: &'a ConnectionStatusInfo,
+    connection: Option<&'a Connection>,
+    palette: Palette,
+) -> Element<'a, Message> {
+    let (title, status_text, show_retry) = match &info.status {
+        ConnectionStatus::Connecting => ("正在连接", "正在尝试建立连接…", true),
+        ConnectionStatus::Success => ("连接成功", "连接已成功建立。", false),
+        ConnectionStatus::Failed(reason) => ("连接失败", reason.as_str(), true),
+        ConnectionStatus::Details => ("连接信息", "查看当前连接配置。", false),
+    };
+
+    let mut content = column![
+        text(title).size(20).color(palette.text),
+        text(status_text).size(14).color(palette.text_muted),
+    ]
+    .spacing(12);
+
+    if let Some(connection) = connection {
+        content = content.push(connection_details(connection, palette));
+    } else {
+        content = content.push(text("未找到该连接，可能已被删除。").color(palette.text_muted).size(14));
+    }
+
+    let close_button = button(text("关闭").color(palette.text))
+        .padding([6, 16])
+        .style(move |_, _| iced::widget::button::Style {
+            background: Some(Background::Color(palette.surface_muted)),
+            border: iced::border::Border {
+                color: palette.border,
+                width: 1.0,
+                radius: 6.0.into(),
+            },
+            text_color: palette.text,
+            shadow: Shadow::default(),
+        })
+        .on_press(Message::DismissConnectionStatus);
+
+    let mut actions = row![close_button].spacing(12).align_y(Alignment::Center);
+
+    if show_retry {
+        actions = actions.push(
+            button(text("重新连接").color(palette.accent_text))
+                .padding([6, 18])
+                .style(move |_, status| {
+                    use iced::widget::button::Status;
+
+                    let background = match status {
+                        Status::Hovered => palette.accent.scale_alpha(0.9),
+                        Status::Pressed => palette.accent.scale_alpha(1.0),
+                        _ => palette.accent,
+                    };
+
+                    iced::widget::button::Style {
+                        background: Some(Background::Color(background)),
+                        border: iced::border::Border {
+                            color: background,
+                            width: 1.0,
+                            radius: 6.0.into(),
+                        },
+                        text_color: palette.accent_text,
+                        shadow: Shadow::default(),
+                    }
+                })
+                .on_press(Message::ActivateConnection(info.connection_id)),
+        );
+    }
+
+    container(column![content, actions].spacing(18))
+        .padding(24)
+        .width(Length::Fixed(420.0))
+        .style(move |_| container::Style {
+            background: Some(Background::Color(palette.surface)),
+            text_color: Some(palette.text),
+            border: iced::border::Border {
+                color: palette.border,
+                width: 1.0,
+                radius: 16.0.into(),
+            },
+            shadow: Shadow {
+                color: Color {
+                    r: 0.0,
+                    g: 0.0,
+                    b: 0.0,
+                    a: 0.35,
+                },
+                blur_radius: 24.0,
+                offset: Vector::new(0.0, 12.0),
+            },
+        })
+        .center_x(Length::Fill)
+        .center_y(Length::Fill)
+        .into()
+}
+
 struct DialogSections<'a> {
     main: Element<'a, Message>,
     footer: Element<'a, Message>,
@@ -103,6 +198,7 @@ pub struct ConnectionFormState {
     pub error: Option<String>,
     pub testing: bool,
     pub test_result: Option<Result<(), String>>,
+    pub existing_id: Option<usize>,
 }
 
 impl ConnectionFormState {
@@ -112,6 +208,17 @@ impl ConnectionFormState {
             error: None,
             testing: false,
             test_result: None,
+            existing_id: None,
+        }
+    }
+
+    pub fn from_connection(connection: &Connection) -> Self {
+        Self {
+            form: ConnectionForm::from_connection(connection),
+            error: None,
+            testing: false,
+            test_result: None,
+            existing_id: Some(connection.id),
         }
     }
 
@@ -119,7 +226,7 @@ impl ConnectionFormState {
         &self,
         id: usize,
     ) -> Result<super::Connection, String> {
-        self.form.build_connection(id)
+        self.form.build_connection(self.existing_id.unwrap_or(id))
     }
 
     pub fn clear_error(&mut self) {
@@ -207,6 +314,40 @@ impl ConnectionForm {
                 host: "localhost".into(),
                 port: kind.default_port().unwrap_or(6379).to_string(),
                 password: String::new(),
+            },
+        }
+    }
+
+    fn from_connection(connection: &Connection) -> Self {
+        match &connection.config {
+            ConnectionConfig::Relational {
+                host,
+                port,
+                database,
+                username,
+                password,
+            } => ConnectionForm::Relational {
+                kind: connection.kind,
+                name: connection.name.clone(),
+                host: host.clone(),
+                port: port.to_string(),
+                database: database.clone(),
+                username: username.clone(),
+                password: password.clone().unwrap_or_default(),
+            },
+            ConnectionConfig::Sqlite { file_path } => ConnectionForm::Sqlite {
+                name: connection.name.clone(),
+                file_path: file_path.clone(),
+            },
+            ConnectionConfig::Mongo { connection_string } => ConnectionForm::Mongo {
+                name: connection.name.clone(),
+                connection_string: connection_string.clone(),
+            },
+            ConnectionConfig::Redis { host, port, password } => ConnectionForm::Redis {
+                name: connection.name.clone(),
+                host: host.clone(),
+                port: port.to_string(),
+                password: password.clone().unwrap_or_default(),
             },
         }
     }
@@ -806,6 +947,76 @@ fn connection_form_layout<'a>(
         main: content.spacing(18).into(),
         footer: container(footer).width(Length::Fill).align_x(Alignment::End).into(),
     }
+}
+
+fn connection_details(
+    connection: &Connection,
+    palette: Palette,
+) -> Element<'static, Message> {
+    let mut details = column![
+        text(format!("连接名称：{}", connection.name))
+            .color(palette.text)
+            .size(14),
+        text(format!("数据库类型：{}", connection.kind.display_name()))
+            .color(palette.text)
+            .size(14),
+    ]
+    .spacing(6);
+
+    match &connection.config {
+        ConnectionConfig::Relational {
+            host,
+            port,
+            database,
+            username,
+            password,
+        } => {
+            details = details
+                .push(text(format!("主机：{}", host)).color(palette.text_muted).size(13))
+                .push(text(format!("端口：{}", port)).color(palette.text_muted).size(13))
+                .push(text(format!("数据库：{}", database)).color(palette.text_muted).size(13))
+                .push(text(format!("用户名：{}", username)).color(palette.text_muted).size(13));
+
+            if let Some(password) = password {
+                let masked = if password.is_empty() {
+                    "(未设置)".to_string()
+                } else {
+                    "******".to_string()
+                };
+                details = details.push(text(format!("密码：{}", masked)).color(palette.text_muted).size(13));
+            }
+        }
+        ConnectionConfig::Sqlite { file_path } => {
+            details = details.push(
+                text(format!("文件路径：{}", file_path))
+                    .color(palette.text_muted)
+                    .size(13),
+            );
+        }
+        ConnectionConfig::Mongo { connection_string } => {
+            details = details.push(
+                text(format!("连接字符串：{}", connection_string))
+                    .color(palette.text_muted)
+                    .size(13),
+            );
+        }
+        ConnectionConfig::Redis { host, port, password } => {
+            details = details
+                .push(text(format!("主机：{}", host)).color(palette.text_muted).size(13))
+                .push(text(format!("端口：{}", port)).color(palette.text_muted).size(13));
+
+            if let Some(password) = password {
+                let masked = if password.is_empty() {
+                    "(未设置)".to_string()
+                } else {
+                    "******".to_string()
+                };
+                details = details.push(text(format!("密码：{}", masked)).color(palette.text_muted).size(13));
+            }
+        }
+    }
+
+    details.into()
 }
 
 fn window_header(

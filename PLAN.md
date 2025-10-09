@@ -8,11 +8,11 @@
    - Translate `ConnectionConfig` into driver `ConnectionParams`.
    - Implement activation flow (open/test connection, track status).
 
-3. **Sidebar Interactions**
+3. **Sidebar Interactions** ✅
    - Add double-click to connect, right-click context menu (view/edit/delete), and selection handling.
    - Surface connection status badges and update persistence hooks.
 
-4. **Connection Dialog Enhancements**
+4. **Connection Dialog Enhancements** ✅
    - Hook view/edit actions into existing dialog; pre-fill form from cached config.
    - Add connection info modal with live status messages.
 

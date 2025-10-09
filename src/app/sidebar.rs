@@ -1,4 +1,5 @@
 use iced::alignment::Horizontal;
+use iced::widget::mouse_area;
 use iced::widget::svg::Handle as SvgHandle;
 use iced::widget::{button, column, container, row, scrollable, svg, text};
 use iced::{Alignment, Background, Color, Element, Length, Shadow, Theme};
@@ -9,11 +10,17 @@ use crate::driver::ConnectionParams;
 
 use super::{Message, Palette};
 
+use std::time::{Duration, Instant};
+
+const DOUBLE_CLICK_THRESHOLD: Duration = Duration::from_millis(400);
+
 #[derive(Debug, Default)]
 pub struct ConnectionsState {
     entries: Vec<Connection>,
     selected: Option<usize>,
     next_id: usize,
+    active: Option<usize>,
+    last_click: Option<(usize, Instant)>,
 }
 
 impl ConnectionsState {
@@ -22,6 +29,8 @@ impl ConnectionsState {
             entries: Vec::new(),
             selected: None,
             next_id: 1,
+            active: None,
+            last_click: None,
         };
 
         if let Some(cache) = cache::load_connections() {
@@ -74,11 +83,21 @@ impl ConnectionsState {
     pub fn select(
         &mut self,
         id: usize,
-    ) {
+    ) -> bool {
+        let now = Instant::now();
+        let double_clicked = self
+            .last_click
+            .map(|(last_id, instant)| last_id == id && now.duration_since(instant) <= DOUBLE_CLICK_THRESHOLD)
+            .unwrap_or(false);
+
         if self.entries.iter().any(|conn| conn.id == id) {
             self.selected = Some(id);
-            self.persist();
         }
+
+        self.last_click = Some((id, now));
+        self.persist();
+
+        double_clicked
     }
 
     pub fn next_id(&self) -> usize {
@@ -95,6 +114,33 @@ impl ConnectionsState {
         self.persist();
     }
 
+    pub fn update(
+        &mut self,
+        connection: Connection,
+    ) {
+        if let Some(existing) = self.entries.iter_mut().find(|conn| conn.id == connection.id) {
+            *existing = connection;
+            self.persist();
+        }
+    }
+
+    pub fn remove(
+        &mut self,
+        id: usize,
+    ) {
+        self.entries.retain(|conn| conn.id != id);
+        if self.selected == Some(id) {
+            self.selected = None;
+        }
+        if self.active == Some(id) {
+            self.active = None;
+        }
+        if self.last_click.map(|(last, _)| last == id).unwrap_or(false) {
+            self.last_click = None;
+        }
+        self.persist();
+    }
+
     pub fn find(
         &self,
         id: usize,
@@ -102,11 +148,24 @@ impl ConnectionsState {
         self.entries.iter().find(|conn| conn.id == id)
     }
 
-    pub fn get(
-        &self,
+    pub fn active(&self) -> Option<usize> {
+        self.active
+    }
+
+    pub fn activate(
+        &mut self,
         id: usize,
-    ) -> Option<&Connection> {
-        self.entries.iter().find(|conn| conn.id == id)
+    ) {
+        if self.entries.iter().any(|conn| conn.id == id) {
+            self.active = Some(id);
+            self.selected = Some(id);
+            self.persist();
+        }
+    }
+
+    pub fn deactivate(&mut self) {
+        self.active = None;
+        self.persist();
     }
 
     fn persist(&self) {
@@ -438,6 +497,7 @@ impl DatabaseKind {
 pub fn sidebar(
     connections: &ConnectionsState,
     palette: Palette,
+    context_menu: Option<usize>,
 ) -> Element<'_, Message> {
     let header = container(text("连接管理").color(palette.text).size(18))
         .padding([12, 16])
@@ -458,7 +518,13 @@ pub fn sidebar(
         let mut column = column![];
 
         for connection in connections.list() {
-            column = column.push(connection_item(connection, connections.selected(), palette));
+            column = column.push(connection_item(
+                connection,
+                connections.selected(),
+                connections.active(),
+                context_menu,
+                palette,
+            ));
         }
 
         scrollable(column.spacing(8).padding([12, 10]))
@@ -495,9 +561,13 @@ fn empty_state(palette: Palette) -> Element<'static, Message> {
 fn connection_item(
     connection: &Connection,
     selected: Option<usize>,
+    active: Option<usize>,
+    context_menu: Option<usize>,
     palette: Palette,
 ) -> Element<'_, Message> {
     let is_selected = selected == Some(connection.id);
+    let is_active = active == Some(connection.id);
+    let menu_open = context_menu == Some(connection.id);
 
     let icon = svg::<Theme>(SvgHandle::from_path(connection.kind.icon_path()))
         .width(28)
@@ -517,7 +587,21 @@ fn connection_item(
 
     let content = column![name, summary].spacing(4).width(Length::Fill);
 
-    button(row![icon, content].spacing(12).align_y(Alignment::Center))
+    let mut row_content = row![icon, content].spacing(12).align_y(Alignment::Center);
+
+    if is_active {
+        let badge = container(text("已连接").size(12).color(palette.accent_text))
+            .padding([2, 8])
+            .style(move |_| container::Style {
+                background: Some(Background::Color(palette.accent)),
+                text_color: Some(palette.accent_text),
+                border: iced::border::Border::default(),
+                shadow: Shadow::default(),
+            });
+        row_content = row_content.push(badge);
+    }
+
+    let button = button(row_content)
         .width(Length::Fill)
         .padding([10, 14])
         .style(move |_, status| {
@@ -543,7 +627,63 @@ fn connection_item(
                 text_color: palette.text,
                 shadow: Shadow::default(),
             }
+        });
+
+    let mut column = column![
+        mouse_area(button)
+            .on_press(Message::SelectConnection(connection.id))
+            .on_right_press(Message::OpenConnectionContextMenu(connection.id))
+    ]
+    .spacing(6);
+
+    if menu_open {
+        column = column.push(context_menu_widget(connection.id, palette));
+    }
+
+    column.into()
+}
+
+fn context_menu_widget(
+    id: usize,
+    palette: Palette,
+) -> Element<'static, Message> {
+    let menu_button = |label: &'static str, message: Message| -> Element<'static, Message> {
+        let button = button(text(label).color(palette.text))
+            .padding([6, 12])
+            .style(move |_: &Theme, _| iced::widget::button::Style {
+                background: Some(Background::Color(palette.surface_muted)),
+                border: iced::border::Border {
+                    color: palette.border,
+                    width: 1.0,
+                    radius: 6.0.into(),
+                },
+                text_color: palette.text,
+                shadow: Shadow::default(),
+            })
+            .on_press(message);
+
+        Element::from(button)
+    };
+
+    let menu = column![
+        menu_button("查看", Message::ViewConnection(id)),
+        menu_button("编辑", Message::EditConnection(id)),
+        menu_button("删除", Message::DeleteConnection(id)),
+    ]
+    .spacing(6);
+
+    container(menu)
+        .padding(12)
+        .width(Length::Fill)
+        .style(move |_| container::Style {
+            background: Some(Background::Color(palette.surface)),
+            text_color: Some(palette.text),
+            border: iced::border::Border {
+                color: palette.border,
+                width: 1.0,
+                radius: 10.0.into(),
+            },
+            shadow: Shadow::default(),
         })
-        .on_press(Message::SelectConnection(connection.id))
         .into()
 }
