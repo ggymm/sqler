@@ -3,6 +3,8 @@ use iced::widget::svg::Handle as SvgHandle;
 use iced::widget::{button, column, container, row, scrollable, svg, text};
 use iced::{Alignment, Background, Color, Element, Length, Shadow, Theme};
 
+use crate::cache;
+
 use super::{Message, Palette};
 
 #[derive(Debug, Default)]
@@ -14,11 +16,44 @@ pub struct ConnectionsState {
 
 impl ConnectionsState {
     pub fn new() -> Self {
-        Self {
+        let mut state = Self {
             entries: Vec::new(),
             selected: None,
             next_id: 1,
+        };
+
+        if let Some(cache) = cache::load_connections() {
+            for record in cache.connections {
+                if let Some(kind) = DatabaseKind::from_cache_key(&record.kind) {
+                    state.entries.push(Connection {
+                        id: record.id,
+                        name: record.name,
+                        kind,
+                        summary: record.summary,
+                    });
+                    state.next_id = state.next_id.max(record.id.saturating_add(1));
+                }
+            }
+
+            if let Some(selected) = cache.selected {
+                if state.entries.iter().any(|conn| conn.id == selected) {
+                    state.selected = Some(selected);
+                }
+            }
+
+            state.next_id = state.next_id.max(cache.next_id);
+            if state.next_id == 0 {
+                state.next_id = state
+                    .entries
+                    .iter()
+                    .map(|conn| conn.id)
+                    .max()
+                    .unwrap_or(0)
+                    .saturating_add(1);
+            }
         }
+
+        state
     }
 
     pub fn list(&self) -> &[Connection] {
@@ -35,6 +70,7 @@ impl ConnectionsState {
     ) {
         if self.entries.iter().any(|conn| conn.id == id) {
             self.selected = Some(id);
+            self.persist();
         }
     }
 
@@ -49,6 +85,7 @@ impl ConnectionsState {
         self.selected = Some(connection.id);
         self.entries.push(connection);
         self.next_id += 1;
+        self.persist();
     }
 
     pub fn find(
@@ -56,6 +93,27 @@ impl ConnectionsState {
         id: usize,
     ) -> Option<&Connection> {
         self.entries.iter().find(|conn| conn.id == id)
+    }
+
+    fn persist(&self) {
+        let snapshot = crate::cache::ConnectionsCache {
+            next_id: self.next_id,
+            selected: self.selected,
+            connections: self
+                .entries
+                .iter()
+                .map(|conn| crate::cache::ConnectionRecord {
+                    id: conn.id,
+                    name: conn.name.clone(),
+                    kind: conn.kind.cache_key().to_string(),
+                    summary: conn.summary.clone(),
+                })
+                .collect(),
+        };
+
+        if let Err(err) = cache::save_connections(&snapshot) {
+            eprintln!("保存连接缓存失败: {err}");
+        }
     }
 }
 
@@ -124,6 +182,32 @@ impl DatabaseKind {
             DatabaseKind::Oracle => Some(1521),
             DatabaseKind::Redis => Some(6379),
             DatabaseKind::Sqlserver => Some(1433),
+        }
+    }
+
+    pub fn cache_key(&self) -> &'static str {
+        match self {
+            DatabaseKind::Postgresql => "postgresql",
+            DatabaseKind::Mysql => "mysql",
+            DatabaseKind::Sqlite => "sqlite",
+            DatabaseKind::Mongodb => "mongodb",
+            DatabaseKind::Oracle => "oracle",
+            DatabaseKind::Redis => "redis",
+            DatabaseKind::Sqlserver => "sqlserver",
+        }
+    }
+
+    pub fn from_cache_key(key: &str) -> Option<Self> {
+        let normalized = key.trim().to_ascii_lowercase();
+        match normalized.as_str() {
+            "postgresql" | "postgres" => Some(DatabaseKind::Postgresql),
+            "mysql" => Some(DatabaseKind::Mysql),
+            "sqlite" => Some(DatabaseKind::Sqlite),
+            "mongodb" => Some(DatabaseKind::Mongodb),
+            "oracle" => Some(DatabaseKind::Oracle),
+            "redis" => Some(DatabaseKind::Redis),
+            "sqlserver" | "sql_server" | "mssql" => Some(DatabaseKind::Sqlserver),
+            _ => None,
         }
     }
 }

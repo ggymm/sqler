@@ -83,9 +83,7 @@ impl MongoDriver {
             find = find.sort(json_to_document(sort)?);
         }
 
-        let mut cursor = find
-            .run()
-            .map_err(|err| DriverError::Query(err.to_string()))?;
+        let mut cursor = find.run().map_err(|err| DriverError::Query(err.to_string()))?;
 
         let mut documents = Vec::new();
         while let Some(doc) = cursor.next() {

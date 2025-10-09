@@ -4,8 +4,8 @@ use mysql::{Conn, OptsBuilder, Value as MysqlValue};
 use serde_json::Value as JsonValue;
 
 use super::{
-    execution_response, make_tabular_response, map_binary_or_text, unsupported, ConnectionParams,
-    DriverError, ExecuteRequest, ExecuteResponse, QueryRequest, QueryResponse,
+    ConnectionParams, DriverError, ExecuteRequest, ExecuteResponse, QueryRequest, QueryResponse, execution_response,
+    make_tabular_response, map_binary_or_text, unsupported,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -49,11 +49,7 @@ impl MysqlDriver {
                     let mut rows = Vec::new();
                     for row in result {
                         let row = row.map_err(|err| DriverError::Query(err.to_string()))?;
-                        let values = row
-                            .unwrap()
-                            .into_iter()
-                            .map(mysql_value_to_json)
-                            .collect();
+                        let values = row.unwrap().into_iter().map(mysql_value_to_json).collect();
                         rows.push(values);
                     }
 
