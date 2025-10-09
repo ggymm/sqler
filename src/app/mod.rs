@@ -8,10 +8,10 @@ mod topbar;
 
 use content::content;
 use dialog::{ConnectionFormState, FormField, NewConnectionDialog, connection_info_modal, modal_view};
-use sidebar::sidebar;
-pub use sidebar::{Connection, ConnectionsState, DatabaseKind};
 #[allow(unused_imports)]
 pub use sidebar::ConnectionConfig;
+use sidebar::sidebar;
+pub use sidebar::{Connection, ConnectionsState, DatabaseKind};
 use topbar::topbar;
 
 use crate::driver::DriverRegistry;
