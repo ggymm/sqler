@@ -19,7 +19,35 @@ pub struct ConnectionRecord {
     pub id: usize,
     pub name: String,
     pub kind: String,
+    #[serde(default)]
     pub summary: String,
+    #[serde(default)]
+    pub config: Option<StoredConnectionConfig>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum StoredConnectionConfig {
+    Relational {
+        host: String,
+        port: u16,
+        database: String,
+        username: String,
+        #[serde(default)]
+        password: Option<String>,
+    },
+    Sqlite {
+        file_path: String,
+    },
+    Mongo {
+        connection_string: String,
+    },
+    Redis {
+        host: String,
+        port: u16,
+        #[serde(default)]
+        password: Option<String>,
+    },
 }
 
 pub fn load_connections() -> Option<ConnectionsCache> {

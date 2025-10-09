@@ -5,6 +5,7 @@ use iced::{Alignment, Background, Color, Element, Length, Shadow, Size, Theme, V
 use crate::comps::form::labeled_input;
 use crate::driver::ConnectionParams;
 
+use super::sidebar::ConnectionConfig;
 use super::{DatabaseKind, Message, Palette};
 
 pub fn modal_view(
@@ -388,6 +389,7 @@ impl ConnectionForm {
                 port,
                 database,
                 username,
+                password,
                 ..
             } => {
                 if name.trim().is_empty() {
@@ -404,11 +406,23 @@ impl ConnectionForm {
                     return Err("请输入数据库名".into());
                 }
 
+                let config = ConnectionConfig::Relational {
+                    host: host.trim().to_string(),
+                    port: port_num,
+                    database: database.trim().to_string(),
+                    username: username.trim().to_string(),
+                    password: if password.trim().is_empty() {
+                        None
+                    } else {
+                        Some(password.trim().to_string())
+                    },
+                };
+
                 Ok(super::Connection {
                     id,
                     name: name.trim().to_string(),
                     kind: *kind,
-                    summary: format!("{username}@{host}:{port_num}/{database}"),
+                    config,
                 })
             }
             ConnectionForm::Sqlite { name, file_path } => {
@@ -419,11 +433,15 @@ impl ConnectionForm {
                     return Err("请输入数据库文件路径".into());
                 }
 
+                let config = ConnectionConfig::Sqlite {
+                    file_path: file_path.trim().to_string(),
+                };
+
                 Ok(super::Connection {
                     id,
                     name: name.trim().to_string(),
                     kind: DatabaseKind::Sqlite,
-                    summary: file_path.trim().to_string(),
+                    config,
                 })
             }
             ConnectionForm::Mongo {
@@ -437,14 +455,23 @@ impl ConnectionForm {
                     return Err("请输入连接字符串".into());
                 }
 
+                let config = ConnectionConfig::Mongo {
+                    connection_string: connection_string.trim().to_string(),
+                };
+
                 Ok(super::Connection {
                     id,
                     name: name.trim().to_string(),
                     kind: DatabaseKind::Mongodb,
-                    summary: connection_string.trim().to_string(),
+                    config,
                 })
             }
-            ConnectionForm::Redis { name, host, port, .. } => {
+            ConnectionForm::Redis {
+                name,
+                host,
+                port,
+                password,
+            } => {
                 if name.trim().is_empty() {
                     return Err("请输入连接名称".into());
                 }
@@ -453,11 +480,21 @@ impl ConnectionForm {
                 }
                 let port_num = port.trim().parse::<u16>().map_err(|_| "端口必须为数字".to_string())?;
 
+                let config = ConnectionConfig::Redis {
+                    host: host.trim().to_string(),
+                    port: port_num,
+                    password: if password.trim().is_empty() {
+                        None
+                    } else {
+                        Some(password.trim().to_string())
+                    },
+                };
+
                 Ok(super::Connection {
                     id,
                     name: name.trim().to_string(),
                     kind: DatabaseKind::Redis,
-                    summary: format!("{host}:{port_num}"),
+                    config,
                 })
             }
         }

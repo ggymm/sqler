@@ -64,7 +64,7 @@ fn current_connection_section(
                 text(format!("当前连接：{}", connection.name))
                     .color(palette.text)
                     .size(17),
-                text(format!("连接信息：{}", connection.summary))
+                text(format!("连接信息：{}", connection.summary()))
                     .color(palette.text_muted)
                     .size(14),
             ]

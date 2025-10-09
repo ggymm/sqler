@@ -3,7 +3,7 @@ use iced::widget::svg::Handle as SvgHandle;
 use iced::widget::{button, column, container, row, scrollable, svg, text};
 use iced::{Alignment, Background, Color, Element, Length, Shadow, Theme};
 
-use crate::cache;
+use crate::cache::{self, StoredConnectionConfig};
 
 use super::{Message, Palette};
 
@@ -25,11 +25,16 @@ impl ConnectionsState {
         if let Some(cache) = cache::load_connections() {
             for record in cache.connections {
                 if let Some(kind) = DatabaseKind::from_cache_key(&record.kind) {
+                    let config = record
+                        .config
+                        .and_then(|stored| ConnectionConfig::from_stored(kind, stored))
+                        .unwrap_or_else(|| ConnectionConfig::from_summary(kind, record.summary.clone()));
+
                     state.entries.push(Connection {
                         id: record.id,
                         name: record.name,
                         kind,
-                        summary: record.summary,
+                        config,
                     });
                     state.next_id = state.next_id.max(record.id.saturating_add(1));
                 }
@@ -106,7 +111,8 @@ impl ConnectionsState {
                     id: conn.id,
                     name: conn.name.clone(),
                     kind: conn.kind.cache_key().to_string(),
-                    summary: conn.summary.clone(),
+                    summary: conn.summary(),
+                    config: Some(conn.config.to_stored()),
                 })
                 .collect(),
         };
@@ -122,7 +128,157 @@ pub struct Connection {
     pub id: usize,
     pub name: String,
     pub kind: DatabaseKind,
-    pub summary: String,
+    pub config: ConnectionConfig,
+}
+
+impl Connection {
+    pub fn summary(&self) -> String {
+        match &self.config {
+            ConnectionConfig::Relational {
+                host,
+                port,
+                database,
+                username,
+                ..
+            } => format!("{username}@{host}:{port}/{database}"),
+            ConnectionConfig::Sqlite { file_path } => file_path.clone(),
+            ConnectionConfig::Mongo { connection_string } => connection_string.clone(),
+            ConnectionConfig::Redis { host, port, .. } => format!("{host}:{port}"),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum ConnectionConfig {
+    Relational {
+        host: String,
+        port: u16,
+        database: String,
+        username: String,
+        password: Option<String>,
+    },
+    Sqlite {
+        file_path: String,
+    },
+    Mongo {
+        connection_string: String,
+    },
+    Redis {
+        host: String,
+        port: u16,
+        password: Option<String>,
+    },
+}
+
+impl ConnectionConfig {
+    pub fn from_stored(
+        kind: DatabaseKind,
+        stored: StoredConnectionConfig,
+    ) -> Option<Self> {
+        match (kind, stored) {
+            (
+                DatabaseKind::Postgresql | DatabaseKind::Mysql | DatabaseKind::Oracle | DatabaseKind::Sqlserver,
+                StoredConnectionConfig::Relational {
+                    host,
+                    port,
+                    database,
+                    username,
+                    password,
+                },
+            ) => Some(ConnectionConfig::Relational {
+                host,
+                port,
+                database,
+                username,
+                password,
+            }),
+            (DatabaseKind::Sqlite, StoredConnectionConfig::Sqlite { file_path }) => {
+                Some(ConnectionConfig::Sqlite { file_path })
+            }
+            (DatabaseKind::Mongodb, StoredConnectionConfig::Mongo { connection_string }) => {
+                Some(ConnectionConfig::Mongo { connection_string })
+            }
+            (DatabaseKind::Redis, StoredConnectionConfig::Redis { host, port, password }) => {
+                Some(ConnectionConfig::Redis { host, port, password })
+            }
+            (
+                _,
+                StoredConnectionConfig::Relational {
+                    host,
+                    port,
+                    database,
+                    username,
+                    password,
+                },
+            ) => Some(ConnectionConfig::Relational {
+                host,
+                port,
+                database,
+                username,
+                password,
+            }),
+            (_, StoredConnectionConfig::Sqlite { file_path }) => Some(ConnectionConfig::Sqlite { file_path }),
+            (_, StoredConnectionConfig::Mongo { connection_string }) => {
+                Some(ConnectionConfig::Mongo { connection_string })
+            }
+            (_, StoredConnectionConfig::Redis { host, port, password }) => {
+                Some(ConnectionConfig::Redis { host, port, password })
+            }
+        }
+    }
+
+    pub fn to_stored(&self) -> StoredConnectionConfig {
+        match self {
+            ConnectionConfig::Relational {
+                host,
+                port,
+                database,
+                username,
+                password,
+            } => StoredConnectionConfig::Relational {
+                host: host.clone(),
+                port: *port,
+                database: database.clone(),
+                username: username.clone(),
+                password: password.clone(),
+            },
+            ConnectionConfig::Sqlite { file_path } => StoredConnectionConfig::Sqlite {
+                file_path: file_path.clone(),
+            },
+            ConnectionConfig::Mongo { connection_string } => StoredConnectionConfig::Mongo {
+                connection_string: connection_string.clone(),
+            },
+            ConnectionConfig::Redis { host, port, password } => StoredConnectionConfig::Redis {
+                host: host.clone(),
+                port: *port,
+                password: password.clone(),
+            },
+        }
+    }
+
+    pub fn from_summary(
+        kind: DatabaseKind,
+        summary: String,
+    ) -> Self {
+        match kind {
+            DatabaseKind::Sqlite => ConnectionConfig::Sqlite { file_path: summary },
+            DatabaseKind::Mongodb => ConnectionConfig::Mongo {
+                connection_string: summary,
+            },
+            DatabaseKind::Redis => ConnectionConfig::Redis {
+                host: summary,
+                port: kind.default_port().unwrap_or(6379),
+                password: None,
+            },
+            _ => ConnectionConfig::Relational {
+                host: "localhost".into(),
+                port: kind.default_port().unwrap_or(0),
+                database: summary,
+                username: "user".into(),
+                password: None,
+            },
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -284,7 +440,7 @@ fn connection_item(
         .color(if is_selected { palette.accent } else { palette.text })
         .size(16);
 
-    let summary = text(&connection.summary)
+    let summary = text(connection.summary())
         .color(if is_selected {
             palette.accent
         } else {
