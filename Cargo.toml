@@ -26,6 +26,5 @@ features = ["bundled"]
 version = "1"
 features = ["derive"]
 
-
 [dependencies.serde_json]
 version = "1"
