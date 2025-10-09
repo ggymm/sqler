@@ -90,6 +90,7 @@ pub fn connection_info_modal<'a>(
     info: &'a ConnectionStatusInfo,
     connection: Option<&'a Connection>,
     palette: Palette,
+    window_size: Size,
 ) -> Element<'a, Message> {
     let (title, status_text, show_retry) = match &info.status {
         ConnectionStatus::Connecting => ("正在连接", "正在尝试建立连接…", true),
@@ -154,9 +155,15 @@ pub fn connection_info_modal<'a>(
         );
     }
 
+    let modal_width = (window_size.width * 0.5).clamp(320.0, 720.0);
+    let modal_height = (window_size.height * 0.5).clamp(220.0, 560.0);
+
     container(column![content, actions].spacing(18))
         .padding(24)
-        .width(Length::Fixed(420.0))
+        .width(Length::Shrink)
+        .height(Length::Shrink)
+        .max_width(modal_width)
+        .max_height(modal_height)
         .style(move |_| container::Style {
             background: Some(Background::Color(palette.surface)),
             text_color: Some(palette.text),

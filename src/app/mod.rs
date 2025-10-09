@@ -339,7 +339,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
         stack = stack
             .push(overlay)
-            .push(connection_info_modal(info, connection, palette));
+            .push(connection_info_modal(info, connection, palette, app.window_size()));
     }
 
     if let Some(dialog) = &app.dialog {
