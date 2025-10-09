@@ -5,6 +5,8 @@ use iced::{Alignment, Background, Color, Element, Length, Shadow, Theme};
 
 use crate::cache::{self, StoredConnectionConfig};
 
+use crate::driver::ConnectionParams;
+
 use super::{Message, Palette};
 
 #[derive(Debug, Default)]
@@ -100,6 +102,13 @@ impl ConnectionsState {
         self.entries.iter().find(|conn| conn.id == id)
     }
 
+    pub fn get(
+        &self,
+        id: usize,
+    ) -> Option<&Connection> {
+        self.entries.iter().find(|conn| conn.id == id)
+    }
+
     fn persist(&self) {
         let snapshot = crate::cache::ConnectionsCache {
             next_id: self.next_id,
@@ -145,6 +154,10 @@ impl Connection {
             ConnectionConfig::Mongo { connection_string } => connection_string.clone(),
             ConnectionConfig::Redis { host, port, .. } => format!("{host}:{port}"),
         }
+    }
+
+    pub fn to_params(&self) -> ConnectionParams {
+        self.config.to_params(self.kind)
     }
 }
 
@@ -276,6 +289,60 @@ impl ConnectionConfig {
                 database: summary,
                 username: "user".into(),
                 password: None,
+            },
+        }
+    }
+
+    pub fn to_params(
+        &self,
+        kind: DatabaseKind,
+    ) -> ConnectionParams {
+        match self {
+            ConnectionConfig::Relational {
+                host,
+                port,
+                database,
+                username,
+                password,
+            } => ConnectionParams {
+                kind,
+                host: Some(host.clone()),
+                port: Some(*port),
+                username: Some(username.clone()),
+                password: password.clone(),
+                database: Some(database.clone()),
+                file_path: None,
+                connection_string: None,
+            },
+            ConnectionConfig::Sqlite { file_path } => ConnectionParams {
+                kind,
+                host: None,
+                port: None,
+                username: None,
+                password: None,
+                database: None,
+                file_path: Some(file_path.clone()),
+                connection_string: None,
+            },
+            ConnectionConfig::Mongo { connection_string } => ConnectionParams {
+                kind,
+                host: None,
+                port: None,
+                username: None,
+                password: None,
+                database: None,
+                file_path: None,
+                connection_string: Some(connection_string.clone()),
+            },
+            ConnectionConfig::Redis { host, port, password } => ConnectionParams {
+                kind,
+                host: Some(host.clone()),
+                port: Some(*port),
+                username: None,
+                password: password.clone(),
+                database: None,
+                file_path: None,
+                connection_string: None,
             },
         }
     }

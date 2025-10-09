@@ -22,6 +22,8 @@ pub struct App {
     dialog: Option<NewConnectionDialog>,
     dialog_minimized: bool,
     drivers: DriverRegistry,
+    active_connection: Option<usize>,
+    connection_status: Option<ConnectionStatusInfo>,
     window_size: Size,
 }
 
@@ -34,9 +36,50 @@ impl Default for App {
             dialog: None,
             dialog_minimized: false,
             drivers: DriverRegistry::new(),
+            active_connection: None,
+            connection_status: None,
             window_size: Size::new(1280.0, 800.0),
         }
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct ConnectionStatusInfo {
+    pub connection_id: usize,
+    pub status: ConnectionStatus,
+}
+
+impl ConnectionStatusInfo {
+    pub fn connecting(connection_id: usize) -> Self {
+        Self {
+            connection_id,
+            status: ConnectionStatus::Connecting,
+        }
+    }
+
+    pub fn success(connection_id: usize) -> Self {
+        Self {
+            connection_id,
+            status: ConnectionStatus::Success,
+        }
+    }
+
+    pub fn failed(
+        connection_id: usize,
+        reason: String,
+    ) -> Self {
+        Self {
+            connection_id,
+            status: ConnectionStatus::Failed(reason),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum ConnectionStatus {
+    Connecting,
+    Success,
+    Failed(String),
 }
 
 impl App {
@@ -84,6 +127,21 @@ pub fn update(
         }
         Message::SelectConnection(id) => {
             app.connections.select(id);
+        }
+        Message::ActivateConnection(id) => {
+            if let Some(connection) = app.connections.find(id) {
+                let params = connection.to_params();
+                app.connection_status = Some(ConnectionStatusInfo::connecting(id));
+
+                let task = app
+                    .drivers
+                    .test_connection(params)
+                    .map(move |result| Message::ConnectionActivationFinished(id, result.map_err(|e| e.to_string())));
+
+                return task;
+            } else {
+                app.connection_status = Some(ConnectionStatusInfo::failed(id, "连接不存在".into()));
+            }
         }
         Message::CancelDialog => {
             app.dialog = None;
@@ -162,6 +220,15 @@ pub fn update(
                 app.dialog_minimized = false;
             }
         }
+        Message::ConnectionActivationFinished(id, result) => match result {
+            Ok(()) => {
+                app.active_connection = Some(id);
+                app.connection_status = Some(ConnectionStatusInfo::success(id));
+            }
+            Err(error) => {
+                app.connection_status = Some(ConnectionStatusInfo::failed(id, error));
+            }
+        },
     }
 
     Task::none()
@@ -289,6 +356,7 @@ pub enum Message {
     ShowNewConnectionDialog,
     ShowNewQueryWorkspace,
     SelectConnection(usize),
+    ActivateConnection(usize),
     CancelDialog,
     NewConnectionTypeSelected(DatabaseKind),
     BackToConnectionTypeSelection,
@@ -298,6 +366,7 @@ pub enum Message {
     RestoreDialog,
     TestConnection,
     TestConnectionFinished(Result<(), String>),
+    ConnectionActivationFinished(usize, Result<(), String>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

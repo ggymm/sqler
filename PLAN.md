@@ -4,7 +4,7 @@
    - Extend `ConnectionConfig` to capture full connection settings for all supported database types.
    - Ensure cache serialization/deserialization persists complete connection state (host, credentials, etc.).
 
-2. **Driver Integration & Connection Lifecycle**
+2. **Driver Integration & Connection Lifecycle** ✅
    - Translate `ConnectionConfig` into driver `ConnectionParams`.
    - Implement activation flow (open/test connection, track status).
 
