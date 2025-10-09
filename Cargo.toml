@@ -4,6 +4,28 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-iced = { version = "0.13", features = ["svg"] }
-mysql = "26"
-thiserror = "1.0"
+base64 = "0.22"
+thiserror = "2.0"
+
+[dependencies.iced]
+version = "0.13"
+features = ["svg"]
+
+[dependencies.mysql]
+version = "26"
+
+[dependencies.mongodb]
+version = "3"
+features = ["sync"]
+
+[dependencies.rusqlite]
+version = "0.37"
+features = ["bundled"]
+
+[dependencies.serde]
+version = "1"
+features = ["derive"]
+
+
+[dependencies.serde_json]
+version = "1"

@@ -103,6 +103,7 @@ impl ConnectionFormState {
 
     pub fn clear_error(&mut self) {
         self.error = None;
+        self.test_result = None;
     }
 }
 
