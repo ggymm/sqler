@@ -457,12 +457,7 @@ fn table_list_view(
     palette: Palette,
     selected: Option<usize>,
 ) -> Element<'static, Message> {
-    let mut list = column![
-        text(format!("数据库：{}", connection.summary()))
-            .size(13)
-            .color(palette.text_muted),
-    ]
-    .spacing(12);
+    let mut list = column![].spacing(12);
 
     for (index, table) in tables.iter().enumerate() {
         list = list.push(table_list_item(
@@ -480,15 +475,11 @@ fn table_list_view(
 fn table_grid_view(
     connection_id: usize,
     tables: &[MysqlTable],
-    connection: &Connection,
+    _connection: &Connection,
     palette: Palette,
     viewport: Size,
     selected: Option<usize>,
 ) -> Element<'static, Message> {
-    let header = text(format!("数据库：{}", connection.summary()))
-        .size(13)
-        .color(palette.text_muted);
-
     let padding_compensation = 48.0; // parent container horizontal padding
     let available_height = (viewport.height - GRID_VERTICAL_RESERVE).max(GRID_TILE_HEIGHT);
     let rows_per_column = (available_height / (GRID_TILE_HEIGHT + GRID_TILE_SPACING))
@@ -537,7 +528,7 @@ fn table_grid_view(
         container(row_view).width(Length::Fill).height(Length::Fill).into()
     };
 
-    column![header, grid].spacing(12).height(Length::Fill).into()
+    grid.into()
 }
 
 fn processlist_view(
@@ -654,12 +645,13 @@ fn table_grid_item(
         .height(28);
 
     let label = text(table.name.clone())
-        .size(13)
-        .color(if selected { palette.accent } else { palette.text });
+        .size(14)
+        .color(if selected { palette.accent } else { palette.text })
+        .width(Length::Fill);
 
-    let content = column![icon, label]
-        .spacing(10)
-        .align_x(Alignment::Center)
+    let content = row![icon, label]
+        .spacing(12)
+        .align_y(Alignment::Center)
         .width(Length::Fill);
 
     button(content)
