@@ -11,6 +11,9 @@ thiserror = "2.0"
 version = "0.13"
 features = ["svg"]
 
+[dependencies.iced_aw]
+version = "0.12"
+
 [dependencies.mysql]
 version = "26"
 

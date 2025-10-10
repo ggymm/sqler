@@ -1,12 +1,13 @@
 use iced::alignment::Horizontal;
 use iced::widget::mouse_area;
 use iced::widget::svg::Handle as SvgHandle;
-use iced::widget::{Stack, button, column, container, row, scrollable, svg, text};
+use iced::widget::{button, column, container, row, scrollable, svg, text};
 use iced::{Alignment, Background, Color, Element, Length, Shadow, Theme};
 
 use crate::cache::{self, StoredConnectionConfig};
 use crate::comps::menu::{self as menu, context_menu_button};
 use crate::driver::ConnectionParams;
+use iced_aw::ContextMenu;
 
 use super::{Message, Palette};
 
@@ -497,7 +498,6 @@ impl DatabaseKind {
 pub fn sidebar(
     connections: &ConnectionsState,
     palette: Palette,
-    context_menu: Option<usize>,
 ) -> Element<'_, Message> {
     let header = container(text("连接管理").color(palette.text).size(18))
         .padding([12, 16])
@@ -522,7 +522,6 @@ pub fn sidebar(
                 connection,
                 connections.selected(),
                 connections.active(),
-                context_menu,
                 palette,
             ));
         }
@@ -562,12 +561,10 @@ fn connection_item(
     connection: &Connection,
     selected: Option<usize>,
     active: Option<usize>,
-    context_menu: Option<usize>,
     palette: Palette,
 ) -> Element<'_, Message> {
     let is_selected = selected == Some(connection.id);
     let is_active = active == Some(connection.id);
-    let menu_open = context_menu == Some(connection.id);
 
     let icon = svg::<Theme>(SvgHandle::from_path(connection.kind.icon_path()))
         .width(28)
@@ -629,25 +626,19 @@ fn connection_item(
             }
         });
 
-    let entry = mouse_area(button)
-        .on_press(Message::SelectConnection(connection.id))
-        .on_right_press(Message::OpenConnectionContextMenu(connection.id));
+    let entry = mouse_area(button).on_press(Message::SelectConnection(connection.id));
 
-    let mut stack = Stack::new().width(Length::Fill).push(entry);
+    let id = connection.id;
+    let overlay_palette = palette;
 
-    if menu_open {
+    ContextMenu::new(entry, move || {
         let items = vec![
-            context_menu_button("查看", Message::ViewConnection(connection.id), palette),
-            context_menu_button("编辑", Message::EditConnection(connection.id), palette),
-            context_menu_button("删除", Message::DeleteConnection(connection.id), palette),
+            context_menu_button("查看", Message::ViewConnection(id), overlay_palette),
+            context_menu_button("编辑", Message::EditConnection(id), overlay_palette),
+            context_menu_button("删除", Message::DeleteConnection(id), overlay_palette),
         ];
 
-        let menu = menu::context_menu(items, palette)
-            .align_x(Alignment::End)
-            .align_y(Alignment::Start);
-
-        stack = stack.push(container(menu).width(Length::Fill).padding([4.0, 0.0]));
-    }
-
-    stack.into()
+        menu::context_menu(items, overlay_palette).into()
+    })
+    .into()
 }

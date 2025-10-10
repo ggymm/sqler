@@ -1,5 +1,5 @@
 use iced::widget::{Space, container};
-use iced::{Background, Color, Element, Length, Shadow};
+use iced::{Background, Color, Element, Length, Shadow, Vector};
 
 use crate::app::Palette;
 
@@ -38,7 +38,7 @@ pub fn modal_card<'a, Message: 'a>(
                 a: 0.35,
             },
             blur_radius: 24.0,
-            offset: iced::Vector::new(0.0, 12.0),
+            offset: Vector::new(0.0, 12.0),
         },
     })
 }

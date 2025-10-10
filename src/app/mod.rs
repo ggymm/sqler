@@ -31,7 +31,6 @@ pub struct App {
     drivers: DriverRegistry,
     active_connection: Option<usize>,
     connection_status: Option<ConnectionStatusInfo>,
-    context_menu: Option<usize>,
     window_size: Size,
     mysql_content: HashMap<usize, MysqlContentState>,
 }
@@ -47,7 +46,6 @@ impl Default for App {
             drivers: DriverRegistry::new(),
             active_connection: None,
             connection_status: None,
-            context_menu: None,
             window_size: Size::new(1280.0, 800.0),
             mysql_content: HashMap::new(),
         }
@@ -315,15 +313,12 @@ pub fn update(
         }
         Message::SelectConnection(id) => {
             let double_clicked = app.connections.select(id);
-            app.context_menu = None;
 
             if double_clicked {
                 return Task::done(Message::ActivateConnection(id));
             }
         }
         Message::ActivateConnection(id) => {
-            app.context_menu = None;
-
             if let Some(connection) = app.connections.find(id) {
                 let params = connection.to_params();
                 app.connection_status = Some(ConnectionStatusInfo::connecting(id));
@@ -337,9 +332,6 @@ pub fn update(
             } else {
                 app.connection_status = Some(ConnectionStatusInfo::failed(id, "连接不存在".into()));
             }
-        }
-        Message::OpenConnectionContextMenu(id) => {
-            app.context_menu = Some(id);
         }
         Message::CancelDialog => {
             app.dialog = None;
@@ -444,7 +436,6 @@ pub fn update(
             }
         },
         Message::ViewConnection(id) => {
-            app.context_menu = None;
             if app.connections.find(id).is_some() {
                 app.connection_status = Some(ConnectionStatusInfo::details(id));
             } else {
@@ -452,7 +443,6 @@ pub fn update(
             }
         }
         Message::EditConnection(id) => {
-            app.context_menu = None;
             if let Some(connection) = app.connections.find(id) {
                 let form_state = ConnectionFormState::from_connection(connection);
                 app.dialog = Some(NewConnectionDialog::Editing(form_state));
@@ -462,7 +452,6 @@ pub fn update(
             }
         }
         Message::DeleteConnection(id) => {
-            app.context_menu = None;
             app.connections.remove(id);
             app.mysql_content.remove(&id);
             if app.active_connection == Some(id) {
@@ -517,7 +506,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let palette = app.palette();
 
     let base: Element<'_, Message> = container(
-        column![topbar(app, palette), body(app, palette, app.context_menu)]
+        column![topbar(app, palette), body(app, palette)]
             .spacing(0)
             .height(Length::Fill),
     )
@@ -559,10 +548,9 @@ pub fn view(app: &App) -> Element<'_, Message> {
 fn body(
     app: &App,
     palette: Palette,
-    context_menu: Option<usize>,
 ) -> Element<'_, Message> {
     row![
-        container(sidebar(&app.connections, palette, context_menu))
+        container(sidebar(&app.connections, palette))
             .width(Length::Fixed(260.0))
             .style(move |_| container::Style {
                 background: Some(Background::Color(palette.surface)),
@@ -639,7 +627,6 @@ pub enum Message {
     ShowNewQueryWorkspace,
     SelectConnection(usize),
     ActivateConnection(usize),
-    OpenConnectionContextMenu(usize),
     ViewConnection(usize),
     EditConnection(usize),
     DeleteConnection(usize),

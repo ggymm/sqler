@@ -3,6 +3,7 @@ use iced::widget::{button, column, container, horizontal_space, row, scrollable,
 use iced::{Alignment, Background, Color, Element, Length, Shadow, Size, Theme};
 
 use crate::comps::form::labeled_input;
+use crate::comps::notification::{NotificationKind, banner as notify_banner};
 use crate::comps::popup::modal_card;
 use crate::driver::ConnectionParams;
 
@@ -62,23 +63,38 @@ pub fn connection_info_modal<'a>(
     palette: Palette,
     window_size: Size,
 ) -> Element<'a, Message> {
-    let (title, status_text, show_retry) = match &info.status {
-        ConnectionStatus::Connecting => ("正在连接", "正在尝试建立连接…", true),
-        ConnectionStatus::Success => ("连接成功", "连接已成功建立。", false),
-        ConnectionStatus::Failed(reason) => ("连接失败", reason.as_str(), true),
-        ConnectionStatus::Details => ("连接信息", "查看当前连接配置。", false),
+    let (banner_kind, banner_title, banner_detail, show_retry) = match &info.status {
+        ConnectionStatus::Connecting => (
+            NotificationKind::Info,
+            "正在连接",
+            Some("正在尝试建立连接…".to_string()),
+            true,
+        ),
+        ConnectionStatus::Success => (
+            NotificationKind::Success,
+            "连接成功",
+            Some("连接已成功建立。".to_string()),
+            false,
+        ),
+        ConnectionStatus::Failed(reason) => (NotificationKind::Error, "连接失败", Some(reason.clone()), true),
+        ConnectionStatus::Details => (
+            NotificationKind::Info,
+            "连接信息",
+            Some("查看当前连接配置。".to_string()),
+            false,
+        ),
     };
 
-    let mut content = column![
-        text(title).size(20).color(palette.text),
-        text(status_text).size(14).color(palette.text_muted),
-    ]
-    .spacing(12);
+    let mut content = column![notify_banner(banner_kind, banner_title, banner_detail)].spacing(12);
 
     if let Some(connection) = connection {
         content = content.push(connection_details(connection, palette));
     } else {
-        content = content.push(text("未找到该连接，可能已被删除。").color(palette.text_muted).size(14));
+        content = content.push(notify_banner(
+            NotificationKind::Warning,
+            "未找到该连接",
+            Some("连接可能已被删除或不可用。".into()),
+        ));
     }
 
     let close_button = button(text("关闭").color(palette.text))
