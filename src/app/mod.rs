@@ -1,5 +1,5 @@
-use iced::widget::{Stack, column, container, row};
-use iced::{Background, Color, Element, Font, Length, Shadow, Size, Subscription, Task, Theme, window};
+use iced::widget::{Stack, button, column, container, horizontal_space, row, text};
+use iced::{Alignment, Background, Color, Element, Font, Length, Shadow, Size, Subscription, Task, Theme, window};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
@@ -9,9 +9,9 @@ mod sidebar;
 mod topbar;
 
 use content::{
-    MysqlContentState, MysqlLoadState, MysqlProcess, MysqlRoutine, MysqlTable, MysqlTableData, MysqlTableTab,
-    MysqlUser, PROCESSLIST_SQL, ROUTINES_SQL, TABLES_SQL, TableMenuAction, USERS_SQL, content, parse_processlist,
-    parse_routines, parse_table_data, parse_tables, parse_users,
+    LoadState, MysqlContentState, MysqlLoadState, MysqlProcess, MysqlRoutine, MysqlTable, MysqlTableData, MysqlUser,
+    PROCESSLIST_SQL, ROUTINES_SQL, TABLES_SQL, TableMenuAction, USERS_SQL, content, parse_processlist, parse_routines,
+    parse_table_data, parse_tables, parse_users,
 };
 use dialog::{ConnectionFormState, FormField, NewConnectionDialog, connection_info_modal, modal_view};
 #[allow(unused_imports)]
@@ -35,10 +35,20 @@ pub struct App {
     connection_status: Option<ConnectionStatusInfo>,
     window_size: Size,
     mysql_content: HashMap<usize, MysqlContentState>,
+    workspace_tabs: Vec<WorkspaceTab>,
+    active_workspace_tab: usize,
+    next_workspace_tab_id: usize,
 }
 
 impl Default for App {
     fn default() -> Self {
+        let overview_tab = WorkspaceTab {
+            id: 0,
+            title: "数据库对象".into(),
+            kind: WorkspaceTabKind::Overview,
+            closable: false,
+        };
+
         Self {
             theme: ThemeMode::Light,
             active_tab: ContentTab::Tables,
@@ -50,6 +60,9 @@ impl Default for App {
             connection_status: None,
             window_size: Size::new(1280.0, 800.0),
             mysql_content: HashMap::new(),
+            workspace_tabs: vec![overview_tab],
+            active_workspace_tab: 0,
+            next_workspace_tab_id: 1,
         }
     }
 }
@@ -127,6 +140,14 @@ impl App {
 
     pub fn window_size(&self) -> Size {
         self.window_size
+    }
+
+    pub fn workspace_tabs(&self) -> &[WorkspaceTab] {
+        &self.workspace_tabs
+    }
+
+    pub fn active_workspace_tab(&self) -> Option<&WorkspaceTab> {
+        self.workspace_tabs.get(self.active_workspace_tab)
     }
 
     #[allow(dead_code)]
@@ -324,15 +345,54 @@ pub fn update(
                 return app.schedule_mysql_load(active, tab);
             }
         }
+        Message::SelectWorkspaceTab(tab_id) => {
+            if let Some(index) = app.workspace_tabs.iter().position(|tab| tab.id == tab_id) {
+                app.active_workspace_tab = index;
+            }
+        }
+        Message::CloseWorkspaceTab(tab_id) => {
+            if let Some(index) = app.workspace_tabs.iter().position(|tab| tab.id == tab_id) {
+                if !app.workspace_tabs[index].closable {
+                    return Task::none();
+                }
+                app.workspace_tabs.remove(index);
+                if app.workspace_tabs.is_empty() {
+                    app.workspace_tabs.push(WorkspaceTab {
+                        id: 0,
+                        title: "数据库对象".into(),
+                        kind: WorkspaceTabKind::Overview,
+                        closable: false,
+                    });
+                    app.active_workspace_tab = 0;
+                    app.next_workspace_tab_id = 1;
+                } else if app.active_workspace_tab >= app.workspace_tabs.len() {
+                    app.active_workspace_tab = app.workspace_tabs.len() - 1;
+                } else if index <= app.active_workspace_tab && app.active_workspace_tab > 0 {
+                    app.active_workspace_tab -= 1;
+                }
+            }
+        }
         Message::ShowNewConnectionDialog => {
             app.dialog = Some(NewConnectionDialog::SelectingType);
             app.dialog_minimized = false;
         }
         Message::ShowNewQueryWorkspace => {
-            app.active_tab = ContentTab::Queries;
-            if let Some(active) = app.active_connection {
-                return app.schedule_mysql_load(active, ContentTab::Queries);
-            }
+            let tab_id = app.next_workspace_tab_id;
+            app.next_workspace_tab_id += 1;
+
+            let connection_id = app.active_connection.or(app.selected_connection());
+
+            let title = format!("查询 {}", tab_id);
+            app.workspace_tabs.push(WorkspaceTab {
+                id: tab_id,
+                title,
+                kind: WorkspaceTabKind::QueryEditor {
+                    connection_id,
+                    initial_sql: None,
+                },
+                closable: true,
+            });
+            app.active_workspace_tab = app.workspace_tabs.len() - 1;
         }
         Message::SelectConnection(id) => {
             let double_clicked = app.connections.select(id);
@@ -484,6 +544,45 @@ pub fn update(
             if app.connection_status.as_ref().map(|info| info.connection_id) == Some(id) {
                 app.connection_status = None;
             }
+
+            let mut removed_tabs = false;
+            app.workspace_tabs.retain(|tab| {
+                let should_remove = match &tab.kind {
+                    WorkspaceTabKind::Overview => false,
+                    WorkspaceTabKind::TableData { connection_id: cid, .. } => *cid == id,
+                    WorkspaceTabKind::QueryEditor {
+                        connection_id: Some(cid),
+                        ..
+                    } => *cid == id,
+                    WorkspaceTabKind::QueryEditor {
+                        connection_id: None, ..
+                    } => false,
+                    WorkspaceTabKind::SavedQueryList { connection_id: cid } => *cid == id,
+                    WorkspaceTabKind::SavedFunctionList { connection_id: cid } => *cid == id,
+                };
+
+                if should_remove && tab.closable {
+                    removed_tabs = true;
+                    false
+                } else {
+                    true
+                }
+            });
+
+            if app.workspace_tabs.is_empty() {
+                app.workspace_tabs.push(WorkspaceTab {
+                    id: 0,
+                    title: "数据库对象".into(),
+                    kind: WorkspaceTabKind::Overview,
+                    closable: false,
+                });
+                app.active_workspace_tab = 0;
+                app.next_workspace_tab_id = 1;
+            } else if removed_tabs {
+                if app.active_workspace_tab >= app.workspace_tabs.len() {
+                    app.active_workspace_tab = app.workspace_tabs.len() - 1;
+                }
+            }
         }
         Message::DismissConnectionStatus => {
             app.connection_status = None;
@@ -541,23 +640,40 @@ pub fn update(
                     .entry(connection_id)
                     .or_insert_with(MysqlContentState::default);
 
-                if let Some(idx) = state.table_tabs.iter().position(|tab| tab.table_name == table_name) {
-                    state.active_table_tab = Some(idx);
-                    if matches!(
-                        state.table_tabs[idx].data,
-                        MysqlLoadState::Idle | MysqlLoadState::Error(_)
-                    ) {
-                        state.table_tabs[idx].data = MysqlLoadState::Loading;
-                        should_schedule = true;
-                    }
-                } else {
-                    state.table_tabs.push(MysqlTableTab {
-                        table_name: table_name.clone(),
-                        data: MysqlLoadState::Loading,
-                    });
-                    state.active_table_tab = Some(state.table_tabs.len().saturating_sub(1));
+                let entry = state
+                    .table_data
+                    .entry(table_name.clone())
+                    .or_insert_with(Default::default);
+                if matches!(entry, LoadState::Idle | LoadState::Error(_)) {
+                    *entry = LoadState::Loading;
                     should_schedule = true;
                 }
+            }
+
+            if let Some(index) = app.workspace_tabs.iter().position(|tab| {
+                matches!(
+                    &tab.kind,
+                    WorkspaceTabKind::TableData {
+                        connection_id: existing,
+                        table_name: existing_name,
+                    } if *existing == connection_id && *existing_name == table_name
+                )
+            }) {
+                app.active_workspace_tab = index;
+            } else {
+                let tab_id = app.next_workspace_tab_id;
+                app.next_workspace_tab_id += 1;
+                let title = format!("{} 数据", table_name);
+                app.workspace_tabs.push(WorkspaceTab {
+                    id: tab_id,
+                    title,
+                    kind: WorkspaceTabKind::TableData {
+                        connection_id,
+                        table_name: table_name.clone(),
+                    },
+                    closable: true,
+                });
+                app.active_workspace_tab = app.workspace_tabs.len() - 1;
             }
 
             if should_schedule {
@@ -566,18 +682,13 @@ pub fn update(
         }
         Message::MysqlTableDataLoaded(connection_id, table_name, result) => {
             if let Some(state) = app.mysql_content.get_mut(&connection_id) {
-                if let Some(tab) = state.table_tabs.iter_mut().find(|tab| tab.table_name == table_name) {
-                    tab.data = match result {
-                        Ok(data) => MysqlLoadState::Ready(data),
-                        Err(err) => MysqlLoadState::Error(err),
-                    };
-                }
-            }
-        }
-        Message::MysqlSelectTableDataTab(connection_id, index) => {
-            if let Some(state) = app.mysql_content.get_mut(&connection_id) {
-                if index < state.table_tabs.len() {
-                    state.active_table_tab = Some(index);
+                match result {
+                    Ok(data) => {
+                        state.table_data.insert(table_name.clone(), LoadState::Ready(data));
+                    }
+                    Err(err) => {
+                        state.table_data.insert(table_name.clone(), LoadState::Error(err));
+                    }
                 }
             }
         }
@@ -669,21 +780,38 @@ fn body(
     app: &App,
     palette: Palette,
 ) -> Element<'_, Message> {
-    row![
-        container(sidebar(&app.connections, palette))
-            .width(Length::Fixed(260.0))
-            .style(move |_| container::Style {
-                background: Some(Background::Color(palette.surface)),
-                border: iced::border::Border {
-                    color: palette.border,
-                    width: 1.0,
-                    radius: 0.0.into(),
-                },
-                text_color: Some(palette.text),
-                shadow: Shadow::default(),
-            }),
-        container(content(app, palette))
+    let sidebar_panel = container(sidebar(&app.connections, palette))
+        .width(Length::Fixed(260.0))
+        .style(move |_| container::Style {
+            background: Some(Background::Color(palette.surface)),
+            border: iced::border::Border {
+                color: palette.border,
+                width: 1.0,
+                radius: 0.0.into(),
+            },
+            text_color: Some(palette.text),
+            shadow: Shadow::default(),
+        });
+
+    let workspace_tabs = workspace_tabs_strip(app, palette);
+
+    let workspace_content = app
+        .active_workspace_tab()
+        .map(|tab| content(app, palette, tab))
+        .unwrap_or_else(|| {
+            container(text("暂无打开的标签"))
+                .width(Length::Fill)
+                .center_x(Length::Fill)
+                .center_y(Length::Fill)
+                .into()
+        });
+
+    let workspace_column = column![
+        workspace_tabs,
+        container(workspace_content)
             .width(Length::Fill)
+            .height(Length::Fill)
+            .padding(24)
             .style(move |_| container::Style {
                 background: Some(Background::Color(palette.surface)),
                 border: iced::border::Border {
@@ -695,8 +823,126 @@ fn body(
                 shadow: Shadow::default(),
             }),
     ]
-    .height(Length::Fill)
-    .into()
+    .spacing(0)
+    .height(Length::Fill);
+
+    let workspace_panel = container(workspace_column)
+        .width(Length::Fill)
+        .style(move |_| container::Style {
+            background: Some(Background::Color(palette.surface)),
+            border: iced::border::Border {
+                color: palette.border,
+                width: 1.0,
+                radius: 0.0.into(),
+            },
+            text_color: Some(palette.text),
+            shadow: Shadow::default(),
+        });
+
+    row![sidebar_panel, workspace_panel].height(Length::Fill).into()
+}
+
+fn workspace_tabs_strip(
+    app: &App,
+    palette: Palette,
+) -> Element<'static, Message> {
+    let active_index = app.active_workspace_tab;
+
+    let mut tabs_row = row![];
+    for (index, tab) in app.workspace_tabs().iter().cloned().enumerate() {
+        let is_active = index == active_index;
+        tabs_row = tabs_row.push(workspace_tab_entry(tab, is_active, palette));
+    }
+
+    tabs_row = tabs_row.push(horizontal_space().width(Length::Fill));
+
+    container(tabs_row.spacing(8))
+        .width(Length::Fill)
+        .padding([12, 24])
+        .style(move |_| container::Style {
+            background: Some(Background::Color(palette.surface)),
+            border: iced::border::Border {
+                color: palette.border,
+                width: 1.0,
+                radius: 0.0.into(),
+            },
+            text_color: Some(palette.text),
+            shadow: Shadow::default(),
+        })
+        .into()
+}
+
+fn workspace_tab_entry(
+    tab: WorkspaceTab,
+    is_active: bool,
+    palette: Palette,
+) -> Element<'static, Message> {
+    let tab_id = tab.id;
+    let title = tab.title.clone();
+
+    let button_label = row![
+        text(title)
+            .size(14)
+            .color(if is_active { palette.accent_text } else { palette.text })
+    ]
+    .spacing(8)
+    .align_y(Alignment::Center);
+
+    let select_button = button(button_label)
+        .padding([6, 18])
+        .style(move |_, status| {
+            use iced::widget::button::Status;
+
+            let background = if is_active {
+                palette.accent
+            } else if matches!(status, Status::Hovered) {
+                palette.surface_muted
+            } else {
+                Color::TRANSPARENT
+            };
+
+            iced::widget::button::Style {
+                background: Some(Background::Color(background)),
+                border: iced::border::Border {
+                    color: if is_active { palette.accent } else { palette.border },
+                    width: 1.0,
+                    radius: 8.0.into(),
+                },
+                text_color: if is_active { palette.accent_text } else { palette.text },
+                shadow: Shadow::default(),
+            }
+        })
+        .on_press(Message::SelectWorkspaceTab(tab_id));
+
+    if tab.closable {
+        let close_button = button(text("×").size(14).color(palette.text))
+            .padding([6, 10])
+            .style(move |_, status| {
+                use iced::widget::button::Status;
+
+                let background = if matches!(status, Status::Hovered) {
+                    palette.surface_muted
+                } else {
+                    Color::TRANSPARENT
+                };
+
+                iced::widget::button::Style {
+                    background: Some(Background::Color(background)),
+                    border: iced::border::Border {
+                        color: palette.border,
+                        width: 1.0,
+                        radius: 6.0.into(),
+                    },
+                    text_color: palette.text,
+                    shadow: Shadow::default(),
+                }
+            })
+            .on_press(Message::CloseWorkspaceTab(tab_id));
+
+        row![select_button, close_button].spacing(4).into()
+    } else {
+        select_button.into()
+    }
 }
 
 pub fn subscription(_app: &App) -> Subscription<Message> {
@@ -739,10 +985,41 @@ impl ContentTab {
 }
 
 #[derive(Debug, Clone)]
+pub struct WorkspaceTab {
+    pub id: usize,
+    pub title: String,
+    pub kind: WorkspaceTabKind,
+    pub closable: bool,
+}
+
+#[derive(Debug, Clone)]
+pub enum WorkspaceTabKind {
+    Overview,
+    TableData {
+        connection_id: usize,
+        table_name: String,
+    },
+    QueryEditor {
+        connection_id: Option<usize>,
+        initial_sql: Option<String>,
+    },
+    #[allow(dead_code)]
+    SavedQueryList {
+        connection_id: usize,
+    },
+    #[allow(dead_code)]
+    SavedFunctionList {
+        connection_id: usize,
+    },
+}
+
+#[derive(Debug, Clone)]
 pub enum Message {
     WindowResized(window::Id, Size),
     ToggleTheme,
     SelectContentTab(ContentTab),
+    SelectWorkspaceTab(usize),
+    CloseWorkspaceTab(usize),
     ShowNewConnectionDialog,
     ShowNewQueryWorkspace,
     SelectConnection(usize),
@@ -768,7 +1045,6 @@ pub enum Message {
     MysqlFilterTables(usize, String),
     MysqlOpenTableData(usize, String),
     MysqlTableDataLoaded(usize, String, Result<MysqlTableData, String>),
-    MysqlSelectTableDataTab(usize, usize),
     MysqlTableMenuAction(usize, TableMenuAction),
     MysqlSelectTable(usize, usize),
 }

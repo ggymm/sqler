@@ -1,6 +1,7 @@
 use iced::widget::{button, column, container, horizontal_space, row, scrollable, text, text_input, vertical_space};
 use iced::{Alignment, Background, Color, Element, Length, Shadow};
 use serde_json::Value as JsonValue;
+use std::collections::HashMap;
 use std::time::Instant;
 
 use crate::app::{App, Connection, ContentTab, Message, Palette};
@@ -86,8 +87,7 @@ pub struct MysqlContentState {
     pub users: LoadState<Vec<MysqlUser>>,
     pub selected_table: Option<usize>,
     pub table_filter: String,
-    pub table_tabs: Vec<MysqlTableTab>,
-    pub active_table_tab: Option<usize>,
+    pub table_data: HashMap<String, LoadState<MysqlTableData>>,
     pub last_table_click: Option<(usize, Instant)>,
 }
 
@@ -124,12 +124,6 @@ pub struct MysqlUser {
     pub plugin: Option<String>,
     pub locked: Option<String>,
     pub password_changed: Option<String>,
-}
-
-#[derive(Debug, Clone)]
-pub struct MysqlTableTab {
-    pub table_name: String,
-    pub data: LoadState<MysqlTableData>,
 }
 
 #[derive(Debug, Clone)]
@@ -360,21 +354,7 @@ fn tables_view(
         _ => idle_view(palette),
     };
 
-    if let Some(data_section) = table_data_section(connection_id, state, palette) {
-        let list_panel = container(body).width(Length::FillPortion(2)).height(Length::Fill);
-
-        let data_panel = container(data_section)
-            .width(Length::FillPortion(3))
-            .height(Length::Fill);
-
-        column![toolbar, row![list_panel, data_panel].spacing(16).height(Length::Fill)]
-            .spacing(16)
-            .into()
-    } else {
-        column![toolbar, container(body).width(Length::Fill).height(Length::Fill),]
-            .spacing(16)
-            .into()
-    }
+    column![toolbar, body].spacing(16).into()
 }
 
 fn table_toolbar(
@@ -417,235 +397,6 @@ fn table_toolbar(
     .align_y(Alignment::Center)
     .spacing(16)
     .into()
-}
-
-fn table_data_section(
-    connection_id: usize,
-    state: Option<&MysqlContentState>,
-    palette: Palette,
-) -> Option<Element<'static, Message>> {
-    let state = state?;
-    if state.table_tabs.is_empty() {
-        return None;
-    }
-
-    let active_index = state
-        .active_table_tab
-        .filter(|idx| *idx < state.table_tabs.len())
-        .unwrap_or(0);
-
-    let mut tabs = row![];
-    for (index, tab) in state.table_tabs.iter().enumerate() {
-        tabs = tabs.push(table_data_tab_button(
-            connection_id,
-            index,
-            tab,
-            index == active_index,
-            palette,
-        ));
-    }
-
-    let content = column![
-        tabs.spacing(8),
-        table_data_view(
-            state.table_tabs[active_index].table_name.clone(),
-            &state.table_tabs[active_index].data,
-            palette
-        ),
-    ]
-    .spacing(12);
-
-    Some(
-        container(content)
-            .width(Length::FillPortion(3))
-            .height(Length::Fill)
-            .padding(16)
-            .style(move |_| container::Style {
-                background: Some(Background::Color(palette.surface)),
-                text_color: Some(palette.text),
-                border: iced::border::Border {
-                    color: palette.border,
-                    width: 1.0,
-                    radius: 12.0.into(),
-                },
-                shadow: Shadow::default(),
-            })
-            .into(),
-    )
-}
-
-fn table_data_tab_button(
-    connection_id: usize,
-    index: usize,
-    tab: &MysqlTableTab,
-    active: bool,
-    palette: Palette,
-) -> Element<'static, Message> {
-    let mut label =
-        row![
-            text(tab.table_name.clone())
-                .size(13)
-                .color(if active { palette.accent_text } else { palette.text })
-        ]
-        .spacing(6)
-        .align_y(Alignment::Center);
-
-    match tab.data {
-        LoadState::Loading => {
-            label = label.push(text("加载中…").size(12).color(if active {
-                palette.accent_text
-            } else {
-                palette.text_muted
-            }));
-        }
-        LoadState::Error(_) => {
-            label = label.push(
-                text("出错")
-                    .size(12)
-                    .color(if active { palette.accent_text } else { palette.accent }),
-            );
-        }
-        _ => {}
-    }
-
-    button(label)
-        .padding([6, 14])
-        .style(move |_, status| {
-            use iced::widget::button::Status;
-
-            let background = if active {
-                palette.accent
-            } else if matches!(status, Status::Hovered) {
-                palette.surface_muted
-            } else {
-                Color::TRANSPARENT
-            };
-
-            iced::widget::button::Style {
-                background: Some(Background::Color(background)),
-                border: iced::border::Border {
-                    color: if active { palette.accent } else { palette.border },
-                    width: 1.0,
-                    radius: 8.0.into(),
-                },
-                text_color: if active { palette.accent_text } else { palette.text },
-                shadow: Shadow::default(),
-            }
-        })
-        .on_press(Message::MysqlSelectTableDataTab(connection_id, index))
-        .into()
-}
-
-fn table_data_view(
-    table_name: String,
-    state: &LoadState<MysqlTableData>,
-    palette: Palette,
-) -> Element<'static, Message> {
-    match state {
-        LoadState::Idle | LoadState::Loading => loading_view("正在加载表数据…", palette),
-        LoadState::Error(err) => error_view(err, palette),
-        LoadState::Ready(data) => {
-            if data.rows.is_empty() {
-                let message = column![
-                    text(format!("{} 暂无可展示的数据。", table_name))
-                        .size(14)
-                        .color(palette.text_muted),
-                    text("仅显示前 100 行数据。").size(12).color(palette.text_muted),
-                ]
-                .spacing(6);
-                return container(message)
-                    .width(Length::Fill)
-                    .center_x(Length::Fill)
-                    .center_y(Length::Fill)
-                    .into();
-            }
-
-            let mut rows_view = column![];
-            rows_view = rows_view.push(table_data_header(&data.columns, palette));
-
-            for row in &data.rows {
-                rows_view = rows_view.push(table_data_row(row, palette));
-            }
-
-            let note = text("仅显示前 100 行数据。").size(12).color(palette.text_muted);
-
-            let content = column![scrollable(rows_view.spacing(8)).height(Length::Fill), note,]
-                .spacing(12)
-                .height(Length::Fill);
-
-            container(content)
-                .width(Length::Fill)
-                .height(Length::Fill)
-                .style(move |_| container::Style {
-                    background: Some(Background::Color(palette.surface_muted)),
-                    text_color: Some(palette.text),
-                    border: iced::border::Border {
-                        color: palette.border,
-                        width: 1.0,
-                        radius: 8.0.into(),
-                    },
-                    shadow: Shadow::default(),
-                })
-                .into()
-        }
-    }
-}
-
-fn table_data_header(
-    columns: &[String],
-    palette: Palette,
-) -> Element<'static, Message> {
-    let mut header = row![];
-    for column_name in columns {
-        header = header.push(
-            container(
-                text(column_name.clone())
-                    .size(13)
-                    .color(palette.text)
-                    .width(Length::Fill),
-            )
-            .padding([6, 10])
-            .width(Length::FillPortion(1))
-            .style(move |_| container::Style {
-                background: Some(Background::Color(palette.surface)),
-                text_color: Some(palette.text),
-                border: iced::border::Border {
-                    color: palette.border,
-                    width: 1.0,
-                    radius: 6.0.into(),
-                },
-                shadow: Shadow::default(),
-            }),
-        );
-    }
-
-    header.spacing(8).align_y(Alignment::Center).into()
-}
-
-fn table_data_row(
-    row_data: &[String],
-    palette: Palette,
-) -> Element<'static, Message> {
-    let mut row_view = row![];
-    for cell in row_data {
-        row_view = row_view.push(
-            container(text(cell.clone()).size(13).color(palette.text).width(Length::Fill))
-                .padding([6, 10])
-                .width(Length::FillPortion(1))
-                .style(move |_| container::Style {
-                    background: Some(Background::Color(palette.surface)),
-                    text_color: Some(palette.text),
-                    border: iced::border::Border {
-                        color: palette.border,
-                        width: 1.0,
-                        radius: 6.0.into(),
-                    },
-                    shadow: Shadow::default(),
-                }),
-        );
-    }
-
-    row_view.spacing(8).align_y(Alignment::Center).into()
 }
 
 fn filter_tables<'a>(

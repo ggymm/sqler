@@ -1,41 +1,45 @@
-mod mysql;
+mod overview;
+mod query_editor;
+mod saved_functions;
+mod saved_queries;
+mod table_data;
 
-pub use mysql::{
-    LoadState as MysqlLoadState, MysqlContentState, MysqlProcess, MysqlRoutine, MysqlTable, MysqlTableData,
-    MysqlTableTab, MysqlUser, PROCESSLIST_SQL, ROUTINES_SQL, TABLES_SQL, TableMenuAction, USERS_SQL, parse_processlist,
+pub use overview::{
+    LoadState, LoadState as MysqlLoadState, MysqlContentState, MysqlProcess, MysqlRoutine, MysqlTable, MysqlTableData,
+    MysqlUser, PROCESSLIST_SQL, ROUTINES_SQL, TABLES_SQL, TableMenuAction, USERS_SQL, parse_processlist,
     parse_routines, parse_table_data, parse_tables, parse_users,
 };
 
-use iced::widget::{column, container, text};
-use iced::{Background, Color, Element, Length, Shadow};
+use iced::Element;
+use iced::widget::{column, text};
 
-use super::{App, Connection, ContentTab, DatabaseKind, Message, Palette};
+use super::{App, Connection, ContentTab, DatabaseKind, Message, Palette, WorkspaceTab, WorkspaceTabKind};
 
 pub fn content(
     app: &App,
     palette: Palette,
-) -> Element<'_, Message> {
-    column![
-        container(tab_body(app, palette))
-            .padding(24)
-            .style(move |_| container::Style {
-                background: Some(Background::Color(palette.surface)),
-                text_color: Some(palette.text),
-                border: iced::border::Border {
-                    color: Color::TRANSPARENT,
-                    width: 0.0,
-                    radius: 0.0.into(),
-                },
-                shadow: Shadow::default(),
-            })
-            .height(Length::Fill),
-    ]
-    .spacing(12)
-    .height(Length::Fill)
-    .into()
+    tab: &WorkspaceTab,
+) -> Element<'static, Message> {
+    match &tab.kind {
+        WorkspaceTabKind::Overview => overview_tab(app, palette),
+        WorkspaceTabKind::TableData {
+            connection_id,
+            table_name,
+        } => table_data::render_table_data(app, palette, *connection_id, table_name),
+        WorkspaceTabKind::QueryEditor {
+            connection_id,
+            initial_sql,
+        } => query_editor::render_query_editor(app, palette, *connection_id, initial_sql.clone()),
+        WorkspaceTabKind::SavedQueryList { connection_id } => {
+            saved_queries::render_saved_queries(app, palette, *connection_id)
+        }
+        WorkspaceTabKind::SavedFunctionList { connection_id } => {
+            saved_functions::render_saved_functions(app, palette, *connection_id)
+        }
+    }
 }
 
-fn tab_body(
+fn overview_tab(
     app: &App,
     palette: Palette,
 ) -> Element<'static, Message> {
@@ -43,7 +47,7 @@ fn tab_body(
 
     if let Some(connection) = app.selected_connection().and_then(|id| app.connection(id)) {
         match connection.kind {
-            DatabaseKind::Mysql => mysql::render(app, active_tab, connection, palette),
+            DatabaseKind::Mysql => overview::render(app, active_tab, connection, palette),
             other => unsupported_database(other, active_tab, palette, connection),
         }
     } else {
