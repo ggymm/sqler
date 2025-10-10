@@ -1,11 +1,11 @@
 use iced::alignment::Horizontal;
 use iced::widget::mouse_area;
 use iced::widget::svg::Handle as SvgHandle;
-use iced::widget::{button, column, container, row, scrollable, svg, text};
+use iced::widget::{Stack, button, column, container, row, scrollable, svg, text};
 use iced::{Alignment, Background, Color, Element, Length, Shadow, Theme};
 
 use crate::cache::{self, StoredConnectionConfig};
-
+use crate::comps::menu::{self as menu, context_menu_button};
 use crate::driver::ConnectionParams;
 
 use super::{Message, Palette};
@@ -629,61 +629,25 @@ fn connection_item(
             }
         });
 
-    let mut column = column![
-        mouse_area(button)
-            .on_press(Message::SelectConnection(connection.id))
-            .on_right_press(Message::OpenConnectionContextMenu(connection.id))
-    ]
-    .spacing(6);
+    let entry = mouse_area(button)
+        .on_press(Message::SelectConnection(connection.id))
+        .on_right_press(Message::OpenConnectionContextMenu(connection.id));
+
+    let mut stack = Stack::new().width(Length::Fill).push(entry);
 
     if menu_open {
-        column = column.push(context_menu_widget(connection.id, palette));
+        let items = vec![
+            context_menu_button("查看", Message::ViewConnection(connection.id), palette),
+            context_menu_button("编辑", Message::EditConnection(connection.id), palette),
+            context_menu_button("删除", Message::DeleteConnection(connection.id), palette),
+        ];
+
+        let menu = menu::context_menu(items, palette)
+            .align_x(Alignment::End)
+            .align_y(Alignment::Start);
+
+        stack = stack.push(container(menu).width(Length::Fill).padding([4.0, 0.0]));
     }
 
-    column.into()
-}
-
-fn context_menu_widget(
-    id: usize,
-    palette: Palette,
-) -> Element<'static, Message> {
-    let menu_button = |label: &'static str, message: Message| -> Element<'static, Message> {
-        let button = button(text(label).color(palette.text))
-            .padding([6, 12])
-            .style(move |_: &Theme, _| iced::widget::button::Style {
-                background: Some(Background::Color(palette.surface_muted)),
-                border: iced::border::Border {
-                    color: palette.border,
-                    width: 1.0,
-                    radius: 6.0.into(),
-                },
-                text_color: palette.text,
-                shadow: Shadow::default(),
-            })
-            .on_press(message);
-
-        Element::from(button)
-    };
-
-    let menu = column![
-        menu_button("查看", Message::ViewConnection(id)),
-        menu_button("编辑", Message::EditConnection(id)),
-        menu_button("删除", Message::DeleteConnection(id)),
-    ]
-    .spacing(6);
-
-    container(menu)
-        .padding(12)
-        .width(Length::Fill)
-        .style(move |_| container::Style {
-            background: Some(Background::Color(palette.surface)),
-            text_color: Some(palette.text),
-            border: iced::border::Border {
-                color: palette.border,
-                width: 1.0,
-                radius: 10.0.into(),
-            },
-            shadow: Shadow::default(),
-        })
-        .into()
+    stack.into()
 }

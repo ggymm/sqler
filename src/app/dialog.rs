@@ -1,8 +1,9 @@
 use iced::widget::svg::Handle as SvgHandle;
 use iced::widget::{button, column, container, horizontal_space, row, scrollable, svg, text};
-use iced::{Alignment, Background, Color, Element, Length, Shadow, Size, Theme, Vector};
+use iced::{Alignment, Background, Color, Element, Length, Shadow, Size, Theme};
 
 use crate::comps::form::labeled_input;
+use crate::comps::popup::modal_card;
 use crate::driver::ConnectionParams;
 
 use super::sidebar::{Connection, ConnectionConfig};
@@ -20,18 +21,7 @@ pub fn modal_view(
     };
 
     if minimized {
-        return container(minimized_header(title, palette))
-            .padding([12, 16])
-            .style(move |_| container::Style {
-                background: Some(Background::Color(palette.surface)),
-                text_color: Some(palette.text),
-                border: iced::border::Border {
-                    color: palette.border,
-                    width: 1.0,
-                    radius: 12.0.into(),
-                },
-                shadow: Shadow::default(),
-            })
+        return modal_card(minimized_header(title, palette).into(), palette, [12.0, 16.0], 12.0)
             .center_x(Length::Fill)
             .center_y(Length::Fill)
             .into();
@@ -54,27 +44,7 @@ pub fn modal_view(
     let width = scale_dimension(window_size.width, 0.6, 360.0, 64.0);
     let height = scale_dimension(window_size.height, 0.6, 320.0, 80.0);
 
-    let dialog_box = container(content)
-        .padding(24)
-        .style(move |_| container::Style {
-            background: Some(Background::Color(palette.surface)),
-            text_color: Some(palette.text),
-            border: iced::border::Border {
-                color: palette.border,
-                width: 1.0,
-                radius: 16.0.into(),
-            },
-            shadow: Shadow {
-                color: Color {
-                    r: 0.0,
-                    g: 0.0,
-                    b: 0.0,
-                    a: 0.35,
-                },
-                blur_radius: 24.0,
-                offset: Vector::new(0.0, 12.0),
-            },
-        })
+    let dialog_box = modal_card(content.into(), palette, 24.0, 16.0)
         .width(Length::Fixed(width))
         .height(Length::Fixed(height));
 
@@ -158,31 +128,11 @@ pub fn connection_info_modal<'a>(
     let modal_width = (window_size.width * 0.5).clamp(320.0, 720.0);
     let modal_height = (window_size.height * 0.5).clamp(220.0, 560.0);
 
-    container(column![content, actions].spacing(18))
-        .padding(24)
+    modal_card(column![content, actions].spacing(18).into(), palette, 24.0, 16.0)
         .width(Length::Shrink)
         .height(Length::Shrink)
         .max_width(modal_width)
         .max_height(modal_height)
-        .style(move |_| container::Style {
-            background: Some(Background::Color(palette.surface)),
-            text_color: Some(palette.text),
-            border: iced::border::Border {
-                color: palette.border,
-                width: 1.0,
-                radius: 16.0.into(),
-            },
-            shadow: Shadow {
-                color: Color {
-                    r: 0.0,
-                    g: 0.0,
-                    b: 0.0,
-                    a: 0.35,
-                },
-                blur_radius: 24.0,
-                offset: Vector::new(0.0, 12.0),
-            },
-        })
         .center_x(Length::Fill)
         .center_y(Length::Fill)
         .into()

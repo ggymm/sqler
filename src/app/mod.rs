@@ -1,4 +1,4 @@
-use iced::widget::{Space, Stack, column, container, row};
+use iced::widget::{Stack, column, container, row};
 use iced::{Background, Color, Element, Font, Length, Shadow, Size, Subscription, Task, Theme, window};
 use std::collections::HashMap;
 
@@ -18,6 +18,7 @@ use sidebar::sidebar;
 pub use sidebar::{Connection, ConnectionsState, DatabaseKind};
 use topbar::topbar;
 
+use crate::comps::popup::overlay_backdrop;
 use crate::driver::{DriverRegistry, QueryRequest};
 
 #[derive(Debug)]
@@ -533,37 +534,23 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let mut stack = Stack::new().width(Length::Fill).height(Length::Fill).push(base);
 
     if let Some(info) = &app.connection_status {
-        let overlay = container(Space::with_width(Length::Fill).height(Length::Fill))
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .style(move |_| container::Style {
-                background: Some(Background::Color(palette.overlay)),
-                text_color: None,
-                border: iced::border::Border::default(),
-                shadow: Shadow::default(),
-            });
-
         let connection = app.connections.find(info.connection_id);
 
-        stack = stack
-            .push(overlay)
-            .push(connection_info_modal(info, connection, palette, app.window_size()));
+        stack = stack.push(overlay_backdrop(palette)).push(connection_info_modal(
+            info,
+            connection,
+            palette,
+            app.window_size(),
+        ));
     }
 
     if let Some(dialog) = &app.dialog {
-        let overlay = container(Space::with_width(Length::Fill).height(Length::Fill))
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .style(move |_| container::Style {
-                background: Some(Background::Color(palette.overlay)),
-                text_color: None,
-                border: iced::border::Border::default(),
-                shadow: Shadow::default(),
-            });
-
-        stack = stack
-            .push(overlay)
-            .push(modal_view(dialog, palette, app.dialog_minimized, app.window_size()));
+        stack = stack.push(overlay_backdrop(palette)).push(modal_view(
+            dialog,
+            palette,
+            app.dialog_minimized,
+            app.window_size(),
+        ));
     }
 
     stack.into()
