@@ -1,12 +1,16 @@
 use iced::widget::{Space, Stack, column, container, row};
 use iced::{Background, Color, Element, Font, Length, Shadow, Size, Subscription, Task, Theme, window};
+use std::collections::HashMap;
 
 mod content;
 mod dialog;
 mod sidebar;
 mod topbar;
 
-use content::content;
+use content::{
+    MysqlContentState, MysqlLoadState, MysqlProcess, MysqlRoutine, MysqlTable, MysqlUser, PROCESSLIST_SQL,
+    ROUTINES_SQL, TABLES_SQL, USERS_SQL, content, parse_processlist, parse_routines, parse_tables, parse_users,
+};
 use dialog::{ConnectionFormState, FormField, NewConnectionDialog, connection_info_modal, modal_view};
 #[allow(unused_imports)]
 pub use sidebar::ConnectionConfig;
@@ -14,7 +18,7 @@ use sidebar::sidebar;
 pub use sidebar::{Connection, ConnectionsState, DatabaseKind};
 use topbar::topbar;
 
-use crate::driver::DriverRegistry;
+use crate::driver::{DriverRegistry, QueryRequest};
 
 #[derive(Debug)]
 pub struct App {
@@ -28,6 +32,7 @@ pub struct App {
     connection_status: Option<ConnectionStatusInfo>,
     context_menu: Option<usize>,
     window_size: Size,
+    mysql_content: HashMap<usize, MysqlContentState>,
 }
 
 impl Default for App {
@@ -43,6 +48,7 @@ impl Default for App {
             connection_status: None,
             context_menu: None,
             window_size: Size::new(1280.0, 800.0),
+            mysql_content: HashMap::new(),
         }
     }
 }
@@ -126,6 +132,162 @@ impl App {
     pub fn active_connection(&self) -> Option<&Connection> {
         self.active_connection.and_then(|id| self.connections.find(id))
     }
+
+    pub fn mysql_state(
+        &self,
+        id: usize,
+    ) -> Option<&MysqlContentState> {
+        self.mysql_content.get(&id)
+    }
+
+    fn schedule_mysql_load(
+        &mut self,
+        connection_id: usize,
+        tab: ContentTab,
+    ) -> Task<Message> {
+        let Some(connection) = self.connections.find(connection_id).cloned() else {
+            return Task::none();
+        };
+
+        if connection.kind != DatabaseKind::Mysql {
+            return Task::none();
+        }
+
+        match tab {
+            ContentTab::Tables => self.schedule_mysql_tables(connection_id, &connection),
+            ContentTab::Queries => self.schedule_mysql_processlist(connection_id, &connection),
+            ContentTab::Functions => self.schedule_mysql_routines(connection_id, &connection),
+            ContentTab::Users => self.schedule_mysql_users(connection_id, &connection),
+        }
+    }
+
+    fn schedule_mysql_tables(
+        &mut self,
+        connection_id: usize,
+        connection: &Connection,
+    ) -> Task<Message> {
+        let should_load = {
+            let state = self.mysql_content.entry(connection_id).or_default();
+            if !state.tables.should_load() {
+                false
+            } else {
+                state.tables = MysqlLoadState::Loading;
+                true
+            }
+        };
+
+        if !should_load {
+            return Task::none();
+        }
+
+        let params = connection.to_params();
+        let sql = TABLES_SQL.to_string();
+
+        self.drivers
+            .query(params, QueryRequest::Sql { statement: sql })
+            .map(move |result| {
+                let parsed = result
+                    .map_err(|e| e.to_string())
+                    .and_then(|response| parse_tables(response));
+                Message::MysqlTablesLoaded(connection_id, parsed)
+            })
+    }
+
+    fn schedule_mysql_processlist(
+        &mut self,
+        connection_id: usize,
+        connection: &Connection,
+    ) -> Task<Message> {
+        let should_load = {
+            let state = self.mysql_content.entry(connection_id).or_default();
+            if !state.processlist.should_load() {
+                false
+            } else {
+                state.processlist = MysqlLoadState::Loading;
+                true
+            }
+        };
+
+        if !should_load {
+            return Task::none();
+        }
+
+        let params = connection.to_params();
+        let sql = PROCESSLIST_SQL.to_string();
+
+        self.drivers
+            .query(params, QueryRequest::Sql { statement: sql })
+            .map(move |result| {
+                let parsed = result
+                    .map_err(|e| e.to_string())
+                    .and_then(|response| parse_processlist(response));
+                Message::MysqlProcesslistLoaded(connection_id, parsed)
+            })
+    }
+
+    fn schedule_mysql_routines(
+        &mut self,
+        connection_id: usize,
+        connection: &Connection,
+    ) -> Task<Message> {
+        let should_load = {
+            let state = self.mysql_content.entry(connection_id).or_default();
+            if !state.routines.should_load() {
+                false
+            } else {
+                state.routines = MysqlLoadState::Loading;
+                true
+            }
+        };
+
+        if !should_load {
+            return Task::none();
+        }
+
+        let params = connection.to_params();
+        let sql = ROUTINES_SQL.to_string();
+
+        self.drivers
+            .query(params, QueryRequest::Sql { statement: sql })
+            .map(move |result| {
+                let parsed = result
+                    .map_err(|e| e.to_string())
+                    .and_then(|response| parse_routines(response));
+                Message::MysqlRoutinesLoaded(connection_id, parsed)
+            })
+    }
+
+    fn schedule_mysql_users(
+        &mut self,
+        connection_id: usize,
+        connection: &Connection,
+    ) -> Task<Message> {
+        let should_load = {
+            let state = self.mysql_content.entry(connection_id).or_default();
+            if !state.users.should_load() {
+                false
+            } else {
+                state.users = MysqlLoadState::Loading;
+                true
+            }
+        };
+
+        if !should_load {
+            return Task::none();
+        }
+
+        let params = connection.to_params();
+        let sql = USERS_SQL.to_string();
+
+        self.drivers
+            .query(params, QueryRequest::Sql { statement: sql })
+            .map(move |result| {
+                let parsed = result
+                    .map_err(|e| e.to_string())
+                    .and_then(|response| parse_users(response));
+                Message::MysqlUsersLoaded(connection_id, parsed)
+            })
+    }
 }
 
 pub fn update(
@@ -134,13 +296,21 @@ pub fn update(
 ) -> Task<Message> {
     match message {
         Message::ToggleTheme => app.theme.toggle(),
-        Message::SelectContentTab(tab) => app.active_tab = tab,
+        Message::SelectContentTab(tab) => {
+            app.active_tab = tab;
+            if let Some(active) = app.active_connection {
+                return app.schedule_mysql_load(active, tab);
+            }
+        }
         Message::ShowNewConnectionDialog => {
             app.dialog = Some(NewConnectionDialog::SelectingType);
             app.dialog_minimized = false;
         }
         Message::ShowNewQueryWorkspace => {
             app.active_tab = ContentTab::Queries;
+            if let Some(active) = app.active_connection {
+                return app.schedule_mysql_load(active, ContentTab::Queries);
+            }
         }
         Message::SelectConnection(id) => {
             let double_clicked = app.connections.select(id);
@@ -197,11 +367,13 @@ pub fn update(
 
                 match form_state.build_connection(next_id) {
                     Ok(connection) => {
+                        let connection_id = connection.id;
                         if is_edit {
-                            app.connections.update(connection);
+                            app.connections.update(connection.clone());
                         } else {
-                            app.connections.add(connection);
+                            app.connections.add(connection.clone());
                         }
+                        app.mysql_content.remove(&connection_id);
                         app.dialog = None;
                         app.dialog_minimized = false;
                     }
@@ -258,6 +430,9 @@ pub fn update(
                 app.connections.activate(id);
                 app.active_connection = Some(id);
                 app.connection_status = Some(ConnectionStatusInfo::success(id));
+                app.mysql_content.remove(&id);
+                let tab = app.active_tab;
+                return app.schedule_mysql_load(id, tab);
             }
             Err(error) => {
                 if app.active_connection == Some(id) {
@@ -288,6 +463,7 @@ pub fn update(
         Message::DeleteConnection(id) => {
             app.context_menu = None;
             app.connections.remove(id);
+            app.mysql_content.remove(&id);
             if app.active_connection == Some(id) {
                 app.active_connection = None;
                 app.connection_status = None;
@@ -298,6 +474,38 @@ pub fn update(
         }
         Message::DismissConnectionStatus => {
             app.connection_status = None;
+        }
+        Message::MysqlTablesLoaded(id, result) => {
+            if let Some(state) = app.mysql_content.get_mut(&id) {
+                state.tables = match result {
+                    Ok(data) => MysqlLoadState::Ready(data),
+                    Err(err) => MysqlLoadState::Error(err),
+                };
+            }
+        }
+        Message::MysqlProcesslistLoaded(id, result) => {
+            if let Some(state) = app.mysql_content.get_mut(&id) {
+                state.processlist = match result {
+                    Ok(data) => MysqlLoadState::Ready(data),
+                    Err(err) => MysqlLoadState::Error(err),
+                };
+            }
+        }
+        Message::MysqlRoutinesLoaded(id, result) => {
+            if let Some(state) = app.mysql_content.get_mut(&id) {
+                state.routines = match result {
+                    Ok(data) => MysqlLoadState::Ready(data),
+                    Err(err) => MysqlLoadState::Error(err),
+                };
+            }
+        }
+        Message::MysqlUsersLoaded(id, result) => {
+            if let Some(state) = app.mysql_content.get_mut(&id) {
+                state.users = match result {
+                    Ok(data) => MysqlLoadState::Ready(data),
+                    Err(err) => MysqlLoadState::Error(err),
+                };
+            }
         }
     }
 
@@ -459,6 +667,10 @@ pub enum Message {
     TestConnectionFinished(Result<(), String>),
     ConnectionActivationFinished(usize, Result<(), String>),
     DismissConnectionStatus,
+    MysqlTablesLoaded(usize, Result<Vec<MysqlTable>, String>),
+    MysqlProcesslistLoaded(usize, Result<Vec<MysqlProcess>, String>),
+    MysqlRoutinesLoaded(usize, Result<Vec<MysqlRoutine>, String>),
+    MysqlUsersLoaded(usize, Result<Vec<MysqlUser>, String>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

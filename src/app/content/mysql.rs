@@ -1,616 +1,588 @@
-use iced::widget::{Rule, column, container, horizontal_space, row, text, vertical_space};
-use iced::{Background, Element, Length, Shadow};
+use iced::widget::{column, container, horizontal_space, row, scrollable, text, vertical_space};
+use iced::{Alignment, Background, Element, Length, Shadow};
+use serde_json::Value as JsonValue;
 
-use crate::app::{Connection, ContentTab, Message, Palette};
+use crate::app::{App, Connection, ContentTab, Message, Palette};
+use crate::driver::{QueryPayload, QueryResponse};
+
+pub const TABLES_SQL: &str = r#"
+SELECT
+    table_name AS name,
+    engine,
+    table_rows,
+    IFNULL(table_comment, '') AS comment,
+    IFNULL(DATE_FORMAT(update_time, '%Y-%m-%d %H:%i:%s'), '') AS updated
+FROM information_schema.tables
+WHERE table_schema = DATABASE()
+ORDER BY table_name
+LIMIT 200
+"#;
+
+pub const PROCESSLIST_SQL: &str = r#"
+SELECT
+    IFNULL(info, '') AS statement,
+    TIME AS seconds,
+    IFNULL(state, '') AS state,
+    command
+FROM information_schema.processlist
+WHERE db = DATABASE()
+ORDER BY TIME DESC
+LIMIT 20
+"#;
+
+pub const ROUTINES_SQL: &str = r#"
+SELECT
+    routine_name AS name,
+    routine_type AS kind,
+    IFNULL(dtd_identifier, '') AS returns,
+    IFNULL(security_type, '') AS security,
+    IFNULL(DATE_FORMAT(created, '%Y-%m-%d %H:%i:%s'), '') AS created
+FROM information_schema.routines
+WHERE routine_schema = DATABASE()
+ORDER BY routine_name
+LIMIT 100
+"#;
+
+pub const USERS_SQL: &str = r#"
+SELECT
+    user AS name,
+    host,
+    IFNULL(plugin, '') AS plugin,
+    IFNULL(account_locked, '') AS locked,
+    IFNULL(DATE_FORMAT(password_last_changed, '%Y-%m-%d %H:%i:%s'), '') AS password_changed
+FROM mysql.user
+ORDER BY user, host
+LIMIT 100
+"#;
+
+#[derive(Debug, Clone)]
+pub enum LoadState<T> {
+    Idle,
+    Loading,
+    Ready(T),
+    Error(String),
+}
+
+impl<T> Default for LoadState<T> {
+    fn default() -> Self {
+        LoadState::Idle
+    }
+}
+
+impl<T> LoadState<T> {
+    pub fn should_load(&self) -> bool {
+        matches!(self, LoadState::Idle | LoadState::Error(_))
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct MysqlContentState {
+    pub tables: LoadState<Vec<MysqlTable>>,
+    pub processlist: LoadState<Vec<MysqlProcess>>,
+    pub routines: LoadState<Vec<MysqlRoutine>>,
+    pub users: LoadState<Vec<MysqlUser>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct MysqlTable {
+    pub name: String,
+    pub engine: Option<String>,
+    pub rows: Option<u64>,
+    pub comment: Option<String>,
+    pub updated: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct MysqlProcess {
+    pub statement: String,
+    pub seconds: Option<u64>,
+    pub state: Option<String>,
+    pub command: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct MysqlRoutine {
+    pub name: String,
+    pub kind: String,
+    pub returns: Option<String>,
+    pub security: Option<String>,
+    pub created: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct MysqlUser {
+    pub name: String,
+    pub host: String,
+    pub plugin: Option<String>,
+    pub locked: Option<String>,
+    pub password_changed: Option<String>,
+}
 
 pub fn render(
+    app: &App,
     tab: ContentTab,
     connection: &Connection,
     palette: Palette,
 ) -> Element<'static, Message> {
+    let state = app.mysql_state(connection.id);
+
     match tab {
-        ContentTab::Tables => tables_view(connection, palette),
-        ContentTab::Queries => queries_view(connection, palette),
-        ContentTab::Functions => functions_view(connection, palette),
-        ContentTab::Users => users_view(connection, palette),
+        ContentTab::Tables => tables_view(state.map(|s| &s.tables), connection, palette),
+        ContentTab::Queries => processlist_view(state.map(|s| &s.processlist), palette),
+        ContentTab::Functions => routines_view(state.map(|s| &s.routines), palette),
+        ContentTab::Users => users_view(state.map(|s| &s.users), palette),
     }
 }
 
-#[derive(Clone, Copy)]
-struct TableInfo {
-    name: &'static str,
-    engine: &'static str,
-    rows: u32,
-    comment: &'static str,
-    updated: &'static str,
+pub fn parse_tables(response: QueryResponse) -> Result<Vec<MysqlTable>, String> {
+    let (columns, rows) = expect_tabular(response)?;
+    let idx_name = find_column(&columns, "name")?;
+    let idx_engine = find_column(&columns, "engine").ok();
+    let idx_rows = find_column(&columns, "table_rows")
+        .ok()
+        .or_else(|| find_column(&columns, "rows").ok());
+    let idx_comment = find_column(&columns, "comment").ok();
+    let idx_updated = find_column(&columns, "updated").ok();
+
+    let mut result = Vec::new();
+    for row in rows {
+        let name = cell_string(row.get(idx_name));
+        let engine = idx_engine
+            .and_then(|i| row.get(i))
+            .map(|v| cell_string(Some(v)))
+            .filter(|v| !v.is_empty());
+        let rows = idx_rows.and_then(|i| row.get(i)).and_then(cell_u64_opt);
+        let comment = idx_comment
+            .and_then(|i| row.get(i))
+            .map(|v| cell_string(Some(v)))
+            .filter(|v| !v.is_empty());
+        let updated = idx_updated
+            .and_then(|i| row.get(i))
+            .map(|v| cell_string(Some(v)))
+            .filter(|v| !v.is_empty());
+
+        result.push(MysqlTable {
+            name,
+            engine,
+            rows,
+            comment,
+            updated,
+        });
+    }
+
+    Ok(result)
 }
 
-const SAMPLE_TABLES: &[TableInfo] = &[
-    TableInfo {
-        name: "users",
-        engine: "InnoDB",
-        rows: 12430,
-        comment: "注册用户主表",
-        updated: "2024-05-18 21:46",
-    },
-    TableInfo {
-        name: "orders",
-        engine: "InnoDB",
-        rows: 8731,
-        comment: "订单记录，含状态与支付信息",
-        updated: "2024-05-18 20:11",
-    },
-    TableInfo {
-        name: "order_items",
-        engine: "InnoDB",
-        rows: 24108,
-        comment: "订单明细项",
-        updated: "2024-05-18 19:52",
-    },
-    TableInfo {
-        name: "audit_logs",
-        engine: "MyISAM",
-        rows: 151209,
-        comment: "系统审计与操作日志",
-        updated: "2024-05-18 21:02",
-    },
-];
+pub fn parse_processlist(response: QueryResponse) -> Result<Vec<MysqlProcess>, String> {
+    let (columns, rows) = expect_tabular(response)?;
+    let idx_statement = find_column(&columns, "statement")?;
+    let idx_seconds = find_column(&columns, "seconds").ok();
+    let idx_state = find_column(&columns, "state").ok();
+    let idx_command = find_column(&columns, "command").ok();
 
-#[derive(Clone, Copy)]
-struct ColumnInfo {
-    name: &'static str,
-    data_type: &'static str,
-    nullable: bool,
-    default: &'static str,
-    comment: &'static str,
+    let mut result = Vec::new();
+    for row in rows {
+        let statement = cell_string(row.get(idx_statement));
+        let seconds = idx_seconds.and_then(|i| row.get(i)).and_then(cell_u64_opt);
+        let state = idx_state
+            .and_then(|i| row.get(i))
+            .map(|v| cell_string(Some(v)))
+            .filter(|v| !v.is_empty());
+        let command = idx_command
+            .and_then(|i| row.get(i))
+            .map(|v| cell_string(Some(v)))
+            .filter(|v| !v.is_empty());
+
+        result.push(MysqlProcess {
+            statement,
+            seconds,
+            state,
+            command,
+        });
+    }
+
+    Ok(result)
 }
 
-const USERS_COLUMNS: &[ColumnInfo] = &[
-    ColumnInfo {
-        name: "id",
-        data_type: "BIGINT UNSIGNED",
-        nullable: false,
-        default: "AUTO_INCREMENT",
-        comment: "主键",
-    },
-    ColumnInfo {
-        name: "email",
-        data_type: "VARCHAR(255)",
-        nullable: false,
-        default: "",
-        comment: "登录邮箱，唯一",
-    },
-    ColumnInfo {
-        name: "display_name",
-        data_type: "VARCHAR(120)",
-        nullable: false,
-        default: "",
-        comment: "昵称",
-    },
-    ColumnInfo {
-        name: "status",
-        data_type: "ENUM('active','pending','disabled')",
-        nullable: false,
-        default: "'pending'",
-        comment: "账户状态",
-    },
-    ColumnInfo {
-        name: "last_login_at",
-        data_type: "DATETIME",
-        nullable: true,
-        default: "NULL",
-        comment: "最近登录时间",
-    },
-];
+pub fn parse_routines(response: QueryResponse) -> Result<Vec<MysqlRoutine>, String> {
+    let (columns, rows) = expect_tabular(response)?;
+    let idx_name = find_column(&columns, "name")?;
+    let idx_kind = find_column(&columns, "kind")?;
+    let idx_returns = find_column(&columns, "returns").ok();
+    let idx_security = find_column(&columns, "security").ok();
+    let idx_created = find_column(&columns, "created").ok();
 
-#[derive(Clone, Copy)]
-struct IndexInfo {
-    name: &'static str,
-    columns: &'static str,
-    kind: &'static str,
-    remark: &'static str,
+    let mut result = Vec::new();
+    for row in rows {
+        let name = cell_string(row.get(idx_name));
+        let kind = cell_string(row.get(idx_kind));
+        let returns = idx_returns
+            .and_then(|i| row.get(i))
+            .map(|v| cell_string(Some(v)))
+            .filter(|v| !v.is_empty());
+        let security = idx_security
+            .and_then(|i| row.get(i))
+            .map(|v| cell_string(Some(v)))
+            .filter(|v| !v.is_empty());
+        let created = idx_created
+            .and_then(|i| row.get(i))
+            .map(|v| cell_string(Some(v)))
+            .filter(|v| !v.is_empty());
+
+        result.push(MysqlRoutine {
+            name,
+            kind,
+            returns,
+            security,
+            created,
+        });
+    }
+
+    Ok(result)
 }
 
-const USERS_INDEXES: &[IndexInfo] = &[
-    IndexInfo {
-        name: "PRIMARY",
-        columns: "id",
-        kind: "PRIMARY",
-        remark: "聚簇索引",
-    },
-    IndexInfo {
-        name: "uniq_email",
-        columns: "email",
-        kind: "UNIQUE",
-        remark: "确保邮箱唯一",
-    },
-    IndexInfo {
-        name: "idx_status_login",
-        columns: "status,last_login_at",
-        kind: "BTREE",
-        remark: "登录态筛选",
-    },
-];
+pub fn parse_users(response: QueryResponse) -> Result<Vec<MysqlUser>, String> {
+    let (columns, rows) = expect_tabular(response)?;
+    let idx_name = find_column(&columns, "name")?;
+    let idx_host = find_column(&columns, "host")?;
+    let idx_plugin = find_column(&columns, "plugin").ok();
+    let idx_locked = find_column(&columns, "locked").ok();
+    let idx_password_changed = find_column(&columns, "password_changed").ok();
+
+    let mut result = Vec::new();
+    for row in rows {
+        let name = cell_string(row.get(idx_name));
+        let host = cell_string(row.get(idx_host));
+        let plugin = idx_plugin
+            .and_then(|i| row.get(i))
+            .map(|v| cell_string(Some(v)))
+            .filter(|v| !v.is_empty());
+        let locked = idx_locked
+            .and_then(|i| row.get(i))
+            .map(|v| cell_string(Some(v)))
+            .filter(|v| !v.is_empty());
+        let password_changed = idx_password_changed
+            .and_then(|i| row.get(i))
+            .map(|v| cell_string(Some(v)))
+            .filter(|v| !v.is_empty());
+
+        result.push(MysqlUser {
+            name,
+            host,
+            plugin,
+            locked,
+            password_changed,
+        });
+    }
+
+    Ok(result)
+}
 
 fn tables_view(
+    state: Option<&LoadState<Vec<MysqlTable>>>,
     connection: &Connection,
     palette: Palette,
 ) -> Element<'static, Message> {
-    let summary = connection.summary();
+    match state {
+        Some(LoadState::Loading) => loading_view("正在加载表信息…", palette),
+        Some(LoadState::Error(err)) => error_view(err, palette),
+        Some(LoadState::Ready(tables)) if tables.is_empty() => empty_view("当前数据库中没有表。", palette),
+        Some(LoadState::Ready(tables)) => {
+            let mut list = column![
+                text(format!("数据库：{}", connection.summary()))
+                    .size(13)
+                    .color(palette.text_muted)
+            ];
 
-    let mut list = column![
-        text("核心数据表").size(16).color(palette.text).width(Length::Fill),
-        text(format!("{} · {}", connection.name, summary))
-            .size(13)
-            .color(palette.text_muted),
-        vertical_space().height(8),
-    ]
-    .spacing(12);
+            for table in tables {
+                list = list.push(table_row(table, palette));
+            }
 
-    for table in SAMPLE_TABLES {
-        list = list.push(table_card(*table, palette));
+            scrollable(list.spacing(12)).into()
+        }
+        _ => idle_view(palette),
     }
-
-    let table_overview = container(list)
-        .padding(20)
-        .width(Length::FillPortion(2))
-        .style(move |_| panel_style(palette));
-
-    let detail = container(
-        column![
-            text("users 表结构预览").size(16).color(palette.text),
-            text("聚焦用户主表字段与索引，快速了解数据形态。")
-                .size(13)
-                .color(palette.text_muted),
-            vertical_space().height(12),
-            columns_table(USERS_COLUMNS, palette),
-            vertical_space().height(18),
-            indexes_table(USERS_INDEXES, palette),
-        ]
-        .spacing(12),
-    )
-    .padding(20)
-    .width(Length::FillPortion(3))
-    .style(move |_| panel_style(palette));
-
-    row![table_overview, detail].spacing(20).into()
 }
 
-fn table_card(
-    info: TableInfo,
+fn processlist_view(
+    state: Option<&LoadState<Vec<MysqlProcess>>>,
     palette: Palette,
 ) -> Element<'static, Message> {
-    container(
-        column![
-            row![
-                text(info.name).size(17).color(palette.text),
-                horizontal_space(),
-                badge(info.engine, palette),
-            ]
-            .align_y(iced::Alignment::Center),
-            text(info.comment)
+    match state {
+        Some(LoadState::Loading) => loading_view("正在加载最近查询…", palette),
+        Some(LoadState::Error(err)) => error_view(err, palette),
+        Some(LoadState::Ready(records)) if records.is_empty() => empty_view("尚未捕获到执行中的 SQL。", palette),
+        Some(LoadState::Ready(records)) => {
+            let mut list = column![];
+
+            for item in records {
+                list = list.push(process_row(item, palette));
+            }
+
+            scrollable(list.spacing(12)).into()
+        }
+        _ => idle_view(palette),
+    }
+}
+
+fn routines_view(
+    state: Option<&LoadState<Vec<MysqlRoutine>>>,
+    palette: Palette,
+) -> Element<'static, Message> {
+    match state {
+        Some(LoadState::Loading) => loading_view("正在加载函数与存储过程…", palette),
+        Some(LoadState::Error(err)) => error_view(err, palette),
+        Some(LoadState::Ready(routines)) if routines.is_empty() => {
+            empty_view("当前库尚未定义函数或存储过程。", palette)
+        }
+        Some(LoadState::Ready(routines)) => {
+            let mut list = column![];
+            for routine in routines {
+                list = list.push(routine_row(routine, palette));
+            }
+            scrollable(list.spacing(12)).into()
+        }
+        _ => idle_view(palette),
+    }
+}
+
+fn users_view(
+    state: Option<&LoadState<Vec<MysqlUser>>>,
+    palette: Palette,
+) -> Element<'static, Message> {
+    match state {
+        Some(LoadState::Loading) => loading_view("正在加载数据库用户…", palette),
+        Some(LoadState::Error(err)) => error_view(err, palette),
+        Some(LoadState::Ready(users)) if users.is_empty() => empty_view("未找到任何 MySQL 用户。", palette),
+        Some(LoadState::Ready(users)) => {
+            let mut list = column![];
+            for user in users {
+                list = list.push(user_row(user, palette));
+            }
+            scrollable(list.spacing(12)).into()
+        }
+        _ => idle_view(palette),
+    }
+}
+
+fn table_row(
+    table: &MysqlTable,
+    palette: Palette,
+) -> Element<'static, Message> {
+    let mut body = column![
+        row![
+            text(table.name.clone()).size(16).color(palette.text),
+            horizontal_space(),
+            text(table.engine.clone().unwrap_or_else(|| "-".into()))
                 .size(13)
-                .color(palette.text_muted)
-                .width(Length::Fill),
-            text(format!("{} 行 · 最近更新 {}", info.rows, info.updated))
+                .color(palette.text_muted),
+        ]
+        .align_y(Alignment::Center),
+        vertical_space().height(8),
+        row![
+            text(format!(
+                "行数：{}",
+                table.rows.map(|v| v.to_string()).unwrap_or_else(|| "-".into())
+            ))
+            .size(12)
+            .color(palette.text_muted),
+            horizontal_space(),
+            text(table.updated.clone().unwrap_or_else(|| "最后更新：未知".into()))
                 .size(12)
                 .color(palette.text_muted),
         ]
-        .spacing(8),
-    )
-    .padding(16)
-    .style(move |_| card_style(palette))
-    .into()
-}
-
-fn columns_table(
-    columns: &[ColumnInfo],
-    palette: Palette,
-) -> Element<'static, Message> {
-    let mut rows = column![table_header(&["字段", "类型", "允许空值", "默认值", "备注"], palette)];
-    rows = rows.push(Rule::horizontal(1).style(move |_| rule_style(palette)));
-
-    for column in columns {
-        rows = rows.push(
-            container(
-                row![
-                    text(column.name).size(14).color(palette.text),
-                    text(column.data_type)
-                        .size(14)
-                        .color(palette.text_muted)
-                        .width(Length::Fixed(160.0)),
-                    text(if column.nullable { "是" } else { "否" })
-                        .size(14)
-                        .color(palette.text_muted)
-                        .width(Length::Fixed(80.0)),
-                    text(column.default)
-                        .size(14)
-                        .color(palette.text_muted)
-                        .width(Length::Fixed(120.0)),
-                    text(column.comment)
-                        .size(14)
-                        .color(palette.text_muted)
-                        .width(Length::Fill),
-                ]
-                .spacing(12)
-                .align_y(iced::Alignment::Center),
-            )
-            .padding([8, 0]),
-        );
-    }
-
-    container(rows.spacing(6))
-        .padding([12, 16])
-        .style(move |_| card_style(palette))
-        .into()
-}
-
-fn indexes_table(
-    indexes: &[IndexInfo],
-    palette: Palette,
-) -> Element<'static, Message> {
-    let mut rows = column![table_header(&["索引名", "列", "类型", "说明"], palette)];
-    rows = rows.push(Rule::horizontal(1).style(move |_| rule_style(palette)));
-
-    for index in indexes {
-        rows = rows.push(
-            container(
-                row![
-                    text(index.name).size(14).color(palette.text),
-                    text(index.columns)
-                        .size(14)
-                        .color(palette.text_muted)
-                        .width(Length::Fixed(180.0)),
-                    badge(index.kind, palette),
-                    text(index.remark)
-                        .size(14)
-                        .color(palette.text_muted)
-                        .width(Length::Fill),
-                ]
-                .spacing(12)
-                .align_y(iced::Alignment::Center),
-            )
-            .padding([8, 0]),
-        );
-    }
-
-    container(rows.spacing(6))
-        .padding([12, 16])
-        .style(move |_| card_style(palette))
-        .into()
-}
-
-fn queries_view(
-    connection: &Connection,
-    palette: Palette,
-) -> Element<'static, Message> {
-    let summary = connection.summary();
-
-    let editor_panel = container(
-        column![
-            text("MySQL 查询工作台").size(16).color(palette.text),
-            text(format!("关联连接：{}", summary))
-                .size(13)
-                .color(palette.text_muted),
-            vertical_space().height(12),
-            container(
-                column![
-                    text("-- 活动 SQL 草稿").size(13).color(palette.text_muted),
-                    vertical_space().height(4),
-                    text("SELECT u.id, u.email, COUNT(o.id) AS order_count")
-                        .size(15)
-                        .color(palette.text),
-                    text("FROM users u").size(15).color(palette.text),
-                    text("LEFT JOIN orders o ON o.user_id = u.id")
-                        .size(15)
-                        .color(palette.text),
-                    text("WHERE u.status = 'active'").size(15).color(palette.text),
-                    text("GROUP BY u.id, u.email").size(15).color(palette.text),
-                    text("ORDER BY order_count DESC").size(15).color(palette.text),
-                ]
-                .spacing(2),
-            )
-            .padding(16)
-            .style(move |_| editor_style(palette)),
-            vertical_space().height(12),
-            text("提示：SQL 执行结果将在右侧结果面板展示，并支持导出与复制。")
-                .size(13)
-                .color(palette.text_muted),
-        ]
-        .spacing(8),
-    )
-    .padding(20)
-    .style(move |_| panel_style(palette));
-
-    let mut history = column![
-        text("近期执行历史").size(16).color(palette.text),
-        vertical_space().height(8),
-    ];
-
-    let samples = [
-        ("2024-05-18 21:32", "统计活跃用户下单数", "耗时 124 ms · 返回 128 行"),
-        ("2024-05-18 20:05", "更新订单状态为发货", "耗时 42 ms · 影响 37 行"),
-        ("2024-05-18 18:22", "拉取近 7 日错误日志", "耗时 312 ms · 返回 521 行"),
-    ];
-
-    for (time, title, meta) in samples {
-        history = history.push(
-            container(
-                column![
-                    row![
-                        text(title).size(15).color(palette.text),
-                        horizontal_space(),
-                        text(time).size(12).color(palette.text_muted),
-                    ],
-                    text(meta).size(12).color(palette.text_muted),
-                ]
-                .spacing(4),
-            )
-            .padding(14)
-            .style(move |_| card_style(palette)),
-        );
-    }
-
-    let history_panel = container(history.spacing(10))
-        .padding(20)
-        .style(move |_| panel_style(palette));
-
-    column![editor_panel, vertical_space().height(16), history_panel]
-        .spacing(0)
-        .into()
-}
-
-#[derive(Clone, Copy)]
-struct Routine {
-    name: &'static str,
-    routine_type: &'static str,
-    returns: &'static str,
-    summary: &'static str,
-}
-
-const SAMPLE_ROUTINES: &[Routine] = &[
-    Routine {
-        name: "fn_recent_orders",
-        routine_type: "FUNCTION",
-        returns: "JSON",
-        summary: "返回指定用户近 30 日订单概要。",
-    },
-    Routine {
-        name: "sp_rebuild_daily_stats",
-        routine_type: "PROCEDURE",
-        returns: "VOID",
-        summary: "重建统计表，聚合订单与支付指标。",
-    },
-    Routine {
-        name: "tr_orders_set_status",
-        routine_type: "TRIGGER",
-        returns: "AFTER INSERT",
-        summary: "新建订单时自动写入操作日志。",
-    },
-];
-
-fn functions_view(
-    connection: &Connection,
-    palette: Palette,
-) -> Element<'static, Message> {
-    let mut routines = column![
-        text(format!("{} 内的函数与存储过程", connection.name))
-            .size(16)
-            .color(palette.text),
-        text("集中管理业务函数、存储过程与触发器，支持版本追踪与发布。")
-            .size(13)
-            .color(palette.text_muted),
-        vertical_space().height(12),
-    ];
-
-    for routine in SAMPLE_ROUTINES {
-        routines = routines.push(routine_card(*routine, palette));
-    }
-
-    let best_practices = container(
-        column![
-            text("最佳实践").size(15).color(palette.text),
-            vertical_space().height(6),
-            text("• 通过 Git 同步例程脚本，保障流程可审计。")
-                .size(13)
-                .color(palette.text_muted),
-            text("• 提交前在沙箱库执行，确保兼容性与权限。")
-                .size(13)
-                .color(palette.text_muted),
-            text("• 使用标签标记生产可执行版本，降低回滚成本。")
-                .size(13)
-                .color(palette.text_muted),
-        ]
-        .spacing(4),
-    )
-    .padding(20)
-    .style(move |_| panel_style(palette));
-
-    column![
-        container(routines.spacing(12))
-            .padding(20)
-            .style(move |_| panel_style(palette)),
-        vertical_space().height(16),
-        best_practices,
+        .spacing(12),
     ]
-    .spacing(0)
-    .into()
+    .spacing(4);
+
+    if let Some(comment) = table.comment.as_ref().filter(|c| !c.is_empty()) {
+        body = body.push(vertical_space().height(8));
+        body = body.push(text(comment.clone()).size(13).color(palette.text_muted));
+    }
+
+    container(body).padding(16).style(move |_| card_style(palette)).into()
 }
 
-fn routine_card(
-    routine: Routine,
+fn process_row(
+    process: &MysqlProcess,
     palette: Palette,
 ) -> Element<'static, Message> {
     container(
         column![
-            row![
-                text(routine.name).size(16).color(palette.text),
-                horizontal_space(),
-                badge(routine.routine_type, palette),
-                badge(routine.returns, palette),
-            ]
-            .align_y(iced::Alignment::Center),
-            text(routine.summary)
-                .size(13)
-                .color(palette.text_muted)
+            text(process.statement.trim().to_string())
+                .size(14)
+                .color(palette.text)
                 .width(Length::Fill),
-        ]
-        .spacing(6),
-    )
-    .padding(16)
-    .style(move |_| card_style(palette))
-    .into()
-}
-
-#[derive(Clone, Copy)]
-struct MysqlUser {
-    user: &'static str,
-    host: &'static str,
-    roles: &'static str,
-    last_seen: &'static str,
-    remark: &'static str,
-}
-
-const SAMPLE_USERS: &[MysqlUser] = &[
-    MysqlUser {
-        user: "admin",
-        host: "%",
-        roles: "DBA, Replication",
-        last_seen: "2024-05-18 21:47",
-        remark: "平台管理员，具备全库权限",
-    },
-    MysqlUser {
-        user: "readonly_app",
-        host: "10.0.%._",
-        roles: "Reader",
-        last_seen: "2024-05-18 20:58",
-        remark: "线上业务查询账号，仅 SELECT",
-    },
-    MysqlUser {
-        user: "etl_job",
-        host: "172.16.%._",
-        roles: "Writer, Event",
-        last_seen: "2024-05-18 03:16",
-        remark: "离线同步任务用户",
-    },
-];
-
-fn users_view(
-    connection: &Connection,
-    palette: Palette,
-) -> Element<'static, Message> {
-    let mut entries = column![
-        text(format!("{} 用户与权限", connection.name))
-            .size(16)
-            .color(palette.text),
-        text("定位 MySQL 账户与角色映射，配合权限模板快速配置。")
-            .size(13)
-            .color(palette.text_muted),
-        vertical_space().height(12),
-    ];
-
-    for user in SAMPLE_USERS {
-        entries = entries.push(user_card(*user, palette));
-    }
-
-    let recommendations = container(
-        column![
-            text("权限建议").size(15).color(palette.text),
             vertical_space().height(6),
-            text("• 生产环境使用最小权限原则，并绑定独立角色。")
-                .size(13)
-                .color(palette.text_muted),
-            text("• 定期轮换高敏用户密码，并开启登录审计。")
-                .size(13)
-                .color(palette.text_muted),
-            text("• 配置只读副本账号，隔离分析类查询。")
-                .size(13)
-                .color(palette.text_muted),
-        ]
-        .spacing(4),
-    )
-    .padding(20)
-    .style(move |_| panel_style(palette));
-
-    column![
-        container(entries.spacing(12))
-            .padding(20)
-            .style(move |_| panel_style(palette)),
-        vertical_space().height(16),
-        recommendations,
-    ]
-    .spacing(0)
-    .into()
-}
-
-fn user_card(
-    user: MysqlUser,
-    palette: Palette,
-) -> Element<'static, Message> {
-    container(
-        column![
             row![
-                text(format!("{}@{}", user.user, user.host))
-                    .size(16)
-                    .color(palette.text),
+                text(format!(
+                    "已运行：{}s",
+                    process.seconds.map(|s| s.to_string()).unwrap_or_else(|| "0".into())
+                ))
+                .size(12)
+                .color(palette.text_muted),
                 horizontal_space(),
-                badge(user.roles, palette),
-            ]
-            .align_y(iced::Alignment::Center),
-            row![
-                text(format!("最近访问：{}", user.last_seen))
+                text(process.state.clone().unwrap_or_else(|| "-".into()))
                     .size(12)
                     .color(palette.text_muted),
                 horizontal_space(),
-                text(user.remark).size(12).color(palette.text_muted),
-            ],
+                text(process.command.clone().unwrap_or_else(|| "-".into()))
+                    .size(12)
+                    .color(palette.text_muted),
+            ]
+            .spacing(12),
         ]
-        .spacing(6),
+        .spacing(4),
     )
     .padding(16)
     .style(move |_| card_style(palette))
     .into()
 }
 
-fn table_header(
-    titles: &[&str],
+fn routine_row(
+    routine: &MysqlRoutine,
     palette: Palette,
 ) -> Element<'static, Message> {
-    let mut header = row![];
-    for title in titles {
-        header = header.push(
-            text(title.to_string())
-                .size(13)
-                .color(palette.text)
-                .width(Length::FillPortion(1)),
-        );
-    }
-
-    container(header.spacing(12).align_y(iced::Alignment::Center)).into()
+    container(
+        column![
+            row![
+                text(routine.name.clone()).size(15).color(palette.text),
+                horizontal_space(),
+                text(routine.kind.clone()).size(12).color(palette.text_muted),
+            ]
+            .align_y(Alignment::Center),
+            vertical_space().height(6),
+            row![
+                text(
+                    routine
+                        .returns
+                        .clone()
+                        .filter(|v| !v.is_empty())
+                        .unwrap_or_else(|| "无返回".into())
+                )
+                .size(12)
+                .color(palette.text_muted),
+                horizontal_space(),
+                text(
+                    routine
+                        .security
+                        .clone()
+                        .filter(|v| !v.is_empty())
+                        .unwrap_or_else(|| "-".into())
+                )
+                .size(12)
+                .color(palette.text_muted),
+                horizontal_space(),
+                text(
+                    routine
+                        .created
+                        .clone()
+                        .filter(|v| !v.is_empty())
+                        .unwrap_or_else(|| "-".into())
+                )
+                .size(12)
+                .color(palette.text_muted),
+            ]
+            .spacing(12),
+        ]
+        .spacing(4),
+    )
+    .padding(16)
+    .style(move |_| card_style(palette))
+    .into()
 }
 
-fn badge(
-    label: &str,
+fn user_row(
+    user: &MysqlUser,
     palette: Palette,
 ) -> Element<'static, Message> {
-    container(text(label.to_string()).size(12).color(palette.accent))
-        .padding([4, 10])
-        .style(move |_| container::Style {
-            background: Some(Background::Color(palette.accent_soft)),
-            text_color: Some(palette.accent),
-            border: iced::border::Border {
-                color: palette.accent,
-                width: 1.0,
-                radius: 999.0.into(),
-            },
-            shadow: Shadow::default(),
-        })
+    container(
+        column![
+            row![
+                text(format!("{}@{}", user.name, user.host))
+                    .size(15)
+                    .color(palette.text),
+                horizontal_space(),
+                text(user.plugin.clone().unwrap_or_else(|| "-".into()))
+                    .size(12)
+                    .color(palette.text_muted),
+            ]
+            .align_y(Alignment::Center),
+            vertical_space().height(6),
+            row![
+                text(
+                    user.locked
+                        .clone()
+                        .filter(|v| !v.is_empty())
+                        .map(|v| format!("状态：{}", v))
+                        .unwrap_or_else(|| "状态：未知".into())
+                )
+                .size(12)
+                .color(palette.text_muted),
+                horizontal_space(),
+                text(
+                    user.password_changed
+                        .clone()
+                        .filter(|v| !v.is_empty())
+                        .map(|v| format!("密码更新：{}", v))
+                        .unwrap_or_else(|| "密码更新：未知".into())
+                )
+                .size(12)
+                .color(palette.text_muted),
+            ]
+            .spacing(12),
+        ]
+        .spacing(4),
+    )
+    .padding(16)
+    .style(move |_| card_style(palette))
+    .into()
+}
+
+fn loading_view(
+    message: &'static str,
+    palette: Palette,
+) -> Element<'static, Message> {
+    container(text(message).size(14).color(palette.text_muted))
+        .width(Length::Fill)
+        .center_x(Length::Fill)
+        .center_y(Length::Fill)
         .into()
 }
 
-fn panel_style(palette: Palette) -> container::Style {
+fn error_view(
+    message: &str,
+    palette: Palette,
+) -> Element<'static, Message> {
+    container(text(format!("加载失败：{}", message)).size(14).color(palette.accent))
+        .width(Length::Fill)
+        .center_x(Length::Fill)
+        .center_y(Length::Fill)
+        .into()
+}
+
+fn empty_view(
+    message: &'static str,
+    palette: Palette,
+) -> Element<'static, Message> {
+    container(text(message).size(14).color(palette.text_muted))
+        .width(Length::Fill)
+        .center_x(Length::Fill)
+        .center_y(Length::Fill)
+        .into()
+}
+
+fn idle_view(palette: Palette) -> Element<'static, Message> {
+    container(text("请激活连接以加载 MySQL 数据。").size(14).color(palette.text_muted))
+        .width(Length::Fill)
+        .center_x(Length::Fill)
+        .center_y(Length::Fill)
+        .into()
+}
+
+fn card_style(palette: Palette) -> container::Style {
     container::Style {
-        background: Some(Background::Color(palette.surface_muted)),
+        background: Some(Background::Color(palette.surface)),
         text_color: Some(palette.text),
         border: iced::border::Border {
             color: palette.border,
@@ -621,37 +593,51 @@ fn panel_style(palette: Palette) -> container::Style {
     }
 }
 
-fn card_style(palette: Palette) -> container::Style {
-    container::Style {
-        background: Some(Background::Color(palette.surface)),
-        text_color: Some(palette.text),
-        border: iced::border::Border {
-            color: palette.border,
-            width: 1.0,
-            radius: 10.0.into(),
-        },
-        shadow: Shadow::default(),
+fn expect_tabular(response: QueryResponse) -> Result<(Vec<String>, Vec<Vec<JsonValue>>), String> {
+    match response.payload {
+        QueryPayload::Tabular { columns, rows } => Ok((columns, rows)),
+        QueryPayload::Documents { .. } => Err("期望表格数据，但收到文档结果".into()),
     }
 }
 
-fn editor_style(palette: Palette) -> container::Style {
-    container::Style {
-        background: Some(Background::Color(palette.background)),
-        text_color: Some(palette.text),
-        border: iced::border::Border {
-            color: palette.border,
-            width: 1.0,
-            radius: 8.0.into(),
-        },
-        shadow: Shadow::default(),
+fn find_column(
+    columns: &[String],
+    name: &str,
+) -> Result<usize, String> {
+    columns
+        .iter()
+        .position(|c| c.eq_ignore_ascii_case(name))
+        .ok_or_else(|| format!("结果集中缺少列：{}", name))
+}
+
+fn cell_string(value: Option<&JsonValue>) -> String {
+    match value {
+        Some(JsonValue::String(s)) => s.clone(),
+        Some(JsonValue::Number(n)) => {
+            if let Some(i) = n.as_i64() {
+                i.to_string()
+            } else if let Some(u) = n.as_u64() {
+                u.to_string()
+            } else if let Some(f) = n.as_f64() {
+                if (f - f.trunc()).abs() < f64::EPSILON {
+                    format!("{:.0}", f)
+                } else {
+                    f.to_string()
+                }
+            } else {
+                String::new()
+            }
+        }
+        Some(JsonValue::Bool(b)) => b.to_string(),
+        Some(JsonValue::Null) | None => String::new(),
+        Some(other) => other.to_string(),
     }
 }
 
-fn rule_style(palette: Palette) -> iced::widget::rule::Style {
-    iced::widget::rule::Style {
-        color: palette.border,
-        width: 1,
-        radius: 0.0.into(),
-        fill_mode: iced::widget::rule::FillMode::Full,
+fn cell_u64_opt(value: &JsonValue) -> Option<u64> {
+    match value {
+        JsonValue::Number(n) => n.as_u64().or_else(|| n.as_i64().map(|v| v.max(0) as u64)),
+        JsonValue::String(s) => s.parse::<u64>().ok(),
+        _ => None,
     }
 }

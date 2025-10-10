@@ -1,6 +1,11 @@
 mod mysql;
 
-use iced::widget::{column, container, scrollable, text};
+pub use mysql::{
+    LoadState as MysqlLoadState, MysqlContentState, MysqlProcess, MysqlRoutine, MysqlTable, MysqlUser, PROCESSLIST_SQL,
+    ROUTINES_SQL, TABLES_SQL, USERS_SQL, parse_processlist, parse_routines, parse_tables, parse_users,
+};
+
+use iced::widget::{column, container, text};
 use iced::{Background, Color, Element, Length, Shadow};
 
 use super::{App, Connection, ContentTab, DatabaseKind, Message, Palette};
@@ -35,21 +40,19 @@ pub fn content(
                 },
                 shadow: Shadow::default(),
             }),
-        scrollable(
-            container(tab_body(app, palette))
-                .padding(24)
-                .style(move |_| container::Style {
-                    background: Some(Background::Color(palette.surface)),
-                    text_color: Some(palette.text),
-                    border: iced::border::Border {
-                        color: Color::TRANSPARENT,
-                        width: 0.0,
-                        radius: 0.0.into(),
-                    },
-                    shadow: Shadow::default(),
-                }),
-        )
-        .height(Length::Fill),
+        container(tab_body(app, palette))
+            .padding(24)
+            .style(move |_| container::Style {
+                background: Some(Background::Color(palette.surface)),
+                text_color: Some(palette.text),
+                border: iced::border::Border {
+                    color: Color::TRANSPARENT,
+                    width: 0.0,
+                    radius: 0.0.into(),
+                },
+                shadow: Shadow::default(),
+            })
+            .height(Length::Fill),
     ]
     .spacing(12)
     .height(Length::Fill)
@@ -89,7 +92,7 @@ fn tab_body(
 
     if let Some(connection) = app.selected_connection().and_then(|id| app.connection(id)) {
         match connection.kind {
-            DatabaseKind::Mysql => mysql::render(active_tab, connection, palette),
+            DatabaseKind::Mysql => mysql::render(app, active_tab, connection, palette),
             other => unsupported_database(other, active_tab, palette, connection),
         }
     } else {

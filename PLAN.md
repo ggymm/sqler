@@ -16,9 +16,9 @@
    - Hook view/edit actions into existing dialog; pre-fill form from cached config.
    - Add connection info modal with live status messages.
 
-5. **Main Content Tabs**
-   - Introduce per-database tab components (starting with MySQL) for Tables/Queries/Functions/Users.
-   - Wire topbar tab selection to render the appropriate component.
+5. **Main Content Tabs** ✅
+   - Introduce per-database tab components（已完成 MySQL 的表/查询/函数/用户视图，接入实时数据与错误状态）。
+   - Wire topbar tab selection to render the appropriate component，并在切换时触发数据刷新。
 
 6. **UI Polish & Testing**
    - Verify responsive behavior (modal sizing, scrolling).
