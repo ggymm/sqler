@@ -1,6 +1,7 @@
 use iced::widget::{Stack, column, container, row};
 use iced::{Background, Color, Element, Font, Length, Shadow, Size, Subscription, Task, Theme, window};
 use std::collections::HashMap;
+use std::time::{Duration, Instant};
 
 mod content;
 mod dialog;
@@ -8,9 +9,9 @@ mod sidebar;
 mod topbar;
 
 use content::{
-    MysqlContentState, MysqlLoadState, MysqlProcess, MysqlRoutine, MysqlTable, MysqlUser, PROCESSLIST_SQL,
-    ROUTINES_SQL, TABLES_SQL, TableDisplayMode, TableMenuAction, USERS_SQL, content, parse_processlist, parse_routines,
-    parse_tables, parse_users,
+    MysqlContentState, MysqlLoadState, MysqlProcess, MysqlRoutine, MysqlTable, MysqlTableData, MysqlTableTab,
+    MysqlUser, PROCESSLIST_SQL, ROUTINES_SQL, TABLES_SQL, TableMenuAction, USERS_SQL, content, parse_processlist,
+    parse_routines, parse_table_data, parse_tables, parse_users,
 };
 use dialog::{ConnectionFormState, FormField, NewConnectionDialog, connection_info_modal, modal_view};
 #[allow(unused_imports)]
@@ -190,6 +191,27 @@ impl App {
                     .map_err(|e| e.to_string())
                     .and_then(|response| parse_tables(response));
                 Message::MysqlTablesLoaded(connection_id, parsed)
+            })
+    }
+
+    fn schedule_mysql_table_data(
+        &mut self,
+        connection_id: usize,
+        connection: &Connection,
+        table_name: String,
+    ) -> Task<Message> {
+        let params = connection.to_params();
+        let safe_name = table_name.replace('`', "``");
+        let sql = format!("SELECT * FROM `{}` LIMIT 100", safe_name);
+        let table_key = table_name.clone();
+
+        self.drivers
+            .query(params, QueryRequest::Sql { statement: sql })
+            .map(move |result| {
+                let parsed = result
+                    .map_err(|e| e.to_string())
+                    .and_then(|response| parse_table_data(response));
+                Message::MysqlTableDataLoaded(connection_id, table_key.clone(), parsed)
             })
     }
 
@@ -501,20 +523,99 @@ pub fn update(
                 };
             }
         }
-        Message::MysqlChangeTableView(id, mode) => {
+        Message::MysqlFilterTables(id, filter) => {
             app.mysql_content
                 .entry(id)
                 .or_insert_with(MysqlContentState::default)
-                .tables_mode = mode;
+                .table_filter = filter;
+        }
+        Message::MysqlOpenTableData(connection_id, table_name) => {
+            let Some(connection) = app.connection(connection_id).cloned() else {
+                return Task::none();
+            };
+
+            let mut should_schedule = false;
+            {
+                let state = app
+                    .mysql_content
+                    .entry(connection_id)
+                    .or_insert_with(MysqlContentState::default);
+
+                if let Some(idx) = state.table_tabs.iter().position(|tab| tab.table_name == table_name) {
+                    state.active_table_tab = Some(idx);
+                    if matches!(
+                        state.table_tabs[idx].data,
+                        MysqlLoadState::Idle | MysqlLoadState::Error(_)
+                    ) {
+                        state.table_tabs[idx].data = MysqlLoadState::Loading;
+                        should_schedule = true;
+                    }
+                } else {
+                    state.table_tabs.push(MysqlTableTab {
+                        table_name: table_name.clone(),
+                        data: MysqlLoadState::Loading,
+                    });
+                    state.active_table_tab = Some(state.table_tabs.len().saturating_sub(1));
+                    should_schedule = true;
+                }
+            }
+
+            if should_schedule {
+                return app.schedule_mysql_table_data(connection_id, &connection, table_name);
+            }
+        }
+        Message::MysqlTableDataLoaded(connection_id, table_name, result) => {
+            if let Some(state) = app.mysql_content.get_mut(&connection_id) {
+                if let Some(tab) = state.table_tabs.iter_mut().find(|tab| tab.table_name == table_name) {
+                    tab.data = match result {
+                        Ok(data) => MysqlLoadState::Ready(data),
+                        Err(err) => MysqlLoadState::Error(err),
+                    };
+                }
+            }
+        }
+        Message::MysqlSelectTableDataTab(connection_id, index) => {
+            if let Some(state) = app.mysql_content.get_mut(&connection_id) {
+                if index < state.table_tabs.len() {
+                    state.active_table_tab = Some(index);
+                }
+            }
         }
         Message::MysqlTableMenuAction(_id, _action) => {
             // Actions will be wired once table-specific operations are implemented.
         }
         Message::MysqlSelectTable(connection_id, index) => {
-            app.mysql_content
-                .entry(connection_id)
-                .or_insert_with(MysqlContentState::default)
-                .selected_table = Some(index);
+            let mut open_table: Option<String> = None;
+            {
+                let state = app
+                    .mysql_content
+                    .entry(connection_id)
+                    .or_insert_with(MysqlContentState::default);
+
+                state.selected_table = Some(index);
+
+                let now = Instant::now();
+                let double_clicked = state
+                    .last_table_click
+                    .map(|(last_index, instant)| {
+                        last_index == index && now.duration_since(instant) <= Duration::from_millis(400)
+                    })
+                    .unwrap_or(false);
+
+                state.last_table_click = Some((index, now));
+
+                if double_clicked {
+                    if let MysqlLoadState::Ready(tables) = &state.tables {
+                        if let Some(table) = tables.get(index) {
+                            open_table = Some(table.name.clone());
+                        }
+                    }
+                }
+            }
+
+            if let Some(table_name) = open_table {
+                return Task::done(Message::MysqlOpenTableData(connection_id, table_name));
+            }
         }
     }
 
@@ -664,7 +765,10 @@ pub enum Message {
     MysqlProcesslistLoaded(usize, Result<Vec<MysqlProcess>, String>),
     MysqlRoutinesLoaded(usize, Result<Vec<MysqlRoutine>, String>),
     MysqlUsersLoaded(usize, Result<Vec<MysqlUser>, String>),
-    MysqlChangeTableView(usize, TableDisplayMode),
+    MysqlFilterTables(usize, String),
+    MysqlOpenTableData(usize, String),
+    MysqlTableDataLoaded(usize, String, Result<MysqlTableData, String>),
+    MysqlSelectTableDataTab(usize, usize),
     MysqlTableMenuAction(usize, TableMenuAction),
     MysqlSelectTable(usize, usize),
 }

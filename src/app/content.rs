@@ -1,9 +1,9 @@
 mod mysql;
 
 pub use mysql::{
-    LoadState as MysqlLoadState, MysqlContentState, MysqlProcess, MysqlRoutine, MysqlTable, MysqlUser, PROCESSLIST_SQL,
-    ROUTINES_SQL, TABLES_SQL, TableDisplayMode, TableMenuAction, USERS_SQL, parse_processlist, parse_routines,
-    parse_tables, parse_users,
+    LoadState as MysqlLoadState, MysqlContentState, MysqlProcess, MysqlRoutine, MysqlTable, MysqlTableData,
+    MysqlTableTab, MysqlUser, PROCESSLIST_SQL, ROUTINES_SQL, TABLES_SQL, TableMenuAction, USERS_SQL, parse_processlist,
+    parse_routines, parse_table_data, parse_tables, parse_users,
 };
 
 use iced::widget::{column, container, text};
