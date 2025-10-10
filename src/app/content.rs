@@ -2,7 +2,8 @@ mod mysql;
 
 pub use mysql::{
     LoadState as MysqlLoadState, MysqlContentState, MysqlProcess, MysqlRoutine, MysqlTable, MysqlUser, PROCESSLIST_SQL,
-    ROUTINES_SQL, TABLES_SQL, USERS_SQL, parse_processlist, parse_routines, parse_tables, parse_users,
+    ROUTINES_SQL, TABLES_SQL, TableDisplayMode, TableMenuAction, USERS_SQL, parse_processlist, parse_routines,
+    parse_tables, parse_users,
 };
 
 use iced::widget::{column, container, text};
@@ -14,32 +15,7 @@ pub fn content(
     app: &App,
     palette: Palette,
 ) -> Element<'_, Message> {
-    let title = text(app.active_tab().title()).size(22).color(palette.text);
-
-    let intro = text(match app.active_tab() {
-        ContentTab::Tables => "在此浏览所选数据库的表结构，并进行建表或结构修改。",
-        ContentTab::Queries => "创建和管理查询，支持多标签页执行 SQL。",
-        ContentTab::Functions => "查看数据库函数或存储过程，支持编辑与调试。",
-        ContentTab::Users => "管理数据库用户、角色以及权限设置。",
-    })
-    .color(palette.text_muted)
-    .size(15);
-
-    let detail = current_connection_section(app, palette);
-
     column![
-        container(column![title, intro, detail].spacing(12))
-            .padding([18, 24])
-            .style(move |_| container::Style {
-                background: Some(Background::Color(palette.surface)),
-                text_color: Some(palette.text),
-                border: iced::border::Border {
-                    color: Color::TRANSPARENT,
-                    width: 0.0,
-                    radius: 0.0.into(),
-                },
-                shadow: Shadow::default(),
-            }),
         container(tab_body(app, palette))
             .padding(24)
             .style(move |_| container::Style {
@@ -57,31 +33,6 @@ pub fn content(
     .spacing(12)
     .height(Length::Fill)
     .into()
-}
-
-fn current_connection_section(
-    app: &App,
-    palette: Palette,
-) -> Element<'_, Message> {
-    if let Some(selected) = app.selected_connection() {
-        if let Some(connection) = app.connection(selected) {
-            return column![
-                text(format!("当前连接：{}", connection.name))
-                    .color(palette.text)
-                    .size(17),
-                text(format!("连接信息：{}", connection.summary()))
-                    .color(palette.text_muted)
-                    .size(14),
-            ]
-            .spacing(6)
-            .into();
-        }
-    }
-
-    text("请选择或创建一个数据库连接以开始。")
-        .color(palette.text_muted)
-        .size(14)
-        .into()
 }
 
 fn tab_body(

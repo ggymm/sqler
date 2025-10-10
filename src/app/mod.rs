@@ -9,7 +9,8 @@ mod topbar;
 
 use content::{
     MysqlContentState, MysqlLoadState, MysqlProcess, MysqlRoutine, MysqlTable, MysqlUser, PROCESSLIST_SQL,
-    ROUTINES_SQL, TABLES_SQL, USERS_SQL, content, parse_processlist, parse_routines, parse_tables, parse_users,
+    ROUTINES_SQL, TABLES_SQL, TableDisplayMode, TableMenuAction, USERS_SQL, content, parse_processlist, parse_routines,
+    parse_tables, parse_users,
 };
 use dialog::{ConnectionFormState, FormField, NewConnectionDialog, connection_info_modal, modal_view};
 #[allow(unused_imports)]
@@ -497,6 +498,15 @@ pub fn update(
                 };
             }
         }
+        Message::MysqlChangeTableView(id, mode) => {
+            app.mysql_content
+                .entry(id)
+                .or_insert_with(MysqlContentState::default)
+                .tables_mode = mode;
+        }
+        Message::MysqlTableMenuAction(_id, _action) => {
+            // Actions will be wired once table-specific operations are implemented.
+        }
     }
 
     Task::none()
@@ -645,6 +655,8 @@ pub enum Message {
     MysqlProcesslistLoaded(usize, Result<Vec<MysqlProcess>, String>),
     MysqlRoutinesLoaded(usize, Result<Vec<MysqlRoutine>, String>),
     MysqlUsersLoaded(usize, Result<Vec<MysqlUser>, String>),
+    MysqlChangeTableView(usize, TableDisplayMode),
+    MysqlTableMenuAction(usize, TableMenuAction),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

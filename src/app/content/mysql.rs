@@ -1,5 +1,6 @@
-use iced::widget::{column, container, horizontal_space, row, scrollable, text, vertical_space};
-use iced::{Alignment, Background, Element, Length, Shadow};
+use iced::widget::scrollable::{Direction, Scrollbar};
+use iced::widget::{button, column, container, horizontal_space, row, scrollable, text, vertical_space};
+use iced::{Alignment, Background, Color, Element, Length, Shadow, Size};
 use serde_json::Value as JsonValue;
 
 use crate::app::{App, Connection, ContentTab, Message, Palette};
@@ -75,12 +76,25 @@ impl<T> LoadState<T> {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TableDisplayMode {
+    List,
+    Grid,
+}
+
+impl Default for TableDisplayMode {
+    fn default() -> Self {
+        TableDisplayMode::List
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct MysqlContentState {
     pub tables: LoadState<Vec<MysqlTable>>,
     pub processlist: LoadState<Vec<MysqlProcess>>,
     pub routines: LoadState<Vec<MysqlRoutine>>,
     pub users: LoadState<Vec<MysqlUser>>,
+    pub tables_mode: TableDisplayMode,
 }
 
 #[derive(Debug, Clone)]
@@ -118,6 +132,21 @@ pub struct MysqlUser {
     pub password_changed: Option<String>,
 }
 
+const GRID_TILE_MIN_WIDTH: f32 = 240.0;
+const GRID_TILE_HEIGHT: f32 = 120.0;
+const GRID_TILE_SPACING: f32 = 16.0;
+const GRID_VERTICAL_RESERVE: f32 = 220.0;
+
+#[derive(Debug, Clone, Copy)]
+pub enum TableMenuAction {
+    Open,
+    Design,
+    Create,
+    Delete,
+    Import,
+    Export,
+}
+
 pub fn render(
     app: &App,
     tab: ContentTab,
@@ -125,9 +154,20 @@ pub fn render(
     palette: Palette,
 ) -> Element<'static, Message> {
     let state = app.mysql_state(connection.id);
+    let viewport = app.window_size();
 
     match tab {
-        ContentTab::Tables => tables_view(state.map(|s| &s.tables), connection, palette),
+        ContentTab::Tables => {
+            let mode = state.map(|s| s.tables_mode).unwrap_or_default();
+            tables_view(
+                connection.id,
+                state.map(|s| &s.tables),
+                connection,
+                palette,
+                mode,
+                viewport,
+            )
+        }
         ContentTab::Queries => processlist_view(state.map(|s| &s.processlist), palette),
         ContentTab::Functions => routines_view(state.map(|s| &s.routines), palette),
         ContentTab::Users => users_view(state.map(|s| &s.users), palette),
@@ -279,29 +319,192 @@ pub fn parse_users(response: QueryResponse) -> Result<Vec<MysqlUser>, String> {
 }
 
 fn tables_view(
+    connection_id: usize,
     state: Option<&LoadState<Vec<MysqlTable>>>,
     connection: &Connection,
     palette: Palette,
+    mode: TableDisplayMode,
+    viewport: Size,
 ) -> Element<'static, Message> {
-    match state {
+    let toolbar = table_toolbar(connection_id, palette, mode);
+
+    let body = match state {
         Some(LoadState::Loading) => loading_view("正在加载表信息…", palette),
         Some(LoadState::Error(err)) => error_view(err, palette),
         Some(LoadState::Ready(tables)) if tables.is_empty() => empty_view("当前数据库中没有表。", palette),
-        Some(LoadState::Ready(tables)) => {
-            let mut list = column![
-                text(format!("数据库：{}", connection.summary()))
-                    .size(13)
-                    .color(palette.text_muted)
-            ];
-
-            for table in tables {
-                list = list.push(table_row(table, palette));
-            }
-
-            scrollable(list.spacing(12)).into()
-        }
+        Some(LoadState::Ready(tables)) => match mode {
+            TableDisplayMode::List => table_list_view(tables, connection, palette),
+            TableDisplayMode::Grid => table_grid_view(tables, connection, palette, viewport),
+        },
         _ => idle_view(palette),
+    };
+
+    column![toolbar, body].spacing(16).into()
+}
+
+fn table_toolbar(
+    connection_id: usize,
+    palette: Palette,
+    mode: TableDisplayMode,
+) -> Element<'static, Message> {
+    let actions = row![
+        toolbar_action_button("打开表", connection_id, TableMenuAction::Open, palette),
+        toolbar_action_button("设计表", connection_id, TableMenuAction::Design, palette),
+        toolbar_action_button("新建表", connection_id, TableMenuAction::Create, palette),
+        toolbar_action_button("删除表", connection_id, TableMenuAction::Delete, palette),
+        toolbar_action_button("导入向导", connection_id, TableMenuAction::Import, palette),
+        toolbar_action_button("导出向导", connection_id, TableMenuAction::Export, palette),
+    ]
+    .spacing(8)
+    .align_y(Alignment::Center);
+
+    let mode_switch = row![
+        mode_toggle_button("列表模式", connection_id, TableDisplayMode::List, mode, palette),
+        mode_toggle_button("网格模式", connection_id, TableDisplayMode::Grid, mode, palette),
+    ]
+    .spacing(6)
+    .align_y(Alignment::Center);
+
+    row![actions, horizontal_space(), mode_switch]
+        .align_y(Alignment::Center)
+        .spacing(16)
+        .into()
+}
+
+fn toolbar_action_button(
+    label: &'static str,
+    connection_id: usize,
+    action: TableMenuAction,
+    palette: Palette,
+) -> Element<'static, Message> {
+    button(text(label).size(14).color(palette.text))
+        .padding([6, 12])
+        .style(move |_, status| {
+            use iced::widget::button::Status;
+
+            let background = match status {
+                Status::Hovered => palette.surface_muted,
+                Status::Pressed => palette.surface,
+                _ => Color::TRANSPARENT,
+            };
+
+            iced::widget::button::Style {
+                background: Some(Background::Color(background)),
+                border: iced::border::Border {
+                    color: palette.border,
+                    width: 1.0,
+                    radius: 6.0.into(),
+                },
+                text_color: palette.text,
+                shadow: Shadow::default(),
+            }
+        })
+        .on_press(Message::MysqlTableMenuAction(connection_id, action))
+        .into()
+}
+
+fn mode_toggle_button(
+    label: &'static str,
+    connection_id: usize,
+    target: TableDisplayMode,
+    current: TableDisplayMode,
+    palette: Palette,
+) -> Element<'static, Message> {
+    let is_active = target == current;
+
+    button(
+        text(label)
+            .size(13)
+            .color(if is_active { palette.accent_text } else { palette.text }),
+    )
+    .padding([6, 14])
+    .style(move |_, status| {
+        use iced::widget::button::Status;
+
+        let background = if is_active {
+            palette.accent
+        } else if matches!(status, Status::Hovered) {
+            palette.surface_muted
+        } else {
+            Color::TRANSPARENT
+        };
+
+        iced::widget::button::Style {
+            background: Some(Background::Color(background)),
+            border: iced::border::Border {
+                color: if is_active { palette.accent } else { palette.border },
+                width: 1.0,
+                radius: 8.0.into(),
+            },
+            text_color: if is_active { palette.accent_text } else { palette.text },
+            shadow: Shadow::default(),
+        }
+    })
+    .on_press(Message::MysqlChangeTableView(connection_id, target))
+    .into()
+}
+
+fn table_list_view(
+    tables: &[MysqlTable],
+    connection: &Connection,
+    palette: Palette,
+) -> Element<'static, Message> {
+    let mut list = column![
+        text(format!("数据库：{}", connection.summary()))
+            .size(13)
+            .color(palette.text_muted),
+    ];
+
+    for table in tables {
+        list = list.push(table_row(table, palette));
     }
+
+    scrollable(list.spacing(12)).into()
+}
+
+fn table_grid_view(
+    tables: &[MysqlTable],
+    connection: &Connection,
+    palette: Palette,
+    viewport: Size,
+) -> Element<'static, Message> {
+    let header = text(format!("数据库：{}", connection.summary()))
+        .size(13)
+        .color(palette.text_muted);
+
+    let padding_compensation = 48.0; // parent container horizontal padding
+    let available_height = (viewport.height - GRID_VERTICAL_RESERVE).max(GRID_TILE_HEIGHT);
+    let rows_per_column = (available_height / (GRID_TILE_HEIGHT + GRID_TILE_SPACING))
+        .floor()
+        .max(1.0) as usize;
+
+    let mut columns = row![].spacing(GRID_TILE_SPACING).align_y(Alignment::Start);
+    let mut column_count = 0usize;
+
+    for chunk in tables.chunks(rows_per_column) {
+        let mut column_view = column![].spacing(GRID_TILE_SPACING);
+        for table in chunk {
+            column_view = column_view.push(table_tile(table, palette));
+        }
+        columns = columns.push(column_view);
+        column_count += 1;
+    }
+
+    let content_width = (GRID_TILE_MIN_WIDTH + GRID_TILE_SPACING) * column_count.max(1) as f32;
+    let available_width = (viewport.width - padding_compensation).max(GRID_TILE_MIN_WIDTH);
+    let horizontal_scroll = content_width > available_width;
+
+    let grid: Element<'static, Message> = if horizontal_scroll {
+        scrollable(columns)
+            .direction(Direction::Horizontal(Scrollbar::new()))
+            .height(Length::Fill)
+            .width(Length::Fill)
+            .into()
+    } else {
+        container(columns).width(Length::Fill).height(Length::Fill).into()
+    };
+
+    column![header, grid].spacing(12).height(Length::Fill).into()
 }
 
 fn processlist_view(
@@ -401,6 +604,46 @@ fn table_row(
     }
 
     container(body).padding(16).style(move |_| card_style(palette)).into()
+}
+
+fn table_tile(
+    table: &MysqlTable,
+    palette: Palette,
+) -> Element<'static, Message> {
+    container(
+        column![
+            text(table.name.clone()).size(15).color(palette.text),
+            text(
+                table
+                    .comment
+                    .clone()
+                    .filter(|c| !c.is_empty())
+                    .unwrap_or_else(|| "-".into()),
+            )
+            .size(12)
+            .color(palette.text_muted),
+            row![
+                text(table.engine.clone().unwrap_or_else(|| "-".into()))
+                    .size(12)
+                    .color(palette.text_muted),
+                horizontal_space(),
+                text(
+                    table
+                        .rows
+                        .map(|v| format!("{} 行", v))
+                        .unwrap_or_else(|| "未知行数".into()),
+                )
+                .size(12)
+                .color(palette.text_muted),
+            ]
+            .spacing(8),
+        ]
+        .spacing(6),
+    )
+    .width(Length::Fixed(GRID_TILE_MIN_WIDTH))
+    .padding(12)
+    .style(move |_| card_style(palette))
+    .into()
 }
 
 fn process_row(
