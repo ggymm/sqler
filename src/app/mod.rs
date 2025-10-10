@@ -469,7 +469,10 @@ pub fn update(
         Message::MysqlTablesLoaded(id, result) => {
             if let Some(state) = app.mysql_content.get_mut(&id) {
                 state.tables = match result {
-                    Ok(data) => MysqlLoadState::Ready(data),
+                    Ok(data) => {
+                        state.selected_table = state.selected_table.filter(|idx| *idx < data.len());
+                        MysqlLoadState::Ready(data)
+                    }
                     Err(err) => MysqlLoadState::Error(err),
                 };
             }
@@ -506,6 +509,12 @@ pub fn update(
         }
         Message::MysqlTableMenuAction(_id, _action) => {
             // Actions will be wired once table-specific operations are implemented.
+        }
+        Message::MysqlSelectTable(connection_id, index) => {
+            app.mysql_content
+                .entry(connection_id)
+                .or_insert_with(MysqlContentState::default)
+                .selected_table = Some(index);
         }
     }
 
@@ -657,6 +666,7 @@ pub enum Message {
     MysqlUsersLoaded(usize, Result<Vec<MysqlUser>, String>),
     MysqlChangeTableView(usize, TableDisplayMode),
     MysqlTableMenuAction(usize, TableMenuAction),
+    MysqlSelectTable(usize, usize),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
