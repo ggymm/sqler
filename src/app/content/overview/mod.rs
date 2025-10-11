@@ -1,6 +1,6 @@
-mod tables;
-mod queries;
 mod functions;
+mod queries;
+mod tables;
 mod users;
 
 use iced::widget::{button, column, container, text};
@@ -345,7 +345,6 @@ pub fn parse_table_data(response: QueryResponse) -> Result<MysqlTableData, Strin
         rows: parsed_rows,
     })
 }
-
 
 pub(super) fn generic_toolbar_button(
     label: &'static str,

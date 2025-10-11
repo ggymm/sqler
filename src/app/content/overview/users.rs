@@ -4,8 +4,7 @@ use iced::{Alignment, Element};
 use crate::app::{Message, Palette};
 
 use super::{
-    card_style, error_view, generic_toolbar_button, idle_view, loading_view, stack_section, LoadState,
-    MysqlUser,
+    LoadState, MysqlUser, card_style, error_view, generic_toolbar_button, idle_view, loading_view, stack_section,
 };
 
 pub(super) fn view(

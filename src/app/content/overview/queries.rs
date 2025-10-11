@@ -5,7 +5,10 @@ use crate::app::{Connection, Message, Palette};
 
 use super::{generic_toolbar_button, stack_section};
 
-pub(super) fn view(connection: &Connection, palette: Palette) -> Element<'static, Message> {
+pub(super) fn view(
+    connection: &Connection,
+    palette: Palette,
+) -> Element<'static, Message> {
     let actions = row![
         generic_toolbar_button("新建查询", Message::NewSavedQuery, palette),
         generic_toolbar_button("删除查询", Message::DeleteSavedQuery, palette),

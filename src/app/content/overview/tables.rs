@@ -4,8 +4,8 @@ use iced::{Alignment, Background, Color, Element, Length, Shadow};
 use crate::app::{Connection, Message, Palette};
 
 use super::{
-    loading_view, idle_view, error_view, empty_view, LoadState, MysqlContentState, MysqlTable,
-    TableMenuAction, TABLE_ICON_PATH,
+    LoadState, MysqlContentState, MysqlTable, TABLE_ICON_PATH, TableMenuAction, empty_view, error_view, idle_view,
+    loading_view,
 };
 
 pub(super) fn view(
@@ -104,7 +104,10 @@ fn filter_tables<'a>(
         .collect()
 }
 
-fn table_matches_filter(table: &MysqlTable, needle: &str) -> bool {
+fn table_matches_filter(
+    table: &MysqlTable,
+    needle: &str,
+) -> bool {
     if needle.is_empty() {
         return true;
     }

@@ -1,4 +1,5 @@
-use iced::{Size, Task};
+use iced::Size;
+use iced::Task;
 
 mod app;
 mod cache;
@@ -6,7 +7,7 @@ mod comps;
 mod driver;
 
 pub fn main() -> iced::Result {
-    iced::application("SQler", app::update, app::view)
+    iced::application("SQLER", app::update, app::view)
         .window_size(Size::new(1280.0, 800.0))
         .centered()
         .theme(app::theme)
