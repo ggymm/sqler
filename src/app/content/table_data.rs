@@ -1,11 +1,12 @@
 use std::fmt;
 
-use iced::widget::{column, container, horizontal_space, pick_list, row, text, text_input};
+use iced::widget::{column, horizontal_space, pick_list, row, text, text_input};
 use iced::{Alignment, Element, Length};
 
 use crate::comps::table::{TableColumn, TableRow, data_table};
 
 use super::{App, LoadState, Message, MysqlTableData, Palette, TableDataPreferences};
+use super::common::{centered_message, error_view, loading_view};
 
 const PAGE_SIZE_OPTIONS: &[usize] = &[50, 100, 200, 500, 1000];
 const MAX_CELL_CHARS: usize = 512;
@@ -90,7 +91,7 @@ fn render_data_view(
 
     if displayed.is_empty() {
         return centered_message(
-            vec![
+            [
                 format!("{} 暂无匹配的数据。", table_name),
                 format!("当前页大小：{} 行。", page_size),
             ],
@@ -190,34 +191,4 @@ fn sanitize_cell(value: &str) -> String {
     }
 
     sanitized
-}
-
-fn loading_view(
-    message: &'static str,
-    palette: Palette,
-) -> Element<'static, Message> {
-    centered_message(vec![message.into()], palette)
-}
-
-fn error_view(
-    message: &str,
-    palette: Palette,
-) -> Element<'static, Message> {
-    centered_message(vec![format!("加载失败：{message}")], palette)
-}
-
-fn centered_message(
-    lines: Vec<String>,
-    palette: Palette,
-) -> Element<'static, Message> {
-    let mut content = column![];
-    for line in lines {
-        content = content.push(text(line).size(14).color(palette.text_muted));
-    }
-
-    container(content.spacing(6))
-        .width(Length::Fill)
-        .center_x(Length::Fill)
-        .center_y(Length::Fill)
-        .into()
 }

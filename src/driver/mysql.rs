@@ -3,10 +3,7 @@ use mysql::prelude::Queryable;
 use mysql::{Conn, OptsBuilder, Value as MysqlValue};
 use serde_json::Value as JsonValue;
 
-use super::{
-    ConnectionParams, DriverError, ExecuteRequest, ExecuteResponse, QueryRequest, QueryResponse, execution_response,
-    make_tabular_response, map_binary_or_text, unsupported,
-};
+use super::{ConnectionParams, DriverError, QueryRequest, QueryResponse, make_tabular_response, map_binary_or_text};
 
 #[derive(Clone, Copy, Debug)]
 pub struct MysqlDriver;
@@ -32,57 +29,27 @@ impl MysqlDriver {
         request: QueryRequest,
     ) -> Task<Result<QueryResponse, DriverError>> {
         Task::future(async move {
-            match request {
-                QueryRequest::Sql { statement } => {
-                    let mut conn = Self::connect(&params)?;
-                    let result = conn
-                        .query_iter(statement.clone())
-                        .map_err(|err| DriverError::Query(err.to_string()))?;
+            let QueryRequest::Sql { statement } = request;
+            let mut conn = Self::connect(&params)?;
+            let result = conn
+                .query_iter(statement.clone())
+                .map_err(|err| DriverError::Query(err.to_string()))?;
 
-                    let columns = result
-                        .columns()
-                        .as_ref()
-                        .iter()
-                        .map(|c| c.name_str().to_string())
-                        .collect::<Vec<_>>();
+            let columns = result
+                .columns()
+                .as_ref()
+                .iter()
+                .map(|c| c.name_str().to_string())
+                .collect::<Vec<_>>();
 
-                    let mut rows = Vec::new();
-                    for row in result {
-                        let row = row.map_err(|err| DriverError::Query(err.to_string()))?;
-                        let values = row.unwrap().into_iter().map(mysql_value_to_json).collect();
-                        rows.push(values);
-                    }
-
-                    Ok(make_tabular_response(columns, rows))
-                }
-                QueryRequest::KeyValue(_) => Err(unsupported("MySQL 仅支持 SQL 查询")),
+            let mut rows = Vec::new();
+            for row in result {
+                let row = row.map_err(|err| DriverError::Query(err.to_string()))?;
+                let values = row.unwrap().into_iter().map(mysql_value_to_json).collect();
+                rows.push(values);
             }
-        })
-    }
 
-    pub fn execute(
-        &self,
-        params: ConnectionParams,
-        request: ExecuteRequest,
-    ) -> Task<Result<ExecuteResponse, DriverError>> {
-        Task::future(async move {
-            match request {
-                ExecuteRequest::Sql { statement } => {
-                    let mut conn = Self::connect(&params)?;
-                    conn.query_drop(statement.clone())
-                        .map_err(|err| DriverError::Execution(err.to_string()))?;
-                    let affected = conn.affected_rows();
-                    let last_id = conn.last_insert_id();
-                    let generated = if last_id == 0 {
-                        None
-                    } else {
-                        Some(JsonValue::from(last_id as i64))
-                    };
-
-                    Ok(execution_response(affected, generated))
-                }
-                ExecuteRequest::KeyValue(_) => Err(unsupported("MySQL 仅支持 SQL 执行")),
-            }
+            Ok(make_tabular_response(columns, rows))
         })
     }
 

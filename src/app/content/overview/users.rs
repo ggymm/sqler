@@ -4,7 +4,7 @@ use iced::{Alignment, Element};
 use crate::app::{Message, Palette};
 
 use super::{
-    LoadState, MysqlUser, card_style, error_view, generic_toolbar_button, idle_view, loading_view, stack_section,
+    card_style, generic_toolbar_button, load_state_list_view, stack_section, LoadState, LoadStateMessages, MysqlUser,
 };
 
 pub(super) fn view(
@@ -28,21 +28,22 @@ fn users_content(
     state: Option<&LoadState<Vec<MysqlUser>>>,
     palette: Palette,
 ) -> Element<'static, Message> {
-    match state {
-        Some(LoadState::Loading) => loading_view("正在加载数据库用户…", palette),
-        Some(LoadState::Error(err)) => error_view(err, palette),
-        Some(LoadState::Ready(users)) if users.is_empty() => {
-            super::centered_message(vec!["未找到任何 MySQL 用户。".into()], palette)
-        }
-        Some(LoadState::Ready(users)) => {
+    load_state_list_view(
+        state,
+        palette,
+        LoadStateMessages {
+            loading: "正在加载数据库用户…",
+            empty: "未找到任何 MySQL 用户。",
+            idle: "请激活连接以查看用户列表。",
+        },
+        |users, palette| {
             let mut list = column![];
             for user in users {
                 list = list.push(user_row(user, palette));
             }
             scrollable(list.spacing(12)).into()
-        }
-        _ => idle_view(palette),
-    }
+        },
+    )
 }
 
 fn user_row(

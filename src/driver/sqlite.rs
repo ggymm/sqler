@@ -3,8 +3,8 @@ use rusqlite::{Connection, types::ValueRef};
 use serde_json::Value as JsonValue;
 
 use super::{
-    ConnectionParams, DriverError, ExecuteRequest, ExecuteResponse, QueryRequest, QueryResponse, execution_response,
-    make_tabular_response, map_binary_or_text, unsupported, value_to_json_f64,
+    ConnectionParams, DriverError, QueryRequest, QueryResponse, make_tabular_response, map_binary_or_text,
+    value_to_json_f64,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -33,67 +33,35 @@ impl SqliteDriver {
         request: QueryRequest,
     ) -> Task<Result<QueryResponse, DriverError>> {
         Task::future(async move {
-            match request {
-                QueryRequest::Sql { statement } => {
-                    let path = params.require_file_path()?.to_string();
-                    let conn = Connection::open(&path).map_err(|err| DriverError::Connection(err.to_string()))?;
-                    let mut stmt = conn
-                        .prepare(&statement)
-                        .map_err(|err| DriverError::Query(err.to_string()))?;
+            let QueryRequest::Sql { statement } = request;
+            let path = params.require_file_path()?.to_string();
+            let conn = Connection::open(&path).map_err(|err| DriverError::Connection(err.to_string()))?;
+            let mut stmt = conn
+                .prepare(&statement)
+                .map_err(|err| DriverError::Query(err.to_string()))?;
 
-                    let column_names = stmt
-                        .column_names()
-                        .iter()
-                        .map(|name| name.to_string())
-                        .collect::<Vec<_>>();
+            let column_names = stmt
+                .column_names()
+                .iter()
+                .map(|name| name.to_string())
+                .collect::<Vec<_>>();
 
-                    let mut rows = Vec::new();
-                    let mut query = stmt.query([]).map_err(|err| DriverError::Query(err.to_string()))?;
+            let mut rows = Vec::new();
+            let mut query = stmt.query([]).map_err(|err| DriverError::Query(err.to_string()))?;
 
-                    while let Some(row) = query.next().map_err(|err| DriverError::Query(err.to_string()))? {
-                        let mut values = Vec::with_capacity(column_names.len());
-                        for idx in 0..column_names.len() {
-                            let value = row.get_ref(idx).map_err(|err| DriverError::Query(err.to_string()))?;
-                            values.push(sqlite_value_to_json(value));
-                        }
-                        rows.push(values);
-                    }
-
-                    Ok(make_tabular_response(column_names, rows))
+            while let Some(row) = query.next().map_err(|err| DriverError::Query(err.to_string()))? {
+                let mut values = Vec::with_capacity(column_names.len());
+                for idx in 0..column_names.len() {
+                    let value = row.get_ref(idx).map_err(|err| DriverError::Query(err.to_string()))?;
+                    values.push(sqlite_value_to_json(value));
                 }
-                QueryRequest::KeyValue(_) => Err(unsupported("SQLite 仅支持 SQL 查询")),
+                rows.push(values);
             }
+
+            Ok(make_tabular_response(column_names, rows))
         })
     }
 
-    pub fn execute(
-        &self,
-        params: ConnectionParams,
-        request: ExecuteRequest,
-    ) -> Task<Result<ExecuteResponse, DriverError>> {
-        Task::future(async move {
-            match request {
-                ExecuteRequest::Sql { statement } => {
-                    let path = params.require_file_path()?.to_string();
-                    let conn = Connection::open(&path).map_err(|err| DriverError::Connection(err.to_string()))?;
-                    conn.execute_batch(&statement)
-                        .map_err(|err| DriverError::Execution(err.to_string()))?;
-                    let affected = conn.changes() as u64;
-                    let last_id = conn.last_insert_rowid();
-
-                    Ok(execution_response(
-                        affected,
-                        if last_id == 0 {
-                            None
-                        } else {
-                            Some(JsonValue::from(last_id))
-                        },
-                    ))
-                }
-                ExecuteRequest::KeyValue(_) => Err(unsupported("SQLite 仅支持 SQL 执行")),
-            }
-        })
-    }
 }
 
 fn sqlite_value_to_json(value: ValueRef<'_>) -> JsonValue {

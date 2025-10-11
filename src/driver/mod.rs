@@ -3,7 +3,6 @@ mod mysql;
 mod sqlite;
 
 use iced::Task;
-use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 
 use crate::app::DatabaseKind;
@@ -53,58 +52,17 @@ impl ConnectionParams {
 pub enum DriverError {
     #[error("缺少字段: {0}")]
     MissingField(&'static str),
-    #[error("请求不合法: {0}")]
-    InvalidRequest(String),
     #[error("暂不支持: {0}")]
     Unsupported(String),
     #[error("连接失败: {0}")]
     Connection(String),
     #[error("查询失败: {0}")]
     Query(String),
-    #[error("执行失败: {0}")]
-    Execution(String),
 }
 
 #[derive(Debug, Clone)]
 pub enum QueryRequest {
     Sql { statement: String },
-    KeyValue(KeyQuery),
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct KeyQuery {
-    pub database: String,
-    pub collection: String,
-    #[serde(default)]
-    pub filter: JsonValue,
-    #[serde(default)]
-    pub projection: Option<JsonValue>,
-    #[serde(default)]
-    pub limit: Option<i64>,
-    #[serde(default)]
-    pub skip: Option<u64>,
-    #[serde(default)]
-    pub sort: Option<JsonValue>,
-}
-
-#[derive(Debug, Clone)]
-pub enum ExecuteRequest {
-    Sql { statement: String },
-    KeyValue(KeyCommand),
-}
-
-#[derive(Debug, Clone)]
-pub struct KeyCommand {
-    pub database: String,
-    pub collection: String,
-    pub action: KeyAction,
-}
-
-#[derive(Debug, Clone)]
-pub enum KeyAction {
-    InsertOne { document: JsonValue },
-    UpdateMany { filter: JsonValue, update: JsonValue },
-    DeleteMany { filter: JsonValue },
 }
 
 #[derive(Debug, Clone)]
@@ -118,15 +76,6 @@ pub enum QueryPayload {
         columns: Vec<String>,
         rows: Vec<Vec<JsonValue>>,
     },
-    Documents {
-        documents: Vec<JsonValue>,
-    },
-}
-
-#[derive(Debug, Clone)]
-pub struct ExecuteResponse {
-    pub affected_count: u64,
-    pub generated: Option<JsonValue>,
 }
 
 #[derive(Clone, Debug)]
@@ -175,19 +124,6 @@ impl DriverRegistry {
             other => Task::done(Err(DriverError::Unsupported(format!("{other:?} 暂未实现查询功能")))),
         }
     }
-
-    pub fn execute(
-        &self,
-        params: ConnectionParams,
-        request: ExecuteRequest,
-    ) -> Task<Result<ExecuteResponse, DriverError>> {
-        match params.kind {
-            DatabaseKind::Mysql => self.mysql.execute(params, request),
-            DatabaseKind::Sqlite => self.sqlite.execute(params, request),
-            DatabaseKind::Mongodb => self.mongodb.execute(params, request),
-            other => Task::done(Err(DriverError::Unsupported(format!("{other:?} 暂未实现执行功能")))),
-        }
-    }
 }
 
 pub(crate) fn encode_binary(bytes: &[u8]) -> String {
@@ -215,26 +151,6 @@ pub(crate) fn make_tabular_response(
     QueryResponse {
         payload: QueryPayload::Tabular { columns, rows },
     }
-}
-
-pub(crate) fn make_document_response(documents: Vec<JsonValue>) -> QueryResponse {
-    QueryResponse {
-        payload: QueryPayload::Documents { documents },
-    }
-}
-
-pub(crate) fn execution_response(
-    affected_count: u64,
-    generated: Option<JsonValue>,
-) -> ExecuteResponse {
-    ExecuteResponse {
-        affected_count,
-        generated,
-    }
-}
-
-pub(crate) fn invalid_request(message: impl Into<String>) -> DriverError {
-    DriverError::InvalidRequest(message.into())
 }
 
 pub(crate) fn unsupported(message: impl Into<String>) -> DriverError {

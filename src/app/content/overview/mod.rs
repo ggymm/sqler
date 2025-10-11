@@ -3,14 +3,18 @@ mod queries;
 mod tables;
 mod users;
 
-use iced::widget::{button, column, container, text};
-use iced::{Background, Color, Element, Length, Shadow};
+use iced::Element;
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 use std::time::Instant;
 
 use crate::app::{App, Connection, ContentTab, Message, Palette};
 use crate::driver::{QueryPayload, QueryResponse};
+use super::common::LoadState;
+pub(super) use super::common::{
+    card_style, empty_view, error_view, generic_toolbar_button, idle_view, load_state_list_view, loading_view,
+    stack_section, LoadStateMessages,
+};
 
 pub const TABLES_SQL: &str = r#"
 SELECT
@@ -61,26 +65,6 @@ FROM mysql.user
 ORDER BY user, host
 LIMIT 100
 "#;
-
-#[derive(Debug, Clone)]
-pub enum LoadState<T> {
-    Idle,
-    Loading,
-    Ready(T),
-    Error(String),
-}
-
-impl<T> Default for LoadState<T> {
-    fn default() -> Self {
-        LoadState::Idle
-    }
-}
-
-impl<T> LoadState<T> {
-    pub fn should_load(&self) -> bool {
-        matches!(self, LoadState::Idle | LoadState::Error(_))
-    }
-}
 
 pub(super) const TABLE_ICON_PATH: &str = "assets/icons/table.svg";
 
@@ -346,118 +330,9 @@ pub fn parse_table_data(response: QueryResponse) -> Result<MysqlTableData, Strin
     })
 }
 
-pub(super) fn generic_toolbar_button(
-    label: &'static str,
-    message: Message,
-    palette: Palette,
-) -> Element<'static, Message> {
-    button(text(label).size(14).color(palette.text))
-        .padding([6, 12])
-        .style(move |_, status| {
-            use iced::widget::button::Status;
-
-            let background = match status {
-                Status::Hovered => palette.surface_muted,
-                Status::Pressed => palette.surface,
-                _ => Color::TRANSPARENT,
-            };
-
-            iced::widget::button::Style {
-                background: Some(Background::Color(background)),
-                border: iced::border::Border {
-                    color: palette.border,
-                    width: 1.0,
-                    radius: 6.0.into(),
-                },
-                text_color: palette.text,
-                shadow: Shadow::default(),
-            }
-        })
-        .on_press(message)
-        .into()
-}
-
-pub(super) fn stack_section(
-    actions: Element<'static, Message>,
-    content: Element<'static, Message>,
-) -> Element<'static, Message> {
-    column![actions, content].spacing(16).into()
-}
-
-pub(super) fn centered_message(
-    lines: Vec<String>,
-    palette: Palette,
-) -> Element<'static, Message> {
-    let mut body = column![];
-    for line in lines {
-        body = body.push(text(line).size(13).color(palette.text_muted));
-    }
-
-    container(body.spacing(6))
-        .width(Length::Fill)
-        .center_x(Length::Fill)
-        .center_y(Length::Fill)
-        .into()
-}
-
-pub(super) fn loading_view(
-    message: &'static str,
-    palette: Palette,
-) -> Element<'static, Message> {
-    container(text(message).size(14).color(palette.text_muted))
-        .width(Length::Fill)
-        .center_x(Length::Fill)
-        .center_y(Length::Fill)
-        .into()
-}
-
-pub(super) fn error_view(
-    message: &str,
-    palette: Palette,
-) -> Element<'static, Message> {
-    container(text(format!("加载失败：{}", message)).size(14).color(palette.accent))
-        .width(Length::Fill)
-        .center_x(Length::Fill)
-        .center_y(Length::Fill)
-        .into()
-}
-
-pub(super) fn empty_view(
-    message: &'static str,
-    palette: Palette,
-) -> Element<'static, Message> {
-    container(text(message).size(14).color(palette.text_muted))
-        .width(Length::Fill)
-        .center_x(Length::Fill)
-        .center_y(Length::Fill)
-        .into()
-}
-
-pub(super) fn idle_view(palette: Palette) -> Element<'static, Message> {
-    container(text("请激活连接以加载 MySQL 数据。").size(14).color(palette.text_muted))
-        .width(Length::Fill)
-        .center_x(Length::Fill)
-        .center_y(Length::Fill)
-        .into()
-}
-
-pub(super) fn card_style(palette: Palette) -> container::Style {
-    container::Style {
-        background: Some(Background::Color(palette.surface)),
-        text_color: Some(palette.text),
-        border: iced::border::Border {
-            color: palette.border,
-            width: 1.0,
-            radius: 12.0.into(),
-        },
-        shadow: Shadow::default(),
-    }
-}
-
 fn expect_tabular(response: QueryResponse) -> Result<(Vec<String>, Vec<Vec<JsonValue>>), String> {
     match response.payload {
         QueryPayload::Tabular { columns, rows } => Ok((columns, rows)),
-        QueryPayload::Documents { .. } => Err("期望表格数据，但收到文档结果".into()),
     }
 }
 

@@ -37,16 +37,6 @@ impl TableColumn {
         }
     }
 
-    pub fn with_min_width(
-        mut self,
-        min_width: f32,
-    ) -> Self {
-        self.min_width = min_width.max(40.0);
-        if self.width < self.min_width {
-            self.width = self.min_width;
-        }
-        self
-    }
 }
 
 #[derive(Debug, Clone)]

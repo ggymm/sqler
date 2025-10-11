@@ -4,7 +4,8 @@ use iced::{Alignment, Element};
 use crate::app::{Message, Palette};
 
 use super::{
-    LoadState, MysqlRoutine, card_style, error_view, generic_toolbar_button, idle_view, loading_view, stack_section,
+    card_style, generic_toolbar_button, load_state_list_view, stack_section, LoadState, LoadStateMessages,
+    MysqlRoutine,
 };
 
 pub(super) fn view(
@@ -26,21 +27,22 @@ fn routines_content(
     state: Option<&LoadState<Vec<MysqlRoutine>>>,
     palette: Palette,
 ) -> Element<'static, Message> {
-    match state {
-        Some(LoadState::Loading) => loading_view("正在加载函数与存储过程…", palette),
-        Some(LoadState::Error(err)) => error_view(err, palette),
-        Some(LoadState::Ready(routines)) if routines.is_empty() => {
-            super::centered_message(vec!["当前库尚未定义函数或存储过程。".into()], palette)
-        }
-        Some(LoadState::Ready(routines)) => {
+    load_state_list_view(
+        state,
+        palette,
+        LoadStateMessages {
+            loading: "正在加载函数与存储过程…",
+            empty: "当前库尚未定义函数或存储过程。",
+            idle: "请激活连接以查看函数列表。",
+        },
+        |routines, palette| {
             let mut list = column![];
             for routine in routines {
                 list = list.push(routine_row(routine, palette));
             }
             scrollable(list.spacing(12)).into()
-        }
-        _ => idle_view(palette),
-    }
+        },
+    )
 }
 
 fn routine_row(

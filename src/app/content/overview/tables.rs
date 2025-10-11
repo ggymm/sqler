@@ -40,7 +40,7 @@ pub(super) fn view(
                 table_list_view(connection_id, &filtered, connection, palette, selected)
             }
         }
-        _ => idle_view(palette),
+        _ => idle_view("请激活连接以加载 MySQL 数据。", palette),
     };
 
     column![toolbar, body].spacing(16).into()
