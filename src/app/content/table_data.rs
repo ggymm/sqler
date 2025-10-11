@@ -183,7 +183,16 @@ fn build_sort_choices(columns: &[String]) -> Vec<SortChoice> {
 }
 
 fn sanitize_cell(value: &str) -> String {
-    let mut sanitized = value.replace(&['\n', '\r'][..], " ");
+    let mut sanitized = String::with_capacity(value.len());
+    for ch in value.chars() {
+        let mapped = match ch {
+            '\n' | '\r' | '\u{2028}' | '\u{2029}' => ' ',
+            '\t' | '\u{000B}' | '\u{000C}' => ' ',
+            ch if ch.is_control() => ' ',
+            other => other,
+        };
+        sanitized.push(mapped);
+    }
 
     if sanitized.len() > MAX_CELL_CHARS {
         sanitized.truncate(MAX_CELL_CHARS);

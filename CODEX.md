@@ -1,4 +1,4 @@
-# CODEX Map
+# CODE MAP
 
 ## App Shell
 - `src/app/mod.rs`: 根应用状态机，负责连接管理、任务调度、消息路由；`Palette`/`ThemeMode` 定义主题色板。
@@ -12,7 +12,7 @@
 - `src/app/content/overview/functions.rs`: 函数/存储过程列表；通过 `load_state_list_view` + `LoadStateMessages` 消除状态分支重复。
 - `src/app/content/overview/users.rs`: 用户列表页；同样复用 `load_state_list_view`，只关注 `user_row` 的渲染细节。
 - `src/app/content/overview/queries.rs`: 查询占位页，借助 `surface_panel` 输出占位内容。
-- `src/app/content/table_data.rs`: 表数据详情页；读取 `MysqlTableData` 与 `TableDataPreferences`，复用 `centered_message`/`loading_view` 展示状态，并通过 `data_table` 渲染数据。
+- `src/app/content/table_data.rs`: 表数据详情页；`sanitize_cell` 现会剔除所有控制字符和换行符，再截断超长内容，确保数据表格单元不会换行。
 - `src/app/content/saved_queries.rs`, `saved_functions.rs`, `query_editor.rs`: 各自通过 `surface_panel` 渲染占位提示，避免重复容器样式。
 
 ## 存储层
@@ -21,6 +21,4 @@
 - `src/driver/mongodb.rs`: 仅提供连接探活，查询接口返回 `Unsupported`，避免死代码。
 
 ## 通用组件
-- `src/comps/popup`, `src/comps/table.rs`: 复用 UI 组件与表格工具函数。
-
-> 任务约定：每次进一步重构前，从本文件梳理关键模块再动手，确保上下文一致。
+- `src/comps/popup`, `src/comps/table.rs`: 复用 UI 组件与表格工具函数。`table.rs` 的单元格文本绘制使用无限宽度 + 图层裁剪，确保内容始终单行显示，即便实际文本超过当前列宽。

@@ -219,7 +219,7 @@ impl Widget<Message, iced::Theme, iced::Renderer> for DataTable {
             let mut column_x = bounds.x - state.scroll_x;
             for (index, column) in self.columns.iter().enumerate() {
                 let width = state.column_widths.get(index).copied().unwrap_or(column.width);
-                let text_bounds = Size::new((width - 24.0).max(0.0), HEADER_HEIGHT);
+                let text_bounds = Size::new(f32::INFINITY, HEADER_HEIGHT);
 
                 renderer.fill_text(
                     text::Text {
@@ -307,7 +307,7 @@ impl Widget<Message, iced::Theme, iced::Renderer> for DataTable {
                         renderer.fill_text(
                             text::Text {
                                 content: value.clone(),
-                                bounds: Size::new((width - 24.0).max(0.0), ROW_HEIGHT),
+                                bounds: Size::new(f32::INFINITY, ROW_HEIGHT),
                                 size: Pixels(13.0),
                                 line_height: text::LineHeight::Relative(1.0),
                                 font: Default::default(),
