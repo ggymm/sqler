@@ -44,7 +44,7 @@ impl Default for App {
     fn default() -> Self {
         let overview_tab = WorkspaceTab {
             id: 0,
-            title: "数据库对象".into(),
+            title: ContentTab::Tables.title().into(),
             kind: WorkspaceTabKind::Overview,
             closable: false,
         };
@@ -341,6 +341,16 @@ pub fn update(
         Message::ToggleTheme => app.theme.toggle(),
         Message::SelectContentTab(tab) => {
             app.active_tab = tab;
+            if let Some(index) = app
+                .workspace_tabs
+                .iter()
+                .position(|t| matches!(t.kind, WorkspaceTabKind::Overview))
+            {
+                if let Some(entry) = app.workspace_tabs.get_mut(index) {
+                    entry.title = tab.title().into();
+                }
+                app.active_workspace_tab = index;
+            }
             if let Some(active) = app.active_connection {
                 return app.schedule_mysql_load(active, tab);
             }
@@ -359,7 +369,7 @@ pub fn update(
                 if app.workspace_tabs.is_empty() {
                     app.workspace_tabs.push(WorkspaceTab {
                         id: 0,
-                        title: "数据库对象".into(),
+                        title: app.active_tab.title().into(),
                         kind: WorkspaceTabKind::Overview,
                         closable: false,
                     });
@@ -572,7 +582,7 @@ pub fn update(
             if app.workspace_tabs.is_empty() {
                 app.workspace_tabs.push(WorkspaceTab {
                     id: 0,
-                    title: "数据库对象".into(),
+                    title: app.active_tab.title().into(),
                     kind: WorkspaceTabKind::Overview,
                     closable: false,
                 });
