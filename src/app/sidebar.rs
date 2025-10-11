@@ -12,6 +12,7 @@ use iced_aw::ContextMenu;
 use super::{Message, Palette};
 
 use std::time::{Duration, Instant};
+use std::collections::HashSet;
 
 const DOUBLE_CLICK_THRESHOLD: Duration = Duration::from_millis(400);
 
@@ -20,7 +21,7 @@ pub struct ConnectionsState {
     entries: Vec<Connection>,
     selected: Option<usize>,
     next_id: usize,
-    active: Option<usize>,
+    active: HashSet<usize>,
     last_click: Option<(usize, Instant)>,
 }
 
@@ -30,7 +31,7 @@ impl ConnectionsState {
             entries: Vec::new(),
             selected: None,
             next_id: 1,
-            active: None,
+            active: HashSet::new(),
             last_click: None,
         };
 
@@ -133,9 +134,7 @@ impl ConnectionsState {
         if self.selected == Some(id) {
             self.selected = None;
         }
-        if self.active == Some(id) {
-            self.active = None;
-        }
+        self.active.remove(&id);
         if self.last_click.map(|(last, _)| last == id).unwrap_or(false) {
             self.last_click = None;
         }
@@ -149,24 +148,35 @@ impl ConnectionsState {
         self.entries.iter().find(|conn| conn.id == id)
     }
 
-    pub fn active(&self) -> Option<usize> {
-        self.active
-    }
-
     pub fn activate(
         &mut self,
         id: usize,
     ) {
         if self.entries.iter().any(|conn| conn.id == id) {
-            self.active = Some(id);
+            self.active.insert(id);
             self.selected = Some(id);
             self.persist();
         }
     }
 
-    pub fn deactivate(&mut self) {
-        self.active = None;
-        self.persist();
+    pub fn deactivate(
+        &mut self,
+        id: usize,
+    ) {
+        if self.active.remove(&id) {
+            self.persist();
+        }
+    }
+
+    pub fn is_active(
+        &self,
+        id: usize,
+    ) -> bool {
+        self.active.contains(&id)
+    }
+
+    pub fn any_active(&self) -> Option<usize> {
+        self.active.iter().copied().next()
     }
 
     fn persist(&self) {
@@ -521,7 +531,7 @@ pub fn sidebar(
             column = column.push(connection_item(
                 connection,
                 connections.selected(),
-                connections.active(),
+                connections.is_active(connection.id),
                 palette,
             ));
         }
@@ -560,11 +570,10 @@ fn empty_state(palette: Palette) -> Element<'static, Message> {
 fn connection_item(
     connection: &Connection,
     selected: Option<usize>,
-    active: Option<usize>,
+    is_active: bool,
     palette: Palette,
 ) -> Element<'_, Message> {
     let is_selected = selected == Some(connection.id);
-    let is_active = active == Some(connection.id);
 
     let icon = svg::<Theme>(SvgHandle::from_path(connection.kind.icon_path()))
         .width(28)

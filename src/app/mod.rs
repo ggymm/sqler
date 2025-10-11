@@ -31,7 +31,6 @@ pub struct App {
     dialog: Option<NewConnectionDialog>,
     dialog_minimized: bool,
     drivers: DriverRegistry,
-    active_connection: Option<usize>,
     connection_status: Option<ConnectionStatusInfo>,
     window_size: Size,
     mysql_content: HashMap<usize, MysqlContentState>,
@@ -57,7 +56,6 @@ impl Default for App {
             dialog: None,
             dialog_minimized: false,
             drivers: DriverRegistry::new(),
-            active_connection: None,
             connection_status: None,
             window_size: Size::new(1280.0, 800.0),
             mysql_content: HashMap::new(),
@@ -152,9 +150,13 @@ impl App {
         self.workspace_tabs.get(self.active_workspace_tab)
     }
 
-    #[allow(dead_code)]
-    pub fn active_connection(&self) -> Option<&Connection> {
-        self.active_connection.and_then(|id| self.connections.find(id))
+    fn preferred_connection_id(&self) -> Option<usize> {
+        if let Some(selected) = self.selected_connection() {
+            if self.connections.is_active(selected) {
+                return Some(selected);
+            }
+        }
+        self.connections.any_active()
     }
 
     pub fn mysql_state(
@@ -412,7 +414,7 @@ pub fn update(
                 }
                 app.active_workspace_tab = index;
             }
-            if let Some(active) = app.active_connection {
+            if let Some(active) = app.preferred_connection_id() {
                 return app.schedule_overview_load(active, tab);
             }
         }
@@ -451,7 +453,9 @@ pub fn update(
             let tab_id = app.next_workspace_tab_id;
             app.next_workspace_tab_id += 1;
 
-            let connection_id = app.active_connection.or(app.selected_connection());
+            let connection_id = app
+                .selected_connection()
+                .or_else(|| app.preferred_connection_id());
 
             let title = format!("查询 {}", tab_id);
             app.workspace_tabs.push(WorkspaceTab {
@@ -586,18 +590,14 @@ pub fn update(
         Message::ConnectionActivationFinished(id, result) => match result {
             Ok(()) => {
                 app.connections.activate(id);
-                app.active_connection = Some(id);
                 app.connection_status = Some(ConnectionStatusInfo::success(id));
                 app.mysql_content.remove(&id);
-                 app.redis_content.remove(&id);
+                app.redis_content.remove(&id);
                 let tab = app.active_tab;
                 return app.schedule_overview_load(id, tab);
             }
             Err(error) => {
-                if app.active_connection == Some(id) {
-                    app.active_connection = None;
-                    app.connections.deactivate();
-                }
+                app.connections.deactivate(id);
                 app.connection_status = Some(ConnectionStatusInfo::failed(id, error));
             }
         },
@@ -621,10 +621,6 @@ pub fn update(
             app.connections.remove(id);
             app.mysql_content.remove(&id);
             app.redis_content.remove(&id);
-            if app.active_connection == Some(id) {
-                app.active_connection = None;
-                app.connection_status = None;
-            }
             if app.connection_status.as_ref().map(|info| info.connection_id) == Some(id) {
                 app.connection_status = None;
             }

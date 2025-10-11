@@ -1,9 +1,9 @@
 # CODE MAP
 
 ## App Shell
-- `src/app/mod.rs`: 根应用状态机，负责连接管理、任务调度、消息路由；`Palette`/`ThemeMode` 定义主题色板。
+- `src/app/mod.rs`: 根应用状态机，负责连接管理、任务调度、消息路由；`connections` 可同时标记多个激活连接，并据此触发对应的数据加载。
 - `src/app/content.rs`: 顶层内容容器，将 `App` 状态映射到各内容标签页。
-- `src/app/sidebar.rs`, `src/app/topbar.rs`, `src/app/dialog.rs`: 侧边栏、顶部栏和连接对话框的 UI 与状态。
+- `src/app/sidebar.rs`, `src/app/topbar.rs`, `src/app/dialog.rs`: 侧边栏、顶部栏和连接对话框的 UI 与状态（侧边栏使用 `HashSet` 标记所有“已连接”实例，徽标可同时亮起多个连接）。
 
 ## 内容模块
 - `src/app/content/common.rs`: 内容层公用工具箱；定义 `LoadState<T>`、`LoadStateMessages`、`generic_toolbar_button`、`load_state_list_view`、`centered_message`、`surface_panel` 等，统一加载状态、卡片样式和占位面板。
