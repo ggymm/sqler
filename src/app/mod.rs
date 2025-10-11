@@ -848,19 +848,22 @@ fn workspace_tabs_strip(
 ) -> Element<'static, Message> {
     let active_index = app.active_workspace_tab;
 
-    let mut tabs_row = row![];
+    let mut tabs_row = row![horizontal_space().width(Length::Fixed(4.0))];
     for (index, tab) in app.workspace_tabs().iter().cloned().enumerate() {
         let is_active = index == active_index;
         tabs_row = tabs_row.push(workspace_tab_entry(tab, is_active, palette));
     }
 
-    tabs_row = tabs_row.push(horizontal_space().width(Length::Fill));
+    tabs_row = tabs_row
+        .push(horizontal_space().width(Length::Fill))
+        .spacing(0)
+        .align_y(Alignment::Center);
 
-    container(tabs_row.spacing(8))
+    container(tabs_row)
         .width(Length::Fill)
-        .padding([12, 24])
+        .padding([8, 12])
         .style(move |_| container::Style {
-            background: Some(Background::Color(palette.surface)),
+            background: Some(Background::Color(palette.background)),
             border: iced::border::Border {
                 color: palette.border,
                 width: 1.0,
@@ -880,69 +883,100 @@ fn workspace_tab_entry(
     let tab_id = tab.id;
     let title = tab.title.clone();
 
-    let button_label = row![
-        text(title)
-            .size(14)
-            .color(if is_active { palette.accent_text } else { palette.text })
-    ]
-    .spacing(8)
-    .align_y(Alignment::Center);
+    let title_text = text(title)
+        .size(14)
+        .color(if is_active { palette.text } else { palette.text_muted });
 
-    let select_button = button(button_label)
-        .padding([6, 18])
+    let mut inner_row = row![title_text].spacing(8).align_y(Alignment::Center);
+
+    if tab.closable {
+        let close_button = button(
+            text("×")
+                .size(14)
+                .color(if is_active { palette.text } else { palette.text_muted }),
+        )
+        .padding([4, 6])
         .style(move |_, status| {
             use iced::widget::button::Status;
 
-            let background = if is_active {
-                palette.accent
-            } else if matches!(status, Status::Hovered) {
-                palette.surface_muted
-            } else {
-                Color::TRANSPARENT
-            };
-
+            let hovered = matches!(status, Status::Hovered);
+            let pressed = matches!(status, Status::Pressed);
             iced::widget::button::Style {
-                background: Some(Background::Color(background)),
-                border: iced::border::Border {
-                    color: if is_active { palette.accent } else { palette.border },
-                    width: 1.0,
-                    radius: 8.0.into(),
-                },
-                text_color: if is_active { palette.accent_text } else { palette.text },
-                shadow: Shadow::default(),
-            }
-        })
-        .on_press(Message::SelectWorkspaceTab(tab_id));
-
-    if tab.closable {
-        let close_button = button(text("×").size(14).color(palette.text))
-            .padding([6, 10])
-            .style(move |_, status| {
-                use iced::widget::button::Status;
-
-                let background = if matches!(status, Status::Hovered) {
+                background: Some(Background::Color(if pressed {
+                    palette.surface
+                } else if hovered {
                     palette.surface_muted
                 } else {
                     Color::TRANSPARENT
-                };
+                })),
+                border: iced::border::Border {
+                    color: Color::TRANSPARENT,
+                    width: 0.0,
+                    radius: 16.0.into(),
+                },
+                text_color: if pressed {
+                    palette.accent
+                } else if is_active {
+                    palette.text
+                } else if hovered {
+                    palette.text
+                } else {
+                    palette.text_muted
+                },
+                shadow: Shadow::default(),
+            }
+        })
+        .on_press(Message::CloseWorkspaceTab(tab_id));
 
-                iced::widget::button::Style {
-                    background: Some(Background::Color(background)),
-                    border: iced::border::Border {
-                        color: palette.border,
-                        width: 1.0,
-                        radius: 6.0.into(),
-                    },
-                    text_color: palette.text,
-                    shadow: Shadow::default(),
-                }
-            })
-            .on_press(Message::CloseWorkspaceTab(tab_id));
-
-        row![select_button, close_button].spacing(4).into()
-    } else {
-        select_button.into()
+        inner_row = inner_row.push(close_button);
     }
+
+    let button_body = container(inner_row).padding([6, 16]).style(move |_| container::Style {
+        background: Some(Background::Color(if is_active {
+            palette.surface
+        } else {
+            palette.background
+        })),
+        border: iced::border::Border {
+            color: if is_active { palette.surface } else { Color::TRANSPARENT },
+            width: 1.0,
+            radius: 10.0.into(),
+        },
+        text_color: Some(palette.text),
+        shadow: Shadow::default(),
+    });
+
+    button(button_body)
+        .padding(0)
+        .style(move |_, status| {
+            use iced::widget::button::Status;
+
+            let hovered = matches!(status, Status::Hovered);
+            iced::widget::button::Style {
+                background: Some(Background::Color(if is_active {
+                    palette.surface
+                } else if hovered {
+                    palette.surface_muted
+                } else {
+                    palette.background
+                })),
+                border: iced::border::Border {
+                    color: if is_active {
+                        palette.surface
+                    } else if hovered {
+                        palette.border
+                    } else {
+                        Color::TRANSPARENT
+                    },
+                    width: if is_active { 1.0 } else { 0.0 },
+                    radius: 10.0.into(),
+                },
+                text_color: palette.text,
+                shadow: Shadow::default(),
+            }
+        })
+        .on_press(Message::SelectWorkspaceTab(tab_id))
+        .into()
 }
 
 pub fn subscription(_app: &App) -> Subscription<Message> {
