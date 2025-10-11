@@ -4,9 +4,11 @@
 
 ## 任务约定
 
-优先阅读 CODEX.md 文件查看代码地图
+CODEX.md 文件是将代码地图
 
-执行任务后，同样要更新 CODEX.md 文件内容
+任何任务前，都应该查看 CODEX.md 文件
+
+如果此文件为空，优先编写此文件，并且在执行任务后，更新 CODEX.md 文件内容
 
 ## Role Definition
 
