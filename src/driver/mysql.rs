@@ -3,7 +3,7 @@ use mysql::prelude::Queryable;
 use mysql::{Conn, OptsBuilder, Value as MysqlValue};
 use serde_json::Value as JsonValue;
 
-use super::{ConnectionParams, DriverError, QueryRequest, QueryResponse, make_tabular_response, map_binary_or_text};
+use super::{ConnectionParams, DriverError, QueryRequest, QueryResponse, make_tabular_response, map_binary_or_text, unsupported};
 
 #[derive(Clone, Copy, Debug)]
 pub struct MysqlDriver;
@@ -29,7 +29,11 @@ impl MysqlDriver {
         request: QueryRequest,
     ) -> Task<Result<QueryResponse, DriverError>> {
         Task::future(async move {
-            let QueryRequest::Sql { statement } = request;
+            let statement = match request {
+                QueryRequest::Sql { statement } => statement,
+                QueryRequest::RedisDatabases => return Err(unsupported("MySQL 不支持该查询类型")),
+            };
+
             let mut conn = Self::connect(&params)?;
             let result = conn
                 .query_iter(statement.clone())

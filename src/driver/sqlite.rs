@@ -4,7 +4,7 @@ use serde_json::Value as JsonValue;
 
 use super::{
     ConnectionParams, DriverError, QueryRequest, QueryResponse, make_tabular_response, map_binary_or_text,
-    value_to_json_f64,
+    unsupported, value_to_json_f64,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -33,7 +33,10 @@ impl SqliteDriver {
         request: QueryRequest,
     ) -> Task<Result<QueryResponse, DriverError>> {
         Task::future(async move {
-            let QueryRequest::Sql { statement } = request;
+            let statement = match request {
+                QueryRequest::Sql { statement } => statement,
+                QueryRequest::RedisDatabases => return Err(unsupported("SQLite 不支持该查询类型")),
+            };
             let path = params.require_file_path()?.to_string();
             let conn = Connection::open(&path).map_err(|err| DriverError::Connection(err.to_string()))?;
             let mut stmt = conn

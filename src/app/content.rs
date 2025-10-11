@@ -1,11 +1,13 @@
 mod common;
 mod overview;
+mod redis;
 mod query_editor;
 mod saved_functions;
 mod saved_queries;
 mod table_data;
 
 pub use common::{LoadState, LoadState as MysqlLoadState};
+pub use redis::{RedisContentState, RedisDatabase, parse_databases as parse_redis_databases};
 pub use overview::{
     MysqlContentState, MysqlProcess, MysqlRoutine, MysqlTable, MysqlTableData, MysqlUser, PROCESSLIST_SQL,
     ROUTINES_SQL, TABLES_SQL, TableDataPreferences, TableMenuAction, USERS_SQL, parse_processlist, parse_routines,
@@ -50,6 +52,10 @@ fn overview_tab(
     if let Some(connection) = app.selected_connection().and_then(|id| app.connection(id)) {
         match connection.kind {
             DatabaseKind::Mysql => overview::render(app, active_tab, connection, palette),
+            DatabaseKind::Redis => {
+                let state = app.redis_state(connection.id);
+                redis::render(state, active_tab, connection, palette)
+            }
             other => unsupported_database(other, active_tab, palette, connection),
         }
     } else {

@@ -1,5 +1,6 @@
 mod mongodb;
 mod mysql;
+mod redis;
 mod sqlite;
 
 use iced::Task;
@@ -63,6 +64,7 @@ pub enum DriverError {
 #[derive(Debug, Clone)]
 pub enum QueryRequest {
     Sql { statement: String },
+    RedisDatabases,
 }
 
 #[derive(Debug, Clone)]
@@ -83,6 +85,7 @@ pub struct DriverRegistry {
     mysql: mysql::MysqlDriver,
     sqlite: sqlite::SqliteDriver,
     mongodb: mongodb::MongoDriver,
+    redis: redis::RedisDriver,
 }
 
 impl Default for DriverRegistry {
@@ -97,6 +100,7 @@ impl DriverRegistry {
             mysql: mysql::MysqlDriver::new(),
             sqlite: sqlite::SqliteDriver::new(),
             mongodb: mongodb::MongoDriver::new(),
+            redis: redis::RedisDriver::new(),
         }
     }
 
@@ -108,6 +112,7 @@ impl DriverRegistry {
             DatabaseKind::Mysql => self.mysql.test_connection(params),
             DatabaseKind::Sqlite => self.sqlite.test_connection(params),
             DatabaseKind::Mongodb => self.mongodb.test_connection(params),
+            DatabaseKind::Redis => self.redis.test_connection(params),
             other => Task::done(Err(DriverError::Unsupported(format!("{other:?} 暂未实现")))),
         }
     }
@@ -121,6 +126,7 @@ impl DriverRegistry {
             DatabaseKind::Mysql => self.mysql.query(params, request),
             DatabaseKind::Sqlite => self.sqlite.query(params, request),
             DatabaseKind::Mongodb => self.mongodb.query(params, request),
+            DatabaseKind::Redis => self.redis.query(params, request),
             other => Task::done(Err(DriverError::Unsupported(format!("{other:?} 暂未实现查询功能")))),
         }
     }

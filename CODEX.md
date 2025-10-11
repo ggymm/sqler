@@ -12,12 +12,14 @@
 - `src/app/content/overview/functions.rs`: 函数/存储过程列表；通过 `load_state_list_view` + `LoadStateMessages` 消除状态分支重复。
 - `src/app/content/overview/users.rs`: 用户列表页；同样复用 `load_state_list_view`，只关注 `user_row` 的渲染细节。
 - `src/app/content/overview/queries.rs`: 查询占位页，借助 `surface_panel` 输出占位内容。
+- `src/app/content/redis.rs`: Redis 概览页；`RedisContentState` 缓存 `INFO keyspace` 解析出的数据库列表，并通过卡片展示键数量/过期情况。
 - `src/app/content/table_data.rs`: 表数据详情页；`sanitize_cell` 现会剔除所有控制字符和换行符，再截断超长内容，确保数据表格单元不会换行。
 - `src/app/content/saved_queries.rs`, `saved_functions.rs`, `query_editor.rs`: 各自通过 `surface_panel` 渲染占位提示，避免重复容器样式。
 
 ## 存储层
 - `src/driver/mod.rs`: 驱动注册、请求/响应定义。当前仅保留 SQL 查询路径；执行接口与 MongoDB 文档查询均已移除，`DriverRegistry` 只暴露 `test_connection` 与 `query`。
 - `src/driver/mysql.rs`, `sqlite.rs`: 具体 SQL 驱动实现，直接返回 `QueryPayload::Tabular`。
+- `src/driver/redis.rs`: Redis 驱动；提供同步 PING 测试与 `INFO KEYSPACE` 查询，统一封装成表格响应供概览页解析。
 - `src/driver/mongodb.rs`: 仅提供连接探活，查询接口返回 `Unsupported`，避免死代码。
 
 ## 通用组件

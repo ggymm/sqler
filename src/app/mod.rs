@@ -10,8 +10,8 @@ mod topbar;
 
 use content::{
     LoadState, MysqlContentState, MysqlLoadState, MysqlProcess, MysqlRoutine, MysqlTable, MysqlTableData, MysqlUser,
-    PROCESSLIST_SQL, ROUTINES_SQL, TABLES_SQL, TableMenuAction, USERS_SQL, content, parse_processlist, parse_routines,
-    parse_table_data, parse_tables, parse_users,
+    RedisContentState, RedisDatabase, PROCESSLIST_SQL, ROUTINES_SQL, TABLES_SQL, TableMenuAction, USERS_SQL, content,
+    parse_processlist, parse_routines, parse_table_data, parse_tables, parse_users, parse_redis_databases,
 };
 use dialog::{ConnectionFormState, FormField, NewConnectionDialog, connection_info_modal, modal_view};
 #[allow(unused_imports)]
@@ -35,6 +35,7 @@ pub struct App {
     connection_status: Option<ConnectionStatusInfo>,
     window_size: Size,
     mysql_content: HashMap<usize, MysqlContentState>,
+    redis_content: HashMap<usize, RedisContentState>,
     workspace_tabs: Vec<WorkspaceTab>,
     active_workspace_tab: usize,
     next_workspace_tab_id: usize,
@@ -60,6 +61,7 @@ impl Default for App {
             connection_status: None,
             window_size: Size::new(1280.0, 800.0),
             mysql_content: HashMap::new(),
+            redis_content: HashMap::new(),
             workspace_tabs: vec![overview_tab],
             active_workspace_tab: 0,
             next_workspace_tab_id: 1,
@@ -162,7 +164,14 @@ impl App {
         self.mysql_content.get(&id)
     }
 
-    fn schedule_mysql_load(
+    pub fn redis_state(
+        &self,
+        id: usize,
+    ) -> Option<&RedisContentState> {
+        self.redis_content.get(&id)
+    }
+
+    fn schedule_overview_load(
         &mut self,
         connection_id: usize,
         tab: ContentTab,
@@ -171,15 +180,24 @@ impl App {
             return Task::none();
         };
 
-        if connection.kind != DatabaseKind::Mysql {
-            return Task::none();
+        match connection.kind {
+            DatabaseKind::Mysql => self.schedule_mysql_overview(connection_id, &connection, tab),
+            DatabaseKind::Redis => self.schedule_redis_overview(connection_id, &connection, tab),
+            _ => Task::none(),
         }
+    }
 
+    fn schedule_mysql_overview(
+        &mut self,
+        connection_id: usize,
+        connection: &Connection,
+        tab: ContentTab,
+    ) -> Task<Message> {
         match tab {
-            ContentTab::Tables => self.schedule_mysql_tables(connection_id, &connection),
-            ContentTab::Queries => self.schedule_mysql_processlist(connection_id, &connection),
-            ContentTab::Functions => self.schedule_mysql_routines(connection_id, &connection),
-            ContentTab::Users => self.schedule_mysql_users(connection_id, &connection),
+            ContentTab::Tables => self.schedule_mysql_tables(connection_id, connection),
+            ContentTab::Queries => self.schedule_mysql_processlist(connection_id, connection),
+            ContentTab::Functions => self.schedule_mysql_routines(connection_id, connection),
+            ContentTab::Users => self.schedule_mysql_users(connection_id, connection),
         }
     }
 
@@ -212,6 +230,49 @@ impl App {
                     .map_err(|e| e.to_string())
                     .and_then(|response| parse_tables(response));
                 Message::MysqlTablesLoaded(connection_id, parsed)
+            })
+    }
+
+    fn schedule_redis_overview(
+        &mut self,
+        connection_id: usize,
+        connection: &Connection,
+        tab: ContentTab,
+    ) -> Task<Message> {
+        match tab {
+            ContentTab::Tables => self.schedule_redis_databases(connection_id, connection),
+            _ => Task::none(),
+        }
+    }
+
+    fn schedule_redis_databases(
+        &mut self,
+        connection_id: usize,
+        connection: &Connection,
+    ) -> Task<Message> {
+        let should_load = {
+            let state = self.redis_content.entry(connection_id).or_default();
+            if !state.databases.should_load() {
+                false
+            } else {
+                state.databases = LoadState::Loading;
+                true
+            }
+        };
+
+        if !should_load {
+            return Task::none();
+        }
+
+        let params = connection.to_params();
+
+        self.drivers
+            .query(params, QueryRequest::RedisDatabases)
+            .map(move |result| {
+                let parsed = result
+                    .map_err(|e| e.to_string())
+                    .and_then(|response| parse_redis_databases(response));
+                Message::RedisDatabasesLoaded(connection_id, parsed)
             })
     }
 
@@ -352,7 +413,7 @@ pub fn update(
                 app.active_workspace_tab = index;
             }
             if let Some(active) = app.active_connection {
-                return app.schedule_mysql_load(active, tab);
+                return app.schedule_overview_load(active, tab);
             }
         }
         Message::SelectWorkspaceTab(tab_id) => {
@@ -470,6 +531,7 @@ pub fn update(
                             app.connections.add(connection.clone());
                         }
                         app.mysql_content.remove(&connection_id);
+                        app.redis_content.remove(&connection_id);
                         app.dialog = None;
                         app.dialog_minimized = false;
                     }
@@ -527,8 +589,9 @@ pub fn update(
                 app.active_connection = Some(id);
                 app.connection_status = Some(ConnectionStatusInfo::success(id));
                 app.mysql_content.remove(&id);
+                 app.redis_content.remove(&id);
                 let tab = app.active_tab;
-                return app.schedule_mysql_load(id, tab);
+                return app.schedule_overview_load(id, tab);
             }
             Err(error) => {
                 if app.active_connection == Some(id) {
@@ -557,6 +620,7 @@ pub fn update(
         Message::DeleteConnection(id) => {
             app.connections.remove(id);
             app.mysql_content.remove(&id);
+            app.redis_content.remove(&id);
             if app.active_connection == Some(id) {
                 app.active_connection = None;
                 app.connection_status = None;
@@ -779,6 +843,14 @@ pub fn update(
 
             if let Some(table_name) = open_table {
                 return Task::done(Message::MysqlOpenTableData(connection_id, table_name));
+            }
+        }
+        Message::RedisDatabasesLoaded(id, result) => {
+            if let Some(state) = app.redis_content.get_mut(&id) {
+                state.databases = match result {
+                    Ok(data) => LoadState::Ready(data),
+                    Err(err) => LoadState::Error(err),
+                };
             }
         }
     }
@@ -1146,6 +1218,7 @@ pub enum Message {
     MysqlTableDataScrollChanged(usize, String, f32, f32),
     MysqlTableMenuAction(usize, TableMenuAction),
     MysqlSelectTable(usize, usize),
+    RedisDatabasesLoaded(usize, Result<Vec<RedisDatabase>, String>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

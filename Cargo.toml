@@ -21,6 +21,10 @@ version = "26"
 version = "3"
 features = ["sync"]
 
+[dependencies.redis]
+version = "0.32"
+default-features = false
+
 [dependencies.rusqlite]
 version = "0.37"
 features = ["bundled"]
