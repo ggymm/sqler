@@ -404,6 +404,16 @@ pub fn update(
             });
             app.active_workspace_tab = app.workspace_tabs.len() - 1;
         }
+        Message::NewSavedQuery
+        | Message::DeleteSavedQuery
+        | Message::NewFunction
+        | Message::DeleteFunction
+        | Message::CreateUser
+        | Message::EditUser
+        | Message::DeleteUser
+        | Message::ManageUserPrivileges => {
+            // Actions will be wired when corresponding workflows are implemented.
+        }
         Message::SelectConnection(id) => {
             let double_clicked = app.connections.select(id);
 
@@ -1066,6 +1076,14 @@ pub enum Message {
     CloseWorkspaceTab(usize),
     ShowNewConnectionDialog,
     ShowNewQueryWorkspace,
+    NewSavedQuery,
+    DeleteSavedQuery,
+    NewFunction,
+    DeleteFunction,
+    CreateUser,
+    EditUser,
+    DeleteUser,
+    ManageUserPrivileges,
     SelectConnection(usize),
     ActivateConnection(usize),
     ViewConnection(usize),

@@ -151,8 +151,8 @@ pub fn render(
 
     match tab {
         ContentTab::Tables => tables_view(connection.id, state, connection, palette),
-        ContentTab::Queries => processlist_view(state.map(|s| &s.processlist), palette),
-        ContentTab::Functions => routines_view(state.map(|s| &s.routines), palette),
+        ContentTab::Queries => queries_view(connection, palette),
+        ContentTab::Functions => functions_view(state.map(|s| &s.routines), palette),
         ContentTab::Users => users_view(state.map(|s| &s.users), palette),
     }
 }
@@ -399,6 +399,67 @@ fn table_toolbar(
     .into()
 }
 
+fn queries_view(
+    connection: &Connection,
+    palette: Palette,
+) -> Element<'static, Message> {
+    let actions = row![
+        generic_toolbar_button("新建查询", Message::NewSavedQuery, palette),
+        generic_toolbar_button("删除查询", Message::DeleteSavedQuery, palette),
+    ]
+    .spacing(8)
+    .align_y(Alignment::Center);
+
+    let summary = connection.summary();
+    let content: Element<'static, Message> = column![
+        text("查询列表").size(16).color(palette.text),
+        text(format!("当前连接：{}", summary))
+            .size(13)
+            .color(palette.text_muted),
+        vertical_space().height(12),
+        text("暂无保存的查询。").size(13).color(palette.text_muted),
+        text("点击“新建查询”以创建新的查询标签页。")
+            .size(12)
+            .color(palette.text_muted),
+    ]
+    .spacing(8)
+    .into();
+
+    column![actions, content].spacing(16).into()
+}
+
+fn functions_view(
+    state: Option<&LoadState<Vec<MysqlRoutine>>>,
+    palette: Palette,
+) -> Element<'static, Message> {
+    let actions = row![
+        generic_toolbar_button("新建函数", Message::NewFunction, palette),
+        generic_toolbar_button("删除函数", Message::DeleteFunction, palette),
+    ]
+    .spacing(8)
+    .align_y(Alignment::Center);
+
+    let content = routines_content(state, palette);
+    column![actions, content].spacing(16).into()
+}
+
+fn users_view(
+    state: Option<&LoadState<Vec<MysqlUser>>>,
+    palette: Palette,
+) -> Element<'static, Message> {
+    let actions = row![
+        generic_toolbar_button("新增用户", Message::CreateUser, palette),
+        generic_toolbar_button("编辑用户", Message::EditUser, palette),
+        generic_toolbar_button("删除用户", Message::DeleteUser, palette),
+        generic_toolbar_button("权限管理", Message::ManageUserPrivileges, palette),
+    ]
+    .spacing(8)
+    .align_y(Alignment::Center);
+
+    let content = users_content(state, palette);
+    column![actions, content].spacing(16).into()
+}
+
 fn filter_tables<'a>(
     tables: &'a [MysqlTable],
     filter: &str,
@@ -476,6 +537,37 @@ fn toolbar_action_button(
         .into()
 }
 
+fn generic_toolbar_button(
+    label: &'static str,
+    message: Message,
+    palette: Palette,
+) -> Element<'static, Message> {
+    button(text(label).size(14).color(palette.text))
+        .padding([6, 12])
+        .style(move |_, status| {
+            use iced::widget::button::Status;
+
+            let background = match status {
+                Status::Hovered => palette.surface_muted,
+                Status::Pressed => palette.surface,
+                _ => Color::TRANSPARENT,
+            };
+
+            iced::widget::button::Style {
+                background: Some(Background::Color(background)),
+                border: iced::border::Border {
+                    color: palette.border,
+                    width: 1.0,
+                    radius: 6.0.into(),
+                },
+                text_color: palette.text,
+                shadow: Shadow::default(),
+            }
+        })
+        .on_press(message)
+        .into()
+}
+
 fn table_list_view(
     connection_id: usize,
     tables: &[(usize, &MysqlTable)],
@@ -502,28 +594,7 @@ fn table_list_view(
     scrollable(list.spacing(10)).into()
 }
 
-fn processlist_view(
-    state: Option<&LoadState<Vec<MysqlProcess>>>,
-    palette: Palette,
-) -> Element<'static, Message> {
-    match state {
-        Some(LoadState::Loading) => loading_view("正在加载最近查询…", palette),
-        Some(LoadState::Error(err)) => error_view(err, palette),
-        Some(LoadState::Ready(records)) if records.is_empty() => empty_view("尚未捕获到执行中的 SQL。", palette),
-        Some(LoadState::Ready(records)) => {
-            let mut list = column![];
-
-            for item in records {
-                list = list.push(process_row(item, palette));
-            }
-
-            scrollable(list.spacing(12)).into()
-        }
-        _ => idle_view(palette),
-    }
-}
-
-fn routines_view(
+fn routines_content(
     state: Option<&LoadState<Vec<MysqlRoutine>>>,
     palette: Palette,
 ) -> Element<'static, Message> {
@@ -544,7 +615,7 @@ fn routines_view(
     }
 }
 
-fn users_view(
+fn users_content(
     state: Option<&LoadState<Vec<MysqlUser>>>,
     palette: Palette,
 ) -> Element<'static, Message> {
@@ -628,42 +699,6 @@ fn table_button_style(
         text_color: if selected { palette.accent } else { palette.text },
         shadow: Shadow::default(),
     }
-}
-
-fn process_row(
-    process: &MysqlProcess,
-    palette: Palette,
-) -> Element<'static, Message> {
-    container(
-        column![
-            text(process.statement.trim().to_string())
-                .size(14)
-                .color(palette.text)
-                .width(Length::Fill),
-            vertical_space().height(6),
-            row![
-                text(format!(
-                    "已运行：{}s",
-                    process.seconds.map(|s| s.to_string()).unwrap_or_else(|| "0".into())
-                ))
-                .size(12)
-                .color(palette.text_muted),
-                horizontal_space(),
-                text(process.state.clone().unwrap_or_else(|| "-".into()))
-                    .size(12)
-                    .color(palette.text_muted),
-                horizontal_space(),
-                text(process.command.clone().unwrap_or_else(|| "-".into()))
-                    .size(12)
-                    .color(palette.text_muted),
-            ]
-            .spacing(12),
-        ]
-        .spacing(4),
-    )
-    .padding(16)
-    .style(move |_| card_style(palette))
-    .into()
 }
 
 fn routine_row(
