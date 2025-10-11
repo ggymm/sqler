@@ -88,7 +88,25 @@ pub struct MysqlContentState {
     pub selected_table: Option<usize>,
     pub table_filter: String,
     pub table_data: HashMap<String, LoadState<MysqlTableData>>,
+    pub table_prefs: HashMap<String, TableDataPreferences>,
     pub last_table_click: Option<(usize, Instant)>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TableDataPreferences {
+    pub filter: String,
+    pub sort_column: Option<usize>,
+    pub page_size: usize,
+}
+
+impl Default for TableDataPreferences {
+    fn default() -> Self {
+        Self {
+            filter: String::new(),
+            sort_column: None,
+            page_size: 100,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

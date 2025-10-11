@@ -6,8 +6,8 @@ mod table_data;
 
 pub use overview::{
     LoadState, LoadState as MysqlLoadState, MysqlContentState, MysqlProcess, MysqlRoutine, MysqlTable, MysqlTableData,
-    MysqlUser, PROCESSLIST_SQL, ROUTINES_SQL, TABLES_SQL, TableMenuAction, USERS_SQL, parse_processlist,
-    parse_routines, parse_table_data, parse_tables, parse_users,
+    MysqlUser, PROCESSLIST_SQL, ROUTINES_SQL, TABLES_SQL, TableDataPreferences, TableMenuAction, USERS_SQL,
+    parse_processlist, parse_routines, parse_table_data, parse_tables, parse_users,
 };
 
 use iced::Element;

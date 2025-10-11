@@ -1,7 +1,28 @@
-use iced::widget::{column, container, row, scrollable, text};
-use iced::{Alignment, Background, Element, Length, Shadow};
+use std::fmt;
 
-use super::{App, LoadState, Message, MysqlTableData, Palette};
+use iced::widget::{column, container, horizontal_space, pick_list, row, text, text_input};
+use iced::{Alignment, Element, Length};
+
+use crate::comps::table::{TableColumn, TableRow, data_table};
+
+use super::{App, LoadState, Message, MysqlTableData, Palette, TableDataPreferences};
+
+const PAGE_SIZE_OPTIONS: &[usize] = &[50, 100, 200, 500, 1000];
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SortChoice {
+    label: String,
+    index: Option<usize>,
+}
+
+impl fmt::Display for SortChoice {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
+        write!(f, "{}", self.label)
+    }
+}
 
 pub fn render_table_data(
     app: &App,
@@ -9,119 +30,142 @@ pub fn render_table_data(
     connection_id: usize,
     table_name: &str,
 ) -> Element<'static, Message> {
-    let state = app
-        .mysql_state(connection_id)
+    let state = app.mysql_state(connection_id);
+
+    let data_state = state
         .and_then(|s| s.table_data.get(table_name))
         .cloned()
         .unwrap_or(LoadState::Idle);
 
-    match state {
+    let prefs = state
+        .and_then(|s| s.table_prefs.get(table_name))
+        .cloned()
+        .unwrap_or_default();
+
+    match data_state {
         LoadState::Idle | LoadState::Loading => loading_view("正在加载表数据…", palette),
         LoadState::Error(err) => error_view(&err, palette),
-        LoadState::Ready(data) => render_data_view(data, palette, table_name),
+        LoadState::Ready(data) => render_data_view(palette, connection_id, table_name, data, prefs),
     }
 }
 
 fn render_data_view(
-    data: MysqlTableData,
     palette: Palette,
+    connection_id: usize,
     table_name: &str,
+    data: MysqlTableData,
+    prefs: TableDataPreferences,
 ) -> Element<'static, Message> {
-    if data.rows.is_empty() {
+    let filter_value = prefs.filter.trim().to_lowercase();
+    let mut rows: Vec<&Vec<String>> = data.rows.iter().collect();
+
+    if !filter_value.is_empty() {
+        rows.retain(|row| row.iter().any(|cell| cell.to_lowercase().contains(&filter_value)));
+    }
+
+    if let Some(index) = prefs.sort_column.filter(|idx| *idx < data.columns.len()) {
+        rows.sort_by(|a, b| {
+            let left = a.get(index).map(|s| s.as_str()).unwrap_or("");
+            let right = b.get(index).map(|s| s.as_str()).unwrap_or("");
+            left.cmp(right)
+        });
+    }
+
+    let page_size = prefs.page_size.max(1);
+    let displayed: Vec<TableRow> = rows
+        .into_iter()
+        .take(page_size)
+        .map(|row| TableRow::new(row.clone()))
+        .collect();
+
+    let columns: Vec<TableColumn> = data
+        .columns
+        .iter()
+        .map(|title| TableColumn::new(title.clone(), 160.0))
+        .collect();
+
+    if displayed.is_empty() {
         return centered_message(
             vec![
-                format!("{table_name} 暂无可展示的数据。"),
-                "仅显示前 100 行数据。".into(),
+                format!("{} 暂无匹配的数据。", table_name),
+                format!("当前页大小：{} 行。", page_size),
             ],
             palette,
         );
     }
 
-    let mut rows_view = column![header_row(&data.columns, palette)];
+    let sort_options = build_sort_choices(&data.columns);
+    let current_sort = sort_options
+        .iter()
+        .find(|item| item.index == prefs.sort_column)
+        .cloned()
+        .unwrap_or_else(|| sort_options[0].clone());
 
-    for row in data.rows {
-        rows_view = rows_view.push(data_row(&row, palette));
-    }
+    let page_options: Vec<usize> = PAGE_SIZE_OPTIONS.iter().cloned().collect();
+    let current_page_size = page_options
+        .iter()
+        .cloned()
+        .find(|size| *size == prefs.page_size)
+        .unwrap_or(100);
 
-    let note = text("仅显示前 100 行数据。").size(12).color(palette.text_muted);
+    let filter_table_key = table_name.to_string();
+    let sort_table_key = table_name.to_string();
+    let page_table_key = table_name.to_string();
 
-    let content = column![scrollable(rows_view.spacing(8)).height(Length::Fill), note]
-        .spacing(12)
-        .height(Length::Fill);
+    let filter_input = text_input("输入关键字过滤…", prefs.filter.as_str())
+        .size(13)
+        .padding([6, 10])
+        .width(Length::Fixed(220.0))
+        .on_input(move |value| Message::MysqlTableDataFilterChanged(connection_id, filter_table_key.clone(), value));
 
-    container(content)
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .style(move |_| container::Style {
-            background: Some(Background::Color(palette.surface_muted)),
-            text_color: Some(palette.text),
-            border: iced::border::Border {
-                color: palette.border,
-                width: 1.0,
-                radius: 8.0.into(),
-            },
-            shadow: Shadow::default(),
-        })
-        .into()
+    let sort_pick = pick_list(
+        sort_options.clone(),
+        Some(current_sort.clone()),
+        move |choice: SortChoice| {
+            Message::MysqlTableDataSortChanged(connection_id, sort_table_key.clone(), choice.index)
+        },
+    )
+    .placeholder("默认顺序")
+    .text_size(13);
+
+    let page_pick = pick_list(page_options.clone(), Some(current_page_size), move |size: usize| {
+        Message::MysqlTableDataPageSizeChanged(connection_id, page_table_key.clone(), size)
+    })
+    .text_size(13);
+
+    let controls = row![
+        text("筛选").size(12).color(palette.text_muted),
+        filter_input,
+        horizontal_space(),
+        text("排序").size(12).color(palette.text_muted),
+        sort_pick,
+        horizontal_space(),
+        text("每页行数").size(12).color(palette.text_muted),
+        page_pick,
+    ]
+    .spacing(12)
+    .align_y(Alignment::Center);
+
+    let table_element: Element<'static, Message> = data_table(columns, displayed, palette).into();
+
+    column![controls, table_element].spacing(16).into()
 }
 
-fn header_row(
-    columns: &[String],
-    palette: Palette,
-) -> Element<'static, Message> {
-    let mut header = row![];
+fn build_sort_choices(columns: &[String]) -> Vec<SortChoice> {
+    let mut result = Vec::with_capacity(columns.len() + 1);
+    result.push(SortChoice {
+        label: "默认顺序".into(),
+        index: None,
+    });
 
-    for column_name in columns {
-        header = header.push(
-            container(
-                text(column_name.clone())
-                    .size(13)
-                    .color(palette.text)
-                    .width(Length::Fill),
-            )
-            .padding([6, 10])
-            .width(Length::FillPortion(1))
-            .style(move |_| container::Style {
-                background: Some(Background::Color(palette.surface)),
-                text_color: Some(palette.text),
-                border: iced::border::Border {
-                    color: palette.border,
-                    width: 1.0,
-                    radius: 6.0.into(),
-                },
-                shadow: Shadow::default(),
-            }),
-        );
+    for (idx, title) in columns.iter().enumerate() {
+        result.push(SortChoice {
+            label: title.clone(),
+            index: Some(idx),
+        });
     }
 
-    header.spacing(8).align_y(Alignment::Center).into()
-}
-
-fn data_row(
-    row_data: &[String],
-    palette: Palette,
-) -> Element<'static, Message> {
-    let mut view = row![];
-
-    for cell in row_data {
-        view = view.push(
-            container(text(cell.clone()).size(13).color(palette.text).width(Length::Fill))
-                .padding([6, 10])
-                .width(Length::FillPortion(1))
-                .style(move |_| container::Style {
-                    background: Some(Background::Color(palette.surface)),
-                    text_color: Some(palette.text),
-                    border: iced::border::Border {
-                        color: palette.border,
-                        width: 1.0,
-                        radius: 6.0.into(),
-                    },
-                    shadow: Shadow::default(),
-                }),
-        );
-    }
-
-    view.spacing(8).align_y(Alignment::Center).into()
+    result
 }
 
 fn loading_view(

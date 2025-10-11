@@ -668,6 +668,8 @@ pub fn update(
                     *entry = LoadState::Loading;
                     should_schedule = true;
                 }
+
+                state.table_prefs.entry(table_name.clone()).or_default();
             }
 
             if let Some(index) = app.workspace_tabs.iter().position(|tab| {
@@ -704,12 +706,36 @@ pub fn update(
             if let Some(state) = app.mysql_content.get_mut(&connection_id) {
                 match result {
                     Ok(data) => {
+                        let column_count = data.columns.len();
                         state.table_data.insert(table_name.clone(), LoadState::Ready(data));
+
+                        let prefs = state.table_prefs.entry(table_name.clone()).or_default();
+                        if prefs.sort_column.map_or(false, |idx| idx >= column_count) {
+                            prefs.sort_column = None;
+                        }
+                        if prefs.page_size == 0 {
+                            prefs.page_size = 100;
+                        }
                     }
                     Err(err) => {
                         state.table_data.insert(table_name.clone(), LoadState::Error(err));
                     }
                 }
+            }
+        }
+        Message::MysqlTableDataFilterChanged(connection_id, table_name, filter) => {
+            if let Some(state) = app.mysql_content.get_mut(&connection_id) {
+                state.table_prefs.entry(table_name).or_default().filter = filter;
+            }
+        }
+        Message::MysqlTableDataSortChanged(connection_id, table_name, sort) => {
+            if let Some(state) = app.mysql_content.get_mut(&connection_id) {
+                state.table_prefs.entry(table_name).or_default().sort_column = sort;
+            }
+        }
+        Message::MysqlTableDataPageSizeChanged(connection_id, table_name, page_size) => {
+            if let Some(state) = app.mysql_content.get_mut(&connection_id) {
+                state.table_prefs.entry(table_name).or_default().page_size = page_size.max(1);
             }
         }
         Message::MysqlTableMenuAction(_id, _action) => {
@@ -1107,6 +1133,9 @@ pub enum Message {
     MysqlFilterTables(usize, String),
     MysqlOpenTableData(usize, String),
     MysqlTableDataLoaded(usize, String, Result<MysqlTableData, String>),
+    MysqlTableDataFilterChanged(usize, String, String),
+    MysqlTableDataSortChanged(usize, String, Option<usize>),
+    MysqlTableDataPageSizeChanged(usize, String, usize),
     MysqlTableMenuAction(usize, TableMenuAction),
     MysqlSelectTable(usize, usize),
 }
