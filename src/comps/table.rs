@@ -9,13 +9,14 @@ use iced::mouse;
 use iced::window::RedrawRequest;
 use iced::{Background, Border, Element, Event, Length, Pixels, Point, Rectangle, Shadow, Size};
 
-use crate::app::Palette;
+use crate::app::{Message, Palette};
 
 const HEADER_HEIGHT: f32 = 36.0;
 const ROW_HEIGHT: f32 = 32.0;
 const COLUMN_MIN_WIDTH: f32 = 80.0;
 const RESIZE_HANDLE_RADIUS: f32 = 5.0;
-const SCROLLBAR_HEIGHT: f32 = 12.0;
+const H_SCROLLBAR_HEIGHT: f32 = 12.0;
+const V_SCROLLBAR_WIDTH: f32 = 12.0;
 
 #[derive(Debug, Clone)]
 pub struct TableColumn {
@@ -70,10 +71,12 @@ struct DragState {
 enum ActiveDrag {
     Column(DragState),
     Horizontal,
+    Vertical,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct InternalState {
+    table_key: String,
     column_widths: Vec<f32>,
     scroll_x: f32,
     scroll_y: f32,
@@ -82,16 +85,22 @@ struct InternalState {
 }
 
 impl InternalState {
-    fn new(columns: &[TableColumn]) -> Self {
+    fn new(
+        columns: &[TableColumn],
+        table_key: String,
+        scroll_x: f32,
+        scroll_y: f32,
+    ) -> Self {
         let column_widths = columns
             .iter()
             .map(|c| c.width.max(c.min_width).max(COLUMN_MIN_WIDTH))
             .collect();
 
         Self {
+            table_key,
             column_widths,
-            scroll_x: 0.0,
-            scroll_y: 0.0,
+            scroll_x,
+            scroll_y,
             viewport: Size::ZERO,
             drag: None,
         }
@@ -127,27 +136,43 @@ impl InternalState {
     }
 }
 
-pub struct DataTable<Message> {
-    columns: Vec<TableColumn>,
-    rows: Vec<TableRow>,
-    palette: Palette,
-    _marker: std::marker::PhantomData<Message>,
-}
-
-pub fn data_table<Message>(
-    columns: Vec<TableColumn>,
-    rows: Vec<TableRow>,
-    palette: Palette,
-) -> DataTable<Message> {
-    DataTable {
-        columns,
-        rows,
-        palette,
-        _marker: std::marker::PhantomData,
+impl Default for InternalState {
+    fn default() -> Self {
+        InternalState::new(&[], String::new(), 0.0, 0.0)
     }
 }
 
-impl<Message> Widget<Message, iced::Theme, iced::Renderer> for DataTable<Message> {
+pub struct DataTable {
+    connection_id: usize,
+    table_key: String,
+    initial_scroll_x: f32,
+    initial_scroll_y: f32,
+    columns: Vec<TableColumn>,
+    rows: Vec<TableRow>,
+    palette: Palette,
+}
+
+pub fn data_table(
+    connection_id: usize,
+    table_key: String,
+    initial_scroll_x: f32,
+    initial_scroll_y: f32,
+    columns: Vec<TableColumn>,
+    rows: Vec<TableRow>,
+    palette: Palette,
+) -> DataTable {
+    DataTable {
+        connection_id,
+        table_key,
+        initial_scroll_x,
+        initial_scroll_y,
+        columns,
+        rows,
+        palette,
+    }
+}
+
+impl Widget<Message, iced::Theme, iced::Renderer> for DataTable {
     fn size(&self) -> Size<Length> {
         Size::new(Length::Fill, Length::Fill)
     }
@@ -161,7 +186,10 @@ impl<Message> Widget<Message, iced::Theme, iced::Renderer> for DataTable<Message
         let size = limits.resolve(self.size().width, self.size().height, Size::ZERO);
 
         let state = tree.state.downcast_mut::<InternalState>();
-        state.viewport = Size::new(size.width, (size.height - HEADER_HEIGHT - SCROLLBAR_HEIGHT).max(0.0));
+        state.viewport = Size::new(
+            (size.width - V_SCROLLBAR_WIDTH).max(0.0),
+            (size.height - HEADER_HEIGHT - H_SCROLLBAR_HEIGHT).max(0.0),
+        );
         state.ensure_columns(&self.columns);
         state.clamp_scroll(self.rows.len());
 
@@ -181,67 +209,73 @@ impl<Message> Widget<Message, iced::Theme, iced::Renderer> for DataTable<Message
         let bounds = layout.bounds();
         let state = tree.state.downcast_ref::<InternalState>();
 
-        let header_background = renderer::Quad {
-            bounds: Rectangle {
-                x: bounds.x,
-                y: bounds.y,
-                width: bounds.width,
-                height: HEADER_HEIGHT,
-            },
-            border: Border::default(),
-            shadow: Shadow::default(),
+        let header_bounds = Rectangle {
+            x: bounds.x,
+            y: bounds.y,
+            width: state.viewport.width,
+            height: HEADER_HEIGHT,
         };
-        renderer.fill_quad(header_background, Background::Color(self.palette.surface));
 
-        let mut column_x = bounds.x - state.scroll_x;
-        for (index, column) in self.columns.iter().enumerate() {
-            let width = state.column_widths.get(index).copied().unwrap_or(column.width);
-            let text_bounds = Size::new((width - 24.0).max(0.0), HEADER_HEIGHT);
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds: header_bounds,
+                border: Border::default(),
+                shadow: Shadow::default(),
+            },
+            Background::Color(self.palette.surface),
+        );
 
-            renderer.fill_text(
-                text::Text {
-                    content: column.title.clone(),
-                    bounds: text_bounds,
-                    size: Pixels(14.0),
-                    line_height: text::LineHeight::Relative(1.0),
-                    font: Default::default(),
-                    horizontal_alignment: alignment::Horizontal::Left,
-                    vertical_alignment: alignment::Vertical::Center,
-                    shaping: text::Shaping::Basic,
-                    wrapping: text::Wrapping::None,
-                },
-                Point::new(column_x + 12.0, bounds.y + HEADER_HEIGHT / 2.0),
-                self.palette.text,
-                Rectangle {
-                    x: column_x,
-                    y: bounds.y,
-                    width,
-                    height: HEADER_HEIGHT,
-                },
-            );
+        renderer.with_layer(header_bounds, |renderer| {
+            let mut column_x = bounds.x - state.scroll_x;
+            for (index, column) in self.columns.iter().enumerate() {
+                let width = state.column_widths.get(index).copied().unwrap_or(column.width);
+                let text_bounds = Size::new((width - 24.0).max(0.0), HEADER_HEIGHT);
 
-            renderer.fill_quad(
-                renderer::Quad {
-                    bounds: Rectangle {
-                        x: column_x + width - 0.5,
-                        y: bounds.y + 6.0,
-                        width: 1.0,
-                        height: HEADER_HEIGHT - 12.0,
+                renderer.fill_text(
+                    text::Text {
+                        content: column.title.clone(),
+                        bounds: text_bounds,
+                        size: Pixels(14.0),
+                        line_height: text::LineHeight::Relative(1.0),
+                        font: Default::default(),
+                        horizontal_alignment: alignment::Horizontal::Left,
+                        vertical_alignment: alignment::Vertical::Center,
+                        shaping: text::Shaping::Basic,
+                        wrapping: text::Wrapping::None,
                     },
-                    border: Border::default(),
-                    shadow: Shadow::default(),
-                },
-                Background::Color(self.palette.border),
-            );
+                    Point::new(column_x + 12.0, bounds.y + HEADER_HEIGHT / 2.0),
+                    self.palette.text,
+                    Rectangle {
+                        x: column_x,
+                        y: bounds.y,
+                        width,
+                        height: HEADER_HEIGHT,
+                    },
+                );
 
-            column_x += width;
-        }
+                renderer.fill_quad(
+                    renderer::Quad {
+                        bounds: Rectangle {
+                            x: column_x + width - 0.5,
+                            y: bounds.y + 6.0,
+                            width: 1.0,
+                            height: HEADER_HEIGHT - 12.0,
+                        },
+                        border: Border::default(),
+                        shadow: Shadow::default(),
+                    },
+                    Background::Color(self.palette.border),
+                );
+
+                column_x += width;
+            }
+        });
 
         let body_top = bounds.y + HEADER_HEIGHT;
         let body_bounds = Rectangle {
             x: bounds.x,
             y: body_top,
-            width: bounds.width,
+            width: state.viewport.width,
             height: state.viewport.height,
         };
 
@@ -266,7 +300,7 @@ impl<Message> Widget<Message, iced::Theme, iced::Renderer> for DataTable<Message
                         bounds: Rectangle {
                             x: bounds.x,
                             y: row_y,
-                            width: bounds.width,
+                            width: state.viewport.width,
                             height: ROW_HEIGHT,
                         },
                         border: Border::default(),
@@ -324,31 +358,68 @@ impl<Message> Widget<Message, iced::Theme, iced::Renderer> for DataTable<Message
             Background::Color(self.palette.border),
         );
 
-        if let Some((track_bounds, thumb_width, available, max_scroll_x)) = horizontal_metrics(state, bounds) {
+        if let Some(metrics) = horizontal_metrics(state, bounds) {
             renderer.fill_quad(
                 renderer::Quad {
-                    bounds: track_bounds,
+                    bounds: metrics.track_absolute,
                     border: Border::default(),
                     shadow: Shadow::default(),
                 },
                 Background::Color(self.palette.surface_muted),
             );
 
-            let ratio = if max_scroll_x > 0.0 {
-                (state.scroll_x / max_scroll_x).clamp(0.0, 1.0)
+            let ratio = if metrics.max_scroll_x > 0.0 {
+                (state.scroll_x / metrics.max_scroll_x).clamp(0.0, 1.0)
             } else {
                 0.0
             };
 
-            let thumb_x = track_bounds.x + ratio * available;
+            let thumb_x = metrics.track_absolute.x + ratio * metrics.available;
 
             renderer.fill_quad(
                 renderer::Quad {
                     bounds: Rectangle {
                         x: thumb_x,
-                        y: track_bounds.y + 2.0,
-                        width: thumb_width,
-                        height: track_bounds.height - 4.0,
+                        y: metrics.track_absolute.y + 2.0,
+                        width: metrics.thumb_width,
+                        height: metrics.track_absolute.height - 4.0,
+                    },
+                    border: Border {
+                        color: self.palette.border,
+                        width: 1.0,
+                        radius: 4.0.into(),
+                    },
+                    shadow: Shadow::default(),
+                },
+                Background::Color(self.palette.surface),
+            );
+        }
+
+        if let Some(v_metrics) = vertical_metrics(state, bounds, self.rows.len()) {
+            renderer.fill_quad(
+                renderer::Quad {
+                    bounds: v_metrics.track_absolute,
+                    border: Border::default(),
+                    shadow: Shadow::default(),
+                },
+                Background::Color(self.palette.surface_muted),
+            );
+
+            let ratio = if v_metrics.max_scroll_y > 0.0 {
+                (state.scroll_y / v_metrics.max_scroll_y).clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
+
+            let thumb_y = v_metrics.track_absolute.y + ratio * v_metrics.available;
+
+            renderer.fill_quad(
+                renderer::Quad {
+                    bounds: Rectangle {
+                        x: v_metrics.track_absolute.x + 2.0,
+                        y: thumb_y,
+                        width: v_metrics.track_absolute.width - 4.0,
+                        height: v_metrics.thumb_height,
                     },
                     border: Border {
                         color: self.palette.border,
@@ -378,6 +449,9 @@ impl<Message> Widget<Message, iced::Theme, iced::Renderer> for DataTable<Message
 
         match event {
             Event::Mouse(mouse::Event::WheelScrolled { delta }) => {
+                let previous_x = state.scroll_x;
+                let previous_y = state.scroll_y;
+
                 match delta {
                     mouse::ScrollDelta::Lines { x, y } => {
                         state.scroll_x -= x * COLUMN_MIN_WIDTH * 0.5;
@@ -389,13 +463,19 @@ impl<Message> Widget<Message, iced::Theme, iced::Renderer> for DataTable<Message
                     }
                 }
                 state.clamp_scroll(self.rows.len());
-                shell.request_redraw(RedrawRequest::NextFrame);
+                if (state.scroll_x - previous_x).abs() > f32::EPSILON
+                    || (state.scroll_y - previous_y).abs() > f32::EPSILON
+                {
+                    shell.request_redraw(RedrawRequest::NextFrame);
+                    self.publish_scroll(state, shell);
+                }
                 event::Status::Captured
             }
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
                 let Some(position) = cursor.position_in(bounds) else {
                     return event::Status::Ignored;
                 };
+                let relative = position;
 
                 if position.y <= HEADER_HEIGHT && self.columns.len() > 1 {
                     let absolute_x = position.x + state.scroll_x;
@@ -413,15 +493,44 @@ impl<Message> Widget<Message, iced::Theme, iced::Renderer> for DataTable<Message
                     }
                 }
 
-                if let Some((track_bounds, thumb_width, available, max_scroll_x)) = horizontal_metrics(state, bounds) {
-                    if position.y >= track_bounds.y && position.y <= track_bounds.y + track_bounds.height {
-                        let target = (position.x - track_bounds.x - thumb_width / 2.0).clamp(0.0, available);
-                        if available > 0.0 {
-                            state.scroll_x = (target / available) * max_scroll_x;
+                if let Some(metrics) = horizontal_metrics(state, bounds) {
+                    if position.y >= metrics.track_local.y
+                        && position.y <= metrics.track_local.y + metrics.track_local.height
+                    {
+                        let previous_x = state.scroll_x;
+                        if metrics.available > 0.0 {
+                            let target = (position.x - metrics.track_local.x - metrics.thumb_width / 2.0)
+                                .clamp(0.0, metrics.available);
+                            state.scroll_x = (target / metrics.available) * metrics.max_scroll_x;
                             state.clamp_scroll(self.rows.len());
                             shell.request_redraw(RedrawRequest::NextFrame);
+                            if (state.scroll_x - previous_x).abs() > f32::EPSILON {
+                                self.publish_scroll(state, shell);
+                            }
                         }
                         state.drag = Some(ActiveDrag::Horizontal);
+                        return event::Status::Captured;
+                    }
+                }
+
+                if let Some(v_metrics) = vertical_metrics(state, bounds, self.rows.len()) {
+                    let previous_y = state.scroll_y;
+                    if relative.x >= v_metrics.track_local.x
+                        && relative.x <= v_metrics.track_local.x + v_metrics.track_local.width
+                        && relative.y >= v_metrics.track_local.y
+                        && relative.y <= v_metrics.track_local.y + v_metrics.track_local.height
+                    {
+                        if v_metrics.available > 0.0 {
+                            let target = (relative.y - v_metrics.track_local.y - v_metrics.thumb_height / 2.0)
+                                .clamp(0.0, v_metrics.available);
+                            state.scroll_y = (target / v_metrics.available) * v_metrics.max_scroll_y;
+                            state.clamp_scroll(self.rows.len());
+                            shell.request_redraw(RedrawRequest::NextFrame);
+                            if (state.scroll_y - previous_y).abs() > f32::EPSILON {
+                                self.publish_scroll(state, shell);
+                            }
+                        }
+                        state.drag = Some(ActiveDrag::Vertical);
                         return event::Status::Captured;
                     }
                 }
@@ -435,9 +544,11 @@ impl<Message> Widget<Message, iced::Theme, iced::Renderer> for DataTable<Message
                 event::Status::Ignored
             }
             Event::Mouse(mouse::Event::CursorMoved { position }) => {
+                let relative = Point::new(position.x - bounds.x, position.y - bounds.y);
+
                 match state.drag {
                     Some(ActiveDrag::Column(ref mut drag)) => {
-                        let relative = Point::new(position.x - bounds.x, position.y - bounds.y);
+                        let previous_x = state.scroll_x;
                         let absolute_x = relative.x + state.scroll_x;
                         let column = drag.column;
                         let new_width = (drag.initial_width + absolute_x - drag.start_x)
@@ -446,17 +557,39 @@ impl<Message> Widget<Message, iced::Theme, iced::Renderer> for DataTable<Message
                         state.column_widths[column] = new_width;
                         state.clamp_scroll(self.rows.len());
                         shell.request_redraw(RedrawRequest::NextFrame);
+                        if (state.scroll_x - previous_x).abs() > f32::EPSILON {
+                            self.publish_scroll(state, shell);
+                        }
                         return event::Status::Captured;
                     }
                     Some(ActiveDrag::Horizontal) => {
-                        if let Some((track_bounds, thumb_width, available, max_scroll_x)) =
-                            horizontal_metrics(state, bounds)
-                        {
-                            let target = (position.x - track_bounds.x - thumb_width / 2.0).clamp(0.0, available);
-                            if available > 0.0 {
-                                state.scroll_x = (target / available) * max_scroll_x;
+                        let previous_x = state.scroll_x;
+                        if let Some(metrics) = horizontal_metrics(state, bounds) {
+                            if metrics.available > 0.0 {
+                                let target = (relative.x - metrics.track_local.x - metrics.thumb_width / 2.0)
+                                    .clamp(0.0, metrics.available);
+                                state.scroll_x = (target / metrics.available) * metrics.max_scroll_x;
                                 state.clamp_scroll(self.rows.len());
                                 shell.request_redraw(RedrawRequest::NextFrame);
+                                if (state.scroll_x - previous_x).abs() > f32::EPSILON {
+                                    self.publish_scroll(state, shell);
+                                }
+                            }
+                            return event::Status::Captured;
+                        }
+                    }
+                    Some(ActiveDrag::Vertical) => {
+                        let previous_y = state.scroll_y;
+                        if let Some(metrics) = vertical_metrics(state, bounds, self.rows.len()) {
+                            if metrics.available > 0.0 {
+                                let target = (relative.y - metrics.track_local.y - metrics.thumb_height / 2.0)
+                                    .clamp(0.0, metrics.available);
+                                state.scroll_y = (target / metrics.available) * metrics.max_scroll_y;
+                                state.clamp_scroll(self.rows.len());
+                                shell.request_redraw(RedrawRequest::NextFrame);
+                                if (state.scroll_y - previous_y).abs() > f32::EPSILON {
+                                    self.publish_scroll(state, shell);
+                                }
                             }
                             return event::Status::Captured;
                         }
@@ -478,7 +611,7 @@ impl<Message> Widget<Message, iced::Theme, iced::Renderer> for DataTable<Message
         _viewport: &Rectangle,
         _renderer: &iced::Renderer,
     ) -> mouse::Interaction {
-        if self.columns.len() <= 1 {
+        if self.columns.is_empty() {
             return mouse::Interaction::Idle;
         }
 
@@ -497,9 +630,25 @@ impl<Message> Widget<Message, iced::Theme, iced::Renderer> for DataTable<Message
                 }
             }
 
-            if let Some((track_bounds, ..)) = horizontal_metrics(state, bounds) {
-                if position.y >= track_bounds.y && position.y <= track_bounds.y + track_bounds.height {
+            if let Some(metrics) = horizontal_metrics(state, bounds) {
+                if position.y >= metrics.track_local.y
+                    && position.y <= metrics.track_local.y + metrics.track_local.height
+                {
                     return if matches!(state.drag, Some(ActiveDrag::Horizontal)) {
+                        mouse::Interaction::Grabbing
+                    } else {
+                        mouse::Interaction::Grab
+                    };
+                }
+            }
+
+            if let Some(v_metrics) = vertical_metrics(state, bounds, self.rows.len()) {
+                if position.x >= v_metrics.track_local.x
+                    && position.x <= v_metrics.track_local.x + v_metrics.track_local.width
+                    && position.y >= v_metrics.track_local.y
+                    && position.y <= v_metrics.track_local.y + v_metrics.track_local.height
+                {
+                    return if matches!(state.drag, Some(ActiveDrag::Vertical)) {
                         mouse::Interaction::Grabbing
                     } else {
                         mouse::Interaction::Grab
@@ -515,7 +664,17 @@ impl<Message> Widget<Message, iced::Theme, iced::Renderer> for DataTable<Message
         &self,
         tree: &mut Tree,
     ) {
-        tree.state.downcast_mut::<InternalState>().ensure_columns(&self.columns);
+        let state = tree.state.downcast_mut::<InternalState>();
+        if state.table_key != self.table_key {
+            *state = InternalState::new(
+                &self.columns,
+                self.table_key.clone(),
+                self.initial_scroll_x,
+                self.initial_scroll_y,
+            );
+        } else {
+            state.ensure_columns(&self.columns);
+        }
     }
 
     fn tag(&self) -> widget::tree::Tag {
@@ -523,14 +682,42 @@ impl<Message> Widget<Message, iced::Theme, iced::Renderer> for DataTable<Message
     }
 
     fn state(&self) -> widget::tree::State {
-        widget::tree::State::new(InternalState::new(&self.columns))
+        widget::tree::State::new(InternalState::new(
+            &self.columns,
+            self.table_key.clone(),
+            self.initial_scroll_x,
+            self.initial_scroll_y,
+        ))
     }
+}
+
+impl DataTable {
+    fn publish_scroll(
+        &self,
+        state: &InternalState,
+        shell: &mut Shell<'_, Message>,
+    ) {
+        shell.publish(Message::MysqlTableDataScrollChanged(
+            self.connection_id,
+            self.table_key.clone(),
+            state.scroll_x,
+            state.scroll_y,
+        ));
+    }
+}
+
+struct HorizontalMetrics {
+    track_absolute: Rectangle,
+    track_local: Rectangle,
+    thumb_width: f32,
+    available: f32,
+    max_scroll_x: f32,
 }
 
 fn horizontal_metrics(
     state: &InternalState,
     bounds: Rectangle,
-) -> Option<(Rectangle, f32, f32, f32)> {
+) -> Option<HorizontalMetrics> {
     if state.viewport.width <= 0.0 {
         return None;
     }
@@ -541,11 +728,18 @@ fn horizontal_metrics(
         return None;
     }
 
+    let local_track = Rectangle {
+        x: 0.0,
+        y: HEADER_HEIGHT + state.viewport.height,
+        width: state.viewport.width,
+        height: H_SCROLLBAR_HEIGHT,
+    };
+
     let track_bounds = Rectangle {
-        x: bounds.x,
-        y: bounds.y + HEADER_HEIGHT + state.viewport.height,
-        width: bounds.width,
-        height: SCROLLBAR_HEIGHT,
+        x: bounds.x + local_track.x,
+        y: bounds.y + local_track.y,
+        width: local_track.width,
+        height: local_track.height,
     };
 
     if track_bounds.height <= 0.0 {
@@ -556,11 +750,71 @@ fn horizontal_metrics(
     let thumb_width = (track_bounds.width * visible_ratio).clamp(24.0, track_bounds.width);
     let available = (track_bounds.width - thumb_width).max(1.0);
 
-    Some((track_bounds, thumb_width, available, max_scroll_x))
+    Some(HorizontalMetrics {
+        track_absolute: track_bounds,
+        track_local: local_track,
+        thumb_width,
+        available,
+        max_scroll_x,
+    })
 }
 
-impl<Message: 'static> From<DataTable<Message>> for Element<'static, Message> {
-    fn from(table: DataTable<Message>) -> Self {
+struct VerticalMetrics {
+    track_absolute: Rectangle,
+    track_local: Rectangle,
+    thumb_height: f32,
+    available: f32,
+    max_scroll_y: f32,
+}
+
+fn vertical_metrics(
+    state: &InternalState,
+    bounds: Rectangle,
+    row_count: usize,
+) -> Option<VerticalMetrics> {
+    if state.viewport.height <= 0.0 {
+        return None;
+    }
+
+    let content_height = row_count as f32 * ROW_HEIGHT;
+    let max_scroll_y = (content_height - state.viewport.height).max(0.0);
+    if max_scroll_y <= 0.0 {
+        return None;
+    }
+
+    let local_track = Rectangle {
+        x: state.viewport.width,
+        y: HEADER_HEIGHT,
+        width: V_SCROLLBAR_WIDTH,
+        height: state.viewport.height,
+    };
+
+    let track_bounds = Rectangle {
+        x: bounds.x + local_track.x,
+        y: bounds.y + local_track.y,
+        width: local_track.width,
+        height: local_track.height,
+    };
+
+    if track_bounds.height <= 0.0 {
+        return None;
+    }
+
+    let visible_ratio = (state.viewport.height / content_height).clamp(0.05, 1.0);
+    let thumb_height = (local_track.height * visible_ratio).clamp(24.0, local_track.height);
+    let available = (local_track.height - thumb_height).max(1.0);
+
+    Some(VerticalMetrics {
+        track_absolute: track_bounds,
+        track_local: local_track,
+        thumb_height,
+        available,
+        max_scroll_y,
+    })
+}
+
+impl From<DataTable> for Element<'static, Message> {
+    fn from(table: DataTable) -> Self {
         Element::new(table)
     }
 }

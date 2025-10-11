@@ -8,6 +8,7 @@ use crate::comps::table::{TableColumn, TableRow, data_table};
 use super::{App, LoadState, Message, MysqlTableData, Palette, TableDataPreferences};
 
 const PAGE_SIZE_OPTIONS: &[usize] = &[50, 100, 200, 500, 1000];
+const MAX_CELL_CHARS: usize = 512;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct SortChoice {
@@ -75,7 +76,10 @@ fn render_data_view(
     let displayed: Vec<TableRow> = rows
         .into_iter()
         .take(page_size)
-        .map(|row| TableRow::new(row.clone()))
+        .map(|row| {
+            let sanitized = row.iter().map(|cell| sanitize_cell(cell)).collect();
+            TableRow::new(sanitized)
+        })
         .collect();
 
     let columns: Vec<TableColumn> = data
@@ -146,7 +150,16 @@ fn render_data_view(
     .spacing(12)
     .align_y(Alignment::Center);
 
-    let table_element: Element<'static, Message> = data_table(columns, displayed, palette).into();
+    let table_element: Element<'static, Message> = data_table(
+        connection_id,
+        table_name.to_string(),
+        prefs.scroll_x,
+        prefs.scroll_y,
+        columns,
+        displayed,
+        palette,
+    )
+    .into();
 
     column![controls, table_element].spacing(16).into()
 }
@@ -166,6 +179,17 @@ fn build_sort_choices(columns: &[String]) -> Vec<SortChoice> {
     }
 
     result
+}
+
+fn sanitize_cell(value: &str) -> String {
+    let mut sanitized = value.replace(&['\n', '\r'][..], " ");
+
+    if sanitized.len() > MAX_CELL_CHARS {
+        sanitized.truncate(MAX_CELL_CHARS);
+        sanitized.push('…');
+    }
+
+    sanitized
 }
 
 fn loading_view(

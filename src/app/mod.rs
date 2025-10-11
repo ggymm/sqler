@@ -738,6 +738,13 @@ pub fn update(
                 state.table_prefs.entry(table_name).or_default().page_size = page_size.max(1);
             }
         }
+        Message::MysqlTableDataScrollChanged(connection_id, table_name, scroll_x, scroll_y) => {
+            if let Some(state) = app.mysql_content.get_mut(&connection_id) {
+                let prefs = state.table_prefs.entry(table_name).or_default();
+                prefs.scroll_x = scroll_x;
+                prefs.scroll_y = scroll_y;
+            }
+        }
         Message::MysqlTableMenuAction(_id, _action) => {
             // Actions will be wired once table-specific operations are implemented.
         }
@@ -1136,6 +1143,7 @@ pub enum Message {
     MysqlTableDataFilterChanged(usize, String, String),
     MysqlTableDataSortChanged(usize, String, Option<usize>),
     MysqlTableDataPageSizeChanged(usize, String, usize),
+    MysqlTableDataScrollChanged(usize, String, f32, f32),
     MysqlTableMenuAction(usize, TableMenuAction),
     MysqlSelectTable(usize, usize),
 }

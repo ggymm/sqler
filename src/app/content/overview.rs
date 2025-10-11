@@ -97,6 +97,8 @@ pub struct TableDataPreferences {
     pub filter: String,
     pub sort_column: Option<usize>,
     pub page_size: usize,
+    pub scroll_x: f32,
+    pub scroll_y: f32,
 }
 
 impl Default for TableDataPreferences {
@@ -105,6 +107,8 @@ impl Default for TableDataPreferences {
             filter: String::new(),
             sort_column: None,
             page_size: 100,
+            scroll_x: 0.0,
+            scroll_y: 0.0,
         }
     }
 }
