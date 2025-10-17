@@ -8,7 +8,7 @@ use gpui_component::{
     ActiveTheme as _,
 };
 
-use crate::views::SqlerApp;
+use crate::views::{create::CreateDataSourceWindow, SqlerApp};
 
 #[derive(Clone)]
 pub struct MySqlState {
@@ -49,7 +49,10 @@ impl MySqlState {
     }
 }
 
-pub fn render(state: &mut MySqlState, cx: &mut Context<SqlerApp>) -> gpui::Div {
+pub fn render(
+    state: &mut MySqlState,
+    cx: &mut Context<CreateDataSourceWindow>,
+) -> gpui::Div {
     v_flex()
         .gap(px(12.))
         .child(

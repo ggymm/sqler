@@ -26,7 +26,6 @@ use gpui_component::{
 use crate::comps;
 
 use crate::views::{
-    create,
     topbar,
     DataSourceMeta,
     DataSourceTabState,
@@ -38,7 +37,7 @@ use crate::views::{
     TabKind,
 };
 
-pub(super) fn render_root(
+pub fn render_root(
     app: &mut SqlerApp,
     window: &mut Window,
     cx: &mut Context<SqlerApp>,
@@ -48,16 +47,10 @@ pub(super) fn render_root(
     let topbar = topbar::render(app, window, cx);
     let content = render_active(app, window, cx);
 
-    let mut page = comps::page()
+    comps::page()
         .child(topbar)
-        .child(div().flex_1().size_full().child(content));
-
-    if let Some(state) = app.new_ds_modal.as_mut() {
-        let modal_view = create::render_new_data_source_modal(state, window, cx);
-        page = page.child(modal_view);
-    }
-
-    page.into_any_element()
+        .child(div().flex_1().size_full().child(content))
+        .into_any_element()
 }
 
 fn render_active(
@@ -346,7 +339,7 @@ fn render_workspace_body(meta: &DataSourceMeta, cx: &mut Context<SqlerApp>) -> g
     }
 }
 
-pub(super) fn render_common_workspace(
+pub fn render_common_workspace(
     kind: DatabaseKind,
     meta: &DataSourceMeta,
     notes: Vec<String>,

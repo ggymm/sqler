@@ -1,8 +1,23 @@
-use gpui::{Context, IntoElement, Render, SharedString, Window};
+use gpui::{
+    px,
+    size,
+    Bounds,
+    Context,
+    IntoElement,
+    Render,
+    SharedString,
+    Window,
+    WindowBounds,
+    WindowHandle,
+    WindowKind,
+    WindowOptions,
+};
+use gpui::AppContext as _;
 use gpui_component::{
     theme::{Theme, ThemeMode},
     ActiveTheme as _,
 };
+use gpui_component::Root;
 
 pub mod create;
 pub mod workspace;
@@ -187,7 +202,7 @@ pub struct SqlerApp {
     pub active_tab: TabId,
     pub next_tab_id: u64,
     pub saved_sources: Vec<DataSourceMeta>,
-    pub new_ds_modal: Option<NewDataSourceState>,
+    pub new_ds_window: Option<WindowHandle<Root>>,
 }
 
 impl SqlerApp {
@@ -201,7 +216,7 @@ impl SqlerApp {
             active_tab: home_id,
             next_tab_id,
             saved_sources,
-            new_ds_modal: None,
+            new_ds_window: None,
         }
     }
 
@@ -210,20 +225,52 @@ impl SqlerApp {
         window: &mut Window,
         cx: &mut Context<SqlerApp>,
     ) {
-        self.new_ds_modal = Some(NewDataSourceState::new(window, cx));
-        cx.notify();
-    }
+        if let Some(handle) = &self.new_ds_window {
+            let _ = handle.update(cx, |_, modal_window, _| {
+                modal_window.activate_window();
+            });
+            return;
+        }
 
-    pub fn hide_new_data_source_modal(&mut self, cx: &mut Context<SqlerApp>) {
-        if self.new_ds_modal.take().is_some() {
-            cx.notify();
+        let state = NewDataSourceState::new(window, cx);
+        let parent = cx.weak_entity();
+        let options = WindowOptions {
+            window_bounds: Some(WindowBounds::Windowed(Bounds::centered(
+                None,
+                size(px(640.), px(560.)),
+                cx,
+            ))),
+            kind: WindowKind::Floating,
+            is_resizable: false,
+            is_movable: true,
+            is_minimizable: false,
+            ..Default::default()
+        };
+
+        match cx.open_window(
+            options,
+            move |modal_window, app_cx| {
+                let parent = parent.clone();
+                let view = app_cx.new(|cx| {
+                    create::CreateDataSourceWindow::new(state, parent.clone(), modal_window, cx)
+                });
+                app_cx.new(|cx| Root::new(view.into(), modal_window, cx))
+            },
+        ) {
+            Ok(handle) => {
+                let _ = handle.update(cx, |_, modal_window, _| {
+                    modal_window.set_window_title("新建数据源");
+                });
+                self.new_ds_window = Some(handle);
+            }
+            Err(err) => {
+                eprintln!("failed to open create data source window: {err:?}");
+            }
         }
     }
 
-    pub fn submit_new_data_source_modal(&mut self, cx: &mut Context<SqlerApp>) {
-        if self.new_ds_modal.take().is_some() {
-            cx.notify();
-        }
+    pub fn clear_new_data_source_window(&mut self) {
+        self.new_ds_window = None;
     }
 
     pub fn toggle_theme(&mut self, window: &mut Window, cx: &mut Context<SqlerApp>) {

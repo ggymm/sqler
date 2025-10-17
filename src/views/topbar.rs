@@ -16,7 +16,7 @@ use gpui_component::{
 
 use crate::views::SqlerApp;
 
-pub(super) fn render(app: &mut SqlerApp, _window: &mut Window, cx: &mut Context<SqlerApp>) -> gpui::Div {
+pub fn render(app: &mut SqlerApp, _window: &mut Window, cx: &mut Context<SqlerApp>) -> gpui::Div {
     let tabs = tab_scroller(app, cx);
     let tabs_container = gpui::div().flex_1().min_w_0().child(tabs);
     let controls = controls(cx);
@@ -108,7 +108,7 @@ fn tab_buttons(app: &mut SqlerApp, cx: &mut Context<SqlerApp>) -> Vec<AnyElement
                 let style = pill.style();
                 style.flex_grow = Some(0.);
                 style.flex_shrink = Some(1.);
-                style.flex_basis = Some(Length::Definite(px(360.).into()));
+                style.flex_basis = Some(Length::Definite(px(240.).into()));
                 style.min_size.width = Some(Length::Definite(px(0.).into()));
             }
 
