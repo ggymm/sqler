@@ -5,8 +5,7 @@ use gpui_component::{
 };
 
 pub(crate) mod content;
-pub(crate) mod dialog;
-pub(crate) mod dialog_view;
+pub(crate) mod create;
 pub(crate) mod topbar;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -108,20 +107,20 @@ impl InnerTab {
 #[derive(Clone)]
 pub(crate) struct NewDataSourceState {
     pub selected: Option<DatabaseKind>,
-    pub postgres: dialog::postgres::PostgresState,
-    pub mysql: dialog::mysql::MySqlState,
-    pub sqlite: dialog::sqlite::SqliteState,
-    pub sqlserver: dialog::sqlserver::SqlServerState,
+    pub postgres: create::postgres::PostgresState,
+    pub mysql: create::mysql::MySqlState,
+    pub sqlite: create::sqlite::SqliteState,
+    pub sqlserver: create::sqlserver::SqlServerState,
 }
 
 impl NewDataSourceState {
     pub(crate) fn new(window: &mut Window, cx: &mut Context<SqlerApp>) -> Self {
         Self {
             selected: None,
-            postgres: dialog::postgres::PostgresState::new(window, cx),
-            mysql: dialog::mysql::MySqlState::new(window, cx),
-            sqlite: dialog::sqlite::SqliteState::new(window, cx),
-            sqlserver: dialog::sqlserver::SqlServerState::new(window, cx),
+            postgres: create::postgres::PostgresState::new(window, cx),
+            mysql: create::mysql::MySqlState::new(window, cx),
+            sqlite: create::sqlite::SqliteState::new(window, cx),
+            sqlserver: create::sqlserver::SqlServerState::new(window, cx),
         }
     }
 }

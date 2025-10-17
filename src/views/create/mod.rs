@@ -1,3 +1,8 @@
+pub(crate) mod postgres;
+pub(crate) mod mysql;
+pub(crate) mod sqlite;
+pub(crate) mod sqlserver;
+
 use gpui::{div, px, AnyElement, Context, IntoElement, ParentElement, Styled, Window};
 use gpui::prelude::FluentBuilder;
 use gpui_component::{
@@ -8,7 +13,7 @@ use gpui_component::{
     StyledExt,
 };
 
-use crate::views::{dialog, DatabaseKind, NewDataSourceState, SqlerApp};
+use crate::views::{DatabaseKind, NewDataSourceState, SqlerApp};
 
 pub(super) fn render_new_data_source_modal(
     state: &mut NewDataSourceState,
@@ -131,10 +136,10 @@ fn render_kind_selection(_state: &mut NewDataSourceState, cx: &mut Context<Sqler
 
 fn render_form(kind: DatabaseKind, state: &mut NewDataSourceState, cx: &mut Context<SqlerApp>) -> gpui::Div {
     match kind {
-        DatabaseKind::Postgres => dialog::postgres::render(&mut state.postgres, cx),
-        DatabaseKind::MySql => dialog::mysql::render(&mut state.mysql, cx),
-        DatabaseKind::Sqlite => dialog::sqlite::render(&mut state.sqlite, cx),
-        DatabaseKind::SqlServer => dialog::sqlserver::render(&mut state.sqlserver, cx),
+        DatabaseKind::Postgres => postgres::render(&mut state.postgres, cx),
+        DatabaseKind::MySql => mysql::render(&mut state.mysql, cx),
+        DatabaseKind::Sqlite => sqlite::render(&mut state.sqlite, cx),
+        DatabaseKind::SqlServer => sqlserver::render(&mut state.sqlserver, cx),
     }
 }
 

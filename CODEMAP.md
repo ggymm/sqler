@@ -13,8 +13,8 @@
 - `src/views/`
     - `content.rs`：组合整体布局（含顶栏、主体、弹窗），并渲染各标签内容
     - `topbar.rs`：渲染顶栏（标签页 + “新建数据源”按钮 + 主题切换）
-    - `dialog_view.rs`：自定义“新建数据源”弹窗（类型选择 + 表单）
-    - `dialog/`：按数据库类型划分的创建表单（Postgres、MySQL、SQLite、SQL Server）
+    - `create/mod.rs`：自定义“新建数据源”弹窗（类型选择 + 表单）
+    - `create/{postgres,mysql,sqlite,sqlserver}.rs`：按数据库类型划分的创建表单
 - `assets/`：图标等静态资源
 - `Cargo.toml`：依赖 `gpui` 与 `gpui-component`
 
