@@ -1,12 +1,9 @@
-use gpui::{AppContext as _, Context, Entity, IntoElement, Render, SharedString, Window};
-use gpui_component::{
-    input::InputState,
-    theme::{Theme, ThemeMode},
-    ActiveTheme as _,
-};
+use gpui::{Context, IntoElement, Render, SharedString, Window};
+use gpui_component::{theme::{Theme, ThemeMode}, ActiveTheme as _, ActiveTheme};
 
 pub(crate) mod content;
-pub(crate) mod modal;
+pub(crate) mod dialog;
+pub(crate) mod dialog_view;
 pub(crate) mod topbar;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -24,6 +21,7 @@ impl TabId {
     }
 }
 
+#[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[allow(dead_code)]
 pub(crate) enum DatabaseKind {
@@ -41,6 +39,15 @@ impl DatabaseKind {
             DatabaseKind::Sqlite => "SQLite",
             DatabaseKind::SqlServer => "SQL Server",
         }
+    }
+
+    pub(crate) fn all() -> &'static [DatabaseKind] {
+        &[
+            DatabaseKind::Postgres,
+            DatabaseKind::MySql,
+            DatabaseKind::Sqlite,
+            DatabaseKind::SqlServer,
+        ]
     }
 }
 
@@ -96,54 +103,22 @@ impl InnerTab {
 }
 
 #[derive(Clone)]
-pub(crate) struct ConnectionForm {
-    pub name: Entity<InputState>,
-    pub host: Entity<InputState>,
-    pub port: Entity<InputState>,
-    pub username: Entity<InputState>,
-    pub password: Entity<InputState>,
-    pub database: Entity<InputState>,
-    pub schema: Entity<InputState>,
-}
-
-impl ConnectionForm {
-    fn new(window: &mut Window, cx: &mut Context<SqlerApp>) -> Self {
-        Self {
-            name: cx.new(|cx| {
-                InputState::new(window, cx).placeholder("输入数据源名称，例如：线上生产库")
-            }),
-            host: cx.new(|cx| {
-                InputState::new(window, cx)
-                    .placeholder("主机地址，例如：127.0.0.1")
-                    .default_value("127.0.0.1")
-            }),
-            port: cx.new(|cx| {
-                InputState::new(window, cx)
-                    .placeholder("端口，例如：5432")
-                    .default_value("5432")
-            }),
-            username: cx.new(|cx| {
-                InputState::new(window, cx)
-                    .placeholder("用户名，例如：admin")
-                    .default_value("postgres")
-            }),
-            password: cx.new(|cx| InputState::new(window, cx).placeholder("密码").masked(true)),
-            database: cx
-                .new(|cx| InputState::new(window, cx).placeholder("数据库名称，例如：prod_db")),
-            schema: cx.new(|cx| InputState::new(window, cx).placeholder("模式/Schema，可选")),
-        }
-    }
-}
-
-#[derive(Clone)]
 pub(crate) struct NewDataSourceState {
-    pub form: ConnectionForm,
+    pub selected: Option<DatabaseKind>,
+    pub postgres: dialog::postgres::PostgresState,
+    pub mysql: dialog::mysql::MySqlState,
+    pub sqlite: dialog::sqlite::SqliteState,
+    pub sqlserver: dialog::sqlserver::SqlServerState,
 }
 
 impl NewDataSourceState {
     pub(crate) fn new(window: &mut Window, cx: &mut Context<SqlerApp>) -> Self {
         Self {
-            form: ConnectionForm::new(window, cx),
+            selected: None,
+            postgres: dialog::postgres::PostgresState::new(window, cx),
+            mysql: dialog::mysql::MySqlState::new(window, cx),
+            sqlite: dialog::sqlite::SqliteState::new(window, cx),
+            sqlserver: dialog::sqlserver::SqlServerState::new(window, cx),
         }
     }
 }
@@ -233,9 +208,6 @@ impl SqlerApp {
         window: &mut Window,
         cx: &mut Context<SqlerApp>,
     ) {
-        if self.new_ds_modal.is_some() {
-            return;
-        }
         self.new_ds_modal = Some(NewDataSourceState::new(window, cx));
         cx.notify();
     }

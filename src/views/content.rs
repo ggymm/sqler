@@ -45,7 +45,7 @@ pub(super) fn render_root(
         .child(div().flex_1().size_full().child(content));
 
     if let Some(state) = app.new_ds_modal.as_mut() {
-        let modal_view = super::modal::render_new_data_source_modal(state, window, cx);
+        let modal_view = super::dialog_view::render_new_data_source_modal(state, window, cx);
         page = page.child(modal_view);
     }
 
