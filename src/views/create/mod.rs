@@ -1,7 +1,7 @@
-pub(crate) mod postgres;
-pub(crate) mod mysql;
-pub(crate) mod sqlite;
-pub(crate) mod sqlserver;
+pub mod postgres;
+pub mod mysql;
+pub mod sqlite;
+pub mod sqlserver;
 
 use gpui::{div, px, AnyElement, Context, IntoElement, ParentElement, Styled, Window};
 use gpui::prelude::FluentBuilder;

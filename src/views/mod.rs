@@ -4,21 +4,21 @@ use gpui_component::{
     ActiveTheme as _,
 };
 
-pub(crate) mod content;
-pub(crate) mod create;
-pub(crate) mod topbar;
+pub mod create;
+pub mod workspace;
+pub mod topbar;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub(crate) struct TabId(u64);
+pub struct TabId(u64);
 
 impl TabId {
-    pub(crate) fn next(counter: &mut u64) -> Self {
+    pub fn next(counter: &mut u64) -> Self {
         let id = *counter;
         *counter += 1;
         TabId(id)
     }
 
-    pub(crate) fn raw(self) -> u64 {
+    pub fn raw(self) -> u64 {
         self.0
     }
 }
@@ -26,7 +26,7 @@ impl TabId {
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[allow(dead_code)]
-pub(crate) enum DatabaseKind {
+pub enum DatabaseKind {
     Postgres,
     MySql,
     Sqlite,
@@ -34,7 +34,7 @@ pub(crate) enum DatabaseKind {
 }
 
 impl DatabaseKind {
-    pub(crate) fn label(&self) -> &'static str {
+    pub fn label(&self) -> &'static str {
         match self {
             DatabaseKind::Postgres => "Postgres",
             DatabaseKind::MySql => "MySQL",
@@ -43,7 +43,7 @@ impl DatabaseKind {
         }
     }
 
-    pub(crate) fn all() -> &'static [DatabaseKind] {
+    pub fn all() -> &'static [DatabaseKind] {
         &[
             DatabaseKind::Postgres,
             DatabaseKind::MySql,
@@ -54,7 +54,7 @@ impl DatabaseKind {
 }
 
 #[derive(Clone)]
-pub(crate) struct ConnectionPreset {
+pub struct ConnectionPreset {
     pub host: SharedString,
     pub port: SharedString,
     pub database: SharedString,
@@ -62,7 +62,7 @@ pub(crate) struct ConnectionPreset {
 }
 
 #[derive(Clone)]
-pub(crate) struct DataSourceMeta {
+pub struct DataSourceMeta {
     pub id: u64,
     pub name: SharedString,
     pub kind: DatabaseKind,
@@ -72,21 +72,21 @@ pub(crate) struct DataSourceMeta {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub(crate) struct InnerTabId(u64);
+pub struct InnerTabId(u64);
 
 impl InnerTabId {
-    pub(crate) fn raw(self) -> u64 {
+    pub fn raw(self) -> u64 {
         self.0
     }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub(crate) enum InnerTabKind {
+pub enum InnerTabKind {
     Config,
 }
 
 #[derive(Clone)]
-pub(crate) struct InnerTab {
+pub struct InnerTab {
     pub id: InnerTabId,
     pub title: SharedString,
     _kind: InnerTabKind,
@@ -94,7 +94,7 @@ pub(crate) struct InnerTab {
 }
 
 impl InnerTab {
-    pub(crate) fn config() -> Self {
+    pub fn config() -> Self {
         Self {
             id: InnerTabId(0),
             title: SharedString::from("配置"),
@@ -105,7 +105,7 @@ impl InnerTab {
 }
 
 #[derive(Clone)]
-pub(crate) struct NewDataSourceState {
+pub struct NewDataSourceState {
     pub selected: Option<DatabaseKind>,
     pub postgres: create::postgres::PostgresState,
     pub mysql: create::mysql::MySqlState,
@@ -114,7 +114,7 @@ pub(crate) struct NewDataSourceState {
 }
 
 impl NewDataSourceState {
-    pub(crate) fn new(window: &mut Window, cx: &mut Context<SqlerApp>) -> Self {
+    pub fn new(window: &mut Window, cx: &mut Context<SqlerApp>) -> Self {
         Self {
             selected: None,
             postgres: create::postgres::PostgresState::new(window, cx),
@@ -126,7 +126,7 @@ impl NewDataSourceState {
 }
 
 #[derive(Clone)]
-pub(crate) struct DataSourceTabState {
+pub struct DataSourceTabState {
     pub meta: DataSourceMeta,
     pub inner_tabs: Vec<InnerTab>,
     pub active_inner_tab: InnerTabId,
@@ -145,12 +145,12 @@ impl DataSourceTabState {
     }
 }
 
-pub(crate) enum TabKind {
+pub enum TabKind {
     Home,
     DataSource(DataSourceTabState),
 }
 
-pub(crate) struct TabState {
+pub struct TabState {
     pub id: TabId,
     pub title: SharedString,
     pub closable: bool,
@@ -183,11 +183,11 @@ impl TabState {
 }
 
 pub struct SqlerApp {
-    pub(crate) tabs: Vec<TabState>,
-    pub(crate) active_tab: TabId,
-    pub(crate) next_tab_id: u64,
-    pub(crate) saved_sources: Vec<DataSourceMeta>,
-    pub(crate) new_ds_modal: Option<NewDataSourceState>,
+    pub tabs: Vec<TabState>,
+    pub active_tab: TabId,
+    pub next_tab_id: u64,
+    pub saved_sources: Vec<DataSourceMeta>,
+    pub new_ds_modal: Option<NewDataSourceState>,
 }
 
 impl SqlerApp {
@@ -205,7 +205,7 @@ impl SqlerApp {
         }
     }
 
-    pub(crate) fn show_new_data_source_modal(
+    pub fn show_new_data_source_modal(
         &mut self,
         window: &mut Window,
         cx: &mut Context<SqlerApp>,
@@ -214,19 +214,19 @@ impl SqlerApp {
         cx.notify();
     }
 
-    pub(crate) fn hide_new_data_source_modal(&mut self, cx: &mut Context<SqlerApp>) {
+    pub fn hide_new_data_source_modal(&mut self, cx: &mut Context<SqlerApp>) {
         if self.new_ds_modal.take().is_some() {
             cx.notify();
         }
     }
 
-    pub(crate) fn submit_new_data_source_modal(&mut self, cx: &mut Context<SqlerApp>) {
+    pub fn submit_new_data_source_modal(&mut self, cx: &mut Context<SqlerApp>) {
         if self.new_ds_modal.take().is_some() {
             cx.notify();
         }
     }
 
-    pub(crate) fn toggle_theme(&mut self, window: &mut Window, cx: &mut Context<SqlerApp>) {
+    pub fn toggle_theme(&mut self, window: &mut Window, cx: &mut Context<SqlerApp>) {
         let next_mode = if cx.theme().is_dark() {
             ThemeMode::Light
         } else {
@@ -236,7 +236,7 @@ impl SqlerApp {
         cx.notify();
     }
 
-    pub(crate) fn open_data_source_tab(
+    pub fn open_data_source_tab(
         &mut self,
         source_id: u64,
         _window: &mut Window,
@@ -261,7 +261,7 @@ impl SqlerApp {
         }
     }
 
-    pub(crate) fn close_tab(&mut self, tab_id: TabId, cx: &mut Context<SqlerApp>) {
+    pub fn close_tab(&mut self, tab_id: TabId, cx: &mut Context<SqlerApp>) {
         if let Some(index) = self.tabs.iter().position(|tab| tab.id == tab_id) {
             if !self.tabs[index].closable {
                 return;
@@ -279,14 +279,14 @@ impl SqlerApp {
         }
     }
 
-    pub(crate) fn set_active_tab(&mut self, tab_id: TabId, cx: &mut Context<SqlerApp>) {
+    pub fn set_active_tab(&mut self, tab_id: TabId, cx: &mut Context<SqlerApp>) {
         if self.tabs.iter().any(|tab| tab.id == tab_id) {
             self.active_tab = tab_id;
             cx.notify();
         }
     }
 
-    pub(crate) fn set_active_inner_tab(
+    pub fn set_active_inner_tab(
         &mut self,
         tab_id: TabId,
         inner_id: InnerTabId,
@@ -303,7 +303,7 @@ impl SqlerApp {
 
 impl Render for SqlerApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        content::render_root(self, window, cx)
+        workspace::render_root(self, window, cx)
     }
 }
 

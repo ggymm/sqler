@@ -8,10 +8,11 @@
 - `src/views/mod.rs`
     - 定义 UI 状态：`SqlerApp`、`TabState`、`DataSourceTabState`、`NewDataSourceState` 等
     - `NewDataSourceState` 记录当前选中的数据库类型及对应表单状态
-    - `TabKind` 仅保留首页 / 数据源两种标签；`SqlerApp::render` 调用 `content::render_root`
+    - `TabKind` 仅保留首页 / 数据源两种标签；`SqlerApp::render` 调用 `workspace::render_root`
 - `src/comps/mod.rs`：提供基础布局构造 `page()`，生成满屏纵向容器
 - `src/views/`
-    - `content.rs`：组合整体布局（含顶栏、主体、弹窗），并渲染各标签内容
+    - `workspace/mod.rs`：组合整体布局（顶栏、主体、弹窗），并调度各类型数据源工作区
+    - `workspace/{postgres,mysql,sqlite,sqlserver}.rs`：针对不同数据库类型渲染专属工作区视图
     - `topbar.rs`：渲染顶栏（标签页 + “新建数据源”按钮 + 主题切换）
     - `create/mod.rs`：自定义“新建数据源”弹窗（类型选择 + 表单）
     - `create/{postgres,mysql,sqlite,sqlserver}.rs`：按数据库类型划分的创建表单

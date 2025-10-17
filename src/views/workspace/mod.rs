@@ -1,3 +1,8 @@
+pub mod postgres;
+pub mod mysql;
+pub mod sqlite;
+pub mod sqlserver;
+
 use gpui::prelude::FluentBuilder as _;
 use gpui::{
     div, px, AnyElement, Context, IntoElement, Length, ParentElement, SharedString, Styled,
@@ -25,6 +30,7 @@ use crate::views::{
     topbar,
     DataSourceMeta,
     DataSourceTabState,
+    DatabaseKind,
     InnerTab,
     InnerTabId,
     SqlerApp,
@@ -317,6 +323,8 @@ fn data_source_detail(state: &DataSourceTabState, cx: &mut Context<SqlerApp>) ->
         .child(form_field().label("账号").child(div().child(meta.connection.username.clone())))
         .child(form_field().label("描述").child(div().child(meta.description.clone())));
 
+    let workspace_view = render_workspace_body(meta, cx);
+
     v_flex()
         .gap(px(16.))
         .child(
@@ -326,4 +334,56 @@ fn data_source_detail(state: &DataSourceTabState, cx: &mut Context<SqlerApp>) ->
                 .child("提示：后续将补充连接测试、历史操作等信息。"),
         )
         .child(config)
+        .child(workspace_view)
+}
+
+fn render_workspace_body(meta: &DataSourceMeta, cx: &mut Context<SqlerApp>) -> gpui::Div {
+    match meta.kind {
+        DatabaseKind::Postgres => postgres::render(meta.kind, meta, cx),
+        DatabaseKind::MySql => mysql::render(meta.kind, meta, cx),
+        DatabaseKind::Sqlite => sqlite::render(meta.kind, meta, cx),
+        DatabaseKind::SqlServer => sqlserver::render(meta.kind, meta, cx),
+    }
+}
+
+pub(super) fn render_common_workspace(
+    kind: DatabaseKind,
+    meta: &DataSourceMeta,
+    notes: Vec<String>,
+    cx: &mut Context<SqlerApp>,
+) -> gpui::Div {
+    let connection = &meta.connection;
+    let theme = cx.theme();
+
+    let mut section = v_flex()
+        .gap(px(10.))
+        .child(
+            div()
+                .text_base()
+                .font_semibold()
+                .child(format!("{} 工作区", kind.label())),
+        )
+        .child(
+            div()
+                .text_sm()
+                .text_color(theme.muted_foreground)
+                .child(format!(
+                    "连接：{}@{}:{} / {}",
+                    connection.username,
+                    connection.host,
+                    connection.port,
+                    connection.database,
+                )),
+        );
+
+    for note in notes {
+        section = section.child(
+            div()
+                .text_sm()
+                .text_color(theme.muted_foreground)
+                .child(note),
+        );
+    }
+
+    section
 }
