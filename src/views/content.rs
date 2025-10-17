@@ -1,11 +1,14 @@
 use gpui::prelude::FluentBuilder as _;
-use gpui::{div, px, AnyElement, Context, InteractiveElement, IntoElement, Length, ParentElement, SharedString, Styled, Window};
+use gpui::{
+    div, px, AnyElement, Context, IntoElement, Length, ParentElement, SharedString, Styled,
+    Window,
+};
+use gpui::InteractiveElement as _;
 use gpui::StatefulInteractiveElement as _;
 use gpui_component::{
     button::{Button, ButtonVariants as _},
     form::{form_field, v_form},
     h_flex,
-    input::TextInput,
     v_flex,
     ActiveTheme as _,
     Disableable as _,
@@ -15,19 +18,41 @@ use gpui_component::{
     StyledExt,
 };
 
-use crate::{
-    DatabaseKind,
+use crate::comps;
+
+use super::{
     DataSourceMeta,
     DataSourceTabState,
     InnerTab,
     InnerTabId,
-    NewDataSourceState,
     SqlerApp,
     TabId,
     TabKind,
 };
 
-pub fn render(
+pub(super) fn render_root(
+    app: &mut SqlerApp,
+    window: &mut Window,
+    cx: &mut Context<SqlerApp>,
+) -> AnyElement {
+    use gpui::{ParentElement, Styled};
+
+    let topbar = super::topbar::render(app, window, cx);
+    let content = render_active(app, window, cx);
+
+    let mut page = comps::page()
+        .child(topbar)
+        .child(div().flex_1().size_full().child(content));
+
+    if let Some(state) = app.new_ds_modal.as_mut() {
+        let modal_view = super::modal::render_new_data_source_modal(state, window, cx);
+        page = page.child(modal_view);
+    }
+
+    page.into_any_element()
+}
+
+fn render_active(
     app: &mut SqlerApp,
     window: &mut Window,
     cx: &mut Context<SqlerApp>,
@@ -35,9 +60,6 @@ pub fn render(
     if let Some(tab) = app.tabs.iter().find(|tab| tab.id == app.active_tab) {
         match &tab.kind {
             TabKind::Home => render_home(&app.saved_sources, window, cx).into_any_element(),
-            TabKind::NewDataSource(state) => {
-                render_new_data_source(tab.id, state, window, cx).into_any_element()
-            }
             TabKind::DataSource(state) => {
                 render_data_source(tab.id, state, window, cx).into_any_element()
             }
@@ -143,60 +165,6 @@ fn render_data_source_card(
                 .child(meta.description.clone()),
         )
         .into_any_element()
-}
-
-fn render_new_data_source(
-    tab_id: TabId,
-    state: &NewDataSourceState,
-    _window: &mut Window,
-    cx: &mut Context<SqlerApp>,
-) -> gpui::Div {
-    let left_panel = v_flex()
-        .w(px(220.))
-        .bg(cx.theme().sidebar)
-        .border_r_1()
-        .border_color(cx.theme().border)
-        .child(
-            v_flex()
-                .gap(px(8.))
-                .px(px(14.))
-                .py(px(16.))
-                .child(
-                    div()
-                        .text_sm()
-                        .text_color(cx.theme().muted_foreground)
-                        .child("连接成功后将展示表列表。"),
-                )
-                .child(div().text_sm().child("当前无可用数据。")),
-        );
-
-    let mut right_panel = v_flex().flex_1();
-    right_panel.style().min_size.height = Some(Length::Definite(px(0.).into()));
-
-    let mut form_panel = v_flex()
-        .flex_1()
-        .id(SharedString::from(format!("new-ds-scroll-{}", tab_id.raw())))
-        .overflow_scroll();
-    form_panel.style().min_size.height = Some(Length::Definite(px(0.).into()));
-    let form_panel = form_panel
-        .px(px(24.))
-        .py(px(18.))
-        .child(connection_form(tab_id, state, cx));
-
-    let right_panel = right_panel
-        .child(inner_tab_bar(tab_id, &state.inner_tabs, state.active_inner_tab, cx))
-        .child(form_panel);
-
-    v_flex()
-        .flex_1()
-        .child(workspace_toolbar(tab_id, false, cx))
-        .child(
-            h_flex()
-                .flex_1()
-                .items_start()
-                .child(left_panel)
-                .child(right_panel),
-        )
 }
 
 fn render_data_source(
@@ -333,86 +301,6 @@ fn inner_tab_bar(
                 this.set_active_inner_tab(tab_id, tab_id_inner, cx);
             }))
         }))
-}
-
-fn connection_form(tab_id: TabId, state: &NewDataSourceState, cx: &mut Context<SqlerApp>) -> gpui::Div {
-    let selector = h_flex()
-        .gap(px(8.))
-        .children(DatabaseKind::all().iter().map(|kind| {
-            let current = state.form.db_type == *kind;
-            let button = Button::new(SharedString::from(format!(
-                "ds-kind-{}-{}",
-                tab_id.raw(),
-                kind.key()
-            )))
-            .small()
-            .ghost()
-            .label(kind.label())
-            .selected(current);
-
-            button.on_click(cx.listener({
-                let kind = *kind;
-                move |this: &mut SqlerApp, _, _, cx| {
-                    this.set_database_kind(tab_id, kind, cx);
-                }
-            }))
-        }));
-
-    let form = v_form()
-        .gap(px(12.))
-        .child(form_field().label("数据源名称").child(TextInput::new(&state.form.name)))
-        .child(form_field().label("主机").child(TextInput::new(&state.form.host)))
-        .child(form_field().label("端口").child(TextInput::new(&state.form.port)))
-        .child(form_field().label("用户名").child(TextInput::new(&state.form.username)))
-        .child(
-            form_field()
-                .label("密码")
-                .child(TextInput::new(&state.form.password).mask_toggle()),
-        )
-        .child(form_field().label("数据库").child(TextInput::new(&state.form.database)))
-        .child(form_field().label("Schema").child(TextInput::new(&state.form.schema)));
-
-    v_flex()
-        .gap(px(16.))
-        .child(
-            v_flex()
-                .gap(px(8.))
-                .child(div().text_sm().child("数据源类型"))
-                .child(selector),
-        )
-        .child(
-            v_flex()
-                .gap(px(12.))
-                .child(div().text_sm().child("连接信息"))
-                .child(form),
-        )
-        .child(
-            h_flex()
-                .gap(px(8.))
-                .justify_end()
-                .child(
-                    Button::new(("test-connection", tab_id.raw()))
-                        .ghost()
-                        .label("测试连接")
-                        .on_click(cx.listener(|_, _, _, cx| {
-                            cx.notify();
-                        })),
-                )
-                .child(
-                    Button::new(("save-connection", tab_id.raw()))
-                        .primary()
-                        .label("保存")
-                        .on_click(cx.listener(|_, _, _, cx| {
-                            cx.notify();
-                        })),
-                ),
-        )
-        .child(
-            div()
-                .text_sm()
-                .text_color(cx.theme().muted_foreground)
-                .child("提示：测试连接和保存将在后续实现。"),
-        )
 }
 
 fn data_source_detail(state: &DataSourceTabState, cx: &mut Context<SqlerApp>) -> gpui::Div {

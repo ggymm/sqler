@@ -1,8 +1,9 @@
 use gpui::prelude::FluentBuilder as _;
 use gpui::{
-    px, AnyElement, Context, InteractiveElement, IntoElement, Length, ParentElement, SharedString,
-    Styled, Window,
+    px, AnyElement, Context, IntoElement, Length, ParentElement, SharedString, Styled, Window,
+    TextOverflow,
 };
+use gpui::InteractiveElement as _;
 use gpui::StatefulInteractiveElement as _;
 use gpui_component::{
     button::{Button, ButtonVariants as _},
@@ -13,9 +14,9 @@ use gpui_component::{
     Sizable as _,
 };
 
-use crate::SqlerApp;
+use super::SqlerApp;
 
-pub fn render(app: &mut SqlerApp, _window: &mut Window, cx: &mut Context<SqlerApp>) -> gpui::Div {
+pub(super) fn render(app: &mut SqlerApp, _window: &mut Window, cx: &mut Context<SqlerApp>) -> gpui::Div {
     let tabs = tab_scroller(app, cx);
     let tabs_container = gpui::div().flex_1().min_w_0().child(tabs);
     let controls = controls(cx);
@@ -82,8 +83,10 @@ fn tab_buttons(app: &mut SqlerApp, cx: &mut Context<SqlerApp>) -> Vec<AnyElement
                     gpui::div()
                         .flex_1()
                         .min_w_0()
-                        .text_ellipsis()
                         .text_left()
+                        .whitespace_nowrap()
+                        .overflow_hidden()
+                        .text_overflow(TextOverflow::Truncate(Default::default()))
                         .child(tab.title.clone()),
                 );
 
@@ -103,8 +106,9 @@ fn tab_buttons(app: &mut SqlerApp, cx: &mut Context<SqlerApp>) -> Vec<AnyElement
 
             {
                 let style = pill.style();
-                style.flex_grow = Some(1.);
+                style.flex_grow = Some(0.);
                 style.flex_shrink = Some(1.);
+                style.flex_basis = Some(Length::Definite(px(360.).into()));
                 style.min_size.width = Some(Length::Definite(px(0.).into()));
             }
 
@@ -119,7 +123,7 @@ fn controls(cx: &mut Context<SqlerApp>) -> gpui::Div {
         .small()
         .label("新建数据源")
         .on_click(cx.listener(|this, _, window, cx| {
-            this.open_new_data_source(window, cx);
+            this.show_new_data_source_modal(window, cx);
         }));
 
     let theme_toggle = Button::new("toggle-theme")
