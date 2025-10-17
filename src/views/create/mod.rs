@@ -9,6 +9,8 @@ use gpui::{
     AnyElement,
     Context,
     IntoElement,
+    Length,
+    Overflow,
     ParentElement,
     Render,
     Styled,
@@ -26,6 +28,7 @@ use gpui_component::{
     Sizable as _,
     StyledExt,
 };
+use gpui_component::Selectable as _;
 
 use crate::views::{DatabaseKind, NewDataSourceState, SqlerApp};
 
@@ -87,35 +90,21 @@ impl CreateDataSourceWindow {
     }
 
     fn render_content(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
-        let mut shell = v_flex()
-            .w(px(560.))
-            .gap(px(20.))
-            .bg(cx.theme().background)
-            .rounded(cx.theme().radius_lg)
-            .shadow_lg()
-            .p(px(24.));
-
         let header = render_header(self, cx);
-        shell = shell.child(header);
+        let sidebar = render_kind_list(self, cx);
+        let main_panel = render_main_panel(self, cx);
 
-        let body = if let Some(kind) = self.state.selected {
-            render_form(kind, &mut self.state, cx)
-        } else {
-            render_kind_selection(cx)
-        };
-        shell = shell.child(body);
-
-        if self.state.selected.is_some() {
-            shell = shell.child(render_footer(cx));
-        }
-
-        div()
+        v_flex()
             .size_full()
             .bg(cx.theme().background)
-            .flex()
-            .items_center()
-            .justify_center()
-            .child(shell)
+            .child(header)
+            .child(
+                h_flex()
+                    .flex_1()
+                    .bg(cx.theme().background)
+                    .child(sidebar)
+                    .child(main_panel),
+            )
             .into_any_element()
     }
 }
@@ -126,77 +115,94 @@ impl Render for CreateDataSourceWindow {
     }
 }
 
-fn render_header(view: &mut CreateDataSourceWindow, cx: &mut Context<CreateDataSourceWindow>) -> gpui::Div {
-    let title = match view.state.selected {
-        Some(kind) => format!("配置 {} 数据源", kind.label()),
-        None => "选择数据源类型".to_string(),
+fn render_header(
+    view: &mut CreateDataSourceWindow,
+    cx: &mut Context<CreateDataSourceWindow>,
+) -> gpui::Div {
+    let title = "新建数据源";
+    let subtitle = match view.state.selected {
+        Some(kind) => format!("当前配置：{}", kind.label()),
+        None => "请选择要创建的数据源类型".to_string(),
     };
 
     h_flex()
         .justify_between()
         .items_center()
+        .px(px(24.))
+        .py(px(16.))
+        .bg(cx.theme().tab_bar)
+        .border_b_1()
+        .border_color(cx.theme().border)
+        .child(
+            v_flex()
+                .gap(px(4.))
+                .child(div().text_lg().font_semibold().child(title))
+                .child(
+                    div()
+                        .text_sm()
+                        .text_color(cx.theme().muted_foreground)
+                        .child(subtitle),
+                ),
+        )
         .child(
             h_flex()
                 .gap(px(8.))
-                .items_center()
-                .child(div().text_lg().font_semibold().child(title))
                 .when(view.state.selected.is_some(), |this| {
                     this.child(
                         Button::new("modal-back")
-                            .text()
+                            .ghost()
+                            .small()
                             .label("返回类型列表")
                             .on_click(cx.listener(|this: &mut CreateDataSourceWindow, _, _, cx| {
                                 this.back_to_selection(cx);
                             })),
                     )
-                }),
-        )
-        .child(
-            Button::new("modal-close")
-                .text()
-                .label("×")
-                .on_click(cx.listener(|this: &mut CreateDataSourceWindow, _, window, cx| {
-                    this.close(window, cx);
-                })),
+                })
+                .child(
+                    Button::new("modal-close")
+                        .ghost()
+                        .small()
+                        .label("关闭")
+                        .on_click(cx.listener(|this: &mut CreateDataSourceWindow, _, window, cx| {
+                            this.close(window, cx);
+                        })),
+                ),
         )
 }
 
-fn render_kind_selection(cx: &mut Context<CreateDataSourceWindow>) -> gpui::Div {
-    let cards = DatabaseKind::all()
+fn render_kind_list(
+    view: &mut CreateDataSourceWindow,
+    cx: &mut Context<CreateDataSourceWindow>,
+) -> gpui::Div {
+    let items = DatabaseKind::all()
         .iter()
         .map(|kind| {
+            let selected = view.state.selected == Some(*kind);
+
             Button::new(("modal-db-card", (*kind as u8) as usize))
                 .ghost()
-                .p(px(16.))
-                .w_full()
                 .justify_start()
                 .items_start()
-                .child(
-                    h_flex()
-                        .gap(px(16.))
-                        .items_start()
+                .p(px(14.))
+                .gap(px(14.))
+                .w_full()
+                .selected(selected)
                         .child(
                             Icon::default()
                                 .path(kind_icon_path(*kind))
-                                .with_size(Size::Large)
+                                .with_size(if selected { Size::Large } else { Size::Medium })
                                 .view(cx),
                         )
+                .child(
+                    v_flex()
+                        .gap(px(4.))
+                        .child(div().text_base().font_semibold().child(kind.label()))
                         .child(
-                            v_flex()
-                                .gap(px(4.))
-                                .child(
-                                    div()
-                                        .text_base()
-                                        .font_semibold()
-                                        .child(kind.label()),
-                                )
-                                .child(
-                                    div()
-                                        .text_sm()
-                                        .text_color(cx.theme().muted_foreground)
-                                        .whitespace_normal()
-                                        .child(kind_description(*kind)),
-                                ),
+                            div()
+                                .text_sm()
+                                .text_color(cx.theme().muted_foreground)
+                                .whitespace_normal()
+                                .child(kind_description(*kind)),
                         ),
                 )
                 .on_click(cx.listener({
@@ -210,14 +216,20 @@ fn render_kind_selection(cx: &mut Context<CreateDataSourceWindow>) -> gpui::Div 
         .collect::<Vec<_>>();
 
     v_flex()
+        .w(px(240.))
         .gap(px(12.))
+        .px(px(16.))
+        .py(px(16.))
+        .bg(cx.theme().secondary)
+        .border_r_1()
+        .border_color(cx.theme().border)
         .child(
             div()
                 .text_sm()
                 .text_color(cx.theme().muted_foreground)
-                .child("请选择需要创建的数据源类型"),
+                .child("数据源类型"),
         )
-        .child(v_flex().gap(px(12.)).children(cards))
+        .child(v_flex().gap(px(8.)).children(items))
 }
 
 fn render_form(
@@ -231,6 +243,59 @@ fn render_form(
         DatabaseKind::Sqlite => sqlite::render(&mut state.sqlite, cx),
         DatabaseKind::SqlServer => sqlserver::render(&mut state.sqlserver, cx),
     }
+}
+
+fn render_main_panel(
+    view: &mut CreateDataSourceWindow,
+    cx: &mut Context<CreateDataSourceWindow>,
+) -> gpui::Div {
+    let mut panel = v_flex()
+        .flex_1()
+        .gap(px(16.))
+        .px(px(24.))
+        .py(px(24.));
+
+    match view.state.selected {
+        Some(kind) => {
+            panel = panel.child(
+                div()
+                    .text_base()
+                    .font_semibold()
+                    .child(format!("配置 {}", kind.label())),
+            );
+            let mut form_container = v_flex().flex_1();
+            form_container.style().min_size.height = Some(Length::Definite(px(0.).into()));
+            form_container.style().overflow.y = Some(Overflow::Scroll);
+            let form_container = form_container.child(render_form(kind, &mut view.state, cx));
+
+            panel = panel
+                .child(
+                    v_flex()
+                        .flex_1()
+                        .gap(px(16.))
+                        .child(form_container),
+                )
+                .child(render_footer(cx));
+        }
+        None => {
+            panel = panel.child(
+                v_flex()
+                    .flex_1()
+                    .items_center()
+                    .justify_center()
+                    .gap(px(12.))
+                    .child(div().text_base().font_semibold().child("请选择左侧的数据源类型"))
+                    .child(
+                        div()
+                            .text_sm()
+                            .text_color(cx.theme().muted_foreground)
+                            .child("选择后将显示对应的连接配置表单。"),
+                    ),
+            );
+        }
+    }
+
+    panel
 }
 
 fn render_footer(cx: &mut Context<CreateDataSourceWindow>) -> gpui::Div {

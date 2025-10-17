@@ -241,7 +241,7 @@ impl SqlerApp {
                 cx,
             ))),
             kind: WindowKind::Floating,
-            is_resizable: false,
+            is_resizable: true,
             is_movable: true,
             is_minimizable: false,
             ..Default::default()
