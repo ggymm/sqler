@@ -41,3 +41,22 @@ MySQL，MongoDB，Oracle，PostgreSQL，Redis，SQLite，SQLServer
 3. tab页的主内容区不要垂直居中，包括侧边栏表列表和内容区域
 4. 关闭tab的按钮使用 close.svg图标
 
+
+#### 拆分视图
+
+1. 拆分为views目录下，main表示整体，header表示顶部tab等，content代表tab的内容区域
+2. 抽取公共的视图构造到comps目录
+3. 公共的视图类似如下包装，不要过度封装
+```rust
+pub fn page() -> Div {
+    div()
+        .flex()
+        .flex_col()
+        .p_5()
+        .gap_5()
+        .min_w_0()
+        .min_h_0()
+        .bg(rgb(0x282828))
+}
+```
+
