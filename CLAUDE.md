@@ -4,11 +4,11 @@
 
 ## 任务约定
 
-CODEX.md 文件是将代码地图
+CODEMAP.md 文件是将代码地图
 
-任何任务前，都应该查看 CODEX.md 文件
+任何任务前，都应该查看 CODEMAP.md 文件
 
-如果此文件为空，优先编写此文件，并且在执行任务后，更新 CODEX.md 文件内容
+如果此文件为空，优先编写此文件，并且在执行任务后，更新 CODEMAP.md 文件内容
 
 ## Role Definition
 
