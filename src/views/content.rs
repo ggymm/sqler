@@ -20,7 +20,9 @@ use gpui_component::{
 
 use crate::comps;
 
-use super::{
+use crate::views::{
+    dialog_view,
+    topbar,
     DataSourceMeta,
     DataSourceTabState,
     InnerTab,
@@ -37,7 +39,7 @@ pub(super) fn render_root(
 ) -> AnyElement {
     use gpui::{ParentElement, Styled};
 
-    let topbar = super::topbar::render(app, window, cx);
+    let topbar = topbar::render(app, window, cx);
     let content = render_active(app, window, cx);
 
     let mut page = comps::page()
@@ -45,7 +47,7 @@ pub(super) fn render_root(
         .child(div().flex_1().size_full().child(content));
 
     if let Some(state) = app.new_ds_modal.as_mut() {
-        let modal_view = super::dialog_view::render_new_data_source_modal(state, window, cx);
+        let modal_view = dialog_view::render_new_data_source_modal(state, window, cx);
         page = page.child(modal_view);
     }
 

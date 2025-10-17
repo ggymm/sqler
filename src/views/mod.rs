@@ -1,5 +1,8 @@
 use gpui::{Context, IntoElement, Render, SharedString, Window};
-use gpui_component::{theme::{Theme, ThemeMode}, ActiveTheme as _, ActiveTheme};
+use gpui_component::{
+    theme::{Theme, ThemeMode},
+    ActiveTheme as _,
+};
 
 pub(crate) mod content;
 pub(crate) mod dialog;

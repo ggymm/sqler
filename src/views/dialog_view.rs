@@ -8,7 +8,7 @@ use gpui_component::{
     StyledExt,
 };
 
-use super::{dialog, DatabaseKind, NewDataSourceState, SqlerApp};
+use crate::views::{dialog, DatabaseKind, NewDataSourceState, SqlerApp};
 
 pub(super) fn render_new_data_source_modal(
     state: &mut NewDataSourceState,

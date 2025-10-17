@@ -14,7 +14,7 @@ use gpui_component::{
     Sizable as _,
 };
 
-use super::SqlerApp;
+use crate::views::SqlerApp;
 
 pub(super) fn render(app: &mut SqlerApp, _window: &mut Window, cx: &mut Context<SqlerApp>) -> gpui::Div {
     let tabs = tab_scroller(app, cx);
