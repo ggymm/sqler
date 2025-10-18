@@ -5377,6 +5377,7 @@ version = "0.1.0"
 dependencies = [
  "gpui",
  "gpui-component",
+ "thiserror 2.0.17",
 ]
 
 [[package]]
