@@ -5,8 +5,8 @@ pub mod sqlserver;
 
 use gpui::prelude::FluentBuilder as _;
 use gpui::{
-    div, img, px, AnyElement, Context, IntoElement, Length, ParentElement, SharedString, Styled,
-    Window,
+    div, img, px, AlignItems, AnyElement, Context, IntoElement, Length, ParentElement, SharedString,
+    Styled, Window,
 };
 use gpui::StatefulInteractiveElement as _;
 use gpui::InteractiveElement as _;
@@ -176,6 +176,7 @@ fn render_data_source(
 
     let mut left_panel = v_flex()
         .w(px(240.))
+        .flex_shrink_0()
         .bg(cx.theme().sidebar)
         .border_r_1()
         .border_color(cx.theme().border)
@@ -221,16 +222,17 @@ fn render_data_source(
         ))
         .child(detail_panel);
 
+    let mut content_row = h_flex().flex_1();
+    {
+        let style = content_row.style();
+        style.align_items = Some(AlignItems::Stretch);
+    }
+    let content_row = content_row.child(left_panel).child(right_panel);
+
     v_flex()
         .flex_1()
         .child(workspace_toolbar(tab_id, true, cx))
-        .child(
-            h_flex()
-                .flex_1()
-                .items_start()
-                .child(left_panel)
-                .child(right_panel),
-        )
+        .child(content_row)
 }
 
 fn workspace_toolbar(tab_id: TabId, has_query: bool, cx: &mut Context<SqlerApp>) -> gpui::Div {

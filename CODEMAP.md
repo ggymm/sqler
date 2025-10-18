@@ -11,7 +11,7 @@
     - 声明 `SqlerApp`、`TabState` 等 UI 状态及 `NewDataSourceState`
     - 管理窗口生命周期（创建/聚焦“新建数据源”窗口），驱动主题切换、标签增删
   - `workspace/`
-    - `mod.rs`：主窗口渲染逻辑，组合顶栏与工作区
+    - `mod.rs`：主窗口渲染逻辑，组合顶栏与工作区，左侧表列表与右侧详情区撑满高度并独立滚动
     - `{postgres,mysql,sqlite,sqlserver}.rs`：每种数据库的工作区视图（展示配置、占位说明）
   - `create/`
     - `mod.rs`：`CreateDataSourceWindow`，提供类型选择、表单填充和底部操作栏
