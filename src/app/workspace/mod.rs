@@ -4,25 +4,18 @@ pub mod sqlite;
 pub mod sqlserver;
 
 use gpui::prelude::FluentBuilder as _;
-use gpui::{Element, StatefulInteractiveElement as _};
 use gpui::{
     div, img, px, AnyElement, Context, IntoElement, Length, ParentElement, SharedString, Styled,
     Window,
 };
-use gpui::{InteractiveElement as _, TextOverflow};
-use gpui_component::{
-    button::{Button, ButtonVariants as _},
-    form::{form_field, v_form},
-    h_flex, v_flex, ActiveTheme as _, Disableable as _, Icon, InteractiveElementExt as _,
-    Selectable as _, Sizable as _, Size, StyledExt,
-};
+use gpui::StatefulInteractiveElement as _;
+use gpui::InteractiveElement as _;
+use gpui_component::{button::{Button, ButtonVariants as _}, form::{form_field, v_form}, h_flex, v_flex, ActiveTheme as _, Disableable as _, InteractiveElementExt as _, Selectable as _, Sizable, StyledExt};
 
 use crate::app::{
     DataSourceMeta, DataSourceTabState, DatabaseKind, InnerTab, InnerTabId, SqlerApp, TabId,
     TabKind,
 };
-
-
 
 pub fn render_active(
     app: &mut SqlerApp,
@@ -102,10 +95,10 @@ fn render_data_source_card(
 ) -> AnyElement {
     let source_id = meta.id;
     let icon_path = match meta.kind {
-        DatabaseKind::Postgres => "icons/postgresql.svg",
-        DatabaseKind::MySql => "icons/mysql.svg",
-        DatabaseKind::Sqlite => "icons/sqlite.svg",
-        DatabaseKind::SqlServer => "icons/sqlserver.svg",
+        DatabaseKind::Postgres => "icons/db/postgresql.svg",
+        DatabaseKind::MySql => "icons/db/mysql.svg",
+        DatabaseKind::Sqlite => "icons/db/sqlite.svg",
+        DatabaseKind::SqlServer => "icons/db/sqlserver.svg",
     };
 
     v_flex()
@@ -164,34 +157,47 @@ fn render_data_source(
     _window: &mut Window,
     cx: &mut Context<SqlerApp>,
 ) -> gpui::Div {
-    let left_panel = v_flex()
-        .w(px(220.))
+    let mut table_list = v_flex()
+        .px(px(12.))
+        .py(px(8.))
+        .gap(px(6.))
+        .flex_1()
+        .id("workspace-table-list")
+        .overflow_scroll();
+    table_list.style().min_size.height = Some(Length::Definite(px(0.).into()));
+    table_list = table_list.children(state.tables.iter().map(|table| {
+        div()
+            .px(px(10.))
+            .py(px(6.))
+            .rounded(px(4.))
+            .hover(|this| this.bg(cx.theme().sidebar_accent))
+            .child(table.clone())
+    }));
+
+    let mut left_panel = v_flex()
+        .w(px(240.))
         .bg(cx.theme().sidebar)
         .border_r_1()
         .border_color(cx.theme().border)
         .child(
-            v_flex()
-                .gap(px(4.))
-                .px(px(14.))
-                .py(px(16.))
-                .child(
-                    div()
-                        .text_sm()
-                        .text_color(cx.theme().muted_foreground)
-                        .child("表列表"),
-                )
-                .children(state.tables.iter().map(|table| {
-                    div()
-                        .px(px(8.))
-                        .py(px(6.))
-                        .rounded(px(4.))
-                        .hover(|this| this.bg(cx.theme().sidebar_accent))
-                        .child(table.clone())
-                })),
-        );
+            div()
+                .px(px(16.))
+                .py(px(18.))
+                .text_sm()
+                .text_color(cx.theme().muted_foreground)
+                .child("表列表"),
+        )
+        .child(table_list);
+    {
+        let style = left_panel.style();
+        style.min_size.height = Some(Length::Definite(px(0.).into()));
+    }
 
     let mut right_panel = v_flex().flex_1();
-    right_panel.style().min_size.height = Some(Length::Definite(px(0.).into()));
+    {
+        let style = right_panel.style();
+        style.min_size.height = Some(Length::Definite(px(0.).into()));
+    }
 
     let mut detail_panel = v_flex()
         .flex_1()
@@ -203,7 +209,7 @@ fn render_data_source(
     detail_panel.style().min_size.height = Some(Length::Definite(px(0.).into()));
     let detail_panel = detail_panel
         .px(px(24.))
-        .py(px(18.))
+        .py(px(20.))
         .child(data_source_detail(state, cx));
 
     let right_panel = right_panel

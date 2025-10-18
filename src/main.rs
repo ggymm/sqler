@@ -5,8 +5,6 @@ use std::path::PathBuf;
 use gpui::*;
 use gpui_component::init;
 use gpui_component::Root;
-use gpui_component::Theme;
-use gpui_component::ThemeMode;
 
 use app::SqlerApp;
 
@@ -51,12 +49,9 @@ fn main() {
             }
         })
         .detach();
-        
-        Theme::change(ThemeMode::Light, None, cx);
-        
+
         let window_size = size(px(1280.), px(800.));
         let window_bounds = Bounds::centered(None, window_size, cx);
-
         cx.open_window(
             WindowOptions {
                 window_bounds: Some(WindowBounds::Windowed(window_bounds)),
@@ -64,10 +59,6 @@ fn main() {
                     title: None,
                     appears_transparent: false,
                     traffic_light_position: None,
-                }),
-                window_min_size: Some(Size {
-                    width: window_size.width,
-                    height: window_size.height,
                 }),
                 ..Default::default()
             },
