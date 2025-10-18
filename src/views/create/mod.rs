@@ -11,10 +11,10 @@ use gpui::{
     IntoElement,
     InteractiveElement as _,
     Length,
-    Overflow,
     ParentElement,
     Render,
     SharedString,
+    Stateful,
     StatefulInteractiveElement as _,
     Styled,
     WeakEntity,
@@ -133,10 +133,12 @@ fn render_header(cx: &mut Context<CreateDataSourceWindow>) -> gpui::Div {
 fn render_body(
     view: &mut CreateDataSourceWindow,
     cx: &mut Context<CreateDataSourceWindow>,
-) -> gpui::Div {
-    let mut body_container = v_flex().flex_1();
+) -> Stateful<gpui::Div> {
+    let mut body_container = v_flex()
+        .flex_1()
+        .id("create-window-body")
+        .overflow_scroll();
     body_container.style().min_size.height = Some(Length::Definite(px(0.).into()));
-    body_container.style().overflow.y = Some(Overflow::Scroll);
 
     let content = match view.state.selected {
         Some(kind) => render_form_panel(kind, view, cx),
