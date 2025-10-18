@@ -4,7 +4,7 @@ pub mod sqlite;
 pub mod sqlserver;
 
 use gpui::prelude::FluentBuilder as _;
-use gpui::StatefulInteractiveElement as _;
+use gpui::{Element, StatefulInteractiveElement as _};
 use gpui::{
     div, img, px, AnyElement, Context, IntoElement, Length, ParentElement, SharedString, Styled,
     Window,

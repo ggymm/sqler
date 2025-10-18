@@ -1,15 +1,18 @@
-use gpui::{div, AnyElement, AppContext as _, InteractiveElement, Length, ParentElement, StatefulInteractiveElement, Styled, TextOverflow};
+use gpui::prelude::FluentBuilder;
+use gpui::{
+    div, AnyElement, AppContext as _, InteractiveElement, Length, ParentElement,
+    StatefulInteractiveElement, Styled, TextOverflow,
+};
 use gpui::{
     px, size, Bounds, Context, IntoElement, Render, SharedString, Window, WindowBounds,
     WindowHandle, WindowKind, WindowOptions,
 };
-use gpui::prelude::FluentBuilder;
+use gpui_component::button::{Button, ButtonVariants};
 use gpui_component::{h_flex, Icon, Root, Sizable, Size};
 use gpui_component::{
     theme::{Theme, ThemeMode},
     ActiveTheme as _,
 };
-use gpui_component::button::{Button, ButtonVariants};
 
 mod comps;
 mod create;
@@ -335,9 +338,6 @@ impl SqlerApp {
 
 impl Render for SqlerApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let topbar = render_head(self, window, cx);
-        let content = workspace::render_active(self, window, cx);
-
         div()
             .flex()
             .flex_col()
@@ -345,8 +345,14 @@ impl Render for SqlerApp {
             .size_full()
             .min_w_0()
             .min_h_0()
-            .child(topbar)
-            .child(div().flex_1().size_full().child(content))
+            .child(render_head(self, window, cx))
+            .child(
+                div()
+                    .size_full()
+                    .min_w_0()
+                    .min_h_0()
+                    .child(workspace::render_active(self, window, cx)),
+            )
             .into_any_element()
     }
 }
