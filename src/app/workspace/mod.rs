@@ -60,9 +60,14 @@ fn render_home(
 
     let theme = cx.theme();
 
-    v_flex()
-        .size_full()
-        .flex_1()
+    let mut layout = v_flex().size_full().flex_1();
+    {
+        let style = layout.style();
+        style.min_size.height = Some(Length::Definite(px(0.).into()));
+        style.min_size.width = Some(Length::Definite(px(0.).into()));
+    }
+
+    layout
         .child(
             h_flex()
                 .justify_between()
@@ -164,7 +169,11 @@ fn render_data_source(
         .flex_1()
         .id("workspace-table-list")
         .overflow_scroll();
-    table_list.style().min_size.height = Some(Length::Definite(px(0.).into()));
+    {
+        let style = table_list.style();
+        style.min_size.height = Some(Length::Definite(px(0.).into()));
+        style.min_size.width = Some(Length::Definite(px(0.).into()));
+    }
     table_list = table_list.children(state.tables.iter().map(|table| {
         div()
             .px(px(10.))
@@ -192,12 +201,14 @@ fn render_data_source(
     {
         let style = left_panel.style();
         style.min_size.height = Some(Length::Definite(px(0.).into()));
+        style.min_size.width = Some(Length::Definite(px(0.).into()));
     }
 
-    let mut right_panel = v_flex().flex_1();
+    let mut right_panel = v_flex().flex_1().size_full();
     {
         let style = right_panel.style();
         style.min_size.height = Some(Length::Definite(px(0.).into()));
+        style.min_size.width = Some(Length::Definite(px(0.).into()));
     }
 
     let mut detail_panel = v_flex()
@@ -207,7 +218,11 @@ fn render_data_source(
             tab_id.raw()
         )))
         .overflow_scroll();
-    detail_panel.style().min_size.height = Some(Length::Definite(px(0.).into()));
+    {
+        let style = detail_panel.style();
+        style.min_size.height = Some(Length::Definite(px(0.).into()));
+        style.min_size.width = Some(Length::Definite(px(0.).into()));
+    }
     let detail_panel = detail_panel
         .px(px(24.))
         .py(px(20.))
@@ -222,16 +237,23 @@ fn render_data_source(
         ))
         .child(detail_panel);
 
-    let mut content_row = h_flex().flex_1();
+    let mut content_row = h_flex().flex_1().size_full();
     {
         let style = content_row.style();
         style.align_items = Some(AlignItems::Stretch);
+        style.min_size.height = Some(Length::Definite(px(0.).into()));
+        style.min_size.width = Some(Length::Definite(px(0.).into()));
     }
     let content_row = content_row.child(left_panel).child(right_panel);
 
-    v_flex()
-        .flex_1()
-        .child(workspace_toolbar(tab_id, true, cx))
+    let mut root = v_flex().flex_1().size_full();
+    {
+        let style = root.style();
+        style.min_size.height = Some(Length::Definite(px(0.).into()));
+        style.min_size.width = Some(Length::Definite(px(0.).into()));
+    }
+
+    root.child(workspace_toolbar(tab_id, true, cx))
         .child(content_row)
 }
 

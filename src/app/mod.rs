@@ -348,6 +348,7 @@ impl Render for SqlerApp {
             .child(render_head(self, window, cx))
             .child(
                 div()
+                    .flex_1()
                     .size_full()
                     .min_w_0()
                     .min_h_0()
