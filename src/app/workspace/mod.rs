@@ -7,7 +7,7 @@ use gpui::prelude::FluentBuilder as _;
 use gpui::InteractiveElement as _;
 use gpui::StatefulInteractiveElement as _;
 use gpui::{
-    div, px, AnyElement, Context, IntoElement, Length, ParentElement, SharedString, Styled, Window,
+    div, img, px, AnyElement, Context, IntoElement, Length, ParentElement, SharedString, Styled, Window,
 };
 use gpui_component::{
     button::{Button, ButtonVariants as _},
@@ -116,6 +116,12 @@ fn render_data_source_card(
     cx: &mut Context<SqlerApp>,
 ) -> AnyElement {
     let source_id = meta.id;
+    let icon_path = match meta.kind {
+        DatabaseKind::Postgres => "icons/postgresql.svg",
+        DatabaseKind::MySql => "icons/mysql.svg",
+        DatabaseKind::Sqlite => "icons/sqlite.svg",
+        DatabaseKind::SqlServer => "icons/sqlserver.svg",
+    };
 
     v_flex()
         .w(px(220.))
@@ -132,11 +138,24 @@ fn render_data_source_card(
             this.open_data_source_tab(source_id, window, cx);
         }))
         .child(
-            div()
-                .text_base()
-                .font_semibold()
-                .text_color(cx.theme().foreground)
-                .child(meta.name.clone()),
+            h_flex()
+                .items_center()
+                .gap(px(8.))
+                .child(
+                    div()
+                        .flex_shrink_0()
+                        .w(px(32.))
+                        .h(px(32.))
+                        .child(img(icon_path).size_full())
+                )
+                .child(
+                    div()
+                        .flex_1()
+                        .text_base()
+                        .font_semibold()
+                        .text_color(cx.theme().foreground)
+                        .child(meta.name.clone()),
+                )
         )
         .child(
             Button::new(("kind-chip", source_id))

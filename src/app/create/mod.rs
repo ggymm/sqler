@@ -4,12 +4,12 @@ pub mod sqlite;
 pub mod sqlserver;
 
 use gpui::{
-    div, px, AnyElement, Context, InteractiveElement as _, IntoElement, Length, ParentElement,
+    div, img, px, AnyElement, Context, InteractiveElement as _, IntoElement, Length, ParentElement,
     Render, SharedString, Stateful, StatefulInteractiveElement as _, Styled, WeakEntity, Window,
 };
 use gpui_component::{
     button::{Button, ButtonVariants as _},
-    h_flex, v_flex, ActiveTheme as _, Disableable as _, Icon, Sizable as _, Size, StyledExt,
+    h_flex, v_flex, ActiveTheme as _, Disableable as _, StyledExt,
 };
 
 use crate::app::{DatabaseKind, NewDataSourceState, SqlerApp};
@@ -139,10 +139,11 @@ fn render_type_selection(cx: &mut Context<CreateDataSourceWindow>) -> gpui::Div 
                 .id(SharedString::from(format!("type-card-{}", (*kind as u8))))
                 .hover(|this| this.bg(cx.theme().secondary_hover))
                 .child(
-                    Icon::default()
-                        .path(kind_icon_path(*kind))
-                        .with_size(Size::Large)
-                        .view(cx),
+                    div()
+                        .flex_shrink_0()
+                        .w(px(48.))
+                        .h(px(48.))
+                        .child(img(kind_icon_path(*kind)).size_full()),
                 )
                 .child(
                     v_flex()
@@ -276,9 +277,9 @@ fn kind_description(kind: DatabaseKind) -> &'static str {
 
 fn kind_icon_path(kind: DatabaseKind) -> &'static str {
     match kind {
-        DatabaseKind::Postgres => "icons/db/postgresql.svg",
-        DatabaseKind::MySql => "icons/db/mysql.svg",
-        DatabaseKind::Sqlite => "icons/db/sqlite.svg",
-        DatabaseKind::SqlServer => "icons/db/sqlserver.svg",
+        DatabaseKind::Postgres => "icons/postgresql.svg",
+        DatabaseKind::MySql => "icons/mysql.svg",
+        DatabaseKind::Sqlite => "icons/sqlite.svg",
+        DatabaseKind::SqlServer => "icons/sqlserver.svg",
     }
 }
