@@ -1,4 +1,5 @@
 use gpui::prelude::FluentBuilder;
+use gpui::FlexWrap::NoWrap;
 use gpui::{
     div, AnyElement, AppContext as _, InteractiveElement, Length, ParentElement,
     StatefulInteractiveElement, Styled, TextOverflow,
@@ -338,6 +339,7 @@ impl SqlerApp {
 
 impl Render for SqlerApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        Theme::change(ThemeMode::Light, None, cx);
         div()
             .flex()
             .flex_col()
@@ -363,83 +365,80 @@ pub fn render_head(
     _window: &mut Window,
     cx: &mut Context<SqlerApp>,
 ) -> gpui::Div {
+    let theme = cx.theme();
     let active = app.active_tab;
-    let mut tabs =
-        h_flex()
-            .gap(px(6.))
-            .px(px(4.))
-            .flex_1()
-            .min_w_0()
-            .children(app.tabs.iter().map(|tab| {
-                let tab_id = tab.id;
-                let is_active = tab_id == active;
 
-                let mut pill = h_flex()
-                    .gap(px(6.))
-                    .px(px(12.))
-                    .py(px(6.))
-                    .items_center()
-                    .rounded_tl(px(6.))
-                    .rounded_tr(px(6.))
-                    .cursor_pointer()
-                    .id(SharedString::from(format!("main-tab-{}", tab_id.raw())))
-                    .when(is_active, |this| {
-                        this.bg(cx.theme().tab_active)
-                            .text_color(cx.theme().tab_active_foreground)
-                            .border_1()
-                            .border_color(cx.theme().border)
-                    })
-                    .when(!is_active, |this| {
-                        this.text_color(cx.theme().muted_foreground)
-                            .border_1()
-                            .border_color(cx.theme().border)
-                            .bg(cx.theme().tab_bar)
-                    })
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        this.set_active_tab(tab_id, cx);
-                    }))
-                    .child(
-                        gpui::div()
-                            .flex_1()
-                            .min_w_0()
-                            .text_left()
-                            .whitespace_nowrap()
-                            .overflow_hidden()
-                            .text_overflow(TextOverflow::Truncate(Default::default()))
-                            .child(tab.title.clone()),
-                    );
+    let tabs = div()
+        .flex()
+        .flex_row()
+        .px_2()
+        .gap_2()
+        .flex_1()
+        .min_w_0()
+        .children(app.tabs.iter().map(|tab| {
+            let tab_id = tab.id;
+            let is_active = tab_id == active;
 
-                if tab.closable {
-                    pill = pill.child(
-                        Button::new(("close-tab", tab_id.raw()))
-                            .ghost()
-                            .compact()
-                            .xsmall()
-                            .tab_stop(false)
-                            .icon(
-                                Icon::default()
-                                    .path("icons/close.svg")
-                                    .with_size(Size::Small),
-                            )
-                            .on_click(cx.listener(move |this, _, _, cx| {
-                                this.close_tab(tab_id, cx);
-                            })),
-                    );
-                }
+            let mut pill = h_flex()
+                .id(SharedString::from(format!("main-tab-{}", tab_id.raw())))
+                .gap(px(6.))
+                .px(px(12.))
+                .py(px(6.))
+                .items_center()
+                .justify_center()
+                .rounded_lg()
+                .border_1()
+                .border_color(theme.border)
+                .cursor_pointer()
+                .when(is_active, |this| {
+                    this.bg(theme.tab_active)
+                        .text_color(theme.tab_active_foreground)
+                })
+                .when(!is_active, |this| {
+                    this.text_color(theme.muted_foreground).bg(theme.tab_bar)
+                })
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.set_active_tab(tab_id, cx);
+                }))
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .text_left()
+                        .overflow_hidden()
+                        .text_overflow(TextOverflow::Truncate(Default::default()))
+                        .whitespace_nowrap()
+                        .child(tab.title.clone()),
+                );
 
-                {
-                    let style = pill.style();
-                    style.flex_grow = Some(0.);
-                    style.flex_shrink = Some(1.);
-                    style.flex_basis = Some(Length::Definite(px(240.).into()));
-                    style.min_size.width = Some(Length::Definite(px(0.).into()));
-                }
+            if tab.closable {
+                pill = pill.child(
+                    Button::new(("close-tab", tab_id.raw()))
+                        .ghost()
+                        .compact()
+                        .xsmall()
+                        .tab_stop(false)
+                        .icon(
+                            Icon::default()
+                                .path("icons/close.svg")
+                                .with_size(Size::Small),
+                        )
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            this.close_tab(tab_id, cx);
+                        })),
+                );
+            }
 
-                pill.into_any_element()
-            }));
-    tabs.style().min_size.width = Some(Length::Definite(px(0.).into()));
+            {
+                let style = pill.style();
+                style.flex_grow = Some(0.);
+                style.flex_shrink = Some(1.);
+                style.flex_basis = Some(Length::Definite(px(240.).into()));
+                style.min_size.width = Some(Length::Definite(px(0.).into()));
+            }
 
-    let tabs_container = div().flex_1().min_w_0().child(tabs);
+            pill.into_any_element()
+        }));
     let controls = h_flex()
         .gap_5()
         .child(
@@ -455,7 +454,7 @@ pub fn render_head(
             Button::new("toggle-theme")
                 .ghost()
                 .small()
-                .label(if cx.theme().is_dark() {
+                .label(if theme.is_dark() {
                     "切换到亮色"
                 } else {
                     "切换到暗色"
@@ -468,13 +467,11 @@ pub fn render_head(
     h_flex()
         .w_full()
         .items_center()
-        .gap(px(12.))
-        .px(px(12.))
-        .py(px(10.))
-        .bg(cx.theme().background)
+        .gap_4()
+        .px_4()
+        .py_2()
         .border_b_1()
-        .border_color(cx.theme().border)
-        .child(tabs_container)
+        .child(tabs)
         .child(controls)
 }
 

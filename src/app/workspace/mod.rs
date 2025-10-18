@@ -74,8 +74,7 @@ fn render_home(
                 .items_center()
                 .px(px(20.))
                 .py(px(16.))
-                .bg(theme.tab_bar)
-                .border_b_1()
+                .border_1()
                 .border_color(theme.border)
                 .child(
                     v_flex()
