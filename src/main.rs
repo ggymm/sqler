@@ -1,11 +1,13 @@
-use gpui::{px, size, App, AppContext as _, Application, AssetSource, Bounds, Result, SharedString, WindowBounds, WindowOptions};
+use gpui::{
+    px, size, App, AppContext as _, Application, AssetSource, Bounds, Result, SharedString,
+    WindowBounds, WindowOptions,
+};
 use gpui_component::Root;
 use std::{borrow::Cow, fs::read, path::PathBuf};
 
-mod comps;
-mod views;
+mod app;
 
-use views::SqlerApp;
+use app::SqlerApp;
 
 struct FsAssets;
 

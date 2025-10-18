@@ -7,3 +7,9 @@ edition = "2021"
 gpui = "0.2"
 gpui-component = "0.2"
 thiserror = "2.0"
+tokio = { version = "1", features = ["rt-multi-thread"] }
+tokio-util = { version = "0.7", features = ["compat"] }
+tokio-native-tls = "0.3"
+native-tls = "0.2"
+sqlx = { version = "0.7", default-features = false, features = ["runtime-tokio", "postgres", "mysql", "sqlite"] }
+tiberius = { version = "0.12", default-features = false, features = ["native-tls"] }

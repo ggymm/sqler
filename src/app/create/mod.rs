@@ -1,38 +1,18 @@
-pub mod postgres;
 pub mod mysql;
+pub mod postgres;
 pub mod sqlite;
 pub mod sqlserver;
 
 use gpui::{
-    div,
-    px,
-    AnyElement,
-    Context,
-    IntoElement,
-    InteractiveElement as _,
-    Length,
-    ParentElement,
-    Render,
-    SharedString,
-    Stateful,
-    StatefulInteractiveElement as _,
-    Styled,
-    WeakEntity,
-    Window,
+    div, px, AnyElement, Context, InteractiveElement as _, IntoElement, Length, ParentElement,
+    Render, SharedString, Stateful, StatefulInteractiveElement as _, Styled, WeakEntity, Window,
 };
 use gpui_component::{
     button::{Button, ButtonVariants as _},
-    h_flex,
-    v_flex,
-    ActiveTheme as _,
-    Disableable as _,
-    Icon,
-    Size,
-    Sizable as _,
-    StyledExt,
+    h_flex, v_flex, ActiveTheme as _, Disableable as _, Icon, Sizable as _, Size, StyledExt,
 };
 
-use crate::views::{DatabaseKind, NewDataSourceState, SqlerApp};
+use crate::app::{DatabaseKind, NewDataSourceState, SqlerApp};
 
 pub struct CreateDataSourceWindow {
     parent: WeakEntity<SqlerApp>,
@@ -122,22 +102,14 @@ fn render_header(cx: &mut Context<CreateDataSourceWindow>) -> gpui::Div {
         .bg(cx.theme().tab_bar)
         .border_b_1()
         .border_color(cx.theme().border)
-        .child(
-            div()
-                .text_xl()
-                .font_semibold()
-                .child(title)
-        )
+        .child(div().text_xl().font_semibold().child(title))
 }
 
 fn render_body(
     view: &mut CreateDataSourceWindow,
     cx: &mut Context<CreateDataSourceWindow>,
 ) -> Stateful<gpui::Div> {
-    let mut body_container = v_flex()
-        .flex_1()
-        .id("create-window-body")
-        .overflow_scroll();
+    let mut body_container = v_flex().flex_1().id("create-window-body").overflow_scroll();
     body_container.style().min_size.height = Some(Length::Definite(px(0.).into()));
 
     let content = match view.state.selected {
@@ -176,12 +148,7 @@ fn render_type_selection(cx: &mut Context<CreateDataSourceWindow>) -> gpui::Div 
                     v_flex()
                         .flex_1()
                         .gap(px(4.))
-                        .child(
-                            div()
-                                .text_base()
-                                .font_semibold()
-                                .child(kind.label())
-                        )
+                        .child(div().text_base().font_semibold().child(kind.label()))
                         .child(
                             div()
                                 .text_sm()
@@ -215,7 +182,12 @@ fn render_form_panel(
         .gap(px(20.))
         .px(px(32.))
         .py(px(24.))
-        .child(div().text_base().font_semibold().child(format!("配置 {}", kind.label())))
+        .child(
+            div()
+                .text_base()
+                .font_semibold()
+                .child(format!("配置 {}", kind.label())),
+        )
         .child(render_form(kind, &mut view.state, cx))
 }
 
@@ -251,9 +223,11 @@ fn render_footer(
                 .ghost()
                 .label("测试连接")
                 .disabled(!has_selection)
-                .on_click(cx.listener(|_this: &mut CreateDataSourceWindow, _, _window, _cx| {
-                    // TODO: 实现连接测试逻辑
-                })),
+                .on_click(
+                    cx.listener(|_this: &mut CreateDataSourceWindow, _, _window, _cx| {
+                        // TODO: 实现连接测试逻辑
+                    }),
+                ),
         )
         .child(
             h_flex()
@@ -271,18 +245,22 @@ fn render_footer(
                     Button::new("modal-cancel")
                         .ghost()
                         .label("取消")
-                        .on_click(cx.listener(|this: &mut CreateDataSourceWindow, _, window, cx| {
-                            this.close_window(window, cx);
-                        })),
+                        .on_click(cx.listener(
+                            |this: &mut CreateDataSourceWindow, _, window, cx| {
+                                this.close_window(window, cx);
+                            },
+                        )),
                 )
                 .child(
                     Button::new("modal-save")
                         .primary()
                         .disabled(!has_selection)
                         .label("保存")
-                        .on_click(cx.listener(|this: &mut CreateDataSourceWindow, _, window, cx| {
-                            this.submit(window, cx);
-                        })),
+                        .on_click(cx.listener(
+                            |this: &mut CreateDataSourceWindow, _, window, cx| {
+                                this.submit(window, cx);
+                            },
+                        )),
                 ),
         )
 }

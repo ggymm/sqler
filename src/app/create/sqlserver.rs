@@ -4,11 +4,10 @@ use gpui_component::{
     form::{form_field, v_form},
     input::InputState,
     input::TextInput,
-    v_flex,
-    ActiveTheme as _,
+    v_flex, ActiveTheme as _,
 };
 
-use crate::views::{create::CreateDataSourceWindow, SqlerApp};
+use crate::app::{create::CreateDataSourceWindow, SqlerApp};
 
 #[derive(Clone)]
 pub struct SqlServerState {
@@ -43,26 +42,47 @@ impl SqlServerState {
     }
 }
 
-pub fn render(
-    state: &mut SqlServerState,
-    cx: &mut Context<CreateDataSourceWindow>,
-) -> gpui::Div {
+pub fn render(state: &mut SqlServerState, cx: &mut Context<CreateDataSourceWindow>) -> gpui::Div {
     v_flex()
         .gap(px(12.))
         .child(
             v_form()
                 .gap(px(12.))
-                .child(form_field().label("数据源名称").child(TextInput::new(&state.name)))
-                .child(form_field().label("主机").child(TextInput::new(&state.host)))
-                .child(form_field().label("端口").child(TextInput::new(&state.port)))
-                .child(form_field().label("用户名").child(TextInput::new(&state.username)))
+                .child(
+                    form_field()
+                        .label("数据源名称")
+                        .child(TextInput::new(&state.name)),
+                )
+                .child(
+                    form_field()
+                        .label("主机")
+                        .child(TextInput::new(&state.host)),
+                )
+                .child(
+                    form_field()
+                        .label("端口")
+                        .child(TextInput::new(&state.port)),
+                )
+                .child(
+                    form_field()
+                        .label("用户名")
+                        .child(TextInput::new(&state.username)),
+                )
                 .child(
                     form_field()
                         .label("密码")
                         .child(TextInput::new(&state.password).mask_toggle()),
                 )
-                .child(form_field().label("实例名").child(TextInput::new(&state.instance)))
-                .child(form_field().label("数据库").child(TextInput::new(&state.database))),
+                .child(
+                    form_field()
+                        .label("实例名")
+                        .child(TextInput::new(&state.instance)),
+                )
+                .child(
+                    form_field()
+                        .label("数据库")
+                        .child(TextInput::new(&state.database)),
+                ),
         )
         .child(
             div()

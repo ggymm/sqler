@@ -1,5 +1,8 @@
 use std::path::Path;
 
+use sqlx::{sqlite::{SqliteConnectOptions, SqliteConnection}, Connection};
+use tokio::runtime::Builder;
+
 use super::{DatabaseDriver, DriverError};
 
 /// SQLite 连接配置。
@@ -28,7 +31,25 @@ impl DatabaseDriver for SqliteDriver {
             ));
         }
 
-        // TODO: 在此处接入实际 SQLite 连接逻辑。
-        Ok(())
+        let mut options = SqliteConnectOptions::new().filename(&config.file_path);
+        if config.read_only {
+            options = options.read_only(true);
+        } else {
+            options = options.create_if_missing(true);
+        }
+
+        let runtime = Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|err| DriverError::Other(err.to_string()))?;
+
+        runtime
+            .block_on(async {
+                let mut conn = SqliteConnection::connect_with(&options).await?;
+                conn.ping().await?;
+                conn.close().await?;
+                Ok::<(), sqlx::Error>(())
+            })
+            .map_err(|err| DriverError::Other(err.to_string()))
     }
 }

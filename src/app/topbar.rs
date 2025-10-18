@@ -10,7 +10,7 @@ use gpui_component::{
     h_flex, ActiveTheme as _, Icon, Sizable as _, Size,
 };
 
-use crate::views::SqlerApp;
+use crate::app::SqlerApp;
 
 pub fn render(app: &mut SqlerApp, _window: &mut Window, cx: &mut Context<SqlerApp>) -> gpui::Div {
     let tabs = tab_scroller(app, cx);

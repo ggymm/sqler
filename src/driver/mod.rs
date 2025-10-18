@@ -64,22 +64,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn postgres_config_validation() {
-        let ok = PostgresConfig {
-            host: "localhost".into(),
+    fn postgres_missing_host_is_error() {
+        let config = PostgresConfig {
+            host: "".into(),
             port: 5432,
             database: "demo".into(),
             username: "user".into(),
             password: Some("pass".into()),
             ssl_mode: None,
         };
-        assert!(PostgresDriver.test_connection(&ok).is_ok());
-
-        let missing = PostgresConfig {
-            host: "".into(),
-            ..ok.clone()
-        };
-        assert!(PostgresDriver.test_connection(&missing).is_err());
+        assert!(matches!(
+            PostgresDriver.test_connection(&config),
+            Err(DriverError::MissingField(field)) if field == "host"
+        ));
     }
 
     #[test]

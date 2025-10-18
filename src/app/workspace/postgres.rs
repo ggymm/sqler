@@ -1,12 +1,8 @@
 use gpui::Context;
 
-use crate::views::{DataSourceMeta, DatabaseKind, SqlerApp};
+use crate::app::{DataSourceMeta, DatabaseKind, SqlerApp};
 
-pub fn render(
-    kind: DatabaseKind,
-    meta: &DataSourceMeta,
-    cx: &mut Context<SqlerApp>,
-) -> gpui::Div {
+pub fn render(kind: DatabaseKind, meta: &DataSourceMeta, cx: &mut Context<SqlerApp>) -> gpui::Div {
     debug_assert!(matches!(kind, DatabaseKind::Postgres));
 
     let samples = if meta.tables.is_empty() {

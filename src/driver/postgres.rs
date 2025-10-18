@@ -1,3 +1,8 @@
+use std::time::Duration;
+
+use sqlx::{postgres::{PgConnectOptions, PgConnection, PgSslMode}, Connection};
+use tokio::runtime::Builder;
+
 use super::{DatabaseDriver, DriverError};
 
 /// Postgres 连接配置。
@@ -40,7 +45,37 @@ impl DatabaseDriver for PostgresDriver {
             return Err(DriverError::MissingField("username".into()));
         }
 
-        // TODO: 在此处接入实际连接逻辑。
-        Ok(())
+        let mut options = PgConnectOptions::new()
+            .host(&config.host)
+            .port(config.port)
+            .database(&config.database)
+            .username(&config.username)
+            .connect_timeout(Duration::from_secs(5));
+
+        if let Some(password) = &config.password {
+            options = options.password(password);
+        }
+
+        if let Some(mode) = config.ssl_mode {
+            let ssl_mode = match mode {
+                SslMode::Disable => PgSslMode::Disable,
+                SslMode::Prefer => PgSslMode::Prefer,
+                SslMode::Require => PgSslMode::Require,
+            };
+            options = options.ssl_mode(ssl_mode);
+        }
+
+        let runtime = Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|err| DriverError::Other(err.to_string()))?;
+
+        runtime
+            .block_on(async {
+                let mut conn = PgConnection::connect_with(&options).await?;
+                conn.close().await?;
+                Ok::<(), sqlx::Error>(())
+            })
+            .map_err(|err| DriverError::Other(err.to_string()))
     }
 }

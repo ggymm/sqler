@@ -1,40 +1,26 @@
-pub mod postgres;
 pub mod mysql;
+pub mod postgres;
 pub mod sqlite;
 pub mod sqlserver;
 
 use gpui::prelude::FluentBuilder as _;
-use gpui::{
-    div, px, AnyElement, Context, IntoElement, Length, ParentElement, SharedString, Styled,
-    Window,
-};
 use gpui::InteractiveElement as _;
 use gpui::StatefulInteractiveElement as _;
+use gpui::{
+    div, px, AnyElement, Context, IntoElement, Length, ParentElement, SharedString, Styled, Window,
+};
 use gpui_component::{
     button::{Button, ButtonVariants as _},
     form::{form_field, v_form},
-    h_flex,
-    v_flex,
-    ActiveTheme as _,
-    Disableable as _,
-    InteractiveElementExt as _,
-    Selectable as _,
-    Sizable as _,
-    StyledExt,
+    h_flex, v_flex, ActiveTheme as _, Disableable as _, InteractiveElementExt as _,
+    Selectable as _, Sizable as _, StyledExt,
 };
 
-use crate::comps;
+use crate::app::comps;
 
-use crate::views::{
-    topbar,
-    DataSourceMeta,
-    DataSourceTabState,
-    DatabaseKind,
-    InnerTab,
-    InnerTabId,
-    SqlerApp,
-    TabId,
-    TabKind,
+use crate::app::{
+    topbar, DataSourceMeta, DataSourceTabState, DatabaseKind, InnerTab, InnerTabId, SqlerApp,
+    TabId, TabKind,
 };
 
 pub fn render_root(
@@ -205,7 +191,10 @@ fn render_data_source(
 
     let mut detail_panel = v_flex()
         .flex_1()
-        .id(SharedString::from(format!("ds-detail-scroll-{}", tab_id.raw())))
+        .id(SharedString::from(format!(
+            "ds-detail-scroll-{}",
+            tab_id.raw()
+        )))
         .overflow_scroll();
     detail_panel.style().min_size.height = Some(Length::Definite(px(0.).into()));
     let detail_panel = detail_panel
@@ -214,7 +203,12 @@ fn render_data_source(
         .child(data_source_detail(state, cx));
 
     let right_panel = right_panel
-        .child(inner_tab_bar(tab_id, &state.inner_tabs, state.active_inner_tab, cx))
+        .child(inner_tab_bar(
+            tab_id,
+            &state.inner_tabs,
+            state.active_inner_tab,
+            cx,
+        ))
         .child(detail_panel);
 
     v_flex()
@@ -229,11 +223,7 @@ fn render_data_source(
         )
 }
 
-fn workspace_toolbar(
-    tab_id: TabId,
-    has_query: bool,
-    cx: &mut Context<SqlerApp>,
-) -> gpui::Div {
+fn workspace_toolbar(tab_id: TabId, has_query: bool, cx: &mut Context<SqlerApp>) -> gpui::Div {
     let buttons = [
         ("tab-config", "数据源配置", false),
         ("tab-new-query", "新建查询", !has_query),
@@ -308,13 +298,41 @@ fn data_source_detail(state: &DataSourceTabState, cx: &mut Context<SqlerApp>) ->
     let meta = &state.meta;
     let config = v_form()
         .gap(px(12.))
-        .child(form_field().label("名称").child(div().child(meta.name.clone())))
-        .child(form_field().label("类型").child(div().child(meta.kind.label())))
-        .child(form_field().label("主机").child(div().child(meta.connection.host.clone())))
-        .child(form_field().label("端口").child(div().child(meta.connection.port.clone())))
-        .child(form_field().label("数据库").child(div().child(meta.connection.database.clone())))
-        .child(form_field().label("账号").child(div().child(meta.connection.username.clone())))
-        .child(form_field().label("描述").child(div().child(meta.description.clone())));
+        .child(
+            form_field()
+                .label("名称")
+                .child(div().child(meta.name.clone())),
+        )
+        .child(
+            form_field()
+                .label("类型")
+                .child(div().child(meta.kind.label())),
+        )
+        .child(
+            form_field()
+                .label("主机")
+                .child(div().child(meta.connection.host.clone())),
+        )
+        .child(
+            form_field()
+                .label("端口")
+                .child(div().child(meta.connection.port.clone())),
+        )
+        .child(
+            form_field()
+                .label("数据库")
+                .child(div().child(meta.connection.database.clone())),
+        )
+        .child(
+            form_field()
+                .label("账号")
+                .child(div().child(meta.connection.username.clone())),
+        )
+        .child(
+            form_field()
+                .label("描述")
+                .child(div().child(meta.description.clone())),
+        );
 
     let workspace_view = render_workspace_body(meta, cx);
 
@@ -362,10 +380,7 @@ pub fn render_common_workspace(
                 .text_color(theme.muted_foreground)
                 .child(format!(
                     "连接：{}@{}:{} / {}",
-                    connection.username,
-                    connection.host,
-                    connection.port,
-                    connection.database,
+                    connection.username, connection.host, connection.port, connection.database,
                 )),
         );
 

@@ -1,27 +1,18 @@
-use gpui::{
-    px,
-    size,
-    Bounds,
-    Context,
-    IntoElement,
-    Render,
-    SharedString,
-    Window,
-    WindowBounds,
-    WindowHandle,
-    WindowKind,
-    WindowOptions,
-};
 use gpui::AppContext as _;
+use gpui::{
+    px, size, Bounds, Context, IntoElement, Render, SharedString, Window, WindowBounds,
+    WindowHandle, WindowKind, WindowOptions,
+};
+use gpui_component::Root;
 use gpui_component::{
     theme::{Theme, ThemeMode},
     ActiveTheme as _,
 };
-use gpui_component::Root;
 
 pub mod create;
-pub mod workspace;
 pub mod topbar;
+pub mod workspace;
+mod comps;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TabId(u64);
@@ -220,11 +211,7 @@ impl SqlerApp {
         }
     }
 
-    pub fn show_new_data_source_modal(
-        &mut self,
-        window: &mut Window,
-        cx: &mut Context<SqlerApp>,
-    ) {
+    pub fn show_new_data_source_modal(&mut self, window: &mut Window, cx: &mut Context<SqlerApp>) {
         if let Some(handle) = &self.new_ds_window {
             let _ = handle.update(cx, |_, modal_window, _| {
                 modal_window.activate_window();
@@ -247,16 +234,13 @@ impl SqlerApp {
             ..Default::default()
         };
 
-        match cx.open_window(
-            options,
-            move |modal_window, app_cx| {
-                let parent = parent.clone();
-                let view = app_cx.new(|cx| {
-                    create::CreateDataSourceWindow::new(state, parent.clone(), modal_window, cx)
-                });
-                app_cx.new(|cx| Root::new(view.into(), modal_window, cx))
-            },
-        ) {
+        match cx.open_window(options, move |modal_window, app_cx| {
+            let parent = parent.clone();
+            let view = app_cx.new(|cx| {
+                create::CreateDataSourceWindow::new(state, parent.clone(), modal_window, cx)
+            });
+            app_cx.new(|cx| Root::new(view.into(), modal_window, cx))
+        }) {
             Ok(handle) => {
                 let _ = handle.update(cx, |_, modal_window, _| {
                     modal_window.set_window_title("新建数据源");
