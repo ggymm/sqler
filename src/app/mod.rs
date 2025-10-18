@@ -1,18 +1,19 @@
-use gpui::AppContext as _;
+use gpui::{div, AnyElement, AppContext as _, InteractiveElement, Length, ParentElement, StatefulInteractiveElement, Styled, TextOverflow};
 use gpui::{
     px, size, Bounds, Context, IntoElement, Render, SharedString, Window, WindowBounds,
     WindowHandle, WindowKind, WindowOptions,
 };
-use gpui_component::Root;
+use gpui::prelude::FluentBuilder;
+use gpui_component::{h_flex, Icon, Root, Sizable, Size};
 use gpui_component::{
     theme::{Theme, ThemeMode},
     ActiveTheme as _,
 };
+use gpui_component::button::{Button, ButtonVariants};
 
-pub mod create;
-pub mod topbar;
-pub mod workspace;
 mod comps;
+mod create;
+mod workspace;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TabId(u64);
@@ -334,8 +335,140 @@ impl SqlerApp {
 
 impl Render for SqlerApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        workspace::render_root(self, window, cx)
+        let topbar = render_head(self, window, cx);
+        let content = workspace::render_active(self, window, cx);
+
+        div()
+            .flex()
+            .flex_col()
+            .relative()
+            .size_full()
+            .min_w_0()
+            .min_h_0()
+            .child(topbar)
+            .child(div().flex_1().size_full().child(content))
+            .into_any_element()
     }
+}
+
+pub fn render_head(
+    app: &mut SqlerApp,
+    _window: &mut Window,
+    cx: &mut Context<SqlerApp>,
+) -> gpui::Div {
+    let active = app.active_tab;
+    let mut tabs =
+        h_flex()
+            .gap(px(6.))
+            .px(px(4.))
+            .flex_1()
+            .min_w_0()
+            .children(app.tabs.iter().map(|tab| {
+                let tab_id = tab.id;
+                let is_active = tab_id == active;
+
+                let mut pill = h_flex()
+                    .gap(px(6.))
+                    .px(px(12.))
+                    .py(px(6.))
+                    .items_center()
+                    .rounded_tl(px(6.))
+                    .rounded_tr(px(6.))
+                    .cursor_pointer()
+                    .id(SharedString::from(format!("main-tab-{}", tab_id.raw())))
+                    .when(is_active, |this| {
+                        this.bg(cx.theme().tab_active)
+                            .text_color(cx.theme().tab_active_foreground)
+                            .border_1()
+                            .border_color(cx.theme().border)
+                    })
+                    .when(!is_active, |this| {
+                        this.text_color(cx.theme().muted_foreground)
+                            .border_1()
+                            .border_color(cx.theme().border)
+                            .bg(cx.theme().tab_bar)
+                    })
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        this.set_active_tab(tab_id, cx);
+                    }))
+                    .child(
+                        gpui::div()
+                            .flex_1()
+                            .min_w_0()
+                            .text_left()
+                            .whitespace_nowrap()
+                            .overflow_hidden()
+                            .text_overflow(TextOverflow::Truncate(Default::default()))
+                            .child(tab.title.clone()),
+                    );
+
+                if tab.closable {
+                    pill = pill.child(
+                        Button::new(("close-tab", tab_id.raw()))
+                            .ghost()
+                            .compact()
+                            .xsmall()
+                            .tab_stop(false)
+                            .icon(
+                                Icon::default()
+                                    .path("icons/close.svg")
+                                    .with_size(Size::Small),
+                            )
+                            .on_click(cx.listener(move |this, _, _, cx| {
+                                this.close_tab(tab_id, cx);
+                            })),
+                    );
+                }
+
+                {
+                    let style = pill.style();
+                    style.flex_grow = Some(0.);
+                    style.flex_shrink = Some(1.);
+                    style.flex_basis = Some(Length::Definite(px(240.).into()));
+                    style.min_size.width = Some(Length::Definite(px(0.).into()));
+                }
+
+                pill.into_any_element()
+            }));
+    tabs.style().min_size.width = Some(Length::Definite(px(0.).into()));
+
+    let tabs_container = div().flex_1().min_w_0().child(tabs);
+    let controls = h_flex()
+        .gap_5()
+        .child(
+            Button::new("header-new-source")
+                .primary()
+                .small()
+                .label("新建数据源")
+                .on_click(cx.listener(|this, _, window, cx| {
+                    this.show_new_data_source_modal(window, cx);
+                })),
+        )
+        .child(
+            Button::new("toggle-theme")
+                .ghost()
+                .small()
+                .label(if cx.theme().is_dark() {
+                    "切换到亮色"
+                } else {
+                    "切换到暗色"
+                })
+                .on_click(cx.listener(|this, _, window, cx| {
+                    this.toggle_theme(window, cx);
+                })),
+        );
+
+    h_flex()
+        .w_full()
+        .items_center()
+        .gap(px(12.))
+        .px(px(12.))
+        .py(px(10.))
+        .bg(cx.theme().background)
+        .border_b_1()
+        .border_color(cx.theme().border)
+        .child(tabs_container)
+        .child(controls)
 }
 
 fn seed_sources() -> Vec<DataSourceMeta> {

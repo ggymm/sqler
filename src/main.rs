@@ -1,13 +1,17 @@
-use gpui::{
-    px, size, App, AppContext as _, Application, AssetSource, Bounds, Result, SharedString,
-    WindowBounds, WindowOptions,
-};
-use gpui_component::Root;
-use std::{borrow::Cow, fs::read, path::PathBuf};
+use std::borrow::Cow;
+use std::fs::read;
+use std::path::PathBuf;
 
-mod app;
+use gpui::*;
+use gpui_component::init;
+use gpui_component::Root;
+use gpui_component::Theme;
+use gpui_component::ThemeMode;
 
 use app::SqlerApp;
+
+mod app;
+mod driver;
 
 struct FsAssets;
 
@@ -37,17 +41,34 @@ fn init_runtime(_cx: &mut App) {
 
 fn main() {
     let app = Application::new().with_assets(FsAssets);
-
     app.run(|cx: &mut App| {
-        gpui_component::init(cx);
+        init(cx);
         init_runtime(cx);
         cx.activate(true);
+        cx.on_window_closed(|cx| {
+            if cx.windows().is_empty() {
+                cx.quit();
+            }
+        })
+        .detach();
 
-        let window_bounds = Bounds::centered(None, size(px(1200.), px(800.)), cx);
+        Theme::change(ThemeMode::Light, None, cx);
+
+        let window_size = size(px(1280.), px(800.));
+        let window_bounds = Bounds::centered(None, window_size, cx);
 
         cx.open_window(
             WindowOptions {
                 window_bounds: Some(WindowBounds::Windowed(window_bounds)),
+                titlebar: Some(TitlebarOptions {
+                    title: None,
+                    appears_transparent: false,
+                    traffic_light_position: None,
+                }),
+                window_min_size: Some(Size {
+                    width: window_size.width,
+                    height: window_size.height,
+                }),
                 ..Default::default()
             },
             |window, cx| {
@@ -57,9 +78,8 @@ fn main() {
         )
         .expect("failed to open window")
         .update(cx, |_, window, _| {
-            window.set_window_title("Sqler");
             window.activate_window();
         })
-        .unwrap();
+        .expect("failed to update window");
     });
 }

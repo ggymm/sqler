@@ -1,16 +1,16 @@
-//! 数据源驱动统一接口。
-//!
-//! 当前实现只进行参数校验与占位测试连接逻辑，后续可在此处接入真实数据库驱动。
+pub use mysql::MySQLConfig;
+pub use mysql::MySQLDriver;
+pub use postgres::PostgreSQLConfig;
+pub use postgres::PostgreSQLDriver;
+pub use sqlite::SQLiteConfig;
+pub use sqlite::SQLiteDriver;
+pub use sqlserver::SQLServerConfig;
+pub use sqlserver::SQLServerDriver;
 
-mod postgres;
 mod mysql;
+mod postgres;
 mod sqlite;
 mod sqlserver;
-
-pub use postgres::{PostgresConfig, PostgresDriver};
-pub use mysql::{MySqlConfig, MySqlDriver};
-pub use sqlite::{SqliteConfig, SqliteDriver};
-pub use sqlserver::{SqlServerConfig, SqlServerDriver};
 
 /// 可支持的数据源类型。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -24,10 +24,10 @@ pub enum DriverKind {
 /// 测试连接请求参数。
 #[derive(Debug, Clone)]
 pub enum TestConnectionRequest {
-    Postgres(PostgresConfig),
-    MySql(MySqlConfig),
-    Sqlite(SqliteConfig),
-    SqlServer(SqlServerConfig),
+    Postgres(PostgreSQLConfig),
+    MySql(MySQLConfig),
+    Sqlite(SQLiteConfig),
+    SqlServer(SQLServerConfig),
 }
 
 /// 统一的驱动错误。
@@ -52,10 +52,10 @@ pub trait DatabaseDriver {
 /// 按数据源类型测试连接。
 pub fn test_connection(request: TestConnectionRequest) -> Result<(), DriverError> {
     match request {
-        TestConnectionRequest::Postgres(config) => PostgresDriver.test_connection(&config),
-        TestConnectionRequest::MySql(config) => MySqlDriver.test_connection(&config),
-        TestConnectionRequest::Sqlite(config) => SqliteDriver.test_connection(&config),
-        TestConnectionRequest::SqlServer(config) => SqlServerDriver.test_connection(&config),
+        TestConnectionRequest::Postgres(config) => PostgreSQLDriver.test_connection(&config),
+        TestConnectionRequest::MySql(config) => MySQLDriver.test_connection(&config),
+        TestConnectionRequest::Sqlite(config) => SQLiteDriver.test_connection(&config),
+        TestConnectionRequest::SqlServer(config) => SQLServerDriver.test_connection(&config),
     }
 }
 
@@ -65,7 +65,7 @@ mod tests {
 
     #[test]
     fn postgres_missing_host_is_error() {
-        let config = PostgresConfig {
+        let config = PostgreSQLConfig {
             host: "".into(),
             port: 5432,
             database: "demo".into(),
@@ -74,17 +74,17 @@ mod tests {
             ssl_mode: None,
         };
         assert!(matches!(
-            PostgresDriver.test_connection(&config),
+            PostgreSQLDriver.test_connection(&config),
             Err(DriverError::MissingField(field)) if field == "host"
         ));
     }
 
     #[test]
     fn sqlite_requires_path() {
-        let invalid = SqliteConfig {
+        let invalid = SQLiteConfig {
             file_path: "".into(),
             read_only: false,
         };
-        assert!(SqliteDriver.test_connection(&invalid).is_err());
+        assert!(SQLiteDriver.test_connection(&invalid).is_err());
     }
 }

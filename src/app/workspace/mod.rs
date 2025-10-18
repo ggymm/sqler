@@ -4,42 +4,27 @@ pub mod sqlite;
 pub mod sqlserver;
 
 use gpui::prelude::FluentBuilder as _;
-use gpui::InteractiveElement as _;
 use gpui::StatefulInteractiveElement as _;
 use gpui::{
-    div, img, px, AnyElement, Context, IntoElement, Length, ParentElement, SharedString, Styled, Window,
+    div, img, px, AnyElement, Context, IntoElement, Length, ParentElement, SharedString, Styled,
+    Window,
 };
+use gpui::{InteractiveElement as _, TextOverflow};
 use gpui_component::{
     button::{Button, ButtonVariants as _},
     form::{form_field, v_form},
-    h_flex, v_flex, ActiveTheme as _, Disableable as _, InteractiveElementExt as _,
-    Selectable as _, Sizable as _, StyledExt,
+    h_flex, v_flex, ActiveTheme as _, Disableable as _, Icon, InteractiveElementExt as _,
+    Selectable as _, Sizable as _, Size, StyledExt,
 };
-
-use crate::app::comps;
 
 use crate::app::{
-    topbar, DataSourceMeta, DataSourceTabState, DatabaseKind, InnerTab, InnerTabId, SqlerApp,
-    TabId, TabKind,
+    DataSourceMeta, DataSourceTabState, DatabaseKind, InnerTab, InnerTabId, SqlerApp, TabId,
+    TabKind,
 };
 
-pub fn render_root(
-    app: &mut SqlerApp,
-    window: &mut Window,
-    cx: &mut Context<SqlerApp>,
-) -> AnyElement {
-    use gpui::{ParentElement, Styled};
 
-    let topbar = topbar::render(app, window, cx);
-    let content = render_active(app, window, cx);
 
-    comps::page()
-        .child(topbar)
-        .child(div().flex_1().size_full().child(content))
-        .into_any_element()
-}
-
-fn render_active(
+pub fn render_active(
     app: &mut SqlerApp,
     window: &mut Window,
     cx: &mut Context<SqlerApp>,
@@ -146,7 +131,7 @@ fn render_data_source_card(
                         .flex_shrink_0()
                         .w(px(32.))
                         .h(px(32.))
-                        .child(img(icon_path).size_full())
+                        .child(img(icon_path).size_full()),
                 )
                 .child(
                     div()
@@ -155,7 +140,7 @@ fn render_data_source_card(
                         .font_semibold()
                         .text_color(cx.theme().foreground)
                         .child(meta.name.clone()),
-                )
+                ),
         )
         .child(
             Button::new(("kind-chip", source_id))
