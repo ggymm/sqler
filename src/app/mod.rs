@@ -1,19 +1,15 @@
-use gpui::prelude::FluentBuilder;
-use gpui::FlexWrap::NoWrap;
-use gpui::{
-    div, AnyElement, AppContext as _, InteractiveElement, Length, ParentElement,
-    StatefulInteractiveElement, Styled, TextOverflow,
-};
-use gpui::{
-    px, size, Bounds, Context, IntoElement, Render, SharedString, Window, WindowBounds,
-    WindowHandle, WindowKind, WindowOptions,
-};
-use gpui_component::button::{Button, ButtonVariants};
-use gpui_component::{h_flex, Icon, Root, Sizable, Size};
-use gpui_component::{
-    theme::{Theme, ThemeMode},
-    ActiveTheme as _,
-};
+use gpui::prelude::*;
+use gpui::*;
+
+use gpui_component::button::Button;
+use gpui_component::button::ButtonVariants;
+use gpui_component::theme::Theme;
+use gpui_component::theme::ThemeMode;
+use gpui_component::ActiveTheme;
+use gpui_component::Icon;
+use gpui_component::Root;
+use gpui_component::Sizable;
+use gpui_component::Size;
 
 mod comps;
 mod create;
@@ -360,119 +356,122 @@ impl Render for SqlerApp {
     }
 }
 
-pub fn render_head(
-    app: &mut SqlerApp,
-    _window: &mut Window,
-    cx: &mut Context<SqlerApp>,
-) -> gpui::Div {
+pub fn render_head(app: &mut SqlerApp, _window: &mut Window, cx: &mut Context<SqlerApp>) -> Div {
     let theme = cx.theme();
     let active = app.active_tab;
 
-    let tabs = div()
+    div()
         .flex()
         .flex_row()
-        .px_2()
-        .gap_2()
-        .flex_1()
-        .min_w_0()
-        .children(app.tabs.iter().map(|tab| {
-            let tab_id = tab.id;
-            let is_active = tab_id == active;
-
-            let mut pill = h_flex()
-                .id(SharedString::from(format!("main-tab-{}", tab_id.raw())))
-                .gap(px(6.))
-                .px(px(12.))
-                .py(px(6.))
-                .items_center()
-                .justify_center()
-                .rounded_lg()
-                .border_1()
-                .border_color(theme.border)
-                .cursor_pointer()
-                .when(is_active, |this| {
-                    this.bg(theme.tab_active)
-                        .text_color(theme.tab_active_foreground)
-                })
-                .when(!is_active, |this| {
-                    this.text_color(theme.muted_foreground).bg(theme.tab_bar)
-                })
-                .on_click(cx.listener(move |this, _, _, cx| {
-                    this.set_active_tab(tab_id, cx);
-                }))
-                .child(
-                    div()
-                        .flex_1()
-                        .min_w_0()
-                        .text_left()
-                        .overflow_hidden()
-                        .text_overflow(TextOverflow::Truncate(Default::default()))
-                        .whitespace_nowrap()
-                        .child(tab.title.clone()),
-                );
-
-            if tab.closable {
-                pill = pill.child(
-                    Button::new(("close-tab", tab_id.raw()))
-                        .ghost()
-                        .compact()
-                        .xsmall()
-                        .tab_stop(false)
-                        .icon(
-                            Icon::default()
-                                .path("icons/close.svg")
-                                .with_size(Size::Small),
-                        )
-                        .on_click(cx.listener(move |this, _, _, cx| {
-                            this.close_tab(tab_id, cx);
-                        })),
-                );
-            }
-
-            {
-                let style = pill.style();
-                style.flex_grow = Some(0.);
-                style.flex_shrink = Some(1.);
-                style.flex_basis = Some(Length::Definite(px(240.).into()));
-                style.min_size.width = Some(Length::Definite(px(0.).into()));
-            }
-
-            pill.into_any_element()
-        }));
-    let controls = h_flex()
-        .gap_5()
+        .items_center()
+        .px_4()
+        .py_2()
+        .gap_4()
+        .size_full()
+        .border_b_1()
         .child(
-            Button::new("header-new-source")
-                .primary()
-                .small()
-                .label("新建数据源")
-                .on_click(cx.listener(|this, _, window, cx| {
-                    this.show_new_data_source_modal(window, cx);
+            div()
+                .flex()
+                .flex_row()
+                .px_2()
+                .gap_2()
+                .flex_1()
+                .min_w_0()
+                .children(app.tabs.iter().map(|tab| {
+                    let tab_id = tab.id;
+                    let is_active = tab_id == active;
+
+                    let mut pill = div()
+                        .id(SharedString::from(format!("main-tab-{}", tab_id.raw())))
+                        .flex()
+                        .flex_row()
+                        .px_3()
+                        .py_2()
+                        .gap_2()
+                        .items_center()
+                        .justify_center()
+                        .rounded_lg()
+                        .border_1()
+                        .border_color(theme.border)
+                        .cursor_pointer()
+                        .when(is_active, |this| {
+                            this.bg(theme.tab_active)
+                                .text_color(theme.tab_active_foreground)
+                        })
+                        .when(!is_active, |this| {
+                            this.text_color(theme.muted_foreground).bg(theme.tab_bar)
+                        })
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            this.set_active_tab(tab_id, cx);
+                        }))
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .text_left()
+                                .overflow_hidden()
+                                .text_overflow(TextOverflow::Truncate(Default::default()))
+                                .whitespace_nowrap()
+                                .child(tab.title.clone()),
+                        );
+
+                    if tab.closable {
+                        pill = pill.child(
+                            Button::new(("close-tab", tab_id.raw()))
+                                .ghost()
+                                .compact()
+                                .xsmall()
+                                .tab_stop(false)
+                                .icon(
+                                    Icon::default()
+                                        .path("icons/close.svg")
+                                        .with_size(Size::Small),
+                                )
+                                .on_click(cx.listener(move |this, _, _, cx| {
+                                    this.close_tab(tab_id, cx);
+                                })),
+                        );
+                    }
+
+                    {
+                        let style = pill.style();
+                        style.flex_grow = Some(0.);
+                        style.flex_shrink = Some(1.);
+                        style.flex_basis = Some(Length::Definite(px(240.).into()));
+                        style.min_size.width = Some(Length::Definite(px(0.).into()));
+                    }
+
+                    pill.into_any_element()
                 })),
         )
         .child(
-            Button::new("toggle-theme")
-                .ghost()
-                .small()
-                .label(if theme.is_dark() {
-                    "切换到亮色"
-                } else {
-                    "切换到暗色"
-                })
-                .on_click(cx.listener(|this, _, window, cx| {
-                    this.toggle_theme(window, cx);
-                })),
-        );
-
-    h_flex()
-        .w_full()
-        .items_center()
-        .gap_4()
-        .px_4()
-        .py_2()
-        .border_b_1()
-        .child(tabs)
-        .child(controls)
+            div()
+                .flex()
+                .flex_row()
+                .gap_5()
+                .child(
+                    Button::new("header-new-source")
+                        .primary()
+                        .small()
+                        .label("新建数据源")
+                        .on_click(cx.listener(|this, _, window, cx| {
+                            this.show_new_data_source_modal(window, cx);
+                        })),
+                )
+                .child(
+                    Button::new("toggle-theme")
+                        .ghost()
+                        .small()
+                        .label(if theme.is_dark() {
+                            "切换到亮色"
+                        } else {
+                            "切换到暗色"
+                        })
+                        .on_click(cx.listener(|this, _, window, cx| {
+                            this.toggle_theme(window, cx);
+                        })),
+                ),
+        )
 }
 
 fn seed_sources() -> Vec<DataSourceMeta> {
