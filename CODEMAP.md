@@ -13,8 +13,9 @@
     - 主渲染函数将工作区容器设为 `flex_1`，保证底部布局获取满高
     - 数据源元信息 `DataSourceMeta` 使用 `option::StoredOptions` 保存连接配置，供工作区与驱动共享
   - `workspace/`
-    - `mod.rs`：主窗口渲染逻辑，组合顶栏与工作区，首页/数据源均固定顶部，左右布局撑满高度并各自滚动
-    - `{postgres,mysql,sqlite,sqlserver}.rs`：每种数据库的工作区视图（展示配置、占位说明）
+    - `mod.rs`：主窗口渲染入口与首页面板，数据源标签分发至各自模块
+    - `common.rs`：各数据源工作区共享的侧栏/顶部/配置面板模板
+    - `{mysql,postgres,sqlite,sqlserver,oracle,redis,mongodb}.rs`：单一数据源的完整工作区实现（顶部菜单、侧栏、内容区）
   - `create/`
     - `mod.rs`：`CreateDataSourceWindow`，提供类型选择、表单填充和底部操作栏
     - `{postgres,mysql,sqlite,sqlserver}.rs`：各数据库表单状态与渲染
