@@ -23,7 +23,7 @@ pub fn render(
     };
 
     let notes = vec![
-        format!("描述：{}", meta.description.to_string()),
+        format!("描述：{}", meta.desc.to_string()),
         samples,
         "Postgres 工作区将提供 Schema、扩展与权限等管理能力。".to_string(),
     ];

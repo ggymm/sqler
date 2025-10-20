@@ -11,9 +11,9 @@ use gpui_component::Root;
 use gpui_component::Sizable;
 use gpui_component::Size;
 
-use crate::ConnectionPreset;
 use crate::DataSourceMeta;
 use crate::DataSourceType;
+use crate::option::{MySQLOptions, PostgreSQLOptions, SQLiteOptions, StoredOptions};
 
 mod comps;
 mod create;
@@ -457,14 +457,17 @@ fn seed_sources() -> Vec<DataSourceMeta> {
         DataSourceMeta {
             id: 1,
             name: SharedString::from("生产库"),
+            desc: SharedString::from("线上订单主库"),
             kind: DataSourceType::PostgreSQL,
-            description: SharedString::from("线上订单主库"),
-            connection: ConnectionPreset {
-                host: SharedString::from("10.10.12.5"),
-                port: SharedString::from("5432"),
-                database: SharedString::from("order_prod"),
-                username: SharedString::from("svc_order"),
-            },
+            options: StoredOptions::PostgreSQL(PostgreSQLOptions {
+                host: "10.10.12.5".into(),
+                port: 5432,
+                database: "order_prod".into(),
+                username: "svc_order".into(),
+                password: None,
+                schema: None,
+                ssl_mode: None,
+            }),
             tables: vec![
                 SharedString::from("orders"),
                 SharedString::from("order_items"),
@@ -475,14 +478,17 @@ fn seed_sources() -> Vec<DataSourceMeta> {
         DataSourceMeta {
             id: 2,
             name: SharedString::from("BI 分析库"),
+            desc: SharedString::from("数仓汇总使用"),
             kind: DataSourceType::MySQL,
-            description: SharedString::from("数仓汇总使用"),
-            connection: ConnectionPreset {
-                host: SharedString::from("10.60.1.10"),
-                port: SharedString::from("3306"),
-                database: SharedString::from("dw_report"),
-                username: SharedString::from("reporter"),
-            },
+            options: StoredOptions::MySQL(MySQLOptions {
+                host: "10.60.1.10".into(),
+                port: 3306,
+                username: "reporter".into(),
+                password: None,
+                database: "dw_report".into(),
+                charset: Some("utf8mb4".into()),
+                use_tls: false,
+            }),
             tables: vec![
                 SharedString::from("daily_metrics"),
                 SharedString::from("marketing_channels"),
@@ -492,14 +498,13 @@ fn seed_sources() -> Vec<DataSourceMeta> {
         DataSourceMeta {
             id: 3,
             name: SharedString::from("测试环境"),
+            desc: SharedString::from("本地调试用"),
             kind: DataSourceType::SQLite,
-            description: SharedString::from("本地调试用"),
-            connection: ConnectionPreset {
-                host: SharedString::from("local"),
-                port: SharedString::from("0"),
-                database: SharedString::from("sqler-dev"),
-                username: SharedString::from("dev"),
-            },
+            options: StoredOptions::SQLite(SQLiteOptions {
+                file_path: "sqler-dev.db".into(),
+                password: None,
+                read_only: false,
+            }),
             tables: vec![SharedString::from("sample_jobs")],
         },
     ]

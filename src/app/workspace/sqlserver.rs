@@ -11,7 +11,7 @@ pub fn render(
     debug_assert!(matches!(kind, DataSourceType::SQLServer));
 
     let notes = vec![
-        format!("描述：{}", meta.description.to_string()),
+        format!("描述：{}", meta.desc.to_string()),
         format!("表数量：{}", meta.tables.len()),
         "SQL Server 工作区将扩展作业、代理与备份策略面板。".to_string(),
     ];

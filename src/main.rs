@@ -7,6 +7,7 @@ use gpui_component::init;
 use gpui_component::Root;
 
 use app::SqlerApp;
+use option::StoredOptions;
 
 mod app;
 mod driver;
@@ -25,7 +26,6 @@ pub enum DataSourceType {
 }
 
 impl DataSourceType {
-
     pub fn all() -> &'static [DataSourceType] {
         &[
             DataSourceType::MySQL,
@@ -37,7 +37,7 @@ impl DataSourceType {
             DataSourceType::MongoDB,
         ]
     }
-    
+
     pub fn image(&self) -> &'static str {
         match self {
             DataSourceType::MySQL => "icons/mysql.svg",
@@ -76,20 +76,12 @@ impl DataSourceType {
 }
 
 #[derive(Clone)]
-pub struct ConnectionPreset {
-    pub host: SharedString,
-    pub port: SharedString,
-    pub database: SharedString,
-    pub username: SharedString,
-}
-
-#[derive(Clone)]
 pub struct DataSourceMeta {
     pub id: u64,
     pub name: SharedString,
+    pub desc: SharedString,
     pub kind: DataSourceType,
-    pub description: SharedString,
-    pub connection: ConnectionPreset,
+    pub options: StoredOptions,
     pub tables: Vec<SharedString>,
 }
 

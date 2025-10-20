@@ -9,6 +9,7 @@ use gpui_component::{
 };
 
 use crate::app::{DataSourceTabState, InnerTab, InnerTabId, SqlerApp, TabId, TabKind};
+use crate::option::{OracleAddress, SQLServerAuth, SslMode, StoredOptions};
 use crate::DataSourceMeta;
 use crate::DataSourceType;
 
@@ -146,7 +147,7 @@ fn render_data_source_card(
             div()
                 .text_sm()
                 .text_color(cx.theme().muted_foreground)
-                .child(meta.description.clone()),
+                .child(meta.desc.clone()),
         )
         .into_any_element()
 }
@@ -321,31 +322,16 @@ fn data_source_detail(
     cx: &mut Context<SqlerApp>,
 ) -> gpui::Div {
     let meta = &state.meta;
-    let config = v_form()
+    let mut config = v_form()
         .gap(px(12.))
         .child(form_field().label("名称").child(div().child(meta.name.clone())))
-        .child(form_field().label("类型").child(div().child(meta.kind.label())))
-        .child(
-            form_field()
-                .label("主机")
-                .child(div().child(meta.connection.host.clone())),
-        )
-        .child(
-            form_field()
-                .label("端口")
-                .child(div().child(meta.connection.port.clone())),
-        )
-        .child(
-            form_field()
-                .label("数据库")
-                .child(div().child(meta.connection.database.clone())),
-        )
-        .child(
-            form_field()
-                .label("账号")
-                .child(div().child(meta.connection.username.clone())),
-        )
-        .child(form_field().label("描述").child(div().child(meta.description.clone())));
+        .child(form_field().label("类型").child(div().child(meta.kind.label())));
+
+    for (label, value) in connection_details(meta) {
+        config = config.child(form_field().label(label).child(div().child(value)));
+    }
+
+    config = config.child(form_field().label("描述").child(div().child(meta.desc.clone())));
 
     let workspace_view = render_workspace_body(meta, cx);
 
@@ -376,14 +362,223 @@ fn render_workspace_body(
     }
 }
 
+fn connection_details(meta: &DataSourceMeta) -> Vec<(&'static str, SharedString)> {
+    match &meta.options {
+        StoredOptions::MySQL(opts) => {
+            let mut fields = vec![
+                ("主机", SharedString::from(opts.host.clone())),
+                ("端口", SharedString::from(opts.port.to_string())),
+                ("数据库", SharedString::from(opts.database.clone())),
+                ("账号", SharedString::from(opts.username.clone())),
+            ];
+            if let Some(charset) = &opts.charset {
+                fields.push(("字符集", SharedString::from(charset.clone())));
+            }
+            if opts.password.is_some() {
+                fields.push(("密码", SharedString::from("已设置")));
+            }
+            if opts.use_tls {
+                fields.push(("TLS", SharedString::from("开启")));
+            }
+            fields
+        }
+        StoredOptions::PostgreSQL(opts) => {
+            let mut fields = vec![
+                ("主机", SharedString::from(opts.host.clone())),
+                ("端口", SharedString::from(opts.port.to_string())),
+                ("数据库", SharedString::from(opts.database.clone())),
+                ("账号", SharedString::from(opts.username.clone())),
+            ];
+            if let Some(schema) = &opts.schema {
+                fields.push(("Schema", SharedString::from(schema.clone())));
+            }
+            if let Some(mode) = opts.ssl_mode {
+                let mode_str = match mode {
+                    SslMode::Disable => "Disable",
+                    SslMode::Prefer => "Prefer",
+                    SslMode::Require => "Require",
+                };
+                fields.push(("SSL 模式", SharedString::from(mode_str)));
+            }
+            if opts.password.is_some() {
+                fields.push(("密码", SharedString::from("已设置")));
+            }
+            fields
+        }
+        StoredOptions::SQLite(opts) => {
+            let mut fields = vec![("文件路径", SharedString::from(opts.file_path.clone()))];
+            fields.push((
+                "访问模式",
+                SharedString::from(if opts.read_only { "只读" } else { "读写" }),
+            ));
+            if opts.password.is_some() {
+                fields.push(("密码", SharedString::from("已设置")));
+            }
+            fields
+        }
+        StoredOptions::SQLServer(opts) => {
+            let mut fields = vec![
+                ("主机", SharedString::from(opts.host.clone())),
+                ("端口", SharedString::from(opts.port.to_string())),
+                ("数据库", SharedString::from(opts.database.clone())),
+                (
+                    "认证模式",
+                    SharedString::from(match opts.auth {
+                        SQLServerAuth::SqlPassword => "SQL 密码",
+                        SQLServerAuth::Integrated => "集成认证",
+                    }),
+                ),
+            ];
+            if let Some(instance) = &opts.instance {
+                fields.push(("实例名", SharedString::from(instance.clone())));
+            }
+            if let Some(username) = &opts.username {
+                fields.push(("账号", SharedString::from(username.clone())));
+            }
+            if opts.password.is_some() {
+                fields.push(("密码", SharedString::from("已设置")));
+            }
+            fields
+        }
+        StoredOptions::Oracle(opts) => {
+            let address = match &opts.address {
+                OracleAddress::ServiceName(name) => format!("ServiceName: {}", name),
+                OracleAddress::Sid(sid) => format!("SID: {}", sid),
+            };
+            let mut fields = vec![
+                ("主机", SharedString::from(opts.host.clone())),
+                ("端口", SharedString::from(opts.port.to_string())),
+                ("地址", SharedString::from(address)),
+                ("账号", SharedString::from(opts.username.clone())),
+            ];
+            if opts.wallet_path.is_some() {
+                fields.push(("钱包", SharedString::from("已配置")));
+            }
+            if opts.password.is_some() {
+                fields.push(("密码", SharedString::from("已设置")));
+            }
+            fields
+        }
+        StoredOptions::Redis(opts) => {
+            let mut fields = vec![
+                ("主机", SharedString::from(opts.host.clone())),
+                ("端口", SharedString::from(opts.port.to_string())),
+                ("数据库索引", SharedString::from(opts.db.to_string())),
+                (
+                    "TLS",
+                    SharedString::from(if opts.use_tls { "开启" } else { "关闭" }),
+                ),
+            ];
+            if let Some(username) = &opts.username {
+                fields.push(("账号", SharedString::from(username.clone())));
+            }
+            if opts.password.is_some() {
+                fields.push(("密码", SharedString::from("已设置")));
+            }
+            fields
+        }
+        StoredOptions::MongoDB(opts) => {
+            let mut fields = Vec::new();
+            if let Some(uri) = &opts.connection_string {
+                fields.push(("连接串", SharedString::from(uri.clone())));
+            } else if !opts.hosts.is_empty() {
+                let hosts = opts
+                    .hosts
+                    .iter()
+                    .map(|host| format!("{}:{}", host.host, host.port))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                fields.push(("主机", SharedString::from(hosts)));
+            }
+            if let Some(rs) = &opts.replica_set {
+                fields.push(("副本集", SharedString::from(rs.clone())));
+            }
+            if let Some(auth) = &opts.auth_source {
+                fields.push(("认证库", SharedString::from(auth.clone())));
+            }
+            if let Some(username) = &opts.username {
+                fields.push(("账号", SharedString::from(username.clone())));
+            }
+            if opts.password.is_some() {
+                fields.push(("密码", SharedString::from("已设置")));
+            }
+            fields.push((
+                "TLS",
+                SharedString::from(if opts.tls { "开启" } else { "关闭" }),
+            ));
+            fields
+        }
+    }
+}
+
+fn connection_summary(meta: &DataSourceMeta) -> String {
+    match &meta.options {
+        StoredOptions::MySQL(opts) => format!(
+            "{}@{}:{} / {}",
+            opts.username, opts.host, opts.port, opts.database
+        ),
+        StoredOptions::PostgreSQL(opts) => format!(
+            "{}@{}:{} / {}",
+            opts.username, opts.host, opts.port, opts.database
+        ),
+        StoredOptions::SQLite(opts) => format!("file: {}", opts.file_path),
+        StoredOptions::SQLServer(opts) => {
+            let user = opts
+                .username
+                .clone()
+                .unwrap_or_else(|| String::from("IntegratedAuth"));
+            let mut summary = format!("{}@{}:{}", user, opts.host, opts.port);
+            if let Some(instance) = &opts.instance {
+                summary.push_str(&format!(" ({})", instance));
+            }
+            summary.push_str(&format!(" / {}", opts.database));
+            summary
+        }
+        StoredOptions::Oracle(opts) => {
+            let address = match &opts.address {
+                OracleAddress::ServiceName(name) => format!("service:{}", name),
+                OracleAddress::Sid(sid) => format!("sid:{}", sid),
+            };
+            format!("{}@{}:{} [{}]", opts.username, opts.host, opts.port, address)
+        }
+        StoredOptions::Redis(opts) => {
+            let tls = if opts.use_tls { " (TLS)" } else { "" };
+            let user = opts.username.clone().unwrap_or_else(|| "default".into());
+            format!(
+                "{}@{}:{} db={}{}",
+                user, opts.host, opts.port, opts.db, tls
+            )
+        }
+        StoredOptions::MongoDB(opts) => {
+            if let Some(uri) = &opts.connection_string {
+                uri.clone()
+            } else if !opts.hosts.is_empty() {
+                let hosts = opts
+                    .hosts
+                    .iter()
+                    .map(|host| format!("{}:{}", host.host, host.port))
+                    .collect::<Vec<_>>()
+                    .join(",");
+                let mut summary = format!("mongodb://{}", hosts);
+                if let Some(rs) = &opts.replica_set {
+                    summary.push_str(&format!("?replicaSet={}", rs));
+                }
+                summary
+            } else {
+                "mongodb://<empty>".to_string()
+            }
+        }
+    }
+}
+
 pub fn render_common_workspace(
     kind: DataSourceType,
     meta: &DataSourceMeta,
     notes: Vec<String>,
     cx: &mut Context<SqlerApp>,
 ) -> gpui::Div {
-    let connection = &meta.connection;
     let theme = cx.theme();
+    let summary = connection_summary(meta);
 
     let mut section = v_flex()
         .gap(px(10.))
@@ -393,10 +588,12 @@ pub fn render_common_workspace(
                 .font_semibold()
                 .child(format!("{} 工作区", kind.label())),
         )
-        .child(div().text_sm().text_color(theme.muted_foreground).child(format!(
-            "连接：{}@{}:{} / {}",
-            connection.username, connection.host, connection.port, connection.database,
-        )));
+        .child(
+            div()
+                .text_sm()
+                .text_color(theme.muted_foreground)
+                .child(format!("连接：{}", summary)),
+        );
 
     for note in notes {
         section = section.child(div().text_sm().text_color(theme.muted_foreground).child(note));

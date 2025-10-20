@@ -11,6 +11,7 @@
     - 声明 `SqlerApp`、`TabState` 等 UI 状态及 `NewDataSourceState`
     - 管理窗口生命周期（创建/聚焦“新建数据源”窗口），驱动主题切换、标签增删
     - 主渲染函数将工作区容器设为 `flex_1`，保证底部布局获取满高
+    - 数据源元信息 `DataSourceMeta` 使用 `option::StoredOptions` 保存连接配置，供工作区与驱动共享
   - `workspace/`
     - `mod.rs`：主窗口渲染逻辑，组合顶栏与工作区，首页/数据源均固定顶部，左右布局撑满高度并各自滚动
     - `{postgres,mysql,sqlite,sqlserver}.rs`：每种数据库的工作区视图（展示配置、占位说明）

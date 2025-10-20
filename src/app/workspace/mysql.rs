@@ -11,7 +11,7 @@ pub fn render(
     debug_assert!(matches!(kind, DataSourceType::MySQL));
 
     let notes = vec![
-        format!("描述：{}", meta.description.to_string()),
+        format!("描述：{}", meta.desc.to_string()),
         format!("表数量：{}", meta.tables.len()),
         "MySQL 工作区规划包含连接池与慢查询分析面板。".to_string(),
     ];
