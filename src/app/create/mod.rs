@@ -1,8 +1,3 @@
-pub mod mysql;
-pub mod postgres;
-pub mod sqlite;
-pub mod sqlserver;
-
 use gpui::{
     div, img, px, AnyElement, Context, InteractiveElement as _, IntoElement, Length, ParentElement, Render,
     SharedString, Stateful, StatefulInteractiveElement as _, Styled, WeakEntity, Window,
@@ -14,6 +9,14 @@ use gpui_component::{
 
 use crate::app::{NewDataSourceState, SqlerApp};
 use crate::DataSourceType;
+
+pub mod mongodb;
+pub mod mysql;
+pub mod oracle;
+pub mod postgres;
+pub mod redis;
+pub mod sqlite;
+pub mod sqlserver;
 
 pub struct CreateDataSourceWindow {
     parent: WeakEntity<SqlerApp>,

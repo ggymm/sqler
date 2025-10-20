@@ -12,8 +12,11 @@ use crate::app::{DataSourceTabState, InnerTab, InnerTabId, SqlerApp, TabId, TabK
 use crate::DataSourceMeta;
 use crate::DataSourceType;
 
+pub mod mongodb;
 pub mod mysql;
+pub mod oracle;
 pub mod postgres;
+pub mod redis;
 pub mod sqlite;
 pub mod sqlserver;
 

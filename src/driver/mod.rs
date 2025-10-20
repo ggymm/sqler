@@ -7,10 +7,13 @@ pub use sqlite::SQLiteDriver;
 pub use sqlserver::SQLServerConfig;
 pub use sqlserver::SQLServerDriver;
 
-mod mysql;
-mod postgres;
-mod sqlite;
-mod sqlserver;
+pub mod mongodb;
+pub mod mysql;
+pub mod oracle;
+pub mod postgres;
+pub mod redis;
+pub mod sqlite;
+pub mod sqlserver;
 
 /// 可支持的数据源类型。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
