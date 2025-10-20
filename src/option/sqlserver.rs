@@ -7,7 +7,7 @@ pub enum SQLServerAuth {
     Integrated,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct SQLServerOptions {
     pub host: String,
     pub port: u16,

@@ -22,7 +22,7 @@ impl OracleAddress {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct OracleOptions {
     pub host: String,
     pub port: u16,

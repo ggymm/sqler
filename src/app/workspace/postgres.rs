@@ -4,6 +4,7 @@ use gpui::*;
 use gpui_component::{h_flex, v_flex, ActiveTheme as _, StyledExt};
 
 use crate::app::{DataSourceTabState, SqlerApp, TabId};
+use crate::option::ConnectionOptions;
 use crate::option::DataSourceKind;
 use crate::option::{DataSourceOptions, SslMode};
 
@@ -27,7 +28,7 @@ impl<'a> PostgresWorkspace<'a> {
 
         let options = match &meta.options {
             DataSourceOptions::PostgreSQL(opts) => opts,
-            other => panic!("PostgresWorkspace expects Postgres options, got {:?}", other),
+            other => panic!("PostgresWorkspace expects Postgres options, got {}", other.kind().label()),
         };
 
         let theme = cx.theme();

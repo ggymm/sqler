@@ -10,7 +10,7 @@ use app::SqlerApp;
 
 mod app;
 mod driver;
-pub mod option;
+mod option;
 
 struct FsAssets;
 

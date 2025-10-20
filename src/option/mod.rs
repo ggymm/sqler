@@ -85,7 +85,7 @@ impl DataSourceKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub enum DataSourceOptions {
     MySQL(MySQLOptions),
     Oracle(OracleOptions),

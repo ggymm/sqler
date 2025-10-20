@@ -1,7 +1,7 @@
 use crate::option::ConnectionOptions;
 use crate::option::DataSourceKind;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct RedisOptions {
     pub host: String,
     pub port: u16,

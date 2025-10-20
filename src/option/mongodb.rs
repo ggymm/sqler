@@ -16,7 +16,7 @@ impl Default for MongoDBHost {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct MongoDBOptions {
     pub connection_string: Option<String>,
     pub hosts: Vec<MongoDBHost>,

@@ -16,7 +16,6 @@ pub struct MySQLState {
     pub username: Entity<InputState>,
     pub password: Entity<InputState>,
     pub database: Entity<InputState>,
-    pub charset: Entity<InputState>,
 }
 
 impl MySQLState {
@@ -25,29 +24,12 @@ impl MySQLState {
         cx: &mut Context<SqlerApp>,
     ) -> Self {
         Self {
-            name: cx.new(|cx| InputState::new(window, cx).placeholder("数据源名称")),
-            host: cx.new(|cx| {
-                InputState::new(window, cx)
-                    .placeholder("主机地址，例如：127.0.0.1")
-                    .default_value("127.0.0.1")
-            }),
-            port: cx.new(|cx| {
-                InputState::new(window, cx)
-                    .placeholder("端口，例如：3306")
-                    .default_value("3306")
-            }),
-            username: cx.new(|cx| {
-                InputState::new(window, cx)
-                    .placeholder("用户名，例如：root")
-                    .default_value("root")
-            }),
-            password: cx.new(|cx| InputState::new(window, cx).placeholder("密码").masked(true)),
-            database: cx.new(|cx| InputState::new(window, cx).placeholder("数据库名称，例如：analytics")),
-            charset: cx.new(|cx| {
-                InputState::new(window, cx)
-                    .placeholder("字符集，例如：utf8mb4")
-                    .default_value("utf8mb4")
-            }),
+            name: cx.new(|cx| InputState::new(window, cx).default_value("MySQL数据源")),
+            host: cx.new(|cx| InputState::new(window, cx).default_value("localhost")),
+            port: cx.new(|cx| InputState::new(window, cx).default_value("3306")),
+            username: cx.new(|cx| InputState::new(window, cx).default_value("root")),
+            password: cx.new(|cx| InputState::new(window, cx).masked(true)),
+            database: cx.new(|cx| InputState::new(window, cx)),
         }
     }
 }
@@ -55,13 +37,15 @@ impl MySQLState {
 pub fn render(
     state: &mut MySQLState,
     cx: &Context<CreateDataSourceWindow>,
-) -> gpui::Div {
-    v_flex()
-        .gap(px(12.))
+) -> Div {
+    div()
+        .flex()
+        .flex_col()
+        .gap_4()
         .child(
             v_form()
-                .gap(px(12.))
-                .child(form_field().label("数据源名称").child(TextInput::new(&state.name)))
+                .layout(Axis::Horizontal)
+                .child(form_field().label("名称").child(TextInput::new(&state.name)))
                 .child(form_field().label("主机").child(TextInput::new(&state.host)))
                 .child(form_field().label("端口").child(TextInput::new(&state.port)))
                 .child(form_field().label("用户名").child(TextInput::new(&state.username)))
@@ -71,7 +55,6 @@ pub fn render(
                         .child(TextInput::new(&state.password).mask_toggle()),
                 )
                 .child(form_field().label("数据库").child(TextInput::new(&state.database)))
-                .child(form_field().label("字符集").child(TextInput::new(&state.charset))),
         )
         .child(
             div()

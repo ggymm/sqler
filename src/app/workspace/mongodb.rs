@@ -4,6 +4,7 @@ use gpui::*;
 use gpui_component::{h_flex, v_flex, ActiveTheme as _, StyledExt};
 
 use crate::app::{DataSourceTabState, SqlerApp, TabId};
+use crate::option::ConnectionOptions;
 use crate::option::DataSourceKind;
 use crate::option::DataSourceOptions;
 
@@ -27,7 +28,7 @@ impl<'a> MongoWorkspace<'a> {
 
         let options = match &meta.options {
             DataSourceOptions::MongoDB(opts) => opts,
-            other => panic!("MongoWorkspace expects MongoDB options, got {:?}", other),
+            other => panic!("MongoWorkspace expects MongoDB options, got {}", other.kind().label()),
         };
 
         let theme = cx.theme();

@@ -1,7 +1,7 @@
 use crate::option::ConnectionOptions;
 use crate::option::DataSourceKind;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct SQLiteOptions {
     pub file_path: String,
     pub password: Option<String>,

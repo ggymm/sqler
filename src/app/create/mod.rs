@@ -131,7 +131,10 @@ impl Render for CreateDataSourceWindow {
                     .bg(theme.secondary)
                     .border_b_1()
                     .border_color(theme.border)
-                    .child(div().text_xl().font_semibold().child("新建数据源")),
+                    .child(match selected {
+                        Some(kind) => div().text_xl().font_semibold().child(format!("配置 {}", kind.label())),
+                        None => div().text_xl().font_semibold().child("新建数据源"),
+                    }),
             )
             .child(
                 div()
@@ -143,27 +146,15 @@ impl Render for CreateDataSourceWindow {
                     .min_h_0()
                     .overflow_scroll()
                     .child(match selected {
-                        Some(kind) => div()
-                            .flex()
-                            .flex_col()
-                            .px_8()
-                            .py_6()
-                            .gap_5()
-                            .child(
-                                div()
-                                    .text_base()
-                                    .font_semibold()
-                                    .child(format!("配置 {}", kind.label())),
-                            )
-                            .child(match kind {
-                                DataSourceKind::MySQL => mysql::render(&mut self.state.mysql, cx),
-                                DataSourceKind::Oracle => oracle::render(&mut self.state.oracle, cx),
-                                DataSourceKind::SQLite => sqlite::render(&mut self.state.sqlite, cx),
-                                DataSourceKind::SQLServer => sqlserver::render(&mut self.state.sqlserver, cx),
-                                DataSourceKind::PostgreSQL => postgres::render(&mut self.state.postgres, cx),
-                                DataSourceKind::Redis => redis::render(&mut self.state.redis, cx),
-                                DataSourceKind::MongoDB => mongodb::render(&mut self.state.mongodb, cx),
-                            }),
+                        Some(kind) => div().flex().flex_col().px_8().py_6().gap_5().child(match kind {
+                            DataSourceKind::MySQL => mysql::render(&mut self.state.mysql, cx),
+                            DataSourceKind::Oracle => oracle::render(&mut self.state.oracle, cx),
+                            DataSourceKind::SQLite => sqlite::render(&mut self.state.sqlite, cx),
+                            DataSourceKind::SQLServer => sqlserver::render(&mut self.state.sqlserver, cx),
+                            DataSourceKind::PostgreSQL => postgres::render(&mut self.state.postgres, cx),
+                            DataSourceKind::Redis => redis::render(&mut self.state.redis, cx),
+                            DataSourceKind::MongoDB => mongodb::render(&mut self.state.mongodb, cx),
+                        }),
                         None => div().flex().flex_col().px_8().py_6().gap_5().children(
                             DataSourceKind::all()
                                 .iter()

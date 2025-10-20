@@ -8,7 +8,7 @@ pub enum SslMode {
     Require,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct PostgreSQLOptions {
     pub host: String,
     pub port: u16,

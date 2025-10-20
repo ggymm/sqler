@@ -8,6 +8,7 @@ use gpui_component::{
 };
 
 use crate::app::{DataSourceTabState, InnerTabId, SqlerApp, TabId};
+use crate::option::ConnectionOptions;
 use crate::option::DataSourceKind;
 use crate::option::{DataSourceOptions, MySQLOptions};
 
@@ -31,7 +32,7 @@ impl<'a> MySqlWorkspace<'a> {
 
         let options = match &meta.options {
             DataSourceOptions::MySQL(opts) => opts,
-            other => panic!("MySqlWorkspace expects MySQL options, got {:?}", other),
+            other => panic!("MySqlWorkspace expects MySQL options, got {}", other.kind().label()),
         };
 
         let mut table_list = v_flex()
