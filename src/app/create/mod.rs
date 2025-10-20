@@ -72,22 +72,22 @@ impl CreateDataSourceWindow {
         Self { state, parent }
     }
 
-    fn back_to_selection(
-        &mut self,
-        cx: &mut Context<Self>,
-    ) {
-        if self.state.selected.take().is_some() {
-            cx.notify();
-        }
-    }
-
-    fn select_kind(
+    fn go_form(
         &mut self,
         kind: DataSourceType,
         cx: &mut Context<Self>,
     ) {
         if self.state.selected != Some(kind) {
             self.state.selected = Some(kind);
+            cx.notify();
+        }
+    }
+
+    fn back_select(
+        &mut self,
+        cx: &mut Context<Self>,
+    ) {
+        if self.state.selected.take().is_some() {
             cx.notify();
         }
     }
@@ -104,14 +104,6 @@ impl CreateDataSourceWindow {
             });
         }
         window.remove_window();
-    }
-
-    fn submit(
-        &self,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.close_window(window, cx);
     }
 }
 
@@ -211,7 +203,7 @@ impl Render for CreateDataSourceWindow {
                                         .on_click(cx.listener({
                                             let kind = *kind;
                                             move |this: &mut CreateDataSourceWindow, _ev, _window, cx| {
-                                                this.select_kind(kind, cx);
+                                                this.go_form(kind, cx);
                                             }
                                         }))
                                         .into_any_element()
@@ -251,7 +243,7 @@ impl Render for CreateDataSourceWindow {
                                     .ghost()
                                     .label("上一步")
                                     .on_click(cx.listener(|this: &mut CreateDataSourceWindow, _ev, _window, cx| {
-                                        this.back_to_selection(cx);
+                                        this.back_select(cx);
                                     })),
                             )
                             .child(
@@ -264,7 +256,7 @@ impl Render for CreateDataSourceWindow {
                             )
                             .child(Button::new("datasource-create-save").primary().label("保存").on_click(
                                 cx.listener(|this: &mut CreateDataSourceWindow, _ev, window, cx| {
-                                    this.submit(window, cx);
+                                    this.close_window(window, cx);
                                 }),
                             )),
                     ),
