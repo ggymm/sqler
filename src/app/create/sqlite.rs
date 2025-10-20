@@ -31,7 +31,7 @@ impl SqliteState {
 
 pub fn render(
     state: &mut SqliteState,
-    cx: &mut Context<CreateDataSourceWindow>,
+    cx: &Context<CreateDataSourceWindow>,
 ) -> gpui::Div {
     v_flex()
         .gap(px(12.))

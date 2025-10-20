@@ -1,10 +1,7 @@
 use gpui::*;
 use gpui_component::button::Button;
 use gpui_component::button::ButtonVariants;
-use gpui_component::h_flex;
-use gpui_component::v_flex;
 use gpui_component::ActiveTheme;
-use gpui_component::Disableable;
 use gpui_component::StyledExt;
 
 use crate::app::SqlerApp;
@@ -75,18 +72,6 @@ impl CreateDataSourceWindow {
         Self { state, parent }
     }
 
-    fn clear_parent(
-        &self,
-        cx: &mut Context<Self>,
-    ) {
-        if let Some(parent) = self.parent.upgrade() {
-            let _ = parent.update(cx, |app, cx| {
-                app.clear_new_data_source_window();
-                cx.notify();
-            });
-        }
-    }
-
     fn back_to_selection(
         &mut self,
         cx: &mut Context<Self>,
@@ -112,7 +97,12 @@ impl CreateDataSourceWindow {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.clear_parent(cx);
+        if let Some(parent) = self.parent.upgrade() {
+            let _ = parent.update(cx, |app, cx| {
+                app.clear_new_data_source_window();
+                cx.notify();
+            });
+        }
         window.remove_window();
     }
 
@@ -131,34 +121,36 @@ impl Render for CreateDataSourceWindow {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let title = "新建数据源";
-        let theme = cx.theme().clone();
+        let theme = cx.theme();
+        let selected = self.state.selected;
 
-        let has_selection = self.state.selected.is_some();
-
-        v_flex()
+        div()
+            .flex()
+            .flex_col()
             .size_full()
             .child(
-                h_flex()
-                    .justify_between()
+                div()
+                    .flex()
+                    .flex_row()
                     .items_center()
-                    .px(px(32.))
-                    .py(px(20.))
-                    .bg(theme.background)
+                    .justify_between()
+                    .px_8()
+                    .py_5()
+                    .bg(theme.secondary)
                     .border_b_1()
                     .border_color(theme.border)
-                    .child(div().text_xl().font_semibold().child(title)),
+                    .child(div().text_xl().font_semibold().child("新建数据源")),
             )
             .child(
                 div()
-                    .id("create-window")
+                    .id("datasource-create")
                     .flex()
                     .flex_col()
                     .flex_1()
                     .min_w_0()
                     .min_h_0()
                     .overflow_scroll()
-                    .child(match self.state.selected {
+                    .child(match selected {
                         Some(kind) => div()
                             .flex()
                             .flex_col()
@@ -180,46 +172,45 @@ impl Render for CreateDataSourceWindow {
                                 DataSourceType::Redis => redis::render(&mut self.state.redis, cx),
                                 DataSourceType::MongoDB => mongodb::render(&mut self.state.mongodb, cx),
                             }),
-                        None => div().flex().flex_col().px(px(32.)).py(px(24.)).gap(px(12.)).children(
+                        None => div().flex().flex_col().px_8().py_6().gap_5().children(
                             DataSourceType::all()
                                 .iter()
                                 .map(|kind| {
-                                    h_flex()
-                                        .w_full()
-                                        .h(px(80.))
+                                    div()
+                                        .flex()
+                                        .flex_row()
                                         .items_center()
-                                        .gap(px(16.))
-                                        .px(px(20.))
-                                        .py(px(16.))
-                                        .bg(cx.theme().secondary)
+                                        .w_full()
+                                        .h_20()
+                                        .px_5()
+                                        .py_4()
+                                        .gap_4()
+                                        .bg(theme.secondary)
                                         .border_1()
-                                        .border_color(cx.theme().border)
-                                        .rounded(px(8.))
+                                        .border_color(theme.border)
+                                        .rounded_lg()
                                         .cursor_pointer()
-                                        .id(SharedString::from(format!("type-card-{}", (*kind as u8))))
-                                        .hover(|this| this.bg(cx.theme().secondary_hover))
+                                        .id(("datasource-type-{}", *kind as u64))
+                                        .hover(|this| this.bg(theme.secondary_hover))
+                                        .child(div().w_12().h_12().child(img(kind.image()).size_full()))
                                         .child(
                                             div()
-                                                .flex_shrink_0()
-                                                .w(px(48.))
-                                                .h(px(48.))
-                                                .child(img(kind.image()).size_full()),
-                                        )
-                                        .child(
-                                            v_flex()
+                                                .flex()
+                                                .flex_col()
+                                                .items_start()
+                                                .gap_2()
                                                 .flex_1()
-                                                .gap(px(4.))
                                                 .child(div().text_base().font_semibold().child(kind.label()))
                                                 .child(
                                                     div()
                                                         .text_sm()
-                                                        .text_color(cx.theme().muted_foreground)
+                                                        .text_color(theme.secondary_foreground)
                                                         .child(kind.description()),
                                                 ),
                                         )
                                         .on_click(cx.listener({
                                             let kind = *kind;
-                                            move |this: &mut CreateDataSourceWindow, _, _, cx| {
+                                            move |this: &mut CreateDataSourceWindow, _ev, _window, cx| {
                                                 this.select_kind(kind, cx);
                                             }
                                         }))
@@ -234,48 +225,48 @@ impl Render for CreateDataSourceWindow {
                     .flex()
                     .flex_row()
                     .items_center()
-                    .justify_end()
+                    .justify_between()
                     .px_8()
                     .py_5()
                     .gap_4()
+                    .bg(theme.secondary)
                     .border_t_1()
                     .border_color(theme.border)
-                    .bg(theme.tab_bar)
                     .child(
-                        Button::new("modal-test-connection")
+                        Button::new("datasource-check-connection")
                             .ghost()
                             .label("测试连接")
-                            .disabled(!has_selection)
-                            .on_click(cx.listener(|_this: &mut CreateDataSourceWindow, _, _window, _cx| {
+                            .on_click(cx.listener(|_this: &mut CreateDataSourceWindow, _ev, _window, _cx| {
                                 // TODO: 实现连接测试逻辑
                             })),
                     )
                     .child(
-                        h_flex()
-                            .gap(px(12.))
+                        div()
+                            .flex()
+                            .flex_row()
+                            .items_center()
+                            .gap_4()
                             .child(
-                                Button::new("modal-back")
+                                Button::new("datasource-create-back")
                                     .ghost()
-                                    .disabled(!has_selection)
                                     .label("上一步")
-                                    .on_click(cx.listener(|this: &mut CreateDataSourceWindow, _, _, cx| {
+                                    .on_click(cx.listener(|this: &mut CreateDataSourceWindow, _ev, _window, cx| {
                                         this.back_to_selection(cx);
                                     })),
                             )
-                            .child(Button::new("modal-cancel").ghost().label("取消").on_click(cx.listener(
-                                |this: &mut CreateDataSourceWindow, _, window, cx| {
-                                    this.close_window(window, cx);
-                                },
-                            )))
                             .child(
-                                Button::new("modal-save")
-                                    .primary()
-                                    .disabled(!has_selection)
-                                    .label("保存")
-                                    .on_click(cx.listener(|this: &mut CreateDataSourceWindow, _, window, cx| {
-                                        this.submit(window, cx);
+                                Button::new("datasource-create-cancel")
+                                    .ghost()
+                                    .label("取消")
+                                    .on_click(cx.listener(|this: &mut CreateDataSourceWindow, _ev, window, cx| {
+                                        this.close_window(window, cx);
                                     })),
-                            ),
+                            )
+                            .child(Button::new("datasource-create-save").primary().label("保存").on_click(
+                                cx.listener(|this: &mut CreateDataSourceWindow, _ev, window, cx| {
+                                    this.submit(window, cx);
+                                }),
+                            )),
                     ),
             )
             .into_any_element()

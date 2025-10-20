@@ -55,7 +55,7 @@ impl MySQLState {
 
 pub fn render(
     state: &mut MySQLState,
-    cx: &mut Context<CreateDataSourceWindow>,
+    cx: &Context<CreateDataSourceWindow>,
 ) -> gpui::Div {
     v_flex()
         .gap(px(12.))

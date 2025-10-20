@@ -46,7 +46,7 @@ impl OracleState {
 
 pub fn render(
     state: &mut OracleState,
-    cx: &mut Context<CreateDataSourceWindow>,
+    cx: &Context<CreateDataSourceWindow>,
 ) -> gpui::Div {
     v_flex()
         .gap(px(12.))

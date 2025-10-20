@@ -1,9 +1,9 @@
+use crate::app::create::CreateDataSourceWindow;
+use crate::app::SqlerApp;
 use gpui::{div, px, AppContext, Context, Entity, ParentElement, Styled, Window};
 use gpui_component::form::{form_field, v_form};
 use gpui_component::input::{InputState, TextInput};
 use gpui_component::{v_flex, ActiveTheme};
-use crate::app::create::CreateDataSourceWindow;
-use crate::app::SqlerApp;
 
 #[derive(Clone)]
 pub struct MongoDBState {
@@ -45,7 +45,7 @@ impl MongoDBState {
 
 pub fn render(
     state: &mut MongoDBState,
-    cx: &mut Context<CreateDataSourceWindow>,
+    cx: &Context<CreateDataSourceWindow>,
 ) -> gpui::Div {
     v_flex()
         .gap(px(12.))
@@ -61,7 +61,7 @@ pub fn render(
                         .label("密码")
                         .child(TextInput::new(&state.password).mask_toggle()),
                 )
-                .child(form_field().label("数据库").child(TextInput::new(&state.database)))
+                .child(form_field().label("数据库").child(TextInput::new(&state.database))),
         )
         .child(
             div()

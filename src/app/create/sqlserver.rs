@@ -47,7 +47,7 @@ impl SqlServerState {
 
 pub fn render(
     state: &mut SqlServerState,
-    cx: &mut Context<CreateDataSourceWindow>,
+    cx: &Context<CreateDataSourceWindow>,
 ) -> gpui::Div {
     v_flex()
         .gap(px(12.))
