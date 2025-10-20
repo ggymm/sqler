@@ -28,7 +28,10 @@ impl<'a> PostgresWorkspace<'a> {
 
         let options = match &meta.options {
             DataSourceOptions::PostgreSQL(opts) => opts,
-            other => panic!("PostgresWorkspace expects Postgres options, got {}", other.kind().label()),
+            other => panic!(
+                "PostgresWorkspace expects Postgres options, got {}",
+                other.kind().label()
+            ),
         };
 
         let theme = cx.theme();

@@ -28,7 +28,10 @@ impl<'a> SqlServerWorkspace<'a> {
 
         let options = match &meta.options {
             DataSourceOptions::SQLServer(opts) => opts,
-            other => panic!("SqlServerWorkspace expects SQL Server options, got {}", other.kind().label()),
+            other => panic!(
+                "SqlServerWorkspace expects SQL Server options, got {}",
+                other.kind().label()
+            ),
         };
 
         let theme = cx.theme();

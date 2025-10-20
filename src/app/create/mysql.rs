@@ -1,11 +1,9 @@
 use gpui::*;
 use gpui_component::form::form_field;
-use gpui_component::form::v_form;
+use gpui_component::form::Form;
 use gpui_component::input::InputState;
 use gpui_component::input::TextInput;
-use gpui_component::{v_flex, ActiveTheme as _};
 
-use crate::app::create::CreateDataSourceWindow;
 use crate::app::SqlerApp;
 
 #[derive(Clone)]
@@ -34,32 +32,40 @@ impl MySQLState {
     }
 }
 
-pub fn render(
-    state: &mut MySQLState,
-    cx: &Context<CreateDataSourceWindow>,
-) -> Div {
-    div()
-        .flex()
-        .flex_col()
-        .gap_4()
-        .child(
-            v_form()
-                .layout(Axis::Horizontal)
-                .child(form_field().label("名称").child(TextInput::new(&state.name)))
-                .child(form_field().label("主机").child(TextInput::new(&state.host)))
-                .child(form_field().label("端口").child(TextInput::new(&state.port)))
-                .child(form_field().label("用户名").child(TextInput::new(&state.username)))
-                .child(
-                    form_field()
-                        .label("密码")
-                        .child(TextInput::new(&state.password).mask_toggle()),
-                )
-                .child(form_field().label("数据库").child(TextInput::new(&state.database)))
-        )
-        .child(
-            div()
-                .text_sm()
-                .text_color(cx.theme().muted_foreground)
-                .child("提示：若连接云数据库，请确认安全组已放行当前机器 IP"),
-        )
+pub fn render(state: &mut MySQLState) -> Div {
+    div().flex().flex_col().gap_4().child(
+        Form::vertical()
+            .layout(Axis::Horizontal)
+            .label_width(px(80.))
+            .child(
+                form_field()
+                    .label("名称")
+                    .child(TextInput::new(&state.name).cleanable()),
+            )
+            .child(
+                form_field()
+                    .label("主机")
+                    .child(TextInput::new(&state.host).cleanable()),
+            )
+            .child(
+                form_field()
+                    .label("端口")
+                    .child(TextInput::new(&state.port).cleanable()),
+            )
+            .child(
+                form_field()
+                    .label("用户名")
+                    .child(TextInput::new(&state.username).cleanable()),
+            )
+            .child(
+                form_field()
+                    .label("密码")
+                    .child(TextInput::new(&state.password).mask_toggle().cleanable()),
+            )
+            .child(
+                form_field()
+                    .label("数据库")
+                    .child(TextInput::new(&state.database).cleanable()),
+            ),
+    )
 }

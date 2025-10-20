@@ -356,7 +356,7 @@ pub fn render_head(
                         .items_center()
                         .justify_center()
                         .px_3()
-                        .py_2()
+                        .py_1()
                         .gap_2()
                         .border_1()
                         .border_color(theme.border)

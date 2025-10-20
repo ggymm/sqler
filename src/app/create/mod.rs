@@ -1,6 +1,5 @@
 use gpui::*;
 use gpui_component::button::Button;
-use gpui_component::button::ButtonVariants;
 use gpui_component::ActiveTheme;
 use gpui_component::StyledExt;
 
@@ -147,7 +146,7 @@ impl Render for CreateDataSourceWindow {
                     .overflow_scroll()
                     .child(match selected {
                         Some(kind) => div().flex().flex_col().px_8().py_6().gap_5().child(match kind {
-                            DataSourceKind::MySQL => mysql::render(&mut self.state.mysql, cx),
+                            DataSourceKind::MySQL => mysql::render(&mut self.state.mysql),
                             DataSourceKind::Oracle => oracle::render(&mut self.state.oracle, cx),
                             DataSourceKind::SQLite => sqlite::render(&mut self.state.sqlite, cx),
                             DataSourceKind::SQLServer => sqlserver::render(&mut self.state.sqlserver, cx),
@@ -217,7 +216,7 @@ impl Render for CreateDataSourceWindow {
                     .border_color(theme.border)
                     .child(
                         Button::new("datasource-check-connection")
-                            .ghost()
+                            .outline()
                             .label("测试连接")
                             .on_click(cx.listener(|_this: &mut CreateDataSourceWindow, _ev, _window, _cx| {
                                 // TODO: 实现连接测试逻辑
@@ -231,7 +230,7 @@ impl Render for CreateDataSourceWindow {
                             .gap_4()
                             .child(
                                 Button::new("datasource-create-back")
-                                    .ghost()
+                                    .outline()
                                     .label("上一步")
                                     .on_click(cx.listener(|this: &mut CreateDataSourceWindow, _ev, _window, cx| {
                                         this.deselect(cx);
@@ -239,17 +238,20 @@ impl Render for CreateDataSourceWindow {
                             )
                             .child(
                                 Button::new("datasource-create-cancel")
-                                    .ghost()
+                                    .outline()
                                     .label("取消")
                                     .on_click(cx.listener(|this: &mut CreateDataSourceWindow, _ev, window, cx| {
                                         this.close_window(window, cx);
                                     })),
                             )
-                            .child(Button::new("datasource-create-save").primary().label("保存").on_click(
-                                cx.listener(|this: &mut CreateDataSourceWindow, _ev, window, cx| {
-                                    this.close_window(window, cx);
-                                }),
-                            )),
+                            .child(
+                                Button::new("datasource-create-confirm")
+                                    .outline()
+                                    .label("确认")
+                                    .on_click(cx.listener(|this: &mut CreateDataSourceWindow, _ev, window, cx| {
+                                        this.close_window(window, cx);
+                                    })),
+                            ),
                     ),
             )
             .into_any_element()
