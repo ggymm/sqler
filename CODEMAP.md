@@ -24,9 +24,10 @@
 - `src/driver/`
   - `mod.rs`：统一驱动接口 `DatabaseDriver`、`DriverError`，以及基于 `DataSourceType` 的 `check_connection` 入口
   - `postgres.rs`：基于 `sqlx::postgres` 的连接校验（支持 SSL 模式）
-  - `mysql.rs`：使用 `sqlx::mysql` 建立连接，支持自定义字符集与 TLS
-  - `sqlite.rs`：通过 `sqlx::sqlite` 检查本地文件并尝试连接，兼容只读模式
+  - `mysql.rs`：使用 `mysql` crate 建立连接，支持自定义字符集与 TLS
+  - `sqlite.rs`：使用 `rusqlite` 检查本地文件并尝试连接，兼容只读模式
   - `sqlserver.rs`：借助 `tiberius` + `tokio-native-tls` 完成 SQL Server 握手，支持 SQL 密码登录
+  - `mongodb.rs`：基于 `mongodb::sync::Client` 进行连通性校验（支持 URI 或主机列表）
 - `src/option/`
   - `mod.rs`：定义 `ConnectionOptions` 接口并聚合各数据库选项
   - `{mysql,postgres,sqlite,sqlserver,oracle,redis,mongodb}.rs`：描述对应数据源的连接参数与默认值

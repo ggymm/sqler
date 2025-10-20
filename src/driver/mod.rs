@@ -1,3 +1,4 @@
+pub use mongodb::MongoDBDriver;
 pub use mysql::MySQLDriver;
 pub use postgres::PostgreSQLDriver;
 pub use sqlite::SQLiteDriver;
@@ -52,9 +53,9 @@ pub fn check_connection(
         StoredOptions::PostgreSQL(config) => PostgreSQLDriver.check_connection(config),
         StoredOptions::SQLite(config) => SQLiteDriver.check_connection(config),
         StoredOptions::SQLServer(config) => SQLServerDriver.check_connection(config),
+        StoredOptions::MongoDB(config) => MongoDBDriver.check_connection(config),
         StoredOptions::Oracle(_) => Err(DriverError::Other("Oracle 驱动暂未实现".into())),
         StoredOptions::Redis(_) => Err(DriverError::Other("Redis 驱动暂未实现".into())),
-        StoredOptions::MongoDB(_) => Err(DriverError::Other("MongoDB 驱动暂未实现".into())),
     }
 }
 
@@ -74,6 +75,20 @@ mod tests {
         assert!(matches!(
             result,
             Err(DriverError::MissingField(field)) if field == "host"
+        ));
+    }
+
+    #[test]
+    fn mongodb_requires_endpoint() {
+        let mut config = crate::option::MongoDBOptions::default();
+        config.connection_string = None;
+        config.hosts.clear();
+        let options = StoredOptions::MongoDB(config);
+
+        let result = check_connection(DataSourceType::MongoDB, &options);
+        assert!(matches!(
+            result,
+            Err(DriverError::MissingField(field)) if field == "hosts"
         ));
     }
 }
