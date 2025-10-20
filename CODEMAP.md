@@ -22,7 +22,7 @@
   - `topbar.rs`：标签栏 UI，控制标签切换/关闭、触发新建窗口与主题切换
   - `comps/mod.rs`：通用页面布局（全屏纵向容器等）
 - `src/driver/`
-  - `mod.rs`：统一驱动接口 `DatabaseDriver`、`DriverError`，以及 `test_connection` 入口
+  - `mod.rs`：统一驱动接口 `DatabaseDriver`、`DriverError`，以及基于 `DataSourceType` 的 `check_connection` 入口
   - `postgres.rs`：基于 `sqlx::postgres` 的连接校验（支持 SSL 模式）
   - `mysql.rs`：使用 `sqlx::mysql` 建立连接，支持自定义字符集与 TLS
   - `sqlite.rs`：通过 `sqlx::sqlite` 检查本地文件并尝试连接，兼容只读模式

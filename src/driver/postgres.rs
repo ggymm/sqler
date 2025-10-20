@@ -8,7 +8,7 @@ pub struct PostgreSQLDriver;
 impl DatabaseDriver for PostgreSQLDriver {
     type Config = PostgreSQLOptions;
 
-    fn test_connection(
+    fn check_connection(
         &self,
         config: &Self::Config,
     ) -> Result<(), DriverError> {

@@ -7,7 +7,7 @@ pub struct SQLiteDriver;
 impl DatabaseDriver for SQLiteDriver {
     type Config = SQLiteOptions;
 
-    fn test_connection(
+    fn check_connection(
         &self,
         config: &Self::Config,
     ) -> Result<(), DriverError> {

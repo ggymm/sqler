@@ -8,7 +8,7 @@ pub struct SQLServerDriver;
 impl DatabaseDriver for SQLServerDriver {
     type Config = SQLServerOptions;
 
-    fn test_connection(
+    fn check_connection(
         &self,
         config: &Self::Config,
     ) -> Result<(), DriverError> {

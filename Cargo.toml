@@ -10,3 +10,7 @@ thiserror = "2.0"
 
 [dependencies.mysql]
 version = "26"
+
+[dependencies.rusqlite]
+version = "0.37"
+features = ["bundled"]

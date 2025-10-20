@@ -11,24 +11,8 @@ pub mod redis;
 pub mod sqlite;
 pub mod sqlserver;
 
-use crate::option::{MySQLOptions, PostgreSQLOptions, SQLServerOptions, SQLiteOptions};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DriverKind {
-    Postgres,
-    MySql,
-    Sqlite,
-    SqlServer,
-}
-
-/// 测试连接请求参数。
-#[derive(Debug, Clone)]
-pub enum TestConnectionRequest {
-    Postgres(PostgreSQLOptions),
-    MySql(MySQLOptions),
-    Sqlite(SQLiteOptions),
-    SqlServer(SQLServerOptions),
-}
+use crate::option::{ConnectionOptions, StoredOptions};
+use crate::DataSourceType;
 
 /// 统一的驱动错误。
 #[derive(Debug, thiserror::Error)]
@@ -46,27 +30,50 @@ pub trait DatabaseDriver {
     type Config;
 
     /// 测试连接；成功返回 `Ok(())`，失败返回 [`DriverError`].
-    fn test_connection(
+    fn check_connection(
         &self,
         config: &Self::Config,
     ) -> Result<(), DriverError>;
 }
 
 /// 按数据源类型测试连接。
-pub fn test_connection(request: TestConnectionRequest) -> Result<(), DriverError> {
-    match request {
-        TestConnectionRequest::Postgres(config) => PostgreSQLDriver.test_connection(&config),
-        TestConnectionRequest::MySql(config) => MySQLDriver.test_connection(&config),
-        TestConnectionRequest::Sqlite(config) => SQLiteDriver.test_connection(&config),
-        TestConnectionRequest::SqlServer(config) => SQLServerDriver.test_connection(&config),
+pub fn check_connection(
+    kind: DataSourceType,
+    options: &StoredOptions,
+) -> Result<(), DriverError> {
+    if options.kind() != kind {
+        return Err(DriverError::InvalidField(format!(
+            "数据源类型不匹配: {}", kind.label()
+        )));
+    }
+
+    match options {
+        StoredOptions::MySQL(config) => MySQLDriver.check_connection(config),
+        StoredOptions::PostgreSQL(config) => PostgreSQLDriver.check_connection(config),
+        StoredOptions::SQLite(config) => SQLiteDriver.check_connection(config),
+        StoredOptions::SQLServer(config) => SQLServerDriver.check_connection(config),
+        StoredOptions::Oracle(_) => Err(DriverError::Other("Oracle 驱动暂未实现".into())),
+        StoredOptions::Redis(_) => Err(DriverError::Other("Redis 驱动暂未实现".into())),
+        StoredOptions::MongoDB(_) => Err(DriverError::Other("MongoDB 驱动暂未实现".into())),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::option::StoredOptions;
+    use crate::DataSourceType;
 
     #[test]
-    fn test_mysql_driver() {
+    fn mysql_missing_host_is_error() {
+        let mut config = crate::option::MySQLOptions::default();
+        config.host.clear();
+        let options = StoredOptions::MySQL(config);
+
+        let result = check_connection(DataSourceType::MySQL, &options);
+        assert!(matches!(
+            result,
+            Err(DriverError::MissingField(field)) if field == "host"
+        ));
     }
 }
