@@ -92,47 +92,36 @@ impl CreateDataSourceWindow {
     ) {
         self.close_window(window, cx);
     }
-
-    fn render_content(
-        &mut self,
-        _window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
-        let header = render_header(cx);
-        let body = render_body(self, cx);
-        let footer = render_footer(self, cx);
-
-        v_flex()
-            .size_full()
-            .child(header)
-            .child(body)
-            .child(footer)
-            .into_any_element()
-    }
 }
 
 impl Render for CreateDataSourceWindow {
     fn render(
         &mut self,
-        window: &mut Window,
+        _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        self.render_content(window, cx)
+        let title = "新建数据源";
+
+        let body = render_body(self, cx);
+        let footer = render_footer(self, cx);
+
+        v_flex()
+            .size_full()
+            .child(
+                h_flex()
+                    .justify_between()
+                    .items_center()
+                    .px(px(32.))
+                    .py(px(20.))
+                    .bg(cx.theme().tab_bar)
+                    .border_b_1()
+                    .border_color(cx.theme().border)
+                    .child(div().text_xl().font_semibold().child(title)),
+            )
+            .child(body)
+            .child(footer)
+            .into_any_element()
     }
-}
-
-fn render_header(cx: &mut Context<CreateDataSourceWindow>) -> gpui::Div {
-    let title = "新建数据源";
-
-    h_flex()
-        .justify_between()
-        .items_center()
-        .px(px(32.))
-        .py(px(20.))
-        .bg(cx.theme().tab_bar)
-        .border_b_1()
-        .border_color(cx.theme().border)
-        .child(div().text_xl().font_semibold().child(title))
 }
 
 fn render_body(
@@ -215,23 +204,15 @@ fn render_form_panel(
                 .font_semibold()
                 .child(format!("配置 {}", kind.label())),
         )
-        .child(render_form(kind, &mut view.state, cx))
-}
-
-fn render_form(
-    kind: DataSourceType,
-    state: &mut NewDataSourceState,
-    cx: &mut Context<CreateDataSourceWindow>,
-) -> gpui::Div {
-    match kind {
-        DataSourceType::MySQL => postgres::render(&mut state.postgres, cx),
-        DataSourceType::Oracle => postgres::render(&mut state.postgres, cx),
-        DataSourceType::SQLite => postgres::render(&mut state.postgres, cx),
-        DataSourceType::SQLServer => postgres::render(&mut state.postgres, cx),
-        DataSourceType::PostgreSQL => postgres::render(&mut state.postgres, cx),
-        DataSourceType::Redis => postgres::render(&mut state.postgres, cx),
-        DataSourceType::MongoDB => postgres::render(&mut state.postgres, cx),
-    }
+        .child(match kind {
+            DataSourceType::MySQL => mysql::render(&mut view.state.mysql, cx),
+            DataSourceType::Oracle => postgres::render(&mut view.state.postgres, cx),
+            DataSourceType::SQLite => postgres::render(&mut view.state.postgres, cx),
+            DataSourceType::SQLServer => postgres::render(&mut view.state.postgres, cx),
+            DataSourceType::PostgreSQL => postgres::render(&mut view.state.postgres, cx),
+            DataSourceType::Redis => postgres::render(&mut view.state.postgres, cx),
+            DataSourceType::MongoDB => postgres::render(&mut view.state.postgres, cx),
+        })
 }
 
 fn render_footer(
