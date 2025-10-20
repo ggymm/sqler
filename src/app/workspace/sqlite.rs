@@ -4,7 +4,7 @@ use gpui::*;
 use gpui_component::{h_flex, v_flex, ActiveTheme as _, StyledExt};
 
 use crate::app::{DataSourceTabState, SqlerApp, TabId};
-use crate::option::StoredOptions;
+use crate::option::DataSourceOptions;
 use crate::DataSourceType;
 
 pub struct SqliteWorkspace<'a> {
@@ -26,7 +26,7 @@ impl<'a> SqliteWorkspace<'a> {
         debug_assert!(matches!(meta.kind, DataSourceType::SQLite));
 
         let options = match &meta.options {
-            StoredOptions::SQLite(opts) => opts,
+            DataSourceOptions::SQLite(opts) => opts,
             other => panic!("SqliteWorkspace expects SQLite options, got {:?}", other),
         };
 

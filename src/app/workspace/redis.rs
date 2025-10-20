@@ -4,7 +4,7 @@ use gpui::*;
 use gpui_component::{h_flex, v_flex, ActiveTheme as _, StyledExt};
 
 use crate::app::{DataSourceTabState, SqlerApp, TabId};
-use crate::option::StoredOptions;
+use crate::option::DataSourceOptions;
 use crate::DataSourceType;
 
 pub struct RedisWorkspace<'a> {
@@ -26,7 +26,7 @@ impl<'a> RedisWorkspace<'a> {
         debug_assert!(matches!(meta.kind, DataSourceType::Redis));
 
         let options = match &meta.options {
-            StoredOptions::Redis(opts) => opts,
+            DataSourceOptions::Redis(opts) => opts,
             other => panic!("RedisWorkspace expects Redis options, got {:?}", other),
         };
 

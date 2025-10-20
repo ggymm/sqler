@@ -4,7 +4,7 @@ use gpui::*;
 use gpui_component::{h_flex, v_flex, ActiveTheme as _, StyledExt};
 
 use crate::app::{DataSourceTabState, SqlerApp, TabId};
-use crate::option::{SslMode, StoredOptions};
+use crate::option::{SslMode, DataSourceOptions};
 use crate::DataSourceType;
 
 pub struct PostgresWorkspace<'a> {
@@ -26,7 +26,7 @@ impl<'a> PostgresWorkspace<'a> {
         debug_assert!(matches!(meta.kind, DataSourceType::PostgreSQL));
 
         let options = match &meta.options {
-            StoredOptions::PostgreSQL(opts) => opts,
+            DataSourceOptions::PostgreSQL(opts) => opts,
             other => panic!("PostgresWorkspace expects Postgres options, got {:?}", other),
         };
 

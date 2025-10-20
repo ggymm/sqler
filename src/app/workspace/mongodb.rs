@@ -4,7 +4,7 @@ use gpui::*;
 use gpui_component::{h_flex, v_flex, ActiveTheme as _, StyledExt};
 
 use crate::app::{DataSourceTabState, SqlerApp, TabId};
-use crate::option::StoredOptions;
+use crate::option::DataSourceOptions;
 use crate::DataSourceType;
 
 pub struct MongoWorkspace<'a> {
@@ -26,7 +26,7 @@ impl<'a> MongoWorkspace<'a> {
         debug_assert!(matches!(meta.kind, DataSourceType::MongoDB));
 
         let options = match &meta.options {
-            StoredOptions::MongoDB(opts) => opts,
+            DataSourceOptions::MongoDB(opts) => opts,
             other => panic!("MongoWorkspace expects MongoDB options, got {:?}", other),
         };
 

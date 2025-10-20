@@ -7,7 +7,7 @@ use gpui_component::init;
 use gpui_component::Root;
 
 use app::SqlerApp;
-use option::StoredOptions;
+use option::DataSourceOptions;
 
 mod app;
 mod driver;
@@ -81,8 +81,19 @@ pub struct DataSourceMeta {
     pub name: SharedString,
     pub desc: SharedString,
     pub kind: DataSourceType,
-    pub options: StoredOptions,
+    pub options: DataSourceOptions,
     pub tables: Vec<SharedString>,
+}
+
+impl DataSourceMeta {
+    pub fn tables(&self) -> Vec<SharedString> {
+        vec![
+            SharedString::from("orders"),
+            SharedString::from("order_items"),
+            SharedString::from("users"),
+            SharedString::from("regions"),
+        ]
+    }
 }
 
 struct FsAssets;

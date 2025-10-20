@@ -4,7 +4,7 @@ use gpui::*;
 use gpui_component::{h_flex, v_flex, ActiveTheme as _, StyledExt};
 
 use crate::app::{DataSourceTabState, SqlerApp, TabId};
-use crate::option::{OracleAddress, StoredOptions};
+use crate::option::{OracleAddress, DataSourceOptions};
 use crate::DataSourceType;
 
 pub struct OracleWorkspace<'a> {
@@ -26,7 +26,7 @@ impl<'a> OracleWorkspace<'a> {
         debug_assert!(matches!(meta.kind, DataSourceType::Oracle));
 
         let options = match &meta.options {
-            StoredOptions::Oracle(opts) => opts,
+            DataSourceOptions::Oracle(opts) => opts,
             other => panic!("OracleWorkspace expects Oracle options, got {:?}", other),
         };
 

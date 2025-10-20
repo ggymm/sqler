@@ -4,7 +4,7 @@ use gpui::*;
 use gpui_component::{h_flex, v_flex, ActiveTheme as _, StyledExt};
 
 use crate::app::{DataSourceTabState, SqlerApp, TabId};
-use crate::option::{SQLServerAuth, StoredOptions};
+use crate::option::{SQLServerAuth, DataSourceOptions};
 use crate::DataSourceType;
 
 pub struct SqlServerWorkspace<'a> {
@@ -26,7 +26,7 @@ impl<'a> SqlServerWorkspace<'a> {
         debug_assert!(matches!(meta.kind, DataSourceType::SQLServer));
 
         let options = match &meta.options {
-            StoredOptions::SQLServer(opts) => opts,
+            DataSourceOptions::SQLServer(opts) => opts,
             other => panic!("SqlServerWorkspace expects SQL Server options, got {:?}", other),
         };
 

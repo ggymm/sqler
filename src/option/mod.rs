@@ -1,3 +1,16 @@
+use crate::DataSourceType;
+pub use mongodb::MongoDBHost;
+pub use mongodb::MongoDBOptions;
+pub use mysql::MySQLOptions;
+pub use oracle::OracleAddress;
+pub use oracle::OracleOptions;
+pub use postgres::PostgreSQLOptions;
+pub use postgres::SslMode;
+pub use redis::RedisOptions;
+pub use sqlite::SQLiteOptions;
+pub use sqlserver::SQLServerAuth;
+pub use sqlserver::SQLServerOptions;
+
 pub mod mongodb;
 pub mod mysql;
 pub mod oracle;
@@ -6,21 +19,12 @@ pub mod redis;
 pub mod sqlite;
 pub mod sqlserver;
 
-use crate::DataSourceType;
-pub use mongodb::{MongoDBHost, MongoDBOptions};
-pub use mysql::MySQLOptions;
-pub use oracle::{OracleAddress, OracleOptions};
-pub use postgres::{PostgreSQLOptions, SslMode};
-pub use redis::RedisOptions;
-pub use sqlite::SQLiteOptions;
-pub use sqlserver::{SQLServerAuth, SQLServerOptions};
-
 pub trait ConnectionOptions {
     fn kind(&self) -> DataSourceType;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum StoredOptions {
+pub enum DataSourceOptions {
     MySQL(MySQLOptions),
     Oracle(OracleOptions),
     SQLite(SQLiteOptions),
@@ -30,16 +34,16 @@ pub enum StoredOptions {
     MongoDB(MongoDBOptions),
 }
 
-impl ConnectionOptions for StoredOptions {
+impl ConnectionOptions for DataSourceOptions {
     fn kind(&self) -> DataSourceType {
         match self {
-            StoredOptions::MySQL(_) => DataSourceType::MySQL,
-            StoredOptions::Oracle(_) => DataSourceType::Oracle,
-            StoredOptions::SQLite(_) => DataSourceType::SQLite,
-            StoredOptions::SQLServer(_) => DataSourceType::SQLServer,
-            StoredOptions::PostgreSQL(_) => DataSourceType::PostgreSQL,
-            StoredOptions::Redis(_) => DataSourceType::Redis,
-            StoredOptions::MongoDB(_) => DataSourceType::MongoDB,
+            DataSourceOptions::MySQL(_) => DataSourceType::MySQL,
+            DataSourceOptions::Oracle(_) => DataSourceType::Oracle,
+            DataSourceOptions::SQLite(_) => DataSourceType::SQLite,
+            DataSourceOptions::SQLServer(_) => DataSourceType::SQLServer,
+            DataSourceOptions::PostgreSQL(_) => DataSourceType::PostgreSQL,
+            DataSourceOptions::Redis(_) => DataSourceType::Redis,
+            DataSourceOptions::MongoDB(_) => DataSourceType::MongoDB,
         }
     }
 }

@@ -8,7 +8,7 @@ use gpui_component::{
 };
 
 use crate::app::{DataSourceTabState, InnerTabId, SqlerApp, TabId};
-use crate::option::{MySQLOptions, StoredOptions};
+use crate::option::{MySQLOptions, DataSourceOptions};
 use crate::DataSourceType;
 
 pub struct MySqlWorkspace<'a> {
@@ -30,7 +30,7 @@ impl<'a> MySqlWorkspace<'a> {
         debug_assert!(matches!(meta.kind, DataSourceType::MySQL));
 
         let options = match &meta.options {
-            StoredOptions::MySQL(opts) => opts,
+            DataSourceOptions::MySQL(opts) => opts,
             other => panic!("MySqlWorkspace expects MySQL options, got {:?}", other),
         };
 

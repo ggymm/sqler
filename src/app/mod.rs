@@ -11,7 +11,7 @@ use gpui_component::Root;
 use gpui_component::Sizable;
 use gpui_component::Size;
 
-use crate::option::{MySQLOptions, PostgreSQLOptions, SQLiteOptions, StoredOptions};
+use crate::option::{DataSourceOptions, MySQLOptions, PostgreSQLOptions, SQLiteOptions};
 use crate::DataSourceMeta;
 use crate::DataSourceType;
 
@@ -77,12 +77,16 @@ pub struct DataSourceTabState {
 
 impl DataSourceTabState {
     fn new(meta: DataSourceMeta) -> Self {
-        let tables = meta.tables.clone();
         Self {
             meta,
             inner_tabs: vec![InnerTab::config()],
             active_inner_tab: InnerTabId(0),
-            tables,
+            tables: vec![
+                SharedString::from("orders"),
+                SharedString::from("order_items"),
+                SharedString::from("users"),
+                SharedString::from("regions"),
+            ],
         }
     }
 }
@@ -348,7 +352,6 @@ pub fn render_head(
                         .items_center()
                         .justify_center()
                         .px_3()
-                        .py_2()
                         .gap_2()
                         .border_1()
                         .border_color(theme.border)
@@ -435,7 +438,7 @@ fn seed_sources() -> Vec<DataSourceMeta> {
             name: SharedString::from("生产库"),
             desc: SharedString::from("线上订单主库"),
             kind: DataSourceType::PostgreSQL,
-            options: StoredOptions::PostgreSQL(PostgreSQLOptions {
+            options: DataSourceOptions::PostgreSQL(PostgreSQLOptions {
                 host: "10.10.12.5".into(),
                 port: 5432,
                 database: "order_prod".into(),
@@ -456,7 +459,7 @@ fn seed_sources() -> Vec<DataSourceMeta> {
             name: SharedString::from("BI 分析库"),
             desc: SharedString::from("数仓汇总使用"),
             kind: DataSourceType::MySQL,
-            options: StoredOptions::MySQL(MySQLOptions {
+            options: DataSourceOptions::MySQL(MySQLOptions {
                 host: "10.60.1.10".into(),
                 port: 3306,
                 username: "reporter".into(),
@@ -476,7 +479,7 @@ fn seed_sources() -> Vec<DataSourceMeta> {
             name: SharedString::from("测试环境"),
             desc: SharedString::from("本地调试用"),
             kind: DataSourceType::SQLite,
-            options: StoredOptions::SQLite(SQLiteOptions {
+            options: DataSourceOptions::SQLite(SQLiteOptions {
                 file_path: "sqler-dev.db".into(),
                 password: None,
                 read_only: false,
