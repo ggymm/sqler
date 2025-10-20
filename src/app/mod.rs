@@ -71,7 +71,7 @@ impl InnerTab {
 pub struct NewDataSourceState {
     pub selected: Option<DataSourceType>,
     pub postgres: create::postgres::PostgresState,
-    pub mysql: create::mysql::MySqlState,
+    pub mysql: create::mysql::MySQLState,
     pub sqlite: create::sqlite::SqliteState,
     pub sqlserver: create::sqlserver::SqlServerState,
 }
@@ -84,7 +84,7 @@ impl NewDataSourceState {
         Self {
             selected: None,
             postgres: create::postgres::PostgresState::new(window, cx),
-            mysql: create::mysql::MySqlState::new(window, cx),
+            mysql: create::mysql::MySQLState::new(window, cx),
             sqlite: create::sqlite::SqliteState::new(window, cx),
             sqlserver: create::sqlserver::SqlServerState::new(window, cx),
         }

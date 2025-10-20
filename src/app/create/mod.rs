@@ -1,11 +1,11 @@
-use gpui::{
-    div, img, px, AnyElement, Context, InteractiveElement as _, IntoElement, Length, ParentElement, Render,
-    SharedString, Stateful, StatefulInteractiveElement as _, Styled, WeakEntity, Window,
-};
-use gpui_component::{
-    button::{Button, ButtonVariants as _},
-    h_flex, v_flex, ActiveTheme as _, Disableable as _, StyledExt,
-};
+use gpui::*;
+use gpui_component::button::Button;
+use gpui_component::button::ButtonVariants;
+use gpui_component::h_flex;
+use gpui_component::v_flex;
+use gpui_component::ActiveTheme;
+use gpui_component::Disableable;
+use gpui_component::StyledExt;
 
 use crate::app::{NewDataSourceState, SqlerApp};
 use crate::DataSourceType;

@@ -1,5 +1,4 @@
-use gpui::{div, px, Context, ParentElement, Styled, Window};
-use gpui::{AppContext as _, Entity};
+use gpui::*;
 use gpui_component::{
     form::{form_field, v_form},
     input::InputState,
@@ -7,10 +6,11 @@ use gpui_component::{
     v_flex, ActiveTheme as _,
 };
 
-use crate::app::{create::CreateDataSourceWindow, SqlerApp};
+use crate::app::create::CreateDataSourceWindow;
+use crate::app::SqlerApp;
 
 #[derive(Clone)]
-pub struct MySqlState {
+pub struct MySQLState {
     pub name: Entity<InputState>,
     pub host: Entity<InputState>,
     pub port: Entity<InputState>,
@@ -20,7 +20,7 @@ pub struct MySqlState {
     pub charset: Entity<InputState>,
 }
 
-impl MySqlState {
+impl MySQLState {
     pub fn new(
         window: &mut Window,
         cx: &mut Context<SqlerApp>,
@@ -54,7 +54,7 @@ impl MySqlState {
 }
 
 pub fn render(
-    state: &mut MySqlState,
+    state: &mut MySQLState,
     cx: &mut Context<CreateDataSourceWindow>,
 ) -> gpui::Div {
     v_flex()

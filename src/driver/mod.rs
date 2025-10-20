@@ -15,7 +15,6 @@ pub mod redis;
 pub mod sqlite;
 pub mod sqlserver;
 
-/// 可支持的数据源类型。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DriverKind {
     Postgres,

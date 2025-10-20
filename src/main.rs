@@ -63,13 +63,13 @@ impl DataSourceType {
 
     pub fn description(&self) -> &'static str {
         match self {
-            DataSourceType::MySQL => "常用于业务库与分析库，默认 utf8mb4",
-            DataSourceType::Oracle => "Oracle",
-            DataSourceType::SQLite => "本地文件数据库，适合轻量级项目",
-            DataSourceType::SQLServer => "企业级数据库，支持实例/域账号",
-            DataSourceType::PostgreSQL => "支持 Schema、SSL 等高级特性",
-            DataSourceType::Redis => "Redis",
-            DataSourceType::MongoDB => "MongoDB",
+            DataSourceType::MySQL => "开源关系型数据库，读写性能稳定、生态成熟",
+            DataSourceType::Oracle => "商业级事务数据库，强调安全性与可扩展性",
+            DataSourceType::SQLite => "嵌入式文件数据库，零配置、单文件存储",
+            DataSourceType::SQLServer => "微软企业数据库，原生集成 Windows 与 AD",
+            DataSourceType::PostgreSQL => "开源对象关系数据库，扩展能力与标准兼容性强",
+            DataSourceType::Redis => "内存键值数据库，适合缓存、队列与实时计数场景",
+            DataSourceType::MongoDB => "文档型数据库，支持灵活的 JSON 模式与水平扩展",
         }
     }
 }

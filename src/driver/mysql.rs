@@ -4,9 +4,9 @@ use super::{DatabaseDriver, DriverError};
 pub struct MySQLConfig {
     pub host: String,
     pub port: u16,
-    pub database: String,
     pub username: String,
-    pub password: Option<String>,
+    pub password: String,
+    pub database: String,
     pub charset: Option<String>,
     pub use_tls: bool,
 }

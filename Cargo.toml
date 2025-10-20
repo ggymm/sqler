@@ -8,3 +8,5 @@ gpui = "0.2"
 gpui-component = "0.2"
 thiserror = "2.0"
 
+[dependencies.mysql]
+version = "26"
