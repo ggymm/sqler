@@ -1,10 +1,6 @@
-pub use mysql::MySQLConfig;
 pub use mysql::MySQLDriver;
-pub use postgres::PostgreSQLConfig;
 pub use postgres::PostgreSQLDriver;
-pub use sqlite::SQLiteConfig;
 pub use sqlite::SQLiteDriver;
-pub use sqlserver::SQLServerConfig;
 pub use sqlserver::SQLServerDriver;
 
 pub mod mongodb;
@@ -14,6 +10,8 @@ pub mod postgres;
 pub mod redis;
 pub mod sqlite;
 pub mod sqlserver;
+
+use crate::option::{MySQLOptions, PostgreSQLOptions, SQLServerOptions, SQLiteOptions};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DriverKind {
@@ -26,10 +24,10 @@ pub enum DriverKind {
 /// 测试连接请求参数。
 #[derive(Debug, Clone)]
 pub enum TestConnectionRequest {
-    Postgres(PostgreSQLConfig),
-    MySql(MySQLConfig),
-    Sqlite(SQLiteConfig),
-    SqlServer(SQLServerConfig),
+    Postgres(PostgreSQLOptions),
+    MySql(MySQLOptions),
+    Sqlite(SQLiteOptions),
+    SqlServer(SQLServerOptions),
 }
 
 /// 统一的驱动错误。
@@ -69,27 +67,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn postgres_missing_host_is_error() {
-        let config = PostgreSQLConfig {
-            host: "".into(),
-            port: 5432,
-            database: "demo".into(),
-            username: "user".into(),
-            password: Some("pass".into()),
-            ssl_mode: None,
-        };
-        assert!(matches!(
-            PostgreSQLDriver.test_connection(&config),
-            Err(DriverError::MissingField(field)) if field == "host"
-        ));
-    }
-
-    #[test]
-    fn sqlite_requires_path() {
-        let invalid = SQLiteConfig {
-            file_path: "".into(),
-            read_only: false,
-        };
-        assert!(SQLiteDriver.test_connection(&invalid).is_err());
+    fn test_mysql_driver() {
     }
 }

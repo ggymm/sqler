@@ -1,16 +1,11 @@
 use super::{DatabaseDriver, DriverError};
-
-#[derive(Debug, Clone)]
-pub struct SQLiteConfig {
-    pub file_path: String,
-    pub read_only: bool,
-}
+use crate::option::SQLiteOptions;
 
 #[derive(Debug, Clone, Copy)]
 pub struct SQLiteDriver;
 
 impl DatabaseDriver for SQLiteDriver {
-    type Config = SQLiteConfig;
+    type Config = SQLiteOptions;
 
     fn test_connection(
         &self,

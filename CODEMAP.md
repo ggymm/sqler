@@ -25,6 +25,9 @@
   - `mysql.rs`：使用 `sqlx::mysql` 建立连接，支持自定义字符集与 TLS
   - `sqlite.rs`：通过 `sqlx::sqlite` 检查本地文件并尝试连接，兼容只读模式
   - `sqlserver.rs`：借助 `tiberius` + `tokio-native-tls` 完成 SQL Server 握手，支持 SQL 密码登录
+- `src/option/`
+  - `mod.rs`：定义 `ConnectionOptions` 接口并聚合各数据库选项
+  - `{mysql,postgres,sqlite,sqlserver,oracle,redis,mongodb}.rs`：描述对应数据源的连接参数与默认值
 - `src/cache/`、`src/export/`：当前为空，为后续缓存/导出功能预留入口
 - `assets/`：静态资源（图标等）
 - `Cargo.toml`

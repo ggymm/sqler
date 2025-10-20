@@ -10,6 +10,7 @@ use app::SqlerApp;
 
 mod app;
 mod driver;
+pub mod option;
 
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
