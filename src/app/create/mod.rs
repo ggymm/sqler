@@ -7,7 +7,8 @@ use gpui_component::ActiveTheme;
 use gpui_component::Disableable;
 use gpui_component::StyledExt;
 
-use crate::app::{NewDataSourceState, SqlerApp};
+use crate::app::NewDataSourceState;
+use crate::app::SqlerApp;
 use crate::DataSourceType;
 
 pub mod mongodb;
@@ -19,8 +20,8 @@ pub mod sqlite;
 pub mod sqlserver;
 
 pub struct CreateDataSourceWindow {
-    parent: WeakEntity<SqlerApp>,
     state: NewDataSourceState,
+    parent: WeakEntity<SqlerApp>,
 }
 
 impl CreateDataSourceWindow {
@@ -40,7 +41,7 @@ impl CreateDataSourceWindow {
             }
         });
 
-        Self { parent, state }
+        Self { state, parent }
     }
 
     fn clear_parent(
@@ -103,7 +104,6 @@ impl CreateDataSourceWindow {
 
         v_flex()
             .size_full()
-            .bg(cx.theme().background)
             .child(header)
             .child(body)
             .child(footer)
