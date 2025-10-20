@@ -21,7 +21,7 @@ pub mod redis;
 pub mod sqlite;
 pub mod sqlserver;
 
-pub fn render_active(
+pub fn render(
     app: &mut SqlerApp,
     window: &mut Window,
     cx: &mut Context<SqlerApp>,

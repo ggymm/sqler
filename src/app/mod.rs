@@ -332,7 +332,7 @@ impl Render for SqlerApp {
                     .size_full()
                     .min_w_0()
                     .min_h_0()
-                    .child(workspace::render_active(self, window, cx)),
+                    .child(workspace::render(self, window, cx)),
             )
             .into_any_element()
     }
