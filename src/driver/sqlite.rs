@@ -28,9 +28,7 @@ impl DatabaseDriver for SQLiteDriver {
             }
         } else if let Some(parent) = path.parent() {
             if !parent.as_os_str().is_empty() {
-                fs::create_dir_all(parent).map_err(|err| {
-                    DriverError::Other(format!("创建目录失败: {}", err))
-                })?;
+                fs::create_dir_all(parent).map_err(|err| DriverError::Other(format!("创建目录失败: {}", err)))?;
             }
         }
 

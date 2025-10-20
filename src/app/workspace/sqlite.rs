@@ -4,8 +4,8 @@ use gpui::*;
 use gpui_component::{h_flex, v_flex, ActiveTheme as _, StyledExt};
 
 use crate::app::{DataSourceTabState, SqlerApp, TabId};
+use crate::option::DataSourceKind;
 use crate::option::DataSourceOptions;
-use crate::DataSourceType;
 
 pub struct SqliteWorkspace<'a> {
     state: &'a DataSourceTabState,
@@ -23,7 +23,7 @@ impl<'a> SqliteWorkspace<'a> {
         cx: &mut Context<SqlerApp>,
     ) -> gpui::Div {
         let meta = &self.state.meta;
-        debug_assert!(matches!(meta.kind, DataSourceType::SQLite));
+        debug_assert!(matches!(meta.kind, DataSourceKind::SQLite));
 
         let options = match &meta.options {
             DataSourceOptions::SQLite(opts) => opts,
@@ -36,12 +36,7 @@ impl<'a> SqliteWorkspace<'a> {
         let body = v_flex()
             .gap(px(12.))
             .child(div().text_lg().font_semibold().child(meta.name.clone()))
-            .child(
-                div()
-                    .text_sm()
-                    .text_color(theme.muted_foreground)
-                    .child(summary),
-            )
+            .child(div().text_sm().text_color(theme.muted_foreground).child(summary))
             .child(
                 div()
                     .text_sm()
@@ -52,7 +47,11 @@ impl<'a> SqliteWorkspace<'a> {
                 div()
                     .text_sm()
                     .text_color(theme.muted_foreground)
-                    .child(if options.read_only { "访问模式：只读" } else { "访问模式：读写" }),
+                    .child(if options.read_only {
+                        "访问模式：只读"
+                    } else {
+                        "访问模式：读写"
+                    }),
             )
             .child(
                 div()

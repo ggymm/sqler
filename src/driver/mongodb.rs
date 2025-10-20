@@ -16,8 +16,7 @@ impl DatabaseDriver for MongoDBDriver {
     ) -> Result<(), DriverError> {
         let uri = build_uri(config)?;
 
-        let client = Client::with_uri_str(&uri)
-            .map_err(|err| DriverError::Other(format!("连接失败: {}", err)))?;
+        let client = Client::with_uri_str(&uri).map_err(|err| DriverError::Other(format!("连接失败: {}", err)))?;
 
         let database_name = config
             .auth_source

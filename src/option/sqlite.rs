@@ -1,5 +1,5 @@
 use crate::option::ConnectionOptions;
-use crate::DataSourceType;
+use crate::option::DataSourceKind;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SQLiteOptions {
@@ -19,7 +19,7 @@ impl Default for SQLiteOptions {
 }
 
 impl ConnectionOptions for SQLiteOptions {
-    fn kind(&self) -> DataSourceType {
-        DataSourceType::SQLite
+    fn kind(&self) -> DataSourceKind {
+        DataSourceKind::SQLite
     }
 }

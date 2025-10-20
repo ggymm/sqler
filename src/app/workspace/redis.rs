@@ -4,8 +4,8 @@ use gpui::*;
 use gpui_component::{h_flex, v_flex, ActiveTheme as _, StyledExt};
 
 use crate::app::{DataSourceTabState, SqlerApp, TabId};
+use crate::option::DataSourceKind;
 use crate::option::DataSourceOptions;
-use crate::DataSourceType;
 
 pub struct RedisWorkspace<'a> {
     state: &'a DataSourceTabState,
@@ -23,7 +23,7 @@ impl<'a> RedisWorkspace<'a> {
         cx: &mut Context<SqlerApp>,
     ) -> gpui::Div {
         let meta = &self.state.meta;
-        debug_assert!(matches!(meta.kind, DataSourceType::Redis));
+        debug_assert!(matches!(meta.kind, DataSourceKind::Redis));
 
         let options = match &meta.options {
             DataSourceOptions::Redis(opts) => opts,
@@ -33,20 +33,12 @@ impl<'a> RedisWorkspace<'a> {
         let theme = cx.theme();
         let tls = if options.use_tls { " (TLS)" } else { "" };
         let user = options.username.clone().unwrap_or_else(|| "default".into());
-        let summary = format!(
-            "{}@{}:{} db={}{}",
-            user, options.host, options.port, options.db, tls
-        );
+        let summary = format!("{}@{}:{} db={}{}", user, options.host, options.port, options.db, tls);
 
         let body = v_flex()
             .gap(px(12.))
             .child(div().text_lg().font_semibold().child(meta.name.clone()))
-            .child(
-                div()
-                    .text_sm()
-                    .text_color(theme.muted_foreground)
-                    .child(summary),
-            )
+            .child(div().text_sm().text_color(theme.muted_foreground).child(summary))
             .child(
                 div()
                     .text_sm()

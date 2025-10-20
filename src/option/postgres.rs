@@ -1,5 +1,5 @@
 use crate::option::ConnectionOptions;
-use crate::DataSourceType;
+use crate::option::DataSourceKind;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SslMode {
@@ -34,7 +34,7 @@ impl Default for PostgreSQLOptions {
 }
 
 impl ConnectionOptions for PostgreSQLOptions {
-    fn kind(&self) -> DataSourceType {
-        DataSourceType::PostgreSQL
+    fn kind(&self) -> DataSourceKind {
+        DataSourceKind::PostgreSQL
     }
 }

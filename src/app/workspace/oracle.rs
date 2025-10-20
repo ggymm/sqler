@@ -4,8 +4,8 @@ use gpui::*;
 use gpui_component::{h_flex, v_flex, ActiveTheme as _, StyledExt};
 
 use crate::app::{DataSourceTabState, SqlerApp, TabId};
-use crate::option::{OracleAddress, DataSourceOptions};
-use crate::DataSourceType;
+use crate::option::DataSourceKind;
+use crate::option::{DataSourceOptions, OracleAddress};
 
 pub struct OracleWorkspace<'a> {
     state: &'a DataSourceTabState,
@@ -23,7 +23,7 @@ impl<'a> OracleWorkspace<'a> {
         cx: &mut Context<SqlerApp>,
     ) -> gpui::Div {
         let meta = &self.state.meta;
-        debug_assert!(matches!(meta.kind, DataSourceType::Oracle));
+        debug_assert!(matches!(meta.kind, DataSourceKind::Oracle));
 
         let options = match &meta.options {
             DataSourceOptions::Oracle(opts) => opts,
@@ -39,15 +39,10 @@ impl<'a> OracleWorkspace<'a> {
         let body = v_flex()
             .gap(px(12.))
             .child(div().text_lg().font_semibold().child(meta.name.clone()))
-            .child(
-                div()
-                    .text_sm()
-                    .text_color(theme.muted_foreground)
-                    .child(format!(
-                        "{}@{}:{} [{}]",
-                        options.username, options.host, options.port, address
-                    )),
-            )
+            .child(div().text_sm().text_color(theme.muted_foreground).child(format!(
+                "{}@{}:{} [{}]",
+                options.username, options.host, options.port, address
+            )))
             .child(
                 div()
                     .text_sm()

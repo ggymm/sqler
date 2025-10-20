@@ -1,5 +1,5 @@
 use crate::option::ConnectionOptions;
-use crate::DataSourceType;
+use crate::option::DataSourceKind;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MongoDBHost {
@@ -42,7 +42,7 @@ impl Default for MongoDBOptions {
 }
 
 impl ConnectionOptions for MongoDBOptions {
-    fn kind(&self) -> DataSourceType {
-        DataSourceType::MongoDB
+    fn kind(&self) -> DataSourceKind {
+        DataSourceKind::MongoDB
     }
 }

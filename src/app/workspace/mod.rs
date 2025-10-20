@@ -7,8 +7,8 @@ use gpui_component::{
 };
 
 use crate::app::{SqlerApp, TabKind};
-use crate::DataSourceMeta;
-use crate::DataSourceType;
+use crate::option::DataSourceKind;
+use crate::option::DataSourceMeta;
 
 pub mod mongodb;
 pub mod mysql;
@@ -27,25 +27,25 @@ pub fn render(
         match &tab.kind {
             TabKind::Home => render_home(&app.saved_sources, window, cx).into_any_element(),
             TabKind::DataSource(state) => match state.meta.kind {
-                DataSourceType::MySQL => mysql::MySqlWorkspace::new(state)
+                DataSourceKind::MySQL => mysql::MySqlWorkspace::new(state)
                     .render(tab.id, window, cx)
                     .into_any_element(),
-                DataSourceType::PostgreSQL => postgres::PostgresWorkspace::new(state)
+                DataSourceKind::PostgreSQL => postgres::PostgresWorkspace::new(state)
                     .render(tab.id, window, cx)
                     .into_any_element(),
-                DataSourceType::SQLite => sqlite::SqliteWorkspace::new(state)
+                DataSourceKind::SQLite => sqlite::SqliteWorkspace::new(state)
                     .render(tab.id, window, cx)
                     .into_any_element(),
-                DataSourceType::SQLServer => sqlserver::SqlServerWorkspace::new(state)
+                DataSourceKind::SQLServer => sqlserver::SqlServerWorkspace::new(state)
                     .render(tab.id, window, cx)
                     .into_any_element(),
-                DataSourceType::Oracle => oracle::OracleWorkspace::new(state)
+                DataSourceKind::Oracle => oracle::OracleWorkspace::new(state)
                     .render(tab.id, window, cx)
                     .into_any_element(),
-                DataSourceType::Redis => redis::RedisWorkspace::new(state)
+                DataSourceKind::Redis => redis::RedisWorkspace::new(state)
                     .render(tab.id, window, cx)
                     .into_any_element(),
-                DataSourceType::MongoDB => mongodb::MongoWorkspace::new(state)
+                DataSourceKind::MongoDB => mongodb::MongoWorkspace::new(state)
                     .render(tab.id, window, cx)
                     .into_any_element(),
             },
@@ -118,7 +118,8 @@ fn render_data_source_card(
     _window: &mut Window,
     cx: &mut Context<SqlerApp>,
 ) -> AnyElement {
-    let source_id = meta.id;
+    let source_id = meta.id.clone();
+    let source_id_for_button = source_id.clone();
     let icon_path = meta.kind.image();
 
     v_flex()
@@ -133,7 +134,7 @@ fn render_data_source_card(
         .id(SharedString::from(format!("source-card-{}", source_id)))
         .hover(|this| this.bg(cx.theme().secondary_hover))
         .on_double_click(cx.listener(move |this, _, window, cx| {
-            this.open_data_source_tab(source_id, window, cx);
+            this.open_data_source_tab(&source_id, window, cx);
         }))
         .child(
             h_flex()
@@ -156,7 +157,7 @@ fn render_data_source_card(
                 ),
         )
         .child(
-            Button::new(("kind-chip", source_id))
+            Button::new(SharedString::from(format!("kind-chip-{}", source_id_for_button)))
                 .ghost()
                 .xsmall()
                 .tab_stop(false)

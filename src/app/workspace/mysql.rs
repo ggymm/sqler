@@ -8,8 +8,8 @@ use gpui_component::{
 };
 
 use crate::app::{DataSourceTabState, InnerTabId, SqlerApp, TabId};
-use crate::option::{MySQLOptions, DataSourceOptions};
-use crate::DataSourceType;
+use crate::option::DataSourceKind;
+use crate::option::{DataSourceOptions, MySQLOptions};
 
 pub struct MySqlWorkspace<'a> {
     state: &'a DataSourceTabState,
@@ -27,7 +27,7 @@ impl<'a> MySqlWorkspace<'a> {
         cx: &mut Context<SqlerApp>,
     ) -> gpui::Div {
         let meta = &self.state.meta;
-        debug_assert!(matches!(meta.kind, DataSourceType::MySQL));
+        debug_assert!(matches!(meta.kind, DataSourceKind::MySQL));
 
         let options = match &meta.options {
             DataSourceOptions::MySQL(opts) => opts,
@@ -97,9 +97,7 @@ impl<'a> MySqlWorkspace<'a> {
             .py(px(20.))
             .child(self.render_detail(options, cx));
 
-        let right_panel = right_panel
-            .child(self.inner_tab_bar(tab_id, cx))
-            .child(detail_panel);
+        let right_panel = right_panel.child(self.inner_tab_bar(tab_id, cx)).child(detail_panel);
 
         let mut content_row = h_flex().flex_1().size_full();
         {
@@ -133,7 +131,11 @@ impl<'a> MySqlWorkspace<'a> {
             .child(form_field().label("类型").child(div().child(meta.kind.label())))
             .child(form_field().label("主机").child(div().child(options.host.clone())))
             .child(form_field().label("端口").child(div().child(options.port.to_string())))
-            .child(form_field().label("数据库").child(div().child(options.database.clone())))
+            .child(
+                form_field()
+                    .label("数据库")
+                    .child(div().child(options.database.clone())),
+            )
             .child(form_field().label("账号").child(div().child(options.username.clone())));
 
         if let Some(charset) = &options.charset {
@@ -169,12 +171,7 @@ impl<'a> MySqlWorkspace<'a> {
             );
 
         for note in notes {
-            notes_block = notes_block.child(
-                div()
-                    .text_sm()
-                    .text_color(theme.muted_foreground)
-                    .child(note),
-            );
+            notes_block = notes_block.child(div().text_sm().text_color(theme.muted_foreground).child(note));
         }
 
         v_flex()
@@ -189,7 +186,11 @@ impl<'a> MySqlWorkspace<'a> {
             .child(notes_block)
     }
 
-    fn workspace_toolbar(&self, tab_id: TabId, cx: &mut Context<SqlerApp>) -> gpui::Div {
+    fn workspace_toolbar(
+        &self,
+        tab_id: TabId,
+        cx: &mut Context<SqlerApp>,
+    ) -> gpui::Div {
         let buttons = [
             ("tab-config", "数据源配置", false),
             ("tab-new-query", "新建查询", true),
@@ -217,7 +218,11 @@ impl<'a> MySqlWorkspace<'a> {
             }))
     }
 
-    fn inner_tab_bar(&self, tab_id: TabId, cx: &mut Context<SqlerApp>) -> gpui::Div {
+    fn inner_tab_bar(
+        &self,
+        tab_id: TabId,
+        cx: &mut Context<SqlerApp>,
+    ) -> gpui::Div {
         h_flex()
             .gap(px(6.))
             .px(px(16.))
@@ -253,7 +258,10 @@ impl<'a> MySqlWorkspace<'a> {
             }))
     }
 
-    fn summary(&self, options: &MySQLOptions) -> String {
+    fn summary(
+        &self,
+        options: &MySQLOptions,
+    ) -> String {
         format!(
             "连接：{}@{}:{} / {}",
             options.username, options.host, options.port, options.database

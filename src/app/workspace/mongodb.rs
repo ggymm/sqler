@@ -4,8 +4,8 @@ use gpui::*;
 use gpui_component::{h_flex, v_flex, ActiveTheme as _, StyledExt};
 
 use crate::app::{DataSourceTabState, SqlerApp, TabId};
+use crate::option::DataSourceKind;
 use crate::option::DataSourceOptions;
-use crate::DataSourceType;
 
 pub struct MongoWorkspace<'a> {
     state: &'a DataSourceTabState,
@@ -23,7 +23,7 @@ impl<'a> MongoWorkspace<'a> {
         cx: &mut Context<SqlerApp>,
     ) -> gpui::Div {
         let meta = &self.state.meta;
-        debug_assert!(matches!(meta.kind, DataSourceType::MongoDB));
+        debug_assert!(matches!(meta.kind, DataSourceKind::MongoDB));
 
         let options = match &meta.options {
             DataSourceOptions::MongoDB(opts) => opts,
@@ -52,12 +52,7 @@ impl<'a> MongoWorkspace<'a> {
         let body = v_flex()
             .gap(px(12.))
             .child(div().text_lg().font_semibold().child(meta.name.clone()))
-            .child(
-                div()
-                    .text_sm()
-                    .text_color(theme.muted_foreground)
-                    .child(summary),
-            )
+            .child(div().text_sm().text_color(theme.muted_foreground).child(summary))
             .child(
                 div()
                     .text_sm()

@@ -5,7 +5,7 @@ use gpui_component::ActiveTheme;
 use gpui_component::StyledExt;
 
 use crate::app::SqlerApp;
-use crate::DataSourceType;
+use crate::option::DataSourceKind;
 
 pub mod mongodb;
 pub mod mysql;
@@ -17,7 +17,7 @@ pub mod sqlserver;
 
 #[derive(Clone)]
 pub struct NewDataSourceState {
-    pub selected: Option<DataSourceType>,
+    pub selected: Option<DataSourceKind>,
 
     pub mysql: mysql::MySQLState,
     pub oracle: oracle::OracleState,
@@ -83,7 +83,7 @@ impl CreateDataSourceWindow {
 
     fn selected(
         &mut self,
-        kind: DataSourceType,
+        kind: DataSourceKind,
         cx: &mut Context<Self>,
     ) {
         if self.state.selected != Some(kind) {
@@ -156,16 +156,16 @@ impl Render for CreateDataSourceWindow {
                                     .child(format!("配置 {}", kind.label())),
                             )
                             .child(match kind {
-                                DataSourceType::MySQL => mysql::render(&mut self.state.mysql, cx),
-                                DataSourceType::Oracle => oracle::render(&mut self.state.oracle, cx),
-                                DataSourceType::SQLite => sqlite::render(&mut self.state.sqlite, cx),
-                                DataSourceType::SQLServer => sqlserver::render(&mut self.state.sqlserver, cx),
-                                DataSourceType::PostgreSQL => postgres::render(&mut self.state.postgres, cx),
-                                DataSourceType::Redis => redis::render(&mut self.state.redis, cx),
-                                DataSourceType::MongoDB => mongodb::render(&mut self.state.mongodb, cx),
+                                DataSourceKind::MySQL => mysql::render(&mut self.state.mysql, cx),
+                                DataSourceKind::Oracle => oracle::render(&mut self.state.oracle, cx),
+                                DataSourceKind::SQLite => sqlite::render(&mut self.state.sqlite, cx),
+                                DataSourceKind::SQLServer => sqlserver::render(&mut self.state.sqlserver, cx),
+                                DataSourceKind::PostgreSQL => postgres::render(&mut self.state.postgres, cx),
+                                DataSourceKind::Redis => redis::render(&mut self.state.redis, cx),
+                                DataSourceKind::MongoDB => mongodb::render(&mut self.state.mongodb, cx),
                             }),
                         None => div().flex().flex_col().px_8().py_6().gap_5().children(
-                            DataSourceType::all()
+                            DataSourceKind::all()
                                 .iter()
                                 .map(|kind| {
                                     div()

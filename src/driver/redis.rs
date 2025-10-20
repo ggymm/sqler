@@ -21,8 +21,7 @@ impl DatabaseDriver for RedisDriver {
         }
 
         let url = build_connection_url(config)?;
-        let client = Client::open(url)
-            .map_err(|err| DriverError::Other(format!("创建客户端失败: {}", err)))?;
+        let client = Client::open(url).map_err(|err| DriverError::Other(format!("创建客户端失败: {}", err)))?;
 
         let mut conn = client
             .get_connection()

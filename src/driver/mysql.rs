@@ -43,8 +43,7 @@ impl DatabaseDriver for MySQLDriver {
 
         let opts = Opts::from(builder);
 
-        let mut conn =
-            Conn::new(opts).map_err(|err| DriverError::Other(format!("连接失败: {}", err)))?;
+        let mut conn = Conn::new(opts).map_err(|err| DriverError::Other(format!("连接失败: {}", err)))?;
 
         if let Some(charset) = &config.charset {
             if !charset.trim().is_empty() {

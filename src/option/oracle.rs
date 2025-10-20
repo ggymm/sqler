@@ -1,5 +1,5 @@
 use crate::option::ConnectionOptions;
-use crate::DataSourceType;
+use crate::option::DataSourceKind;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OracleAddress {
@@ -46,7 +46,7 @@ impl Default for OracleOptions {
 }
 
 impl ConnectionOptions for OracleOptions {
-    fn kind(&self) -> DataSourceType {
-        DataSourceType::Oracle
+    fn kind(&self) -> DataSourceKind {
+        DataSourceKind::Oracle
     }
 }

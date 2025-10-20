@@ -4,8 +4,8 @@ use gpui::*;
 use gpui_component::{h_flex, v_flex, ActiveTheme as _, StyledExt};
 
 use crate::app::{DataSourceTabState, SqlerApp, TabId};
-use crate::option::{SQLServerAuth, DataSourceOptions};
-use crate::DataSourceType;
+use crate::option::DataSourceKind;
+use crate::option::{DataSourceOptions, SQLServerAuth};
 
 pub struct SqlServerWorkspace<'a> {
     state: &'a DataSourceTabState,
@@ -23,7 +23,7 @@ impl<'a> SqlServerWorkspace<'a> {
         cx: &mut Context<SqlerApp>,
     ) -> gpui::Div {
         let meta = &self.state.meta;
-        debug_assert!(matches!(meta.kind, DataSourceType::SQLServer));
+        debug_assert!(matches!(meta.kind, DataSourceKind::SQLServer));
 
         let options = match &meta.options {
             DataSourceOptions::SQLServer(opts) => opts,
@@ -49,18 +49,8 @@ impl<'a> SqlServerWorkspace<'a> {
         let body = v_flex()
             .gap(px(12.))
             .child(div().text_lg().font_semibold().child(meta.name.clone()))
-            .child(
-                div()
-                    .text_sm()
-                    .text_color(theme.muted_foreground)
-                    .child(summary),
-            )
-            .child(
-                div()
-                    .text_sm()
-                    .text_color(theme.muted_foreground)
-                    .child(auth),
-            )
+            .child(div().text_sm().text_color(theme.muted_foreground).child(summary))
+            .child(div().text_sm().text_color(theme.muted_foreground).child(auth))
             .child(
                 div()
                     .text_sm()

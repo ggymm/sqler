@@ -4,8 +4,8 @@ use gpui::*;
 use gpui_component::{h_flex, v_flex, ActiveTheme as _, StyledExt};
 
 use crate::app::{DataSourceTabState, SqlerApp, TabId};
-use crate::option::{SslMode, DataSourceOptions};
-use crate::DataSourceType;
+use crate::option::DataSourceKind;
+use crate::option::{DataSourceOptions, SslMode};
 
 pub struct PostgresWorkspace<'a> {
     state: &'a DataSourceTabState,
@@ -23,7 +23,7 @@ impl<'a> PostgresWorkspace<'a> {
         cx: &mut Context<SqlerApp>,
     ) -> gpui::Div {
         let meta = &self.state.meta;
-        debug_assert!(matches!(meta.kind, DataSourceType::PostgreSQL));
+        debug_assert!(matches!(meta.kind, DataSourceKind::PostgreSQL));
 
         let options = match &meta.options {
             DataSourceOptions::PostgreSQL(opts) => opts,
@@ -87,12 +87,7 @@ impl<'a> PostgresWorkspace<'a> {
             );
 
         for note in notes {
-            body = body.child(
-                div()
-                    .text_sm()
-                    .text_color(theme.muted_foreground)
-                    .child(note),
-            );
+            body = body.child(div().text_sm().text_color(theme.muted_foreground).child(note));
         }
 
         v_flex()

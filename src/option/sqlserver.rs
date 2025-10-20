@@ -1,5 +1,5 @@
 use crate::option::ConnectionOptions;
-use crate::DataSourceType;
+use crate::option::DataSourceKind;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SQLServerAuth {
@@ -33,7 +33,7 @@ impl Default for SQLServerOptions {
 }
 
 impl ConnectionOptions for SQLServerOptions {
-    fn kind(&self) -> DataSourceType {
-        DataSourceType::SQLServer
+    fn kind(&self) -> DataSourceKind {
+        DataSourceKind::SQLServer
     }
 }

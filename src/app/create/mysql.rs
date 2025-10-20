@@ -1,11 +1,9 @@
 use gpui::*;
-use gpui_component::input::TextInput;
-use gpui_component::input::InputState;
-use gpui_component::form::v_form;
 use gpui_component::form::form_field;
-use gpui_component::{
-    v_flex, ActiveTheme as _,
-};
+use gpui_component::form::v_form;
+use gpui_component::input::InputState;
+use gpui_component::input::TextInput;
+use gpui_component::{v_flex, ActiveTheme as _};
 
 use crate::app::create::CreateDataSourceWindow;
 use crate::app::SqlerApp;

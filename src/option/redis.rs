@@ -1,5 +1,5 @@
 use crate::option::ConnectionOptions;
-use crate::DataSourceType;
+use crate::option::DataSourceKind;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RedisOptions {
@@ -25,7 +25,7 @@ impl Default for RedisOptions {
 }
 
 impl ConnectionOptions for RedisOptions {
-    fn kind(&self) -> DataSourceType {
-        DataSourceType::Redis
+    fn kind(&self) -> DataSourceKind {
+        DataSourceKind::Redis
     }
 }

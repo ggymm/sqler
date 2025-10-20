@@ -1,5 +1,5 @@
 use crate::option::ConnectionOptions;
-use crate::DataSourceType;
+use crate::option::DataSourceKind;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MySQLOptions {
@@ -27,7 +27,7 @@ impl Default for MySQLOptions {
 }
 
 impl ConnectionOptions for MySQLOptions {
-    fn kind(&self) -> DataSourceType {
-        DataSourceType::MySQL
+    fn kind(&self) -> DataSourceKind {
+        DataSourceKind::MySQL
     }
 }

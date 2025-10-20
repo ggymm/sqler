@@ -1,5 +1,9 @@
+use std::collections::HashMap;
+
 use gpui::prelude::*;
 use gpui::*;
+use serde_json::json;
+use uuid::Uuid;
 
 use gpui_component::button::Button;
 use gpui_component::button::ButtonVariants;
@@ -11,9 +15,9 @@ use gpui_component::Root;
 use gpui_component::Sizable;
 use gpui_component::Size;
 
+use crate::option::DataSourceKind;
+use crate::option::DataSourceMeta;
 use crate::option::{DataSourceOptions, MySQLOptions, PostgreSQLOptions, SQLiteOptions};
-use crate::DataSourceMeta;
-use crate::DataSourceType;
 
 mod comps;
 mod create;
@@ -128,7 +132,7 @@ impl TabState {
 
     fn is_data_source(
         &self,
-        id: u64,
+        id: &str,
     ) -> bool {
         matches!(&self.kind, TabKind::DataSource(state) if state.meta.id == id)
     }
@@ -226,7 +230,7 @@ impl SqlerApp {
 
     pub fn open_data_source_tab(
         &mut self,
-        source_id: u64,
+        source_id: &str,
         _window: &mut Window,
         cx: &mut Context<SqlerApp>,
     ) {
@@ -352,6 +356,7 @@ pub fn render_head(
                         .items_center()
                         .justify_center()
                         .px_3()
+                        .py_2()
                         .gap_2()
                         .border_1()
                         .border_color(theme.border)
@@ -434,10 +439,10 @@ pub fn render_head(
 fn seed_sources() -> Vec<DataSourceMeta> {
     vec![
         DataSourceMeta {
-            id: 1,
+            id: Uuid::new_v4().to_string(),
             name: SharedString::from("生产库"),
             desc: SharedString::from("线上订单主库"),
-            kind: DataSourceType::PostgreSQL,
+            kind: DataSourceKind::PostgreSQL,
             options: DataSourceOptions::PostgreSQL(PostgreSQLOptions {
                 host: "10.10.12.5".into(),
                 port: 5432,
@@ -447,18 +452,16 @@ fn seed_sources() -> Vec<DataSourceMeta> {
                 schema: None,
                 ssl_mode: None,
             }),
-            tables: vec![
-                SharedString::from("orders"),
-                SharedString::from("order_items"),
-                SharedString::from("users"),
-                SharedString::from("regions"),
-            ],
+            extras: Some(HashMap::from([(
+                "tables".to_string(),
+                json!(["orders", "order_items", "users", "regions"]),
+            )])),
         },
         DataSourceMeta {
-            id: 2,
+            id: Uuid::new_v4().to_string(),
             name: SharedString::from("BI 分析库"),
             desc: SharedString::from("数仓汇总使用"),
-            kind: DataSourceType::MySQL,
+            kind: DataSourceKind::MySQL,
             options: DataSourceOptions::MySQL(MySQLOptions {
                 host: "10.60.1.10".into(),
                 port: 3306,
@@ -468,23 +471,22 @@ fn seed_sources() -> Vec<DataSourceMeta> {
                 charset: Some("utf8mb4".into()),
                 use_tls: false,
             }),
-            tables: vec![
-                SharedString::from("daily_metrics"),
-                SharedString::from("marketing_channels"),
-                SharedString::from("product_sku"),
-            ],
+            extras: Some(HashMap::from([(
+                "tables".to_string(),
+                json!(["daily_metrics", "marketing_channels", "product_sku"]),
+            )])),
         },
         DataSourceMeta {
-            id: 3,
+            id: Uuid::new_v4().to_string(),
             name: SharedString::from("测试环境"),
             desc: SharedString::from("本地调试用"),
-            kind: DataSourceType::SQLite,
+            kind: DataSourceKind::SQLite,
             options: DataSourceOptions::SQLite(SQLiteOptions {
                 file_path: "sqler-dev.db".into(),
                 password: None,
                 read_only: false,
             }),
-            tables: vec![SharedString::from("sample_jobs")],
+            extras: Some(HashMap::from([("tables".to_string(), json!(["sample_jobs"]))])),
         },
     ]
 }

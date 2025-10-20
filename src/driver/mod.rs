@@ -1,6 +1,6 @@
 use crate::option::ConnectionOptions;
+use crate::option::DataSourceKind;
 use crate::option::DataSourceOptions;
-use crate::DataSourceType;
 
 pub use mongodb::MongoDBDriver;
 pub use mysql::MySQLDriver;
@@ -41,7 +41,7 @@ pub trait DatabaseDriver {
 
 /// 按数据源类型测试连接。
 pub fn check_connection(
-    kind: DataSourceType,
+    kind: DataSourceKind,
     options: &DataSourceOptions,
 ) -> Result<(), DriverError> {
     if options.kind() != kind {
@@ -62,8 +62,8 @@ pub fn check_connection(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::option::DataSourceKind;
     use crate::option::DataSourceOptions;
-    use crate::DataSourceType;
 
     #[test]
     fn mysql_missing_host_is_error() {
@@ -71,7 +71,7 @@ mod tests {
         config.host.clear();
         let options = DataSourceOptions::MySQL(config);
 
-        let result = check_connection(DataSourceType::MySQL, &options);
+        let result = check_connection(DataSourceKind::MySQL, &options);
         assert!(matches!(
             result,
             Err(DriverError::MissingField(field)) if field == "host"
@@ -85,7 +85,7 @@ mod tests {
         config.hosts.clear();
         let options = DataSourceOptions::MongoDB(config);
 
-        let result = check_connection(DataSourceType::MongoDB, &options);
+        let result = check_connection(DataSourceKind::MongoDB, &options);
         assert!(matches!(
             result,
             Err(DriverError::MissingField(field)) if field == "hosts"
@@ -98,7 +98,7 @@ mod tests {
         config.host.clear();
         let options = DataSourceOptions::Redis(config);
 
-        let result = check_connection(DataSourceType::Redis, &options);
+        let result = check_connection(DataSourceKind::Redis, &options);
         assert!(matches!(
             result,
             Err(DriverError::MissingField(field)) if field == "host"
