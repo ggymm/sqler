@@ -2,7 +2,11 @@ use gpui::Context;
 
 use crate::app::{DataSourceMeta, DatabaseKind, SqlerApp};
 
-pub fn render(kind: DatabaseKind, meta: &DataSourceMeta, cx: &mut Context<SqlerApp>) -> gpui::Div {
+pub fn render(
+    kind: DatabaseKind,
+    meta: &DataSourceMeta,
+    cx: &mut Context<SqlerApp>,
+) -> gpui::Div {
     debug_assert!(matches!(kind, DatabaseKind::SqlServer));
 
     let notes = vec![

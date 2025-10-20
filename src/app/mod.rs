@@ -121,7 +121,10 @@ pub struct NewDataSourceState {
 }
 
 impl NewDataSourceState {
-    pub fn new(window: &mut Window, cx: &mut Context<SqlerApp>) -> Self {
+    pub fn new(
+        window: &mut Window,
+        cx: &mut Context<SqlerApp>,
+    ) -> Self {
         Self {
             selected: None,
             postgres: create::postgres::PostgresState::new(window, cx),
@@ -174,7 +177,10 @@ impl TabState {
         }
     }
 
-    fn data_source(id: TabId, meta: DataSourceMeta) -> Self {
+    fn data_source(
+        id: TabId,
+        meta: DataSourceMeta,
+    ) -> Self {
         let title = meta.name.clone();
         Self {
             id,
@@ -184,7 +190,10 @@ impl TabState {
         }
     }
 
-    fn is_data_source(&self, id: u64) -> bool {
+    fn is_data_source(
+        &self,
+        id: u64,
+    ) -> bool {
         matches!(&self.kind, TabKind::DataSource(state) if state.meta.id == id)
     }
 }
@@ -198,7 +207,10 @@ pub struct SqlerApp {
 }
 
 impl SqlerApp {
-    pub fn new(_window: &mut Window, _cx: &mut Context<SqlerApp>) -> Self {
+    pub fn new(
+        _window: &mut Window,
+        _cx: &mut Context<SqlerApp>,
+    ) -> Self {
         let saved_sources = seed_sources();
         let mut next_tab_id = 1;
         let home_id = TabId::next(&mut next_tab_id);
@@ -212,7 +224,11 @@ impl SqlerApp {
         }
     }
 
-    pub fn show_new_data_source_modal(&mut self, window: &mut Window, cx: &mut Context<SqlerApp>) {
+    pub fn show_new_data_source_modal(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<SqlerApp>,
+    ) {
         if let Some(handle) = &self.new_ds_window {
             let _ = handle.update(cx, |_, modal_window, _| {
                 modal_window.activate_window();
@@ -237,9 +253,7 @@ impl SqlerApp {
 
         match cx.open_window(options, move |modal_window, app_cx| {
             let parent = parent.clone();
-            let view = app_cx.new(|cx| {
-                create::CreateDataSourceWindow::new(state, parent.clone(), modal_window, cx)
-            });
+            let view = app_cx.new(|cx| create::CreateDataSourceWindow::new(state, parent.clone(), modal_window, cx));
             app_cx.new(|cx| Root::new(view.into(), modal_window, cx))
         }) {
             Ok(handle) => {
@@ -258,7 +272,11 @@ impl SqlerApp {
         self.new_ds_window = None;
     }
 
-    pub fn toggle_theme(&mut self, window: &mut Window, cx: &mut Context<SqlerApp>) {
+    pub fn toggle_theme(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<SqlerApp>,
+    ) {
         let next_mode = if cx.theme().is_dark() {
             ThemeMode::Light
         } else {
@@ -280,12 +298,7 @@ impl SqlerApp {
             return;
         }
 
-        if let Some(meta) = self
-            .saved_sources
-            .iter()
-            .find(|meta| meta.id == source_id)
-            .cloned()
-        {
+        if let Some(meta) = self.saved_sources.iter().find(|meta| meta.id == source_id).cloned() {
             let id = TabId::next(&mut self.next_tab_id);
             self.tabs.push(TabState::data_source(id, meta));
             self.active_tab = id;
@@ -293,7 +306,11 @@ impl SqlerApp {
         }
     }
 
-    pub fn close_tab(&mut self, tab_id: TabId, cx: &mut Context<SqlerApp>) {
+    pub fn close_tab(
+        &mut self,
+        tab_id: TabId,
+        cx: &mut Context<SqlerApp>,
+    ) {
         if let Some(index) = self.tabs.iter().position(|tab| tab.id == tab_id) {
             if !self.tabs[index].closable {
                 return;
@@ -311,7 +328,11 @@ impl SqlerApp {
         }
     }
 
-    pub fn set_active_tab(&mut self, tab_id: TabId, cx: &mut Context<SqlerApp>) {
+    pub fn set_active_tab(
+        &mut self,
+        tab_id: TabId,
+        cx: &mut Context<SqlerApp>,
+    ) {
         if self.tabs.iter().any(|tab| tab.id == tab_id) {
             self.active_tab = tab_id;
             cx.notify();
@@ -334,8 +355,11 @@ impl SqlerApp {
 }
 
 impl Render for SqlerApp {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        Theme::change(ThemeMode::Light, None, cx);
+    fn render(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
         div()
             .flex()
             .flex_col()
@@ -343,7 +367,7 @@ impl Render for SqlerApp {
             .size_full()
             .min_w_0()
             .min_h_0()
-            .child(render_head(self, window, cx))
+            .child(div().h_24().child(render_head(self, window, cx)))
             .child(
                 div()
                     .flex_1()
@@ -356,7 +380,11 @@ impl Render for SqlerApp {
     }
 }
 
-pub fn render_head(app: &mut SqlerApp, _window: &mut Window, cx: &mut Context<SqlerApp>) -> Div {
+pub fn render_head(
+    app: &mut SqlerApp,
+    _window: &mut Window,
+    cx: &mut Context<SqlerApp>,
+) -> Div {
     let theme = cx.theme();
     let active = app.active_tab;
 
@@ -395,8 +423,7 @@ pub fn render_head(app: &mut SqlerApp, _window: &mut Window, cx: &mut Context<Sq
                         .border_color(theme.border)
                         .cursor_pointer()
                         .when(is_active, |this| {
-                            this.bg(theme.tab_active)
-                                .text_color(theme.tab_active_foreground)
+                            this.bg(theme.tab_active).text_color(theme.tab_active_foreground)
                         })
                         .when(!is_active, |this| {
                             this.text_color(theme.muted_foreground).bg(theme.tab_bar)
@@ -422,11 +449,7 @@ pub fn render_head(app: &mut SqlerApp, _window: &mut Window, cx: &mut Context<Sq
                                 .compact()
                                 .xsmall()
                                 .tab_stop(false)
-                                .icon(
-                                    Icon::default()
-                                        .path("icons/close.svg")
-                                        .with_size(Size::Small),
-                                )
+                                .icon(Icon::default().path("icons/close.svg").with_size(Size::Small))
                                 .on_click(cx.listener(move |this, _, _, cx| {
                                     this.close_tab(tab_id, cx);
                                 })),

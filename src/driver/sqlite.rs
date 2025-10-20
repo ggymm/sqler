@@ -12,7 +12,10 @@ pub struct SQLiteDriver;
 impl DatabaseDriver for SQLiteDriver {
     type Config = SQLiteConfig;
 
-    fn test_connection(&self, config: &Self::Config) -> Result<(), DriverError> {
+    fn test_connection(
+        &self,
+        config: &Self::Config,
+    ) -> Result<(), DriverError> {
         Ok(())
     }
 }

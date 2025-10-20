@@ -3,8 +3,8 @@ use std::fs::read;
 use std::path::PathBuf;
 
 use gpui::*;
-use gpui_component::init;
 use gpui_component::Root;
+use gpui_component::{init, Theme, ThemeMode};
 
 use app::SqlerApp;
 
@@ -14,7 +14,10 @@ mod driver;
 struct FsAssets;
 
 impl AssetSource for FsAssets {
-    fn load(&self, path: &str) -> Result<Option<Cow<'static, [u8]>>> {
+    fn load(
+        &self,
+        path: &str,
+    ) -> Result<Option<Cow<'static, [u8]>>> {
         if path.is_empty() {
             return Ok(None);
         }
@@ -28,7 +31,10 @@ impl AssetSource for FsAssets {
         }
     }
 
-    fn list(&self, _path: &str) -> Result<Vec<SharedString>> {
+    fn list(
+        &self,
+        _path: &str,
+    ) -> Result<Vec<SharedString>> {
         Ok(Vec::new())
     }
 }
@@ -49,6 +55,8 @@ fn main() {
             }
         })
         .detach();
+
+        Theme::change(ThemeMode::Light, None, cx);
 
         let window_size = size(px(1280.), px(800.));
         let window_bounds = Bounds::centered(None, window_size, cx);

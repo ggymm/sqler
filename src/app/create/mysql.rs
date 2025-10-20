@@ -21,7 +21,10 @@ pub struct MySqlState {
 }
 
 impl MySqlState {
-    pub fn new(window: &mut Window, cx: &mut Context<SqlerApp>) -> Self {
+    pub fn new(
+        window: &mut Window,
+        cx: &mut Context<SqlerApp>,
+    ) -> Self {
         Self {
             name: cx.new(|cx| InputState::new(window, cx).placeholder("数据源名称")),
             host: cx.new(|cx| {
@@ -40,8 +43,7 @@ impl MySqlState {
                     .default_value("root")
             }),
             password: cx.new(|cx| InputState::new(window, cx).placeholder("密码").masked(true)),
-            database: cx
-                .new(|cx| InputState::new(window, cx).placeholder("数据库名称，例如：analytics")),
+            database: cx.new(|cx| InputState::new(window, cx).placeholder("数据库名称，例如：analytics")),
             charset: cx.new(|cx| {
                 InputState::new(window, cx)
                     .placeholder("字符集，例如：utf8mb4")
@@ -51,47 +53,26 @@ impl MySqlState {
     }
 }
 
-pub fn render(state: &mut MySqlState, cx: &mut Context<CreateDataSourceWindow>) -> gpui::Div {
+pub fn render(
+    state: &mut MySqlState,
+    cx: &mut Context<CreateDataSourceWindow>,
+) -> gpui::Div {
     v_flex()
         .gap(px(12.))
         .child(
             v_form()
                 .gap(px(12.))
-                .child(
-                    form_field()
-                        .label("数据源名称")
-                        .child(TextInput::new(&state.name)),
-                )
-                .child(
-                    form_field()
-                        .label("主机")
-                        .child(TextInput::new(&state.host)),
-                )
-                .child(
-                    form_field()
-                        .label("端口")
-                        .child(TextInput::new(&state.port)),
-                )
-                .child(
-                    form_field()
-                        .label("用户名")
-                        .child(TextInput::new(&state.username)),
-                )
+                .child(form_field().label("数据源名称").child(TextInput::new(&state.name)))
+                .child(form_field().label("主机").child(TextInput::new(&state.host)))
+                .child(form_field().label("端口").child(TextInput::new(&state.port)))
+                .child(form_field().label("用户名").child(TextInput::new(&state.username)))
                 .child(
                     form_field()
                         .label("密码")
                         .child(TextInput::new(&state.password).mask_toggle()),
                 )
-                .child(
-                    form_field()
-                        .label("数据库")
-                        .child(TextInput::new(&state.database)),
-                )
-                .child(
-                    form_field()
-                        .label("字符集")
-                        .child(TextInput::new(&state.charset)),
-                ),
+                .child(form_field().label("数据库").child(TextInput::new(&state.database)))
+                .child(form_field().label("字符集").child(TextInput::new(&state.charset))),
         )
         .child(
             div()

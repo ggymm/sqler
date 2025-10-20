@@ -46,7 +46,10 @@ pub trait DatabaseDriver {
     type Config;
 
     /// 测试连接；成功返回 `Ok(())`，失败返回 [`DriverError`].
-    fn test_connection(&self, config: &Self::Config) -> Result<(), DriverError>;
+    fn test_connection(
+        &self,
+        config: &Self::Config,
+    ) -> Result<(), DriverError>;
 }
 
 /// 按数据源类型测试连接。

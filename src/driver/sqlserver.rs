@@ -24,7 +24,10 @@ pub struct SQLServerDriver;
 impl DatabaseDriver for SQLServerDriver {
     type Config = SQLServerConfig;
 
-    fn test_connection(&self, config: &Self::Config) -> Result<(), DriverError> {
+    fn test_connection(
+        &self,
+        config: &Self::Config,
+    ) -> Result<(), DriverError> {
         Ok(())
     }
 }

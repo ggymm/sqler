@@ -4,8 +4,8 @@ pub mod sqlite;
 pub mod sqlserver;
 
 use gpui::{
-    div, img, px, AnyElement, Context, InteractiveElement as _, IntoElement, Length, ParentElement,
-    Render, SharedString, Stateful, StatefulInteractiveElement as _, Styled, WeakEntity, Window,
+    div, img, px, AnyElement, Context, InteractiveElement as _, IntoElement, Length, ParentElement, Render,
+    SharedString, Stateful, StatefulInteractiveElement as _, Styled, WeakEntity, Window,
 };
 use gpui_component::{
     button::{Button, ButtonVariants as _},
@@ -39,7 +39,10 @@ impl CreateDataSourceWindow {
         Self { parent, state }
     }
 
-    fn clear_parent(&self, cx: &mut Context<Self>) {
+    fn clear_parent(
+        &self,
+        cx: &mut Context<Self>,
+    ) {
         if let Some(parent) = self.parent.upgrade() {
             let _ = parent.update(cx, |app, cx| {
                 app.clear_new_data_source_window();
@@ -48,29 +51,48 @@ impl CreateDataSourceWindow {
         }
     }
 
-    fn back_to_selection(&mut self, cx: &mut Context<Self>) {
+    fn back_to_selection(
+        &mut self,
+        cx: &mut Context<Self>,
+    ) {
         if self.state.selected.take().is_some() {
             cx.notify();
         }
     }
 
-    fn select_kind(&mut self, kind: DatabaseKind, cx: &mut Context<Self>) {
+    fn select_kind(
+        &mut self,
+        kind: DatabaseKind,
+        cx: &mut Context<Self>,
+    ) {
         if self.state.selected != Some(kind) {
             self.state.selected = Some(kind);
             cx.notify();
         }
     }
 
-    fn close_window(&self, window: &mut Window, cx: &mut Context<Self>) {
+    fn close_window(
+        &self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.clear_parent(cx);
         window.remove_window();
     }
 
-    fn submit(&self, window: &mut Window, cx: &mut Context<Self>) {
+    fn submit(
+        &self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.close_window(window, cx);
     }
 
-    fn render_content(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+    fn render_content(
+        &mut self,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let header = render_header(cx);
         let body = render_body(self, cx);
         let footer = render_footer(self, cx);
@@ -86,7 +108,11 @@ impl CreateDataSourceWindow {
 }
 
 impl Render for CreateDataSourceWindow {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
         self.render_content(window, cx)
     }
 }
@@ -167,11 +193,7 @@ fn render_type_selection(cx: &mut Context<CreateDataSourceWindow>) -> gpui::Div 
         })
         .collect::<Vec<_>>();
 
-    v_flex()
-        .px(px(32.))
-        .py(px(24.))
-        .gap(px(12.))
-        .children(cards)
+    v_flex().px(px(32.)).py(px(24.)).gap(px(12.)).children(cards)
 }
 
 fn render_form_panel(
@@ -224,11 +246,9 @@ fn render_footer(
                 .ghost()
                 .label("测试连接")
                 .disabled(!has_selection)
-                .on_click(
-                    cx.listener(|_this: &mut CreateDataSourceWindow, _, _window, _cx| {
-                        // TODO: 实现连接测试逻辑
-                    }),
-                ),
+                .on_click(cx.listener(|_this: &mut CreateDataSourceWindow, _, _window, _cx| {
+                    // TODO: 实现连接测试逻辑
+                })),
         )
         .child(
             h_flex()
@@ -242,26 +262,19 @@ fn render_footer(
                             this.back_to_selection(cx);
                         })),
                 )
-                .child(
-                    Button::new("modal-cancel")
-                        .ghost()
-                        .label("取消")
-                        .on_click(cx.listener(
-                            |this: &mut CreateDataSourceWindow, _, window, cx| {
-                                this.close_window(window, cx);
-                            },
-                        )),
-                )
+                .child(Button::new("modal-cancel").ghost().label("取消").on_click(cx.listener(
+                    |this: &mut CreateDataSourceWindow, _, window, cx| {
+                        this.close_window(window, cx);
+                    },
+                )))
                 .child(
                     Button::new("modal-save")
                         .primary()
                         .disabled(!has_selection)
                         .label("保存")
-                        .on_click(cx.listener(
-                            |this: &mut CreateDataSourceWindow, _, window, cx| {
-                                this.submit(window, cx);
-                            },
-                        )),
+                        .on_click(cx.listener(|this: &mut CreateDataSourceWindow, _, window, cx| {
+                            this.submit(window, cx);
+                        })),
                 ),
         )
 }

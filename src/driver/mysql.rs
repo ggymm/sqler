@@ -17,7 +17,10 @@ pub struct MySQLDriver;
 impl DatabaseDriver for MySQLDriver {
     type Config = MySQLConfig;
 
-    fn test_connection(&self, config: &Self::Config) -> Result<(), DriverError> {
+    fn test_connection(
+        &self,
+        config: &Self::Config,
+    ) -> Result<(), DriverError> {
         Ok(())
     }
 }

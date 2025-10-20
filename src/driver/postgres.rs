@@ -25,7 +25,10 @@ pub struct PostgreSQLDriver;
 impl DatabaseDriver for PostgreSQLDriver {
     type Config = PostgreSQLConfig;
 
-    fn test_connection(&self, config: &Self::Config) -> Result<(), DriverError> {
+    fn test_connection(
+        &self,
+        config: &Self::Config,
+    ) -> Result<(), DriverError> {
         Ok(())
     }
 }
