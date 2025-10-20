@@ -11,9 +11,9 @@ use gpui_component::Root;
 use gpui_component::Sizable;
 use gpui_component::Size;
 
+use crate::option::{MySQLOptions, PostgreSQLOptions, SQLiteOptions, StoredOptions};
 use crate::DataSourceMeta;
 use crate::DataSourceType;
-use crate::option::{MySQLOptions, PostgreSQLOptions, SQLiteOptions, StoredOptions};
 
 mod comps;
 mod create;
@@ -70,10 +70,14 @@ impl InnerTab {
 #[derive(Clone)]
 pub struct NewDataSourceState {
     pub selected: Option<DataSourceType>,
-    pub postgres: create::postgres::PostgresState,
+
     pub mysql: create::mysql::MySQLState,
+    pub oracle: create::oracle::OracleState,
     pub sqlite: create::sqlite::SqliteState,
     pub sqlserver: create::sqlserver::SqlServerState,
+    pub postgres: create::postgres::PostgresState,
+    pub redis: create::redis::RedisState,
+    pub mongodb: create::mongodb::MongoDBState,
 }
 
 impl NewDataSourceState {
@@ -83,10 +87,14 @@ impl NewDataSourceState {
     ) -> Self {
         Self {
             selected: None,
-            postgres: create::postgres::PostgresState::new(window, cx),
+
             mysql: create::mysql::MySQLState::new(window, cx),
+            oracle: create::oracle::OracleState::new(window, cx),
             sqlite: create::sqlite::SqliteState::new(window, cx),
             sqlserver: create::sqlserver::SqlServerState::new(window, cx),
+            postgres: create::postgres::PostgresState::new(window, cx),
+            redis: create::redis::RedisState::new(window, cx),
+            mongodb: create::mongodb::MongoDBState::new(window, cx),
         }
     }
 }
