@@ -72,22 +72,22 @@ impl CreateDataSourceWindow {
         Self { state, parent }
     }
 
-    fn go_form(
+    fn deselect(
+        &mut self,
+        cx: &mut Context<Self>,
+    ) {
+        if self.state.selected.take().is_some() {
+            cx.notify();
+        }
+    }
+
+    fn selected(
         &mut self,
         kind: DataSourceType,
         cx: &mut Context<Self>,
     ) {
         if self.state.selected != Some(kind) {
             self.state.selected = Some(kind);
-            cx.notify();
-        }
-    }
-
-    fn back_select(
-        &mut self,
-        cx: &mut Context<Self>,
-    ) {
-        if self.state.selected.take().is_some() {
             cx.notify();
         }
     }
@@ -203,7 +203,7 @@ impl Render for CreateDataSourceWindow {
                                         .on_click(cx.listener({
                                             let kind = *kind;
                                             move |this: &mut CreateDataSourceWindow, _ev, _window, cx| {
-                                                this.go_form(kind, cx);
+                                                this.selected(kind, cx);
                                             }
                                         }))
                                         .into_any_element()
@@ -243,7 +243,7 @@ impl Render for CreateDataSourceWindow {
                                     .ghost()
                                     .label("上一步")
                                     .on_click(cx.listener(|this: &mut CreateDataSourceWindow, _ev, _window, cx| {
-                                        this.back_select(cx);
+                                        this.deselect(cx);
                                     })),
                             )
                             .child(

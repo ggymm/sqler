@@ -1,5 +1,6 @@
 pub use mongodb::MongoDBDriver;
 pub use mysql::MySQLDriver;
+pub use redis::RedisDriver;
 pub use postgres::PostgreSQLDriver;
 pub use sqlite::SQLiteDriver;
 pub use sqlserver::SQLServerDriver;
@@ -54,8 +55,8 @@ pub fn check_connection(
         StoredOptions::SQLite(config) => SQLiteDriver.check_connection(config),
         StoredOptions::SQLServer(config) => SQLServerDriver.check_connection(config),
         StoredOptions::MongoDB(config) => MongoDBDriver.check_connection(config),
+        StoredOptions::Redis(config) => RedisDriver.check_connection(config),
         StoredOptions::Oracle(_) => Err(DriverError::Other("Oracle 驱动暂未实现".into())),
-        StoredOptions::Redis(_) => Err(DriverError::Other("Redis 驱动暂未实现".into())),
     }
 }
 
@@ -89,6 +90,19 @@ mod tests {
         assert!(matches!(
             result,
             Err(DriverError::MissingField(field)) if field == "hosts"
+        ));
+    }
+
+    #[test]
+    fn redis_requires_host() {
+        let mut config = crate::option::RedisOptions::default();
+        config.host.clear();
+        let options = StoredOptions::Redis(config);
+
+        let result = check_connection(DataSourceType::Redis, &options);
+        assert!(matches!(
+            result,
+            Err(DriverError::MissingField(field)) if field == "host"
         ));
     }
 }

@@ -1,8 +1,9 @@
 use gpui::*;
+use gpui_component::input::TextInput;
+use gpui_component::input::InputState;
+use gpui_component::form::v_form;
+use gpui_component::form::form_field;
 use gpui_component::{
-    form::{form_field, v_form},
-    input::InputState,
-    input::TextInput,
     v_flex, ActiveTheme as _,
 };
 

@@ -28,6 +28,7 @@
   - `sqlite.rs`：使用 `rusqlite` 检查本地文件并尝试连接，兼容只读模式
   - `sqlserver.rs`：借助 `tiberius` + `tokio-native-tls` 完成 SQL Server 握手，支持 SQL 密码登录
   - `mongodb.rs`：基于 `mongodb::sync::Client` 进行连通性校验（支持 URI 或主机列表）
+  - `redis.rs`：使用 `redis` crate 构建连接串，执行 `SELECT`/`PING` 验证连通性
 - `src/option/`
   - `mod.rs`：定义 `ConnectionOptions` 接口并聚合各数据库选项
   - `{mysql,postgres,sqlite,sqlserver,oracle,redis,mongodb}.rs`：描述对应数据源的连接参数与默认值

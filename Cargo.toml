@@ -7,6 +7,7 @@ edition = "2021"
 gpui = "0.2"
 gpui-component = "0.2"
 thiserror = "2.0"
+uuid = "1.18.1"
 
 [dependencies.mongodb]
 version = "3.3"
