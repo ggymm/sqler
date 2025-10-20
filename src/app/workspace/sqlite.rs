@@ -1,13 +1,14 @@
 use gpui::Context;
 
-use crate::app::{DataSourceMeta, DatabaseKind, SqlerApp};
+use crate::app::SqlerApp;
+use crate::{DataSourceMeta, DataSourceType};
 
 pub fn render(
-    kind: DatabaseKind,
+    kind: DataSourceType,
     meta: &DataSourceMeta,
     cx: &mut Context<SqlerApp>,
 ) -> gpui::Div {
-    debug_assert!(matches!(kind, DatabaseKind::Sqlite));
+    debug_assert!(matches!(kind, DataSourceType::SQLite));
 
     let notes = vec![
         format!("描述：{}", meta.description.to_string()),

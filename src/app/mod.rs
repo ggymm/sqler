@@ -11,6 +11,10 @@ use gpui_component::Root;
 use gpui_component::Sizable;
 use gpui_component::Size;
 
+use crate::ConnectionPreset;
+use crate::DataSourceMeta;
+use crate::DataSourceType;
+
 mod comps;
 mod create;
 mod workspace;
@@ -28,54 +32,6 @@ impl TabId {
     pub fn raw(self) -> u64 {
         self.0
     }
-}
-
-#[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)]
-pub enum DatabaseKind {
-    Postgres,
-    MySql,
-    Sqlite,
-    SqlServer,
-}
-
-impl DatabaseKind {
-    pub fn label(&self) -> &'static str {
-        match self {
-            DatabaseKind::Postgres => "Postgres",
-            DatabaseKind::MySql => "MySQL",
-            DatabaseKind::Sqlite => "SQLite",
-            DatabaseKind::SqlServer => "SQL Server",
-        }
-    }
-
-    pub fn all() -> &'static [DatabaseKind] {
-        &[
-            DatabaseKind::Postgres,
-            DatabaseKind::MySql,
-            DatabaseKind::Sqlite,
-            DatabaseKind::SqlServer,
-        ]
-    }
-}
-
-#[derive(Clone)]
-pub struct ConnectionPreset {
-    pub host: SharedString,
-    pub port: SharedString,
-    pub database: SharedString,
-    pub username: SharedString,
-}
-
-#[derive(Clone)]
-pub struct DataSourceMeta {
-    pub id: u64,
-    pub name: SharedString,
-    pub kind: DatabaseKind,
-    pub description: SharedString,
-    pub connection: ConnectionPreset,
-    pub tables: Vec<SharedString>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -113,7 +69,7 @@ impl InnerTab {
 
 #[derive(Clone)]
 pub struct NewDataSourceState {
-    pub selected: Option<DatabaseKind>,
+    pub selected: Option<DataSourceType>,
     pub postgres: create::postgres::PostgresState,
     pub mysql: create::mysql::MySqlState,
     pub sqlite: create::sqlite::SqliteState,
@@ -209,8 +165,10 @@ pub struct SqlerApp {
 impl SqlerApp {
     pub fn new(
         _window: &mut Window,
-        _cx: &mut Context<SqlerApp>,
+        cx: &mut Context<SqlerApp>,
     ) -> Self {
+        Theme::change(ThemeMode::Light, None, cx);
+
         let saved_sources = seed_sources();
         let mut next_tab_id = 1;
         let home_id = TabId::next(&mut next_tab_id);
@@ -367,7 +325,7 @@ impl Render for SqlerApp {
             .size_full()
             .min_w_0()
             .min_h_0()
-            .child(div().h_24().child(render_head(self, window, cx)))
+            .child(render_head(self, window, cx))
             .child(
                 div()
                     .flex_1()
@@ -392,10 +350,8 @@ pub fn render_head(
         .flex()
         .flex_row()
         .items_center()
-        .px_4()
-        .py_2()
+        .p_2()
         .gap_4()
-        .size_full()
         .border_b_1()
         .child(
             div()
@@ -407,10 +363,10 @@ pub fn render_head(
                 .min_w_0()
                 .children(app.tabs.iter().map(|tab| {
                     let tab_id = tab.id;
-                    let is_active = tab_id == active;
+                    let tab_active = tab_id == active;
 
-                    let mut pill = div()
-                        .id(SharedString::from(format!("main-tab-{}", tab_id.raw())))
+                    let mut item = div()
+                        .id(("main-tab-{}", tab_id.raw()))
                         .flex()
                         .flex_row()
                         .px_3()
@@ -422,11 +378,11 @@ pub fn render_head(
                         .border_1()
                         .border_color(theme.border)
                         .cursor_pointer()
-                        .when(is_active, |this| {
+                        .when(tab_active, |this| {
                             this.bg(theme.tab_active).text_color(theme.tab_active_foreground)
                         })
-                        .when(!is_active, |this| {
-                            this.text_color(theme.muted_foreground).bg(theme.tab_bar)
+                        .when(!tab_active, |this| {
+                            this.bg(theme.tab_bar).text_color(theme.muted_foreground)
                         })
                         .on_click(cx.listener(move |this, _, _, cx| {
                             this.set_active_tab(tab_id, cx);
@@ -437,17 +393,16 @@ pub fn render_head(
                                 .min_w_0()
                                 .text_left()
                                 .overflow_hidden()
-                                .text_overflow(TextOverflow::Truncate(Default::default()))
                                 .whitespace_nowrap()
                                 .child(tab.title.clone()),
                         );
 
                     if tab.closable {
-                        pill = pill.child(
+                        item = item.child(
                             Button::new(("close-tab", tab_id.raw()))
                                 .ghost()
-                                .compact()
                                 .xsmall()
+                                .compact()
                                 .tab_stop(false)
                                 .icon(Icon::default().path("icons/close.svg").with_size(Size::Small))
                                 .on_click(cx.listener(move |this, _, _, cx| {
@@ -457,14 +412,14 @@ pub fn render_head(
                     }
 
                     {
-                        let style = pill.style();
+                        let style = item.style();
                         style.flex_grow = Some(0.);
                         style.flex_shrink = Some(1.);
-                        style.flex_basis = Some(Length::Definite(px(240.).into()));
+                        style.flex_basis = Some(Length::Definite(px(200.).into()));
                         style.min_size.width = Some(Length::Definite(px(0.).into()));
                     }
 
-                    pill.into_any_element()
+                    item.into_any_element()
                 })),
         )
         .child(
@@ -502,7 +457,7 @@ fn seed_sources() -> Vec<DataSourceMeta> {
         DataSourceMeta {
             id: 1,
             name: SharedString::from("生产库"),
-            kind: DatabaseKind::Postgres,
+            kind: DataSourceType::PostgreSQL,
             description: SharedString::from("线上订单主库"),
             connection: ConnectionPreset {
                 host: SharedString::from("10.10.12.5"),
@@ -520,7 +475,7 @@ fn seed_sources() -> Vec<DataSourceMeta> {
         DataSourceMeta {
             id: 2,
             name: SharedString::from("BI 分析库"),
-            kind: DatabaseKind::MySql,
+            kind: DataSourceType::MySQL,
             description: SharedString::from("数仓汇总使用"),
             connection: ConnectionPreset {
                 host: SharedString::from("10.60.1.10"),
@@ -537,7 +492,7 @@ fn seed_sources() -> Vec<DataSourceMeta> {
         DataSourceMeta {
             id: 3,
             name: SharedString::from("测试环境"),
-            kind: DatabaseKind::Sqlite,
+            kind: DataSourceType::SQLite,
             description: SharedString::from("本地调试用"),
             connection: ConnectionPreset {
                 host: SharedString::from("local"),

@@ -12,7 +12,8 @@ use gpui_component::{
     h_flex, v_flex, ActiveTheme as _, Disableable as _, StyledExt,
 };
 
-use crate::app::{DatabaseKind, NewDataSourceState, SqlerApp};
+use crate::app::{NewDataSourceState, SqlerApp};
+use crate::DataSourceType;
 
 pub struct CreateDataSourceWindow {
     parent: WeakEntity<SqlerApp>,
@@ -62,7 +63,7 @@ impl CreateDataSourceWindow {
 
     fn select_kind(
         &mut self,
-        kind: DatabaseKind,
+        kind: DataSourceType,
         cx: &mut Context<Self>,
     ) {
         if self.state.selected != Some(kind) {
@@ -147,7 +148,7 @@ fn render_body(
 }
 
 fn render_type_selection(cx: &mut Context<CreateDataSourceWindow>) -> gpui::Div {
-    let cards = DatabaseKind::all()
+    let cards = DataSourceType::all()
         .iter()
         .map(|kind| {
             h_flex()
@@ -169,7 +170,7 @@ fn render_type_selection(cx: &mut Context<CreateDataSourceWindow>) -> gpui::Div 
                         .flex_shrink_0()
                         .w(px(48.))
                         .h(px(48.))
-                        .child(img(kind_icon_path(*kind)).size_full()),
+                        .child(img(kind.image()).size_full()),
                 )
                 .child(
                     v_flex()
@@ -180,7 +181,7 @@ fn render_type_selection(cx: &mut Context<CreateDataSourceWindow>) -> gpui::Div 
                             div()
                                 .text_sm()
                                 .text_color(cx.theme().muted_foreground)
-                                .child(kind_description(*kind)),
+                                .child(kind.description()),
                         ),
                 )
                 .on_click(cx.listener({
@@ -197,7 +198,7 @@ fn render_type_selection(cx: &mut Context<CreateDataSourceWindow>) -> gpui::Div 
 }
 
 fn render_form_panel(
-    kind: DatabaseKind,
+    kind: DataSourceType,
     view: &mut CreateDataSourceWindow,
     cx: &mut Context<CreateDataSourceWindow>,
 ) -> gpui::Div {
@@ -215,15 +216,18 @@ fn render_form_panel(
 }
 
 fn render_form(
-    kind: DatabaseKind,
+    kind: DataSourceType,
     state: &mut NewDataSourceState,
     cx: &mut Context<CreateDataSourceWindow>,
 ) -> gpui::Div {
     match kind {
-        DatabaseKind::Postgres => postgres::render(&mut state.postgres, cx),
-        DatabaseKind::MySql => mysql::render(&mut state.mysql, cx),
-        DatabaseKind::Sqlite => sqlite::render(&mut state.sqlite, cx),
-        DatabaseKind::SqlServer => sqlserver::render(&mut state.sqlserver, cx),
+        DataSourceType::MySQL => postgres::render(&mut state.postgres, cx),
+        DataSourceType::Oracle => postgres::render(&mut state.postgres, cx),
+        DataSourceType::SQLite => postgres::render(&mut state.postgres, cx),
+        DataSourceType::SQLServer => postgres::render(&mut state.postgres, cx),
+        DataSourceType::PostgreSQL => postgres::render(&mut state.postgres, cx),
+        DataSourceType::Redis => postgres::render(&mut state.postgres, cx),
+        DataSourceType::MongoDB => postgres::render(&mut state.postgres, cx),
     }
 }
 
@@ -277,22 +281,4 @@ fn render_footer(
                         })),
                 ),
         )
-}
-
-fn kind_description(kind: DatabaseKind) -> &'static str {
-    match kind {
-        DatabaseKind::Postgres => "支持 Schema、SSL 等高级特性",
-        DatabaseKind::MySql => "常用于业务库与分析库，默认 utf8mb4",
-        DatabaseKind::Sqlite => "本地文件数据库，适合轻量级项目",
-        DatabaseKind::SqlServer => "企业级数据库，支持实例/域账号",
-    }
-}
-
-fn kind_icon_path(kind: DatabaseKind) -> &'static str {
-    match kind {
-        DatabaseKind::Postgres => "icons/postgresql.svg",
-        DatabaseKind::MySql => "icons/mysql.svg",
-        DatabaseKind::Sqlite => "icons/sqlite.svg",
-        DatabaseKind::SqlServer => "icons/sqlserver.svg",
-    }
 }

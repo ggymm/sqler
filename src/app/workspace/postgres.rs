@@ -1,13 +1,14 @@
 use gpui::Context;
 
-use crate::app::{DataSourceMeta, DatabaseKind, SqlerApp};
+use crate::app::SqlerApp;
+use crate::{DataSourceMeta, DataSourceType};
 
 pub fn render(
-    kind: DatabaseKind,
+    kind: DataSourceType,
     meta: &DataSourceMeta,
     cx: &mut Context<SqlerApp>,
 ) -> gpui::Div {
-    debug_assert!(matches!(kind, DatabaseKind::Postgres));
+    debug_assert!(matches!(kind, DataSourceType::PostgreSQL));
 
     let samples = if meta.tables.is_empty() {
         "暂无表信息".to_string()

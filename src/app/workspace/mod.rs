@@ -1,14 +1,6 @@
-pub mod mysql;
-pub mod postgres;
-pub mod sqlite;
-pub mod sqlserver;
+use gpui::prelude::*;
+use gpui::*;
 
-use gpui::prelude::FluentBuilder as _;
-use gpui::InteractiveElement as _;
-use gpui::StatefulInteractiveElement as _;
-use gpui::{
-    div, img, px, AlignItems, AnyElement, Context, IntoElement, Length, ParentElement, SharedString, Styled, Window,
-};
 use gpui_component::{
     button::{Button, ButtonVariants as _},
     form::{form_field, v_form},
@@ -16,7 +8,14 @@ use gpui_component::{
     StyledExt,
 };
 
-use crate::app::{DataSourceMeta, DataSourceTabState, DatabaseKind, InnerTab, InnerTabId, SqlerApp, TabId, TabKind};
+use crate::app::{DataSourceTabState, InnerTab, InnerTabId, SqlerApp, TabId, TabKind};
+use crate::DataSourceMeta;
+use crate::DataSourceType;
+
+pub mod mysql;
+pub mod postgres;
+pub mod sqlite;
+pub mod sqlserver;
 
 pub fn render_active(
     app: &mut SqlerApp,
@@ -97,12 +96,7 @@ fn render_data_source_card(
     cx: &mut Context<SqlerApp>,
 ) -> AnyElement {
     let source_id = meta.id;
-    let icon_path = match meta.kind {
-        DatabaseKind::Postgres => "icons/db/postgresql.svg",
-        DatabaseKind::MySql => "icons/db/mysql.svg",
-        DatabaseKind::Sqlite => "icons/db/sqlite.svg",
-        DatabaseKind::SqlServer => "icons/db/sqlserver.svg",
-    };
+    let icon_path = meta.kind.image();
 
     v_flex()
         .w(px(220.))
@@ -369,15 +363,18 @@ fn render_workspace_body(
     cx: &mut Context<SqlerApp>,
 ) -> gpui::Div {
     match meta.kind {
-        DatabaseKind::Postgres => postgres::render(meta.kind, meta, cx),
-        DatabaseKind::MySql => mysql::render(meta.kind, meta, cx),
-        DatabaseKind::Sqlite => sqlite::render(meta.kind, meta, cx),
-        DatabaseKind::SqlServer => sqlserver::render(meta.kind, meta, cx),
+        DataSourceType::MySQL => mysql::render(meta.kind, meta, cx),
+        DataSourceType::Oracle => mysql::render(meta.kind, meta, cx),
+        DataSourceType::SQLite => mysql::render(meta.kind, meta, cx),
+        DataSourceType::SQLServer => mysql::render(meta.kind, meta, cx),
+        DataSourceType::PostgreSQL => postgres::render(meta.kind, meta, cx),
+        DataSourceType::Redis => mysql::render(meta.kind, meta, cx),
+        DataSourceType::MongoDB => mysql::render(meta.kind, meta, cx),
     }
 }
 
 pub fn render_common_workspace(
-    kind: DatabaseKind,
+    kind: DataSourceType,
     meta: &DataSourceMeta,
     notes: Vec<String>,
     cx: &mut Context<SqlerApp>,

@@ -3,13 +3,94 @@ use std::fs::read;
 use std::path::PathBuf;
 
 use gpui::*;
+use gpui_component::init;
 use gpui_component::Root;
-use gpui_component::{init, Theme, ThemeMode};
 
 use app::SqlerApp;
 
 mod app;
 mod driver;
+
+#[repr(u8)]
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum DataSourceType {
+    MySQL,
+    Oracle,
+    SQLite,
+    SQLServer,
+    PostgreSQL,
+    Redis,
+    MongoDB,
+}
+
+impl DataSourceType {
+
+    pub fn all() -> &'static [DataSourceType] {
+        &[
+            DataSourceType::MySQL,
+            DataSourceType::Oracle,
+            DataSourceType::SQLite,
+            DataSourceType::SQLServer,
+            DataSourceType::PostgreSQL,
+            DataSourceType::Redis,
+            DataSourceType::MongoDB,
+        ]
+    }
+    
+    pub fn image(&self) -> &'static str {
+        match self {
+            DataSourceType::MySQL => "icons/mysql.svg",
+            DataSourceType::Oracle => "icons/oracle.svg",
+            DataSourceType::SQLite => "icons/sqlite.svg",
+            DataSourceType::SQLServer => "icons/sqlserver.svg",
+            DataSourceType::PostgreSQL => "icons/postgresql.svg",
+            DataSourceType::Redis => "icons/redis.svg",
+            DataSourceType::MongoDB => "icons/mongodb.svg",
+        }
+    }
+
+    pub fn label(&self) -> &'static str {
+        match self {
+            DataSourceType::MySQL => "MySQL",
+            DataSourceType::Oracle => "Oracle",
+            DataSourceType::SQLite => "SQLite",
+            DataSourceType::SQLServer => "SQLServer",
+            DataSourceType::PostgreSQL => "PostgreSQL",
+            DataSourceType::Redis => "Redis",
+            DataSourceType::MongoDB => "MongoDB",
+        }
+    }
+
+    pub fn description(&self) -> &'static str {
+        match self {
+            DataSourceType::MySQL => "常用于业务库与分析库，默认 utf8mb4",
+            DataSourceType::Oracle => "Oracle",
+            DataSourceType::SQLite => "本地文件数据库，适合轻量级项目",
+            DataSourceType::SQLServer => "企业级数据库，支持实例/域账号",
+            DataSourceType::PostgreSQL => "支持 Schema、SSL 等高级特性",
+            DataSourceType::Redis => "Redis",
+            DataSourceType::MongoDB => "MongoDB",
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct ConnectionPreset {
+    pub host: SharedString,
+    pub port: SharedString,
+    pub database: SharedString,
+    pub username: SharedString,
+}
+
+#[derive(Clone)]
+pub struct DataSourceMeta {
+    pub id: u64,
+    pub name: SharedString,
+    pub kind: DataSourceType,
+    pub description: SharedString,
+    pub connection: ConnectionPreset,
+    pub tables: Vec<SharedString>,
+}
 
 struct FsAssets;
 
@@ -55,8 +136,6 @@ fn main() {
             }
         })
         .detach();
-
-        Theme::change(ThemeMode::Light, None, cx);
 
         let window_size = size(px(1280.), px(800.));
         let window_bounds = Bounds::centered(None, window_size, cx);
