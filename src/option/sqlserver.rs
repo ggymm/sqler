@@ -1,13 +1,16 @@
+use serde::Deserialize;
+use serde::Serialize;
+
 use crate::option::ConnectionOptions;
 use crate::option::DataSourceKind;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SQLServerAuth {
     SqlPassword,
     Integrated,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct SQLServerOptions {
     pub host: String,
     pub port: u16,

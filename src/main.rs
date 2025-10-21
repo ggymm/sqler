@@ -9,6 +9,7 @@ use gpui_component::Root;
 use gpui_component::Theme;
 
 use app::SqlerApp;
+use cache::CacheApp;
 
 mod app;
 mod cache;
@@ -44,7 +45,9 @@ impl AssetSource for FsAssets {
 }
 
 fn init_runtime(_cx: &mut App) {
-    // TODO: 初始化数据库驱动、缓存等运行时组件
+    if let Err(e) = CacheApp::init() {
+        eprintln!("Failed to initialize cache: {}", e);
+    }
 }
 
 fn main() {

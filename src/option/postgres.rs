@@ -1,14 +1,17 @@
+use serde::Deserialize;
+use serde::Serialize;
+
 use crate::option::ConnectionOptions;
 use crate::option::DataSourceKind;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SslMode {
     Disable,
     Prefer,
     Require,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct PostgreSQLOptions {
     pub host: String,
     pub port: u16,

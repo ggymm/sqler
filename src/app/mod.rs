@@ -121,7 +121,7 @@ impl TabState {
         id: TabId,
         meta: DataSource,
     ) -> Self {
-        let title = meta.name.clone();
+        let title = SharedString::from(meta.name.clone());
         Self {
             id,
             title,
@@ -438,8 +438,8 @@ fn seed_sources() -> Vec<DataSource> {
     vec![
         DataSource {
             id: Uuid::new_v4().to_string(),
-            name: SharedString::from("生产库"),
-            desc: SharedString::from("线上订单主库"),
+            name: "生产库".to_string(),
+            desc: "线上订单主库".to_string(),
             kind: DataSourceKind::PostgreSQL,
             options: DataSourceOptions::PostgreSQL(PostgreSQLOptions {
                 host: "10.10.12.5".into(),
@@ -457,8 +457,8 @@ fn seed_sources() -> Vec<DataSource> {
         },
         DataSource {
             id: Uuid::new_v4().to_string(),
-            name: SharedString::from("BI 分析库"),
-            desc: SharedString::from("数仓汇总使用"),
+            name: "BI 分析库".to_string(),
+            desc: "数仓汇总使用".to_string(),
             kind: DataSourceKind::MySQL,
             options: DataSourceOptions::MySQL(MySQLOptions {
                 host: "10.60.1.10".into(),
@@ -476,8 +476,8 @@ fn seed_sources() -> Vec<DataSource> {
         },
         DataSource {
             id: Uuid::new_v4().to_string(),
-            name: SharedString::from("测试环境"),
-            desc: SharedString::from("本地调试用"),
+            name: "测试环境".to_string(),
+            desc: "本地调试用".to_string(),
             kind: DataSourceKind::SQLite,
             options: DataSourceOptions::SQLite(SQLiteOptions {
                 file_path: "sqler-dev.db".into(),

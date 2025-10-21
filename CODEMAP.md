@@ -5,9 +5,10 @@
 
 ## 代码结构
 - `src/main.rs`
-  - 程序入口，注册资源加载器 `FsAssets`，初始化运行时后打开主窗口，挂载 `SqlerApp`
-  - 数据源元信息 `DataSourceMeta` 使用 `String` 类型的 UUID 作为 `id`，使用 `Option<HashMap<String, Value>>` 类型的 `extras` 字段存储扩展属性（如 tables）
+  - 程序入口，注册资源加载器 `FsAssets`，初始化运行时（包括缓存系统）后打开主窗口，挂载 `SqlerApp`
+  - 数据源结构 `DataSource` 使用 `String` 类型的 UUID 作为 `id`，使用 `Option<HashMap<String, Value>>` 类型的 `extras` 字段存储扩展属性（如 tables）
   - `tables()` 方法从 `extras["tables"]` 中提取表名列表
+  - `init_runtime()` 初始化 `DataSourceCache`，创建 ~/.sqler 目录
 - `src/app/`
   - `mod.rs`：核心应用状态
     - 声明 `SqlerApp`、`TabState` 等 UI 状态及 `NewDataSourceState`
@@ -33,13 +34,24 @@
   - `mongodb.rs`：基于 `mongodb::sync::Client` 进行连通性校验（支持 URI 或主机列表）
   - `redis.rs`：使用 `redis` crate 构建连接串，执行 `SELECT`/`PING` 验证连通性
 - `src/option/`
-  - `mod.rs`：定义 `ConnectionOptions` 接口并聚合各数据库选项
+  - `mod.rs`：定义 `DataSource` 结构体、`DataSourceKind` 枚举、`DataSourceOptions` 枚举以及 `ConnectionOptions` trait
+  - 所有类型均支持 `Serialize`/`Deserialize` 用于持久化
   - `{mysql,postgres,sqlite,sqlserver,oracle,redis,mongodb}.rs`：描述对应数据源的连接参数与默认值
-- `src/cache/`、`src/export/`：当前为空，为后续缓存/导出功能预留入口
+- `src/cache/`
+  - `mod.rs`：本地数据源缓存模块
+    - `DataSourceCache`：缓存管理器，init 时从 ~/.sqler/sources.enc 加载数据到内存
+    - `SerializableDataSource`：中间序列化层，将 `DataSource` 转换为可序列化格式（解决 `SharedString` 不支持 serde 的问题）
+    - 使用 AES-256-GCM 加密存储（固定 key）
+    - 存储路径：`~/.sqler/sources.enc`
+    - 公开接口：`init()` / `save()` / `sources()` / `sources_mut()`
+    - 包含完整单元测试：加密/解密、序列化往返、初始化
+- `src/export/`：为后续导出功能预留入口
 - `assets/`：静态资源（图标等）
 - `Cargo.toml`
   - UI 依赖（gpui/gpui-component）+ 数据库驱动依赖（SQLx/Tiberius/ Tokio 等）
-  - 新增 uuid、serde_json 依赖用于 UUID 生成和扩展属性序列化
+  - 新增 uuid、serde/serde_json 依赖用于 UUID 生成和序列化
+  - 新增 aes-gcm 依赖用于数据加密
+  - 新增 dirs 依赖用于跨平台主目录获取
 
 ## 功能现状
 - 主窗口：顶部标签栏（首页 / 数据源标签，可关闭 data 标签）、内容区与顶栏操作

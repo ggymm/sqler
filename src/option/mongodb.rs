@@ -1,7 +1,10 @@
+use serde::Deserialize;
+use serde::Serialize;
+
 use crate::option::ConnectionOptions;
 use crate::option::DataSourceKind;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MongoDBHost {
     pub host: String,
     pub port: u16,
@@ -16,7 +19,7 @@ impl Default for MongoDBHost {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct MongoDBOptions {
     pub connection_string: Option<String>,
     pub hosts: Vec<MongoDBHost>,

@@ -1,7 +1,10 @@
+use serde::Deserialize;
+use serde::Serialize;
+
 use crate::option::ConnectionOptions;
 use crate::option::DataSourceKind;
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct MySQLOptions {
     pub host: String,
     pub port: u16,

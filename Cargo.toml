@@ -4,34 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+aes-gcm = "0.10"
+dirs = "6"
 gpui = "0.2"
 gpui-component = "0.2"
-
-[dependencies.aes-gcm]
-version = "0.10"
-
-[dependencies.dirs]
-version = "6.0"
-
-[dependencies.mongodb]
-version = "3"
-features = ["sync"]
-
-[dependencies.mysql]
-version = "26"
-
-[dependencies.oracle]
-version = "0.6"
-
-[dependencies.postgres]
-version = "0.19"
-
-[dependencies.redis]
-version = "1.0.0-rc.2"
-
-[dependencies.rusqlite]
-version = "0.37"
-features = ["bundled"]
+thiserror = "2"
+uuid = "1"
 
 [dependencies.serde]
 version = "1"
@@ -40,12 +18,30 @@ features = ["derive"]
 [dependencies.serde_json]
 version = "1"
 
-[dependencies.tokio]
-version = "1"
-features = ["full"]
+# MongoDB 数据源驱动
+[dependencies.mongodb]
+version = "3"
+features = ["sync"]
 
-[dependencies.thiserror]
-version = "2"
+# MySQL 数据源驱动
+[dependencies.mysql]
+version = "26"
 
-[dependencies.uuid]
-version = "1"
+# Oracle 数据源驱动
+[dependencies.oracle]
+version = "0.6"
+
+# PostgreSQL 数据源驱动
+[dependencies.postgres]
+version = "0.19"
+
+# Redis 数据源驱动
+[dependencies.redis]
+version = "1.0.0-rc.2"
+
+# SQLite 数据源驱动
+[dependencies.rusqlite]
+version = "0.37"
+features = ["bundled"]
+
+

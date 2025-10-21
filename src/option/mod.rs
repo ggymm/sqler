@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
 use gpui::SharedString;
+use serde::Deserialize;
+use serde::Serialize;
 use serde_json::Value;
 
 pub use mongodb::MongoDBHost;
@@ -23,11 +25,11 @@ pub mod redis;
 pub mod sqlite;
 pub mod sqlserver;
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct DataSource {
     pub id: String,
-    pub name: SharedString,
-    pub desc: SharedString,
+    pub name: String,
+    pub desc: String,
     pub kind: DataSourceKind,
     pub options: DataSourceOptions,
     pub extras: Option<HashMap<String, Value>>,
@@ -48,7 +50,7 @@ impl DataSource {
 }
 
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DataSourceKind {
     MySQL,
     Oracle,
@@ -109,7 +111,7 @@ impl DataSourceKind {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub enum DataSourceOptions {
     MySQL(MySQLOptions),
     Oracle(OracleOptions),
