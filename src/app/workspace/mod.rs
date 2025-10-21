@@ -9,31 +9,71 @@ use gpui_component::{
 use crate::app::{SqlerApp, TabKind};
 use crate::option::{DataSource, DataSourceKind};
 
-pub mod mongodb;
 pub mod mysql;
-pub mod oracle;
-pub mod postgres;
-pub mod redis;
-pub mod sqlite;
-pub mod sqlserver;
+mod placeholder;
+
+use mysql::MySqlWorkspace;
+use placeholder::PlaceholderWorkspace;
+
+pub enum WorkspaceState {
+    MySQL {
+        src_id: String,
+        view: Entity<MySqlWorkspace>,
+    },
+    Placeholder {
+        src_id: String,
+        view: Entity<PlaceholderWorkspace>,
+    },
+}
+
+impl WorkspaceState {
+    pub fn new(
+        meta: DataSource,
+        _window: &mut Window,
+        cx: &mut Context<SqlerApp>,
+    ) -> Self {
+        match meta.kind {
+            DataSourceKind::MySQL => {
+                let src_id = meta.id.clone();
+                let view = cx.new(|_| MySqlWorkspace::new(meta));
+                WorkspaceState::MySQL { src_id, view }
+            }
+            other => {
+                let label = other.label();
+                let src_id = meta.id.clone();
+                let view = cx.new(|_| {
+                    let message = format!("{} 工作区暂未实现", label);
+                    PlaceholderWorkspace::new(meta, message)
+                });
+                WorkspaceState::Placeholder { src_id, view }
+            }
+        }
+    }
+
+    pub fn id(&self) -> &str {
+        match self {
+            WorkspaceState::MySQL { src_id, .. } => src_id,
+            WorkspaceState::Placeholder { src_id, .. } => src_id,
+        }
+    }
+
+    pub fn render(&self) -> AnyElement {
+        match self {
+            WorkspaceState::MySQL { view, .. } => view.clone().into_any_element(),
+            WorkspaceState::Placeholder { view, .. } => view.clone().into_any_element(),
+        }
+    }
+}
 
 pub fn render(
     app: &mut SqlerApp,
     window: &mut Window,
     cx: &mut Context<SqlerApp>,
 ) -> AnyElement {
-    if let Some(tab) = app.tabs.iter().find(|tab| tab.id == app.active_tab) {
-        match &tab.kind {
+    if let Some(tab) = app.tabs.iter_mut().find(|tab| tab.id == app.active_tab) {
+        match &mut tab.kind {
             TabKind::Home => render_home(&app.saved_sources, window, cx).into_any_element(),
-            TabKind::Workspace(meta) => match meta.kind {
-                DataSourceKind::MySQL => mysql::render(meta, cx).into_any_element(),
-                DataSourceKind::PostgreSQL => postgres::render(meta, cx).into_any_element(),
-                DataSourceKind::SQLite => sqlite::render(meta, cx).into_any_element(),
-                DataSourceKind::SQLServer => sqlserver::render(meta, cx).into_any_element(),
-                DataSourceKind::Oracle => oracle::render(meta, cx).into_any_element(),
-                DataSourceKind::Redis => redis::render(meta, cx).into_any_element(),
-                DataSourceKind::MongoDB => mongodb::render(meta, cx).into_any_element(),
-            },
+            TabKind::Workspace(state) => state.render(),
         }
     } else {
         v_flex()
@@ -48,18 +88,20 @@ fn render_home(
     window: &mut Window,
     cx: &mut Context<SqlerApp>,
 ) -> AnyElement {
-    let mut source_list = v_flex()
+    let mut list = v_flex()
         .px(px(20.))
         .py(px(16.))
         .gap(px(12.))
         .flex_1()
         .id("home-source-list")
         .overflow_scroll();
-    source_list.style().min_size.height = Some(Length::Definite(px(0.).into()));
-    let source_list = source_list.child(
+    list.style().min_size.height = Some(Length::Definite(px(0.).into()));
+
+    let list = list.child(
         h_flex().flex_wrap().gap(px(12.)).children(
             saved_sources
                 .iter()
+                .cloned()
                 .map(|meta| render_data_source_card(meta, window, cx)),
         ),
     );
@@ -80,7 +122,7 @@ fn render_home(
                 .items_center()
                 .px(px(20.))
                 .py(px(16.))
-                .border_b_1()
+                .border_1()
                 .border_color(theme.border)
                 .child(
                     v_flex()
@@ -94,12 +136,12 @@ fn render_home(
                         ),
                 ),
         )
-        .child(source_list)
+        .child(list)
         .into_any_element()
 }
 
 fn render_data_source_card(
-    meta: &DataSource,
+    meta: DataSource,
     _window: &mut Window,
     cx: &mut Context<SqlerApp>,
 ) -> AnyElement {
@@ -151,7 +193,7 @@ fn render_data_source_card(
             div()
                 .text_sm()
                 .text_color(cx.theme().muted_foreground)
-                .child(meta.desc.clone()),
+                .child(meta.desc),
         )
         .into_any_element()
 }

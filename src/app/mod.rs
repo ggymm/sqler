@@ -45,7 +45,7 @@ impl TabId {
 
 pub enum TabKind {
     Home,
-    Workspace(DataSource),
+    Workspace(workspace::WorkspaceState),
 }
 
 pub struct TabState {
@@ -65,14 +65,12 @@ impl TabState {
         }
     }
 
-    fn data_source(
-        id: TabId,
-        meta: DataSource,
-    ) -> Self {
+    fn data_source(id: TabId, meta: DataSource, window: &mut Window, cx: &mut Context<SqlerApp>) -> Self {
         let title = SharedString::from(meta.name.clone());
+        let workspace = workspace::WorkspaceState::new(meta, window, cx);
         Self {
             id,
-            kind: TabKind::Workspace(meta),
+            kind: TabKind::Workspace(workspace),
             title,
             closable: true,
         }
@@ -82,7 +80,7 @@ impl TabState {
         &self,
         id: &str,
     ) -> bool {
-        matches!(&self.kind, TabKind::Workspace(meta) if meta.id == id)
+        matches!(&self.kind, TabKind::Workspace(state) if state.id() == id)
     }
 }
 
@@ -179,7 +177,7 @@ impl SqlerApp {
     pub fn open_data_source_tab(
         &mut self,
         source_id: &str,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<SqlerApp>,
     ) {
         if let Some(existing) = self.tabs.iter().find(|tab| tab.is_data_source(source_id)) {
@@ -190,7 +188,7 @@ impl SqlerApp {
 
         if let Some(meta) = self.saved_sources.iter().find(|meta| meta.id == source_id).cloned() {
             let id = TabId::next(&mut self.next_tab_id);
-            self.tabs.push(TabState::data_source(id, meta));
+            self.tabs.push(TabState::data_source(id, meta, window, cx));
             self.active_tab = id;
             cx.notify();
         }
