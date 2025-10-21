@@ -7,8 +7,8 @@ use gpui_component::{
 };
 
 use crate::app::{SqlerApp, TabKind};
+use crate::option::DataSource;
 use crate::option::DataSourceKind;
-use crate::option::DataSourceMeta;
 
 pub mod mongodb;
 pub mod mysql;
@@ -59,7 +59,7 @@ pub fn render(
 }
 
 fn render_home(
-    saved_sources: &[DataSourceMeta],
+    saved_sources: &[DataSource],
     window: &mut Window,
     cx: &mut Context<SqlerApp>,
 ) -> AnyElement {
@@ -114,7 +114,7 @@ fn render_home(
 }
 
 fn render_data_source_card(
-    meta: &DataSourceMeta,
+    meta: &DataSource,
     _window: &mut Window,
     cx: &mut Context<SqlerApp>,
 ) -> AnyElement {

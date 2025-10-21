@@ -91,6 +91,15 @@ impl CreateDataSourceWindow {
         }
     }
 
+    fn check_conn(
+        &mut self,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        if let Some(selected) = self.state.selected.take() {}
+
+        true
+    }
+
     fn close_window(
         &self,
         window: &mut Window,

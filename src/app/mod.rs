@@ -15,8 +15,8 @@ use gpui_component::Root;
 use gpui_component::Sizable;
 use gpui_component::Size;
 
+use crate::option::DataSource;
 use crate::option::DataSourceKind;
-use crate::option::DataSourceMeta;
 use crate::option::{DataSourceOptions, MySQLOptions, PostgreSQLOptions, SQLiteOptions};
 
 mod comps;
@@ -73,14 +73,14 @@ impl InnerTab {
 
 #[derive(Clone)]
 pub struct DataSourceTabState {
-    pub meta: DataSourceMeta,
+    pub meta: DataSource,
     pub inner_tabs: Vec<InnerTab>,
     pub active_inner_tab: InnerTabId,
     pub tables: Vec<SharedString>,
 }
 
 impl DataSourceTabState {
-    fn new(meta: DataSourceMeta) -> Self {
+    fn new(meta: DataSource) -> Self {
         Self {
             meta,
             inner_tabs: vec![InnerTab::config()],
@@ -119,7 +119,7 @@ impl TabState {
 
     fn data_source(
         id: TabId,
-        meta: DataSourceMeta,
+        meta: DataSource,
     ) -> Self {
         let title = meta.name.clone();
         Self {
@@ -142,7 +142,7 @@ pub struct SqlerApp {
     pub tabs: Vec<TabState>,
     pub active_tab: TabId,
     pub next_tab_id: u64,
-    pub saved_sources: Vec<DataSourceMeta>,
+    pub saved_sources: Vec<DataSource>,
     pub new_ds_window: Option<WindowHandle<Root>>,
 }
 
@@ -434,9 +434,9 @@ pub fn render_head(
         )
 }
 
-fn seed_sources() -> Vec<DataSourceMeta> {
+fn seed_sources() -> Vec<DataSource> {
     vec![
-        DataSourceMeta {
+        DataSource {
             id: Uuid::new_v4().to_string(),
             name: SharedString::from("生产库"),
             desc: SharedString::from("线上订单主库"),
@@ -455,7 +455,7 @@ fn seed_sources() -> Vec<DataSourceMeta> {
                 json!(["orders", "order_items", "users", "regions"]),
             )])),
         },
-        DataSourceMeta {
+        DataSource {
             id: Uuid::new_v4().to_string(),
             name: SharedString::from("BI 分析库"),
             desc: SharedString::from("数仓汇总使用"),
@@ -474,7 +474,7 @@ fn seed_sources() -> Vec<DataSourceMeta> {
                 json!(["daily_metrics", "marketing_channels", "product_sku"]),
             )])),
         },
-        DataSourceMeta {
+        DataSource {
             id: Uuid::new_v4().to_string(),
             name: SharedString::from("测试环境"),
             desc: SharedString::from("本地调试用"),

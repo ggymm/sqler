@@ -23,6 +23,30 @@ pub mod redis;
 pub mod sqlite;
 pub mod sqlserver;
 
+#[derive(Clone)]
+pub struct DataSource {
+    pub id: String,
+    pub name: SharedString,
+    pub desc: SharedString,
+    pub kind: DataSourceKind,
+    pub options: DataSourceOptions,
+    pub extras: Option<HashMap<String, Value>>,
+}
+
+impl DataSource {
+    pub fn tables(&self) -> Vec<SharedString> {
+        if let Some(extras) = &self.extras {
+            if let Some(Value::Array(tables)) = extras.get("tables") {
+                return tables
+                    .iter()
+                    .filter_map(|v| v.as_str().map(|s| SharedString::from(s.to_string())))
+                    .collect();
+            }
+        }
+        vec![]
+    }
+}
+
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum DataSourceKind {
@@ -94,30 +118,6 @@ pub enum DataSourceOptions {
     PostgreSQL(PostgreSQLOptions),
     Redis(RedisOptions),
     MongoDB(MongoDBOptions),
-}
-
-#[derive(Clone)]
-pub struct DataSourceMeta {
-    pub id: String,
-    pub name: SharedString,
-    pub desc: SharedString,
-    pub kind: DataSourceKind,
-    pub options: DataSourceOptions,
-    pub extras: Option<HashMap<String, Value>>,
-}
-
-impl DataSourceMeta {
-    pub fn tables(&self) -> Vec<SharedString> {
-        if let Some(extras) = &self.extras {
-            if let Some(Value::Array(tables)) = extras.get("tables") {
-                return tables
-                    .iter()
-                    .filter_map(|v| v.as_str().map(|s| SharedString::from(s.to_string())))
-                    .collect();
-            }
-        }
-        vec![]
-    }
 }
 
 pub trait ConnectionOptions {
