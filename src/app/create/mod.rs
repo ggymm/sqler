@@ -183,13 +183,13 @@ impl Render for CreateDataSourceWindow {
                                         .cursor_pointer()
                                         .id(("datasource-type-{}", *kind as u64))
                                         .hover(|this| this.bg(theme.secondary_hover))
-                                        .child(div().w_12().h_12().child(img(kind.image()).size_full()))
+                                        .child(div().w_12().h_12().child(img(kind.image()).rounded_lg().size_full()))
                                         .child(
                                             div()
                                                 .flex()
                                                 .flex_col()
                                                 .items_start()
-                                                .gap_2()
+                                                .justify_center()
                                                 .flex_1()
                                                 .child(div().text_base().font_semibold().child(kind.label()))
                                                 .child(

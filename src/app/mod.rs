@@ -17,7 +17,10 @@ use gpui_component::Size;
 
 use crate::option::DataSource;
 use crate::option::DataSourceKind;
-use crate::option::{DataSourceOptions, MySQLOptions, PostgreSQLOptions, SQLiteOptions};
+use crate::option::DataSourceOptions;
+use crate::option::MySQLOptions;
+use crate::option::PostgreSQLOptions;
+use crate::option::SQLiteOptions;
 
 mod comps;
 mod create;
@@ -38,73 +41,16 @@ impl TabId {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub struct InnerTabId(u64);
-
-impl InnerTabId {
-    pub fn raw(self) -> u64 {
-        self.0
-    }
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum InnerTabKind {
-    Config,
-}
-
-#[derive(Clone)]
-pub struct InnerTab {
-    pub id: InnerTabId,
-    pub title: SharedString,
-    _kind: InnerTabKind,
-    _closable: bool,
-}
-
-impl InnerTab {
-    pub fn config() -> Self {
-        Self {
-            id: InnerTabId(0),
-            title: SharedString::from("配置"),
-            _kind: InnerTabKind::Config,
-            _closable: false,
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct DataSourceTabState {
-    pub meta: DataSource,
-    pub inner_tabs: Vec<InnerTab>,
-    pub active_inner_tab: InnerTabId,
-    pub tables: Vec<SharedString>,
-}
-
-impl DataSourceTabState {
-    fn new(meta: DataSource) -> Self {
-        Self {
-            meta,
-            inner_tabs: vec![InnerTab::config()],
-            active_inner_tab: InnerTabId(0),
-            tables: vec![
-                SharedString::from("orders"),
-                SharedString::from("order_items"),
-                SharedString::from("users"),
-                SharedString::from("regions"),
-            ],
-        }
-    }
-}
-
 pub enum TabKind {
     Home,
-    DataSource(DataSourceTabState),
+    DataSource(DataSource),
 }
 
 pub struct TabState {
     pub id: TabId,
+    pub kind: TabKind,
     pub title: SharedString,
     pub closable: bool,
-    pub kind: TabKind,
 }
 
 impl TabState {
@@ -124,9 +70,9 @@ impl TabState {
         let title = SharedString::from(meta.name.clone());
         Self {
             id,
+            kind: TabKind::DataSource(meta),
             title,
             closable: true,
-            kind: TabKind::DataSource(DataSourceTabState::new(meta)),
         }
     }
 
@@ -134,7 +80,7 @@ impl TabState {
         &self,
         id: &str,
     ) -> bool {
-        matches!(&self.kind, TabKind::DataSource(state) if state.meta.id == id)
+        matches!(&self.kind, TabKind::DataSource(meta) if meta.id == id)
     }
 }
 
@@ -277,20 +223,6 @@ impl SqlerApp {
     ) {
         if self.tabs.iter().any(|tab| tab.id == tab_id) {
             self.active_tab = tab_id;
-            cx.notify();
-        }
-    }
-
-    pub fn set_active_inner_tab(
-        &mut self,
-        tab_id: TabId,
-        inner_id: InnerTabId,
-        cx: &mut Context<SqlerApp>,
-    ) {
-        if let Some(tab) = self.tabs.iter_mut().find(|tab| tab.id == tab_id) {
-            if let TabKind::DataSource(state) = &mut tab.kind {
-                state.active_inner_tab = inner_id;
-            }
             cx.notify();
         }
     }

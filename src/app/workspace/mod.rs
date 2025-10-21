@@ -7,8 +7,7 @@ use gpui_component::{
 };
 
 use crate::app::{SqlerApp, TabKind};
-use crate::option::DataSource;
-use crate::option::DataSourceKind;
+use crate::option::{DataSource, DataSourceKind};
 
 pub mod mongodb;
 pub mod mysql;
@@ -26,28 +25,14 @@ pub fn render(
     if let Some(tab) = app.tabs.iter().find(|tab| tab.id == app.active_tab) {
         match &tab.kind {
             TabKind::Home => render_home(&app.saved_sources, window, cx).into_any_element(),
-            TabKind::DataSource(state) => match state.meta.kind {
-                DataSourceKind::MySQL => mysql::MySqlWorkspace::new(state)
-                    .render(tab.id, window, cx)
-                    .into_any_element(),
-                DataSourceKind::PostgreSQL => postgres::PostgresWorkspace::new(state)
-                    .render(tab.id, window, cx)
-                    .into_any_element(),
-                DataSourceKind::SQLite => sqlite::SqliteWorkspace::new(state)
-                    .render(tab.id, window, cx)
-                    .into_any_element(),
-                DataSourceKind::SQLServer => sqlserver::SqlServerWorkspace::new(state)
-                    .render(tab.id, window, cx)
-                    .into_any_element(),
-                DataSourceKind::Oracle => oracle::OracleWorkspace::new(state)
-                    .render(tab.id, window, cx)
-                    .into_any_element(),
-                DataSourceKind::Redis => redis::RedisWorkspace::new(state)
-                    .render(tab.id, window, cx)
-                    .into_any_element(),
-                DataSourceKind::MongoDB => mongodb::MongoWorkspace::new(state)
-                    .render(tab.id, window, cx)
-                    .into_any_element(),
+            TabKind::DataSource(meta) => match meta.kind {
+                DataSourceKind::MySQL => mysql::render(meta, cx).into_any_element(),
+                DataSourceKind::PostgreSQL => postgres::render(meta, cx).into_any_element(),
+                DataSourceKind::SQLite => sqlite::render(meta, cx).into_any_element(),
+                DataSourceKind::SQLServer => sqlserver::render(meta, cx).into_any_element(),
+                DataSourceKind::Oracle => oracle::render(meta, cx).into_any_element(),
+                DataSourceKind::Redis => redis::render(meta, cx).into_any_element(),
+                DataSourceKind::MongoDB => mongodb::render(meta, cx).into_any_element(),
             },
         }
     } else {
@@ -119,7 +104,6 @@ fn render_data_source_card(
     cx: &mut Context<SqlerApp>,
 ) -> AnyElement {
     let source_id = meta.id.clone();
-    let source_id_for_button = source_id.clone();
     let icon_path = meta.kind.image();
 
     v_flex()
@@ -157,7 +141,7 @@ fn render_data_source_card(
                 ),
         )
         .child(
-            Button::new(SharedString::from(format!("kind-chip-{}", source_id_for_button)))
+            Button::new(SharedString::from(format!("kind-chip-{}", meta.id)))
                 .ghost()
                 .xsmall()
                 .tab_stop(false)

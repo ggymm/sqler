@@ -17,9 +17,8 @@
     - `open_data_source_tab` 接受 `&str` 类型的 source_id 参数
     - `seed_sources()` 使用 UUID 生成数据源 ID，将 tables 存储在 extras 字段中
   - `workspace/`
-    - `mod.rs`：主窗口渲染入口与首页面板，数据源标签分发至各自模块
-    - `common.rs`：各数据源工作区共享的侧栏/顶部/配置面板模板
-    - `{mysql,postgres,sqlite,sqlserver,oracle,redis,mongodb}.rs`：单一数据源的完整工作区实现（顶部菜单、侧栏、内容区）
+    - `mod.rs`：主窗口渲染入口与首页面板，数据源标签分发至对应 workspace
+    - `{mysql,postgres,sqlite,sqlserver,oracle,redis,mongodb}.rs`：各数据源负责自身布局与状态
   - `create/`
     - `mod.rs`：`CreateDataSourceWindow`，提供类型选择、表单填充和底部操作栏
     - `{postgres,mysql,sqlite,sqlserver}.rs`：各数据库表单状态与渲染
@@ -61,4 +60,3 @@
   - 底部操作栏提供"测试连接 / 上一步 / 取消 / 保存"，未选类型时自动禁用相关按钮
 - 各数据库表单：按字段分类显示输入框，记忆当前配置状态
 - 驱动层：接入 PostgreSQL / MySQL / SQLite / SQL Server 的真实连接测试逻辑，为后续 UI 调用奠定基础
-
