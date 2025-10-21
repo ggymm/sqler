@@ -6,11 +6,15 @@ edition = "2021"
 [dependencies]
 gpui = "0.2"
 gpui-component = "0.2"
-thiserror = "2.0"
-uuid = "1.18.1"
+
+[dependencies.aes-gcm]
+version = "0.10"
+
+[dependencies.dirs]
+version = "6.0"
 
 [dependencies.mongodb]
-version = "3.3"
+version = "3"
 features = ["sync"]
 
 [dependencies.mysql]
@@ -29,9 +33,9 @@ version = "1.0.0-rc.2"
 version = "0.37"
 features = ["bundled"]
 
-
 [dependencies.serde]
 version = "1"
+features = ["derive"]
 
 [dependencies.serde_json]
 version = "1"
@@ -39,3 +43,9 @@ version = "1"
 [dependencies.tokio]
 version = "1"
 features = ["full"]
+
+[dependencies.thiserror]
+version = "2"
+
+[dependencies.uuid]
+version = "1"
