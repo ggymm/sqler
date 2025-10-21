@@ -15,6 +15,8 @@ use gpui_component::Root;
 use gpui_component::Sizable;
 use gpui_component::Size;
 
+use crate::app::create::CreateDataSourceWindow;
+use crate::app::create::NewDataSourceState;
 use crate::option::DataSource;
 use crate::option::DataSourceKind;
 use crate::option::DataSourceOptions;
@@ -124,7 +126,7 @@ impl SqlerApp {
             return;
         }
 
-        let state = create::NewDataSourceState::new(window, cx);
+        let state = NewDataSourceState::new(window, cx);
         let parent = cx.weak_entity();
         let options = WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(Bounds::centered(
@@ -141,7 +143,7 @@ impl SqlerApp {
 
         match cx.open_window(options, move |modal_window, app_cx| {
             let parent = parent.clone();
-            let view = app_cx.new(|cx| create::CreateDataSourceWindow::new(state, parent.clone(), modal_window, cx));
+            let view = app_cx.new(|cx| CreateDataSourceWindow::new(state, parent.clone(), modal_window, cx));
             app_cx.new(|cx| Root::new(view.into(), modal_window, cx))
         }) {
             Ok(handle) => {
