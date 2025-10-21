@@ -2,10 +2,9 @@ use std::fs;
 use std::io;
 use std::path::PathBuf;
 
-use aes_gcm::aead::{Aead, KeyInit};
+use aes_gcm::aead::Aead;
+use aes_gcm::aead::KeyInit;
 use aes_gcm::Aes256Gcm;
-use serde::Deserialize;
-use serde::Serialize;
 use thiserror::Error;
 
 use crate::option::DataSource;
@@ -36,13 +35,8 @@ pub enum CacheError {
 }
 
 pub struct CacheApp {
-    path: PathBuf,
     sources: Vec<DataSource>,
-}
-
-#[derive(Serialize, Deserialize)]
-struct CacheData {
-    sources: Vec<DataSource>,
+    sources_path: PathBuf,
 }
 
 impl CacheApp {
@@ -58,13 +52,16 @@ impl CacheApp {
         let sources = if path.exists() {
             let encrypted = fs::read(&path)?;
             let decrypted = Self::decrypt(&encrypted)?;
-            let data: CacheData = serde_json::from_slice(&decrypted)?;
-            data.sources
+            let data: Vec<DataSource> = serde_json::from_slice(&decrypted)?;
+            data
         } else {
             Vec::new()
         };
 
-        Ok(Self { path, sources })
+        Ok(Self {
+            sources_path: path,
+            sources,
+        })
     }
 
     pub fn sources(&self) -> &[DataSource] {
@@ -75,13 +72,11 @@ impl CacheApp {
         &mut self.sources
     }
 
-    pub fn update(&self) -> Result<(), CacheError> {
-        let data = CacheData {
-            sources: self.sources.clone(),
-        };
+    pub fn sources_update(&mut self) -> Result<(), CacheError> {
+        let data = self.sources.clone();
         let json = serde_json::to_vec(&data)?;
         let encrypted = Self::encrypt(&json)?;
-        fs::write(&self.path, encrypted)?;
+        fs::write(&self.sources_path, encrypted)?;
         Ok(())
     }
 

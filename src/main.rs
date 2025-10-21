@@ -55,6 +55,7 @@ fn main() {
     app.run(|cx: &mut App| {
         init(cx);
         init_runtime(cx);
+        
         cx.activate(true);
         cx.on_window_closed(|cx| {
             if cx.windows().is_empty() {
