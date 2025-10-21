@@ -12,7 +12,7 @@ use crate::option::{DataSource, DataSourceKind, DataSourceOptions, MySQLOptions}
 pub fn render(
     meta: &DataSource,
     cx: &mut Context<SqlerApp>,
-) -> gpui::Div {
+) -> Div {
     debug_assert!(matches!(meta.kind, DataSourceKind::MySQL));
 
     let options = match &meta.options {

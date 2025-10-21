@@ -25,7 +25,7 @@ pub fn render(
     if let Some(tab) = app.tabs.iter().find(|tab| tab.id == app.active_tab) {
         match &tab.kind {
             TabKind::Home => render_home(&app.saved_sources, window, cx).into_any_element(),
-            TabKind::DataSource(meta) => match meta.kind {
+            TabKind::Workspace(meta) => match meta.kind {
                 DataSourceKind::MySQL => mysql::render(meta, cx).into_any_element(),
                 DataSourceKind::PostgreSQL => postgres::render(meta, cx).into_any_element(),
                 DataSourceKind::SQLite => sqlite::render(meta, cx).into_any_element(),
@@ -80,7 +80,7 @@ fn render_home(
                 .items_center()
                 .px(px(20.))
                 .py(px(16.))
-                .border_1()
+                .border_b_1()
                 .border_color(theme.border)
                 .child(
                     v_flex()
