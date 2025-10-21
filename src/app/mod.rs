@@ -413,8 +413,7 @@ pub fn render_head(
                 .gap_5()
                 .child(
                     Button::new("header-new-source")
-                        .primary()
-                        .small()
+                        .outline()
                         .label("新建数据源")
                         .on_click(cx.listener(|this, _, window, cx| {
                             this.show_new_data_source_modal(window, cx);
@@ -422,8 +421,7 @@ pub fn render_head(
                 )
                 .child(
                     Button::new("toggle-theme")
-                        .ghost()
-                        .small()
+                        .outline()
                         .label(if theme.is_dark() {
                             "切换到亮色"
                         } else {
