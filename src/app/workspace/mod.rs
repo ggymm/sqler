@@ -6,22 +6,22 @@ use gpui_component::{
     h_flex, v_flex, ActiveTheme as _, InteractiveElementExt as _, Sizable, StyledExt,
 };
 
-use crate::app::{SqlerApp, TabKind};
+use crate::app::{SqlerApp, TabView};
 use crate::option::{DataSource, DataSourceKind};
 
-pub mod mysql;
+mod mysql;
 mod placeholder;
 
-use mysql::MySqlWorkspace;
+use mysql::MySQLWorkspace;
 use placeholder::PlaceholderWorkspace;
 
 pub enum WorkspaceState {
     MySQL {
-        src_id: String,
-        view: Entity<MySqlWorkspace>,
+        id: String,
+        view: Entity<MySQLWorkspace>,
     },
     Placeholder {
-        src_id: String,
+        id: String,
         view: Entity<PlaceholderWorkspace>,
     },
 }
@@ -34,26 +34,26 @@ impl WorkspaceState {
     ) -> Self {
         match meta.kind {
             DataSourceKind::MySQL => {
-                let src_id = meta.id.clone();
-                let view = cx.new(|_| MySqlWorkspace::new(meta));
-                WorkspaceState::MySQL { src_id, view }
+                let id = meta.id.clone();
+                let view = cx.new(|_| MySQLWorkspace::new(meta));
+                WorkspaceState::MySQL { id, view }
             }
             other => {
                 let label = other.label();
-                let src_id = meta.id.clone();
+                let id = meta.id.clone();
                 let view = cx.new(|_| {
                     let message = format!("{} 工作区暂未实现", label);
                     PlaceholderWorkspace::new(meta, message)
                 });
-                WorkspaceState::Placeholder { src_id, view }
+                WorkspaceState::Placeholder { id, view }
             }
         }
     }
 
     pub fn id(&self) -> &str {
         match self {
-            WorkspaceState::MySQL { src_id, .. } => src_id,
-            WorkspaceState::Placeholder { src_id, .. } => src_id,
+            WorkspaceState::MySQL { id, .. } => id,
+            WorkspaceState::Placeholder { id, .. } => id,
         }
     }
 
@@ -71,9 +71,9 @@ pub fn render(
     cx: &mut Context<SqlerApp>,
 ) -> AnyElement {
     if let Some(tab) = app.tabs.iter_mut().find(|tab| tab.id == app.active_tab) {
-        match &mut tab.kind {
-            TabKind::Home => render_home(&app.saved_sources, window, cx).into_any_element(),
-            TabKind::Workspace(state) => state.render(),
+        match &mut tab.view {
+            TabView::Home => render_home(&app.saved_sources, window, cx).into_any_element(),
+            TabView::Workspace(state) => state.render(),
         }
     } else {
         v_flex()
@@ -189,11 +189,6 @@ fn render_data_source_card(
                 .tab_stop(false)
                 .label(meta.kind.label()),
         )
-        .child(
-            div()
-                .text_sm()
-                .text_color(cx.theme().muted_foreground)
-                .child(meta.desc),
-        )
+        .child(div().text_sm().text_color(cx.theme().muted_foreground).child(meta.desc))
         .into_any_element()
 }

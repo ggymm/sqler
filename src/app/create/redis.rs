@@ -1,4 +1,4 @@
-use crate::app::create::CreateDataSourceWindow;
+use crate::app::create::CreateWindow;
 use crate::app::SqlerApp;
 use gpui::{div, px, AppContext, Context, Entity, ParentElement, Styled, Window};
 use gpui_component::form::{form_field, v_form};
@@ -45,7 +45,7 @@ impl RedisState {
 
 pub fn render(
     state: &mut RedisState,
-    cx: &Context<CreateDataSourceWindow>,
+    cx: &Context<CreateWindow>,
 ) -> gpui::Div {
     v_flex()
         .gap(px(12.))

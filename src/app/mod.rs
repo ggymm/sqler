@@ -15,8 +15,9 @@ use gpui_component::Root;
 use gpui_component::Sizable;
 use gpui_component::Size;
 
-use crate::app::create::CreateDataSourceWindow;
-use crate::app::create::NewDataSourceState;
+use crate::app::create::CreateState;
+use crate::app::create::CreateWindow;
+use crate::app::workspace::WorkspaceState;
 use crate::option::DataSource;
 use crate::option::DataSourceKind;
 use crate::option::DataSourceOptions;
@@ -43,14 +44,14 @@ impl TabId {
     }
 }
 
-pub enum TabKind {
+pub enum TabView {
     Home,
-    Workspace(workspace::WorkspaceState),
+    Workspace(WorkspaceState),
 }
 
 pub struct TabState {
     pub id: TabId,
-    pub kind: TabKind,
+    pub view: TabView,
     pub title: SharedString,
     pub closable: bool,
 }
@@ -59,18 +60,23 @@ impl TabState {
     fn home(id: TabId) -> Self {
         Self {
             id,
-            kind: TabKind::Home,
+            view: TabView::Home,
             title: SharedString::from("首页"),
             closable: false,
         }
     }
 
-    fn data_source(id: TabId, meta: DataSource, window: &mut Window, cx: &mut Context<SqlerApp>) -> Self {
+    fn data_source(
+        id: TabId,
+        meta: DataSource,
+        window: &mut Window,
+        cx: &mut Context<SqlerApp>,
+    ) -> Self {
         let title = SharedString::from(meta.name.clone());
-        let workspace = workspace::WorkspaceState::new(meta, window, cx);
+        let workspace = WorkspaceState::new(meta, window, cx);
         Self {
             id,
-            kind: TabKind::Workspace(workspace),
+            view: TabView::Workspace(workspace),
             title,
             closable: true,
         }
@@ -80,7 +86,7 @@ impl TabState {
         &self,
         id: &str,
     ) -> bool {
-        matches!(&self.kind, TabKind::Workspace(state) if state.id() == id)
+        matches!(&self.view, TabView::Workspace(state) if state.id() == id)
     }
 }
 
@@ -124,7 +130,7 @@ impl SqlerApp {
             return;
         }
 
-        let state = NewDataSourceState::new(window, cx);
+        let state = CreateState::new(window, cx);
         let parent = cx.weak_entity();
         let options = WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(Bounds::centered(
@@ -141,7 +147,7 @@ impl SqlerApp {
 
         match cx.open_window(options, move |modal_window, app_cx| {
             let parent = parent.clone();
-            let view = app_cx.new(|cx| CreateDataSourceWindow::new(state, parent.clone(), modal_window, cx));
+            let view = app_cx.new(|cx| CreateWindow::new(state, parent.clone(), modal_window, cx));
             app_cx.new(|cx| Root::new(view.into(), modal_window, cx))
         }) {
             Ok(handle) => {

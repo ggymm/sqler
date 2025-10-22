@@ -7,7 +7,7 @@ use gpui_component::{
     v_flex, ActiveTheme as _,
 };
 
-use crate::app::{create::CreateDataSourceWindow, SqlerApp};
+use crate::app::{create::CreateWindow, SqlerApp};
 
 #[derive(Clone)]
 pub struct SqlServerState {
@@ -47,7 +47,7 @@ impl SqlServerState {
 
 pub fn render(
     state: &mut SqlServerState,
-    cx: &Context<CreateDataSourceWindow>,
+    cx: &Context<CreateWindow>,
 ) -> gpui::Div {
     v_flex()
         .gap(px(12.))

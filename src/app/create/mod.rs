@@ -15,7 +15,7 @@ pub mod sqlite;
 pub mod sqlserver;
 
 #[derive(Clone)]
-pub struct NewDataSourceState {
+pub struct CreateState {
     pub selected: Option<DataSourceKind>,
 
     pub mysql: mysql::MySQLState,
@@ -27,7 +27,7 @@ pub struct NewDataSourceState {
     pub mongodb: mongodb::MongoDBState,
 }
 
-impl NewDataSourceState {
+impl CreateState {
     pub fn new(
         window: &mut Window,
         cx: &mut Context<SqlerApp>,
@@ -46,14 +46,14 @@ impl NewDataSourceState {
     }
 }
 
-pub struct CreateDataSourceWindow {
-    state: NewDataSourceState,
+pub struct CreateWindow {
+    state: CreateState,
     parent: WeakEntity<SqlerApp>,
 }
 
-impl CreateDataSourceWindow {
+impl CreateWindow {
     pub fn new(
-        state: NewDataSourceState,
+        state: CreateState,
         parent: WeakEntity<SqlerApp>,
         _window: &mut Window,
         cx: &mut Context<Self>,
@@ -115,7 +115,7 @@ impl CreateDataSourceWindow {
     }
 }
 
-impl Render for CreateDataSourceWindow {
+impl Render for CreateWindow {
     fn render(
         &mut self,
         _window: &mut Window,
@@ -201,7 +201,7 @@ impl Render for CreateDataSourceWindow {
                                         )
                                         .on_click(cx.listener({
                                             let kind = *kind;
-                                            move |this: &mut CreateDataSourceWindow, _ev, _window, cx| {
+                                            move |this: &mut CreateWindow, _ev, _window, cx| {
                                                 this.selected(kind, cx);
                                             }
                                         }))
@@ -227,7 +227,7 @@ impl Render for CreateDataSourceWindow {
                         Button::new("datasource-check-connection")
                             .outline()
                             .label("测试连接")
-                            .on_click(cx.listener(|_this: &mut CreateDataSourceWindow, _ev, _window, _cx| {
+                            .on_click(cx.listener(|_this: &mut CreateWindow, _ev, _window, _cx| {
                                 // TODO: 实现连接测试逻辑
                             })),
                     )
@@ -241,7 +241,7 @@ impl Render for CreateDataSourceWindow {
                                 Button::new("datasource-create-back")
                                     .outline()
                                     .label("上一步")
-                                    .on_click(cx.listener(|this: &mut CreateDataSourceWindow, _ev, _window, cx| {
+                                    .on_click(cx.listener(|this: &mut CreateWindow, _ev, _window, cx| {
                                         this.deselect(cx);
                                     })),
                             )
@@ -249,7 +249,7 @@ impl Render for CreateDataSourceWindow {
                                 Button::new("datasource-create-cancel")
                                     .outline()
                                     .label("取消")
-                                    .on_click(cx.listener(|this: &mut CreateDataSourceWindow, _ev, window, cx| {
+                                    .on_click(cx.listener(|this: &mut CreateWindow, _ev, window, cx| {
                                         this.close_window(window, cx);
                                     })),
                             )
@@ -257,7 +257,7 @@ impl Render for CreateDataSourceWindow {
                                 Button::new("datasource-create-confirm")
                                     .outline()
                                     .label("确认")
-                                    .on_click(cx.listener(|this: &mut CreateDataSourceWindow, _ev, window, cx| {
+                                    .on_click(cx.listener(|this: &mut CreateWindow, _ev, window, cx| {
                                         this.close_window(window, cx);
                                     })),
                             ),

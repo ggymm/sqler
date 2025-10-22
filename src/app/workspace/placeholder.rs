@@ -11,7 +11,10 @@ pub struct PlaceholderWorkspace {
 }
 
 impl PlaceholderWorkspace {
-    pub fn new(meta: DataSource, message: impl Into<SharedString>) -> Self {
+    pub fn new(
+        meta: DataSource,
+        message: impl Into<SharedString>,
+    ) -> Self {
         Self {
             meta,
             message: message.into(),

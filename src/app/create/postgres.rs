@@ -7,7 +7,7 @@ use gpui_component::{
     v_flex, ActiveTheme as _,
 };
 
-use crate::app::{create::CreateDataSourceWindow, SqlerApp};
+use crate::app::{create::CreateWindow, SqlerApp};
 
 #[derive(Clone)]
 pub struct PostgresState {
@@ -51,7 +51,7 @@ impl PostgresState {
 
 pub fn render(
     state: &mut PostgresState,
-    cx: &Context<CreateDataSourceWindow>,
+    cx: &Context<CreateWindow>,
 ) -> gpui::Div {
     v_flex()
         .gap(px(12.))

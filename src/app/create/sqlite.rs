@@ -7,7 +7,7 @@ use gpui_component::{
     v_flex, ActiveTheme as _,
 };
 
-use crate::app::{create::CreateDataSourceWindow, SqlerApp};
+use crate::app::{create::CreateWindow, SqlerApp};
 
 #[derive(Clone)]
 pub struct SqliteState {
@@ -31,7 +31,7 @@ impl SqliteState {
 
 pub fn render(
     state: &mut SqliteState,
-    cx: &Context<CreateDataSourceWindow>,
+    cx: &Context<CreateWindow>,
 ) -> gpui::Div {
     v_flex()
         .gap(px(12.))
