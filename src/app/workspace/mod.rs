@@ -1,12 +1,14 @@
 use gpui::prelude::*;
 use gpui::*;
 
-use gpui_component::{
-    button::ButtonVariants as _, h_flex, v_flex, ActiveTheme as _, InteractiveElementExt as _, Sizable, StyledExt,
-};
+use gpui_component::ActiveTheme;
+use gpui_component::InteractiveElementExt;
+use gpui_component::StyledExt;
 
-use crate::app::{SqlerApp, TabView};
-use crate::option::{DataSource, DataSourceKind};
+use crate::app::SqlerApp;
+use crate::app::TabView;
+use crate::option::DataSource;
+use crate::option::DataSourceKind;
 
 mod mysql;
 mod placeholder;
@@ -66,92 +68,71 @@ impl WorkspaceState {
 
 pub fn render(
     app: &mut SqlerApp,
-    window: &mut Window,
+    _window: &mut Window,
     cx: &mut Context<SqlerApp>,
 ) -> AnyElement {
     if let Some(tab) = app.tabs.iter_mut().find(|tab| tab.id == app.active_tab) {
         match &mut tab.view {
-            TabView::Home => render_home(&app.saved_sources, window, cx).into_any_element(),
+            TabView::Home => render_home(app, cx),
             TabView::Workspace(state) => state.render(),
         }
     } else {
-        v_flex()
-            .flex_1()
-            .child(div().child("未找到可渲染的标签页"))
-            .into_any_element()
+        div().child("未找到可渲染的标签页").into_any_element()
     }
 }
 
-fn render_home(
-    sources: &[DataSource],
-    _window: &mut Window,
-    cx: &mut Context<SqlerApp>,
+pub fn render_home(
+    app: &SqlerApp,
+    cx: &Context<SqlerApp>,
 ) -> AnyElement {
-    let theme = cx.theme().clone();
-
+    let theme = cx.theme();
     div()
-        .flex()
-        .flex_col()
+        .id("sources")
+        .grid()
         .size_full()
+        .p_5()
+        .gap_4()
         .min_w_0()
         .min_h_0()
-        .child(
+        .scrollable(Axis::Vertical)
+        .children(app.sources.iter().cloned().map(|meta| {
+            let id = meta.id.clone();
+            let name = meta.name.clone();
+
             div()
-                .id("data-source-list")
                 .flex()
                 .flex_col()
+                .w(px(220.))
                 .p_5()
-                .gap_4()
-                .flex_1()
-                .min_w_0()
-                .min_h_0()
-                .scrollable(Axis::Vertical)
+                .gap_2()
+                .rounded_lg()
+                .bg(theme.secondary)
+                .border_1()
+                .border_color(theme.border)
+                .cursor_pointer()
+                .id(SharedString::from(format!("source-card-{}", id)))
+                .hover(|this| this.bg(theme.secondary_hover))
+                .on_double_click(cx.listener(move |this, _, window, cx| {
+                    this.open_data_source_tab(&meta.id, window, cx);
+                }))
                 .child(
-                    h_flex()
-                        .flex_wrap()
-                        .gap(px(12.))
-                        .children(sources.iter().cloned().map(|meta| {
-                            let id = meta.id.clone();
-                            let name = meta.name.clone();
-
-                            v_flex()
-                                .w(px(220.))
-                                .gap(px(8.))
-                                .p(px(14.))
-                                .rounded(px(8.))
-                                .bg(theme.secondary)
-                                .border_1()
-                                .border_color(theme.border)
-                                .cursor_pointer()
-                                .id(SharedString::from(format!("source-card-{}", id)))
-                                .hover(|this| this.bg(theme.secondary_hover))
-                                .on_double_click(cx.listener(move |this, _, window, cx| {
-                                    this.open_data_source_tab(&meta.id, window, cx);
-                                }))
-                                .child(
-                                    h_flex()
-                                        .items_center()
-                                        .gap(px(8.))
-                                        .child(
-                                            div()
-                                                .flex_shrink_0()
-                                                .w(px(32.))
-                                                .h(px(32.))
-                                                .child(img(meta.kind.image()).size_full()),
-                                        )
-                                        .child(
-                                            div()
-                                                .flex_1()
-                                                .text_base()
-                                                .font_semibold()
-                                                .text_color(theme.foreground)
-                                                .child(name),
-                                        ),
-                                )
-                                .child(div().text_sm().text_color(cx.theme().muted_foreground).child(meta.name))
-                                .child(div().text_sm().text_color(cx.theme().muted_foreground).child(meta.desc))
-                        })),
-                ),
-        )
+                    div()
+                        .flex()
+                        .flex_row()
+                        .items_center()
+                        .gap(px(8.))
+                        .child(div().w_8().h_8().rounded_lg().child(img(meta.kind.image()).size_full()))
+                        .child(
+                            div()
+                                .flex_1()
+                                .text_base()
+                                .font_semibold()
+                                .text_color(theme.foreground)
+                                .child(name),
+                        ),
+                )
+                .child(div().text_sm().text_color(theme.muted_foreground).child(meta.name))
+                .child(div().text_sm().text_color(theme.muted_foreground).child(meta.desc))
+        }))
         .into_any_element()
 }
