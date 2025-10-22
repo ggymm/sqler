@@ -6,7 +6,7 @@
 ## 代码结构
 - `src/main.rs`
   - 程序入口，注册资源加载器 `FsAssets`，初始化运行时（包括缓存系统）后打开主窗口，挂载 `SqlerApp`
-  - 数据源结构 `DataSource` 使用 `String` 类型的 UUID 作为 `id`，使用 `Option<HashMap<String, Value>>` 类型的 `extras` 字段存储扩展属性（如 tables）
+  - 数据源结构 `DataSource` 使用 `String` 类型的 UUID 作为 `id`，使用 `Option<HashMap<String, Value>>` 类型的 `extras` 字段存储扩展属性（如 tables），`connection_hint()` 返回脱敏的连接摘要
   - `tables()` 方法从 `extras["tables"]` 中提取表名列表
   - `init_runtime()` 初始化 `DataSourceCache`，创建 ~/.sqler 目录
 - `src/app/`
@@ -36,7 +36,7 @@
 - `src/option/`
   - `mod.rs`：定义 `DataSource` 结构体、`DataSourceKind` 枚举、`DataSourceOptions` 枚举以及 `ConnectionOptions` trait
   - 所有类型均支持 `Serialize`/`Deserialize` 用于持久化
-  - `{mysql,postgres,sqlite,sqlserver,oracle,redis,mongodb}.rs`：描述对应数据源的连接参数与默认值
+  - `{mysql,postgres,sqlite,sqlserver,oracle,redis,mongodb}.rs`：描述对应数据源的连接参数与默认值，并提供 `display_endpoint()` 用于生成脱敏连接字符串
 - `src/cache/`
   - `mod.rs`：本地数据源缓存模块
     - `DataSourceCache`：缓存管理器，init 时从 ~/.sqler/sources.enc 加载数据到内存

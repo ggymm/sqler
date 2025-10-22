@@ -49,3 +49,50 @@ impl ConnectionOptions for MongoDBOptions {
         DataSourceKind::MongoDB
     }
 }
+
+impl MongoDBOptions {
+    pub fn display_endpoint(&self) -> String {
+        if let Some(uri) = &self.connection_string {
+            return Self::sanitize_uri(uri);
+        }
+
+        if self.hosts.is_empty() {
+            return "mongodb://<未配置主机>".into();
+        }
+
+        let hosts = self
+            .hosts
+            .iter()
+            .map(|MongoDBHost { host, port }| format!("{}:{}", host, port))
+            .collect::<Vec<_>>()
+            .join(",");
+
+        let mut suffix = String::new();
+        if let Some(auth) = &self.auth_source {
+            let trimmed = auth.trim();
+            if !trimmed.is_empty() {
+                suffix = format!("?db={}", trimmed);
+            }
+        }
+
+        format!("mongodb://{}{}", hosts, suffix)
+    }
+
+    fn sanitize_uri(raw: &str) -> String {
+        let trimmed = raw.trim();
+        if trimmed.is_empty() {
+            return "mongodb://<未配置主机>".into();
+        }
+
+        if let Some(scheme_end) = trimmed.find("://") {
+            let scheme = &trimmed[..scheme_end];
+            let rest = &trimmed[scheme_end + 3..];
+            if let Some(at) = rest.find('@') {
+                let after = &rest[at + 1..];
+                return format!("{}://{}", scheme, after);
+            }
+        }
+
+        trimmed.to_string()
+    }
+}

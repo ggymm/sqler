@@ -306,7 +306,6 @@ impl Render for SqlerApp {
                                         div()
                                             .flex_1()
                                             .min_w_0()
-                                            .text_left()
                                             .overflow_hidden()
                                             .whitespace_nowrap()
                                             .child(tab.title.clone()),

@@ -32,3 +32,10 @@ impl ConnectionOptions for RedisOptions {
         DataSourceKind::Redis
     }
 }
+
+impl RedisOptions {
+    pub fn display_endpoint(&self) -> String {
+        let scheme = if self.use_tls { "rediss" } else { "redis" };
+        format!("{}://{}:{}/{}", scheme, self.host, self.port, self.db)
+    }
+}

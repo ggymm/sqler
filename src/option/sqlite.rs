@@ -26,3 +26,16 @@ impl ConnectionOptions for SQLiteOptions {
         DataSourceKind::SQLite
     }
 }
+
+impl SQLiteOptions {
+    pub fn display_endpoint(&self) -> String {
+        let path = self.file_path.trim();
+        if path.is_empty() {
+            "sqlite://<未配置文件>".into()
+        } else if self.read_only {
+            format!("sqlite://{}?mode=ro", path)
+        } else {
+            format!("sqlite://{}", path)
+        }
+    }
+}

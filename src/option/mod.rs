@@ -47,6 +47,18 @@ impl DataSource {
         }
         vec![]
     }
+
+    pub fn display(&self) -> String {
+        match &self.options {
+            DataSourceOptions::MySQL(opts) => opts.display_endpoint(),
+            DataSourceOptions::Oracle(opts) => opts.display_endpoint(),
+            DataSourceOptions::SQLite(opts) => opts.display_endpoint(),
+            DataSourceOptions::SQLServer(opts) => opts.display_endpoint(),
+            DataSourceOptions::PostgreSQL(opts) => opts.display_endpoint(),
+            DataSourceOptions::Redis(opts) => opts.display_endpoint(),
+            DataSourceOptions::MongoDB(opts) => opts.display_endpoint(),
+        }
+    }
 }
 
 #[repr(u8)]

@@ -53,3 +53,13 @@ impl ConnectionOptions for OracleOptions {
         DataSourceKind::Oracle
     }
 }
+
+impl OracleOptions {
+    pub fn display_endpoint(&self) -> String {
+        let hint = match &self.address {
+            OracleAddress::ServiceName(value) => format!("svc={}", value),
+            OracleAddress::Sid(value) => format!("sid={}", value),
+        };
+        format!("oracle://{}:{}?{}", self.host, self.port, hint)
+    }
+}

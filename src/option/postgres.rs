@@ -41,3 +41,15 @@ impl ConnectionOptions for PostgreSQLOptions {
         DataSourceKind::PostgreSQL
     }
 }
+
+impl PostgreSQLOptions {
+    pub fn display_endpoint(&self) -> String {
+        let db = self.database.trim();
+        let suffix = if db.is_empty() {
+            String::new()
+        } else {
+            format!("/{}", db)
+        };
+        format!("postgres://{}:{}{}", self.host, self.port, suffix)
+    }
+}

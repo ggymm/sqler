@@ -97,23 +97,21 @@ pub fn render_home(
         .min_h_0()
         .scrollable(Axis::Vertical)
         .children(app.sources.iter().cloned().map(|source| {
-            let id = source.id.clone();
-            let name = source.name.clone();
+            let display = source.display();
 
             div()
                 .flex()
                 .flex_col()
                 .flex_1()
                 .min_w_64()
-                .min_h_56()
                 .p_5()
-                .gap_2()
+                .gap_4()
                 .rounded_lg()
                 .bg(theme.secondary)
                 .border_1()
                 .border_color(theme.border)
                 .cursor_pointer()
-                .id(SharedString::from(format!("source-card-{}", id)))
+                .id(SharedString::from(format!("source-card-{}", source.id)))
                 .hover(|this| this.bg(theme.secondary_hover))
                 .on_double_click(cx.listener(move |this, _, window, cx| {
                     this.open_data_source_tab(&source.id, window, cx);
@@ -122,20 +120,31 @@ pub fn render_home(
                     div()
                         .flex()
                         .flex_row()
+                        .gap_4()
                         .items_center()
-                        .gap(px(8.))
-                        .child(div().w_12().h_12().child(img(source.kind.image()).size_full().rounded_lg()))
+                        .justify_between()
+                        .child(
+                            div()
+                                .w_8()
+                                .h_8()
+                                .child(img(source.kind.image()).size_full().rounded_lg()),
+                        )
                         .child(
                             div()
                                 .flex_1()
-                                .text_base()
+                                .text_lg()
                                 .font_semibold()
                                 .text_color(theme.foreground)
-                                .child(name),
+                                .child(source.name),
                         ),
                 )
-                .child(div().text_sm().text_color(theme.muted_foreground).child(source.name))
-                .child(div().text_sm().text_color(theme.muted_foreground).child(source.desc))
+                .child(
+                    div()
+                        .overflow_hidden()
+                        .whitespace_nowrap()
+                        .text_color(theme.muted_foreground)
+                        .child(display),
+                )
         }))
         .into_any_element()
 }

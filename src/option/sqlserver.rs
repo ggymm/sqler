@@ -40,3 +40,22 @@ impl ConnectionOptions for SQLServerOptions {
         DataSourceKind::SQLServer
     }
 }
+
+impl SQLServerOptions {
+    pub fn display_endpoint(&self) -> String {
+        let mut authority = format!("{}:{}", self.host, self.port);
+        if let Some(instance) = &self.instance {
+            let trimmed = instance.trim();
+            if !trimmed.is_empty() {
+                authority = format!("{}\\{}", authority, trimmed);
+            }
+        }
+
+        let db = self.database.trim();
+        if db.is_empty() {
+            format!("sqlserver://{}", authority)
+        } else {
+            format!("sqlserver://{}/{}", authority, db)
+        }
+    }
+}

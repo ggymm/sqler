@@ -34,3 +34,15 @@ impl ConnectionOptions for MySQLOptions {
         DataSourceKind::MySQL
     }
 }
+
+impl MySQLOptions {
+    pub fn display_endpoint(&self) -> String {
+        let scheme = if self.use_tls { "mysqls" } else { "mysql" };
+        let db = self.database.trim();
+        if db.is_empty() {
+            format!("{}://{}:{}", scheme, self.host, self.port)
+        } else {
+            format!("{}://{}:{}/{}", scheme, self.host, self.port, db)
+        }
+    }
+}
