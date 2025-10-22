@@ -183,7 +183,7 @@ impl Render for CreateWindow {
                                         .cursor_pointer()
                                         .id(("datasource-type-{}", *kind as u64))
                                         .hover(|this| this.bg(theme.secondary_hover))
-                                        .child(div().w_12().h_12().child(img(kind.image()).rounded_lg().size_full()))
+                                        .child(div().w_12().h_12().child(img(kind.image()).size_full().rounded_lg()))
                                         .child(
                                             div()
                                                 .flex()

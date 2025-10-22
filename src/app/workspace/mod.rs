@@ -89,20 +89,23 @@ pub fn render_home(
     div()
         .id("sources")
         .grid()
+        .grid_cols(4)
         .size_full()
         .p_5()
         .gap_4()
         .min_w_0()
         .min_h_0()
         .scrollable(Axis::Vertical)
-        .children(app.sources.iter().cloned().map(|meta| {
-            let id = meta.id.clone();
-            let name = meta.name.clone();
+        .children(app.sources.iter().cloned().map(|source| {
+            let id = source.id.clone();
+            let name = source.name.clone();
 
             div()
                 .flex()
                 .flex_col()
-                .w(px(220.))
+                .flex_1()
+                .min_w_64()
+                .min_h_56()
                 .p_5()
                 .gap_2()
                 .rounded_lg()
@@ -113,7 +116,7 @@ pub fn render_home(
                 .id(SharedString::from(format!("source-card-{}", id)))
                 .hover(|this| this.bg(theme.secondary_hover))
                 .on_double_click(cx.listener(move |this, _, window, cx| {
-                    this.open_data_source_tab(&meta.id, window, cx);
+                    this.open_data_source_tab(&source.id, window, cx);
                 }))
                 .child(
                     div()
@@ -121,7 +124,7 @@ pub fn render_home(
                         .flex_row()
                         .items_center()
                         .gap(px(8.))
-                        .child(div().w_8().h_8().rounded_lg().child(img(meta.kind.image()).size_full()))
+                        .child(div().w_12().h_12().child(img(source.kind.image()).size_full().rounded_lg()))
                         .child(
                             div()
                                 .flex_1()
@@ -131,8 +134,8 @@ pub fn render_home(
                                 .child(name),
                         ),
                 )
-                .child(div().text_sm().text_color(theme.muted_foreground).child(meta.name))
-                .child(div().text_sm().text_color(theme.muted_foreground).child(meta.desc))
+                .child(div().text_sm().text_color(theme.muted_foreground).child(source.name))
+                .child(div().text_sm().text_color(theme.muted_foreground).child(source.desc))
         }))
         .into_any_element()
 }
