@@ -1,3 +1,6 @@
+use serde_json::Map;
+use serde_json::Value;
+
 use crate::option::ConnectionOptions;
 use crate::option::DataSourceKind;
 use crate::option::DataSourceOptions;
@@ -17,7 +20,6 @@ pub mod redis;
 pub mod sqlite;
 pub mod sqlserver;
 
-/// 统一的驱动错误。
 #[derive(Debug, thiserror::Error)]
 pub enum DriverError {
     #[error("配置字段缺失: {0}")]
@@ -28,33 +30,129 @@ pub enum DriverError {
     Other(String),
 }
 
-/// 数据源驱动统一接口。
+#[derive(Clone, Debug)]
+pub enum QueryReq {
+    Sql { statement: String },
+    Command { name: String, args: Vec<Value> },
+    Document { collection: String, filter: Value },
+}
+
+#[derive(Clone, Debug)]
+pub enum QueryResp {
+    Rows(Vec<Map<String, Value>>),
+    Value(Value),
+    Documents(Vec<Value>),
+}
+
+#[derive(Clone, Debug)]
+pub enum InsertReq {
+    Sql { statement: String },
+    Command { name: String, args: Vec<Value> },
+    Document { collection: String, document: Value },
+}
+
+#[derive(Clone, Debug)]
+pub enum UpdateReq {
+    Sql {
+        statement: String,
+    },
+    Command {
+        name: String,
+        args: Vec<Value>,
+    },
+    Document {
+        collection: String,
+        filter: Value,
+        update: Value,
+    },
+}
+
+#[derive(Clone, Debug)]
+pub enum DeleteReq {
+    Sql { statement: String },
+    Command { name: String, args: Vec<Value> },
+    Document { collection: String, filter: Value },
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct WriteResp {
+    pub affected: u64,
+}
+
+pub trait DatabaseSession: Send {
+    // 查询
+    fn query(
+        &mut self,
+        request: QueryReq,
+    ) -> Result<QueryResp, DriverError>;
+
+    // 插入
+    fn insert(
+        &mut self,
+        request: InsertReq,
+    ) -> Result<WriteResp, DriverError>;
+
+    // 更新
+    fn update(
+        &mut self,
+        request: UpdateReq,
+    ) -> Result<WriteResp, DriverError>;
+
+    // 删除
+    fn delete(
+        &mut self,
+        request: DeleteReq,
+    ) -> Result<WriteResp, DriverError>;
+}
+
 pub trait DatabaseDriver {
     type Config;
 
-    /// 测试连接；成功返回 `Ok(())`，失败返回 [`DriverError`].
     fn check_connection(
         &self,
         config: &Self::Config,
     ) -> Result<(), DriverError>;
+
+    fn create_connection(
+        &self,
+        config: &Self::Config,
+    ) -> Result<Box<dyn DatabaseSession>, DriverError>;
 }
 
-/// 按数据源类型测试连接。
 pub fn check_connection(
     kind: DataSourceKind,
-    options: &DataSourceOptions,
+    opts: &DataSourceOptions,
 ) -> Result<(), DriverError> {
-    if options.kind() != kind {
+    if opts.kind() != kind {
         return Err(DriverError::InvalidField(format!("数据源类型不匹配: {}", kind.label())));
     }
 
-    match options {
+    match opts {
         DataSourceOptions::MySQL(config) => MySQLDriver.check_connection(config),
         DataSourceOptions::PostgreSQL(config) => PostgreSQLDriver.check_connection(config),
         DataSourceOptions::SQLite(config) => SQLiteDriver.check_connection(config),
         DataSourceOptions::SQLServer(config) => SQLServerDriver.check_connection(config),
         DataSourceOptions::MongoDB(config) => MongoDBDriver.check_connection(config),
         DataSourceOptions::Redis(config) => RedisDriver.check_connection(config),
+        DataSourceOptions::Oracle(_) => Err(DriverError::Other("Oracle 驱动暂未实现".into())),
+    }
+}
+
+pub fn create_connection(
+    kind: DataSourceKind,
+    opts: &DataSourceOptions,
+) -> Result<Box<dyn DatabaseSession>, DriverError> {
+    if opts.kind() != kind {
+        return Err(DriverError::InvalidField(format!("数据源类型不匹配: {}", kind.label())));
+    }
+
+    match opts {
+        DataSourceOptions::MySQL(config) => MySQLDriver.create_connection(config),
+        DataSourceOptions::PostgreSQL(config) => PostgreSQLDriver.create_connection(config),
+        DataSourceOptions::SQLite(config) => SQLiteDriver.create_connection(config),
+        DataSourceOptions::SQLServer(config) => SQLServerDriver.create_connection(config),
+        DataSourceOptions::MongoDB(config) => MongoDBDriver.create_connection(config),
+        DataSourceOptions::Redis(config) => RedisDriver.create_connection(config),
         DataSourceOptions::Oracle(_) => Err(DriverError::Other("Oracle 驱动暂未实现".into())),
     }
 }

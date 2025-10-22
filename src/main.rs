@@ -9,7 +9,6 @@ use gpui_component::Root;
 use gpui_component::Theme;
 
 use app::SqlerApp;
-use cache::CacheApp;
 
 mod app;
 mod cache;
@@ -44,9 +43,7 @@ impl AssetSource for FsAssets {
     }
 }
 
-fn init_runtime(_cx: &mut App) {
-
-}
+fn init_runtime(_cx: &mut App) {}
 
 fn main() {
     let app = Application::new().with_assets(FsAssets);

@@ -26,13 +26,13 @@
   - `topbar.rs`：标签栏 UI，控制标签切换/关闭、触发新建窗口与主题切换
   - `comps/mod.rs`：通用页面布局（全屏纵向容器等）
 - `src/driver/`
-  - `mod.rs`：统一驱动接口 `DatabaseDriver`、`DriverError`，以及基于 `DataSourceType` 的 `check_connection` 入口
-  - `postgres.rs`：基于 `sqlx::postgres` 的连接校验（支持 SSL 模式）
-  - `mysql.rs`：使用 `mysql` crate 建立连接，支持自定义字符集与 TLS
-  - `sqlite.rs`：使用 `rusqlite` 检查本地文件并尝试连接，兼容只读模式
-  - `sqlserver.rs`：借助 `tiberius` + `tokio-native-tls` 完成 SQL Server 握手，支持 SQL 密码登录
-  - `mongodb.rs`：基于 `mongodb::sync::Client` 进行连通性校验（支持 URI 或主机列表）
-  - `redis.rs`：使用 `redis` crate 构建连接串，执行 `SELECT`/`PING` 验证连通性
+  - `mod.rs`：统一驱动接口 `DatabaseDriver`/`DatabaseSession`、标准化的 `QueryRequest`/`InsertRequest`/... 以及按 `DataSourceType` 分发的 `check_connection`、`create_connection`
+  - `postgres.rs`：基于 `postgres` crate 建立连接，提供 SQL 查询与写操作（暂不支持 SSL 模式）
+  - `mysql.rs`：使用 `mysql` crate 建立连接，支持 SQL 查询/写操作并处理字符集设置与 TLS
+  - `sqlite.rs`：基于 `rusqlite` 打开本地文件，兼容只读模式并返回 SQL CRUD 会话
+  - `sqlserver.rs`：接口占位，检查/创建连接仍返回“未实现”错误
+  - `mongodb.rs`：同步客户端创建文档型会话，支持 `find`/`insert_one`/`update_many`/`delete_many`
+  - `redis.rs`：构建同步连接并通过统一命令接口运行查询与写操作，结果转换为 JSON 表达
 - `src/option/`
   - `mod.rs`：定义 `DataSource` 结构体、`DataSourceKind` 枚举、`DataSourceOptions` 枚举以及 `ConnectionOptions` trait
   - 所有类型均支持 `Serialize`/`Deserialize` 用于持久化
@@ -60,4 +60,4 @@
   - 顶部标题固定；中部根据状态展示类型卡片或对应表单（支持滚动）
   - 底部操作栏提供"测试连接 / 上一步 / 取消 / 保存"，未选类型时自动禁用相关按钮
 - 各数据库表单：按字段分类显示输入框，记忆当前配置状态
-- 驱动层：接入 PostgreSQL / MySQL / SQLite / SQL Server 的真实连接测试逻辑，为后续 UI 调用奠定基础
+- 驱动层：提供 `check_connection` 与统一 `create_connection` 会话，MySQL/PostgreSQL/SQLite/MongoDB/Redis 已具备基础 CRUD，SQL Server 仍占位
