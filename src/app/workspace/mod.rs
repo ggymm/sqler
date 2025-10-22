@@ -105,7 +105,7 @@ pub fn render_home(
                 .flex_1()
                 .min_w_64()
                 .p_5()
-                .gap_4()
+                .gap_2()
                 .rounded_lg()
                 .bg(theme.secondary)
                 .border_1()
@@ -120,26 +120,25 @@ pub fn render_home(
                     div()
                         .flex()
                         .flex_row()
-                        .gap_4()
                         .items_center()
                         .justify_between()
+                        .child(
+                            div()
+                                .flex_1()
+                                .font_semibold()
+                                .text_color(theme.foreground)
+                                .child(source.name),
+                        )
                         .child(
                             div()
                                 .w_8()
                                 .h_8()
                                 .child(img(source.kind.image()).size_full().rounded_lg()),
-                        )
-                        .child(
-                            div()
-                                .flex_1()
-                                .text_lg()
-                                .font_semibold()
-                                .text_color(theme.foreground)
-                                .child(source.name),
                         ),
                 )
                 .child(
                     div()
+                        .text_sm()
                         .overflow_hidden()
                         .whitespace_nowrap()
                         .text_color(theme.muted_foreground)

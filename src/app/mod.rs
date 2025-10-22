@@ -523,7 +523,16 @@ fn seed_sources() -> Vec<DataSource> {
             }),
             extras: Some(HashMap::from([(
                 "tables".to_string(),
-                json!(["daily_metrics", "marketing_channels", "product_sku"]),
+                json!([
+                    "daily_metrics",
+                    "marketing_channels",
+                    "product_sku",
+                    "table1",
+                    "table2",
+                    "table3",
+                    "table4",
+                    "table5"
+                ]),
             )])),
         },
         DataSource {

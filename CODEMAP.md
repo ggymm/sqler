@@ -17,8 +17,8 @@
     - `open_data_source_tab` 接受 `&str` 类型的 source_id 参数
     - `seed_sources()` 使用 UUID 生成数据源 ID，将 tables 存储在 extras 字段中
   - `workspace/`
-    - `mod.rs`：主窗口渲染入口与首页面板，创建并持有各数据源的 workspace view（基于 `Entity`）
-  - `mysql.rs`：`MySqlWorkspace` 维护选中表与激活标签状态，渲染顶部操作按钮、左侧表列表与右侧（概览/结构/查询）标签页内容
+  - `mod.rs`：主窗口渲染入口与首页面板，创建并持有各数据源的 workspace view（基于 `Entity`）
+  - `mysql.rs`：`MySqlWorkspace` 搭建图标按钮顶部栏、带刷新及右键菜单的侧栏列表和可增删的动态标签页（含默认概览）
     - `placeholder.rs`：占位视图，当前用于非 MySQL 数据源
   - `create/`
     - `mod.rs`：`CreateDataSourceWindow`，提供类型选择、表单填充和底部操作栏
