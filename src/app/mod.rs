@@ -18,6 +18,7 @@ use gpui_component::Size;
 use crate::app::create::CreateState;
 use crate::app::create::CreateWindow;
 use crate::app::workspace::WorkspaceState;
+use crate::cache::CacheApp;
 use crate::option::DataSource;
 use crate::option::DataSourceKind;
 use crate::option::DataSourceOptions;
@@ -92,8 +93,11 @@ impl TabState {
 
 pub struct SqlerApp {
     pub tabs: Vec<TabState>,
+    pub next_tab: u64,
     pub active_tab: TabId,
-    pub next_tab_id: u64,
+
+    pub cache: CacheApp,
+
     pub saved_sources: Vec<DataSource>,
     pub new_ds_window: Option<WindowHandle<Root>>,
 }
@@ -105,14 +109,20 @@ impl SqlerApp {
     ) -> Self {
         Theme::change(ThemeMode::Light, None, cx);
 
+        let cache = match CacheApp::init() {
+            Ok(cache) => cache,
+            Err(e) => panic!("{}", e),
+        };
+
         let saved_sources = seed_sources();
-        let mut next_tab_id = 1;
-        let home_id = TabId::next(&mut next_tab_id);
+        let mut next_tab = 1;
+        let home_id = TabId::next(&mut next_tab);
 
         Self {
             tabs: vec![TabState::home(home_id)],
             active_tab: home_id,
-            next_tab_id,
+            next_tab,
+            cache,
             saved_sources,
             new_ds_window: None,
         }
@@ -193,7 +203,7 @@ impl SqlerApp {
         }
 
         if let Some(meta) = self.saved_sources.iter().find(|meta| meta.id == source_id).cloned() {
-            let id = TabId::next(&mut self.next_tab_id);
+            let id = TabId::next(&mut self.next_tab);
             self.tabs.push(TabState::data_source(id, meta, window, cx));
             self.active_tab = id;
             cx.notify();

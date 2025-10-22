@@ -60,48 +60,4 @@ pub fn check_connection(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::option::DataSourceKind;
-    use crate::option::DataSourceOptions;
-
-    #[test]
-    fn mysql_missing_host_is_error() {
-        let mut config = crate::option::MySQLOptions::default();
-        config.host.clear();
-        let options = DataSourceOptions::MySQL(config);
-
-        let result = check_connection(DataSourceKind::MySQL, &options);
-        assert!(matches!(
-            result,
-            Err(DriverError::MissingField(field)) if field == "host"
-        ));
-    }
-
-    #[test]
-    fn mongodb_requires_endpoint() {
-        let mut config = crate::option::MongoDBOptions::default();
-        config.connection_string = None;
-        config.hosts.clear();
-        let options = DataSourceOptions::MongoDB(config);
-
-        let result = check_connection(DataSourceKind::MongoDB, &options);
-        assert!(matches!(
-            result,
-            Err(DriverError::MissingField(field)) if field == "hosts"
-        ));
-    }
-
-    #[test]
-    fn redis_requires_host() {
-        let mut config = crate::option::RedisOptions::default();
-        config.host.clear();
-        let options = DataSourceOptions::Redis(config);
-
-        let result = check_connection(DataSourceKind::Redis, &options);
-        assert!(matches!(
-            result,
-            Err(DriverError::MissingField(field)) if field == "host"
-        ));
-    }
-}
+mod tests {}

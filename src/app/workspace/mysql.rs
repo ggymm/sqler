@@ -290,8 +290,10 @@ impl Render for MySQLWorkspace {
                     ),
             )
             .child(
-                h_flex().flex_1().min_h_0().child(sidebar).child(
-                    v_flex()
+                div().flex().flex_row().flex_1().min_h_0().child(sidebar).child(
+                    div()
+                        .flex()
+                        .flex_col()
                         .flex_1()
                         .min_w_0()
                         .min_h_0()

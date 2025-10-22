@@ -48,9 +48,9 @@ impl CacheApp {
             fs::create_dir_all(&cache_dir)?;
         }
 
-        let path = cache_dir.join(CACHE_FILE);
-        let sources = if path.exists() {
-            let encrypted = fs::read(&path)?;
+        let sources_path = cache_dir.join(CACHE_FILE);
+        let sources = if sources_path.exists() {
+            let encrypted = fs::read(&sources_path)?;
             let decrypted = Self::decrypt(&encrypted)?;
             let data: Vec<DataSource> = serde_json::from_slice(&decrypted)?;
             data
@@ -58,10 +58,7 @@ impl CacheApp {
             Vec::new()
         };
 
-        Ok(Self {
-            sources_path: path,
-            sources,
-        })
+        Ok(Self { sources, sources_path })
     }
 
     pub fn sources(&self) -> &[DataSource] {

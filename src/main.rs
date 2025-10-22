@@ -45,9 +45,7 @@ impl AssetSource for FsAssets {
 }
 
 fn init_runtime(_cx: &mut App) {
-    if let Err(e) = CacheApp::init() {
-        eprintln!("Failed to initialize cache: {}", e);
-    }
+
 }
 
 fn main() {
