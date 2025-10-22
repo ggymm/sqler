@@ -2,8 +2,7 @@ use gpui::prelude::*;
 use gpui::*;
 
 use gpui_component::{
-    button::{Button, ButtonVariants as _},
-    h_flex, v_flex, ActiveTheme as _, InteractiveElementExt as _, Sizable, StyledExt,
+    button::ButtonVariants as _, h_flex, v_flex, ActiveTheme as _, InteractiveElementExt as _, Sizable, StyledExt,
 };
 
 use crate::app::{SqlerApp, TabView};
@@ -84,111 +83,75 @@ pub fn render(
 }
 
 fn render_home(
-    saved_sources: &[DataSource],
-    window: &mut Window,
-    cx: &mut Context<SqlerApp>,
-) -> AnyElement {
-    let mut list = v_flex()
-        .px(px(20.))
-        .py(px(16.))
-        .gap(px(12.))
-        .flex_1()
-        .id("home-source-list")
-        .overflow_scroll();
-    list.style().min_size.height = Some(Length::Definite(px(0.).into()));
-
-    let list = list.child(
-        h_flex().flex_wrap().gap(px(12.)).children(
-            saved_sources
-                .iter()
-                .cloned()
-                .map(|meta| render_data_source_card(meta, window, cx)),
-        ),
-    );
-
-    let theme = cx.theme();
-
-    let mut layout = v_flex().size_full().flex_1();
-    {
-        let style = layout.style();
-        style.min_size.height = Some(Length::Definite(px(0.).into()));
-        style.min_size.width = Some(Length::Definite(px(0.).into()));
-    }
-
-    layout
-        .child(
-            h_flex()
-                .justify_between()
-                .items_center()
-                .px(px(20.))
-                .py(px(16.))
-                .border_1()
-                .border_color(theme.border)
-                .child(
-                    v_flex()
-                        .gap(px(4.))
-                        .child(div().text_lg().font_semibold().child("数据源总览"))
-                        .child(
-                            div()
-                                .text_sm()
-                                .text_color(theme.muted_foreground)
-                                .child("双击数据源以打开新标签页，统一管理和查询。"),
-                        ),
-                ),
-        )
-        .child(list)
-        .into_any_element()
-}
-
-fn render_data_source_card(
-    meta: DataSource,
+    sources: &[DataSource],
     _window: &mut Window,
     cx: &mut Context<SqlerApp>,
 ) -> AnyElement {
-    let source_id = meta.id.clone();
-    let icon_path = meta.kind.image();
+    let theme = cx.theme().clone();
 
-    v_flex()
-        .w(px(220.))
-        .gap(px(8.))
-        .p(px(14.))
-        .rounded(px(8.))
-        .bg(cx.theme().secondary)
-        .border_1()
-        .border_color(cx.theme().border)
-        .cursor_pointer()
-        .id(SharedString::from(format!("source-card-{}", source_id)))
-        .hover(|this| this.bg(cx.theme().secondary_hover))
-        .on_double_click(cx.listener(move |this, _, window, cx| {
-            this.open_data_source_tab(&source_id, window, cx);
-        }))
+    div()
+        .flex()
+        .flex_col()
+        .size_full()
+        .min_w_0()
+        .min_h_0()
         .child(
-            h_flex()
-                .items_center()
-                .gap(px(8.))
+            div()
+                .id("data-source-list")
+                .flex()
+                .flex_col()
+                .p_5()
+                .gap_4()
+                .flex_1()
+                .min_w_0()
+                .min_h_0()
+                .scrollable(Axis::Vertical)
                 .child(
-                    div()
-                        .flex_shrink_0()
-                        .w(px(32.))
-                        .h(px(32.))
-                        .child(img(icon_path).size_full()),
-                )
-                .child(
-                    div()
-                        .flex_1()
-                        .text_base()
-                        .font_semibold()
-                        .text_color(cx.theme().foreground)
-                        .child(meta.name.clone()),
+                    h_flex()
+                        .flex_wrap()
+                        .gap(px(12.))
+                        .children(sources.iter().cloned().map(|meta| {
+                            let id = meta.id.clone();
+                            let name = meta.name.clone();
+
+                            v_flex()
+                                .w(px(220.))
+                                .gap(px(8.))
+                                .p(px(14.))
+                                .rounded(px(8.))
+                                .bg(theme.secondary)
+                                .border_1()
+                                .border_color(theme.border)
+                                .cursor_pointer()
+                                .id(SharedString::from(format!("source-card-{}", id)))
+                                .hover(|this| this.bg(theme.secondary_hover))
+                                .on_double_click(cx.listener(move |this, _, window, cx| {
+                                    this.open_data_source_tab(&meta.id, window, cx);
+                                }))
+                                .child(
+                                    h_flex()
+                                        .items_center()
+                                        .gap(px(8.))
+                                        .child(
+                                            div()
+                                                .flex_shrink_0()
+                                                .w(px(32.))
+                                                .h(px(32.))
+                                                .child(img(meta.kind.image()).size_full()),
+                                        )
+                                        .child(
+                                            div()
+                                                .flex_1()
+                                                .text_base()
+                                                .font_semibold()
+                                                .text_color(theme.foreground)
+                                                .child(name),
+                                        ),
+                                )
+                                .child(div().text_sm().text_color(cx.theme().muted_foreground).child(meta.name))
+                                .child(div().text_sm().text_color(cx.theme().muted_foreground).child(meta.desc))
+                        })),
                 ),
         )
-        .child(
-            Button::new(SharedString::from(format!("kind-chip-{}", meta.id)))
-                .ghost()
-                .xsmall()
-                .tab_stop(false)
-                .label(meta.kind.label()),
-        )
-        .child(div().text_sm().text_color(cx.theme().muted_foreground).child(meta.desc))
         .into_any_element()
 }

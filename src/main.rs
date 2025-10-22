@@ -4,7 +4,6 @@ use std::path::PathBuf;
 
 use gpui::*;
 use gpui_component::init;
-use gpui_component::scroll::ScrollbarShow;
 use gpui_component::Root;
 use gpui_component::Theme;
 
@@ -61,7 +60,6 @@ fn main() {
 
         let theme = Theme::global_mut(cx);
         theme.font_size = px(14.);
-        theme.scrollbar_show = ScrollbarShow::Always;
 
         let window_size = size(px(1280.), px(800.));
         let window_bounds = Bounds::centered(None, window_size, cx);

@@ -95,11 +95,10 @@ pub struct SqlerApp {
     pub tabs: Vec<TabState>,
     pub next_tab: u64,
     pub active_tab: TabId,
-
     pub cache: CacheApp,
+    pub create_window: Option<WindowHandle<Root>>,
 
     pub saved_sources: Vec<DataSource>,
-    pub new_ds_window: Option<WindowHandle<Root>>,
 }
 
 impl SqlerApp {
@@ -122,9 +121,10 @@ impl SqlerApp {
             tabs: vec![TabState::home(home_id)],
             active_tab: home_id,
             next_tab,
+
             cache,
             saved_sources,
-            new_ds_window: None,
+            create_window: None,
         }
     }
 
@@ -133,7 +133,7 @@ impl SqlerApp {
         window: &mut Window,
         cx: &mut Context<SqlerApp>,
     ) {
-        if let Some(handle) = &self.new_ds_window {
+        if let Some(handle) = &self.create_window {
             let _ = handle.update(cx, |_, modal_window, _| {
                 modal_window.activate_window();
             });
@@ -164,7 +164,7 @@ impl SqlerApp {
                 let _ = handle.update(cx, |_, modal_window, _| {
                     modal_window.set_window_title("新建数据源");
                 });
-                self.new_ds_window = Some(handle);
+                self.create_window = Some(handle);
             }
             Err(err) => {
                 eprintln!("failed to open create data source window: {err:?}");
@@ -173,7 +173,7 @@ impl SqlerApp {
     }
 
     pub fn clear_new_data_source_window(&mut self) {
-        self.new_ds_window = None;
+        self.create_window = None;
     }
 
     pub fn toggle_theme(
@@ -375,6 +375,120 @@ impl Render for SqlerApp {
 
 fn seed_sources() -> Vec<DataSource> {
     vec![
+        DataSource {
+            id: Uuid::new_v4().to_string(),
+            name: "生产库".to_string(),
+            desc: "线上订单主库".to_string(),
+            kind: DataSourceKind::PostgreSQL,
+            options: DataSourceOptions::PostgreSQL(PostgreSQLOptions {
+                host: "10.10.12.5".into(),
+                port: 5432,
+                database: "order_prod".into(),
+                username: "svc_order".into(),
+                password: None,
+                schema: None,
+                ssl_mode: None,
+            }),
+            extras: Some(HashMap::from([(
+                "tables".to_string(),
+                json!(["orders", "order_items", "users", "regions"]),
+            )])),
+        },
+        DataSource {
+            id: Uuid::new_v4().to_string(),
+            name: "生产库".to_string(),
+            desc: "线上订单主库".to_string(),
+            kind: DataSourceKind::PostgreSQL,
+            options: DataSourceOptions::PostgreSQL(PostgreSQLOptions {
+                host: "10.10.12.5".into(),
+                port: 5432,
+                database: "order_prod".into(),
+                username: "svc_order".into(),
+                password: None,
+                schema: None,
+                ssl_mode: None,
+            }),
+            extras: Some(HashMap::from([(
+                "tables".to_string(),
+                json!(["orders", "order_items", "users", "regions"]),
+            )])),
+        },
+        DataSource {
+            id: Uuid::new_v4().to_string(),
+            name: "生产库".to_string(),
+            desc: "线上订单主库".to_string(),
+            kind: DataSourceKind::PostgreSQL,
+            options: DataSourceOptions::PostgreSQL(PostgreSQLOptions {
+                host: "10.10.12.5".into(),
+                port: 5432,
+                database: "order_prod".into(),
+                username: "svc_order".into(),
+                password: None,
+                schema: None,
+                ssl_mode: None,
+            }),
+            extras: Some(HashMap::from([(
+                "tables".to_string(),
+                json!(["orders", "order_items", "users", "regions"]),
+            )])),
+        },
+        DataSource {
+            id: Uuid::new_v4().to_string(),
+            name: "生产库".to_string(),
+            desc: "线上订单主库".to_string(),
+            kind: DataSourceKind::PostgreSQL,
+            options: DataSourceOptions::PostgreSQL(PostgreSQLOptions {
+                host: "10.10.12.5".into(),
+                port: 5432,
+                database: "order_prod".into(),
+                username: "svc_order".into(),
+                password: None,
+                schema: None,
+                ssl_mode: None,
+            }),
+            extras: Some(HashMap::from([(
+                "tables".to_string(),
+                json!(["orders", "order_items", "users", "regions"]),
+            )])),
+        },
+        DataSource {
+            id: Uuid::new_v4().to_string(),
+            name: "生产库".to_string(),
+            desc: "线上订单主库".to_string(),
+            kind: DataSourceKind::PostgreSQL,
+            options: DataSourceOptions::PostgreSQL(PostgreSQLOptions {
+                host: "10.10.12.5".into(),
+                port: 5432,
+                database: "order_prod".into(),
+                username: "svc_order".into(),
+                password: None,
+                schema: None,
+                ssl_mode: None,
+            }),
+            extras: Some(HashMap::from([(
+                "tables".to_string(),
+                json!(["orders", "order_items", "users", "regions"]),
+            )])),
+        },
+        DataSource {
+            id: Uuid::new_v4().to_string(),
+            name: "生产库".to_string(),
+            desc: "线上订单主库".to_string(),
+            kind: DataSourceKind::PostgreSQL,
+            options: DataSourceOptions::PostgreSQL(PostgreSQLOptions {
+                host: "10.10.12.5".into(),
+                port: 5432,
+                database: "order_prod".into(),
+                username: "svc_order".into(),
+                password: None,
+                schema: None,
+                ssl_mode: None,
+            }),
+            extras: Some(HashMap::from([(
+                "tables".to_string(),
+                json!(["orders", "order_items", "users", "regions"]),
+            )])),
+        },
         DataSource {
             id: Uuid::new_v4().to_string(),
             name: "生产库".to_string(),
