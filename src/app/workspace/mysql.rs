@@ -9,11 +9,12 @@ use crate::option::MySQLOptions;
 use gpui_component::button::Button;
 use gpui_component::button::ButtonVariants;
 use gpui_component::resizable::{h_resizable, resizable_panel, ResizableState};
-use gpui_component::{ActiveTheme, InteractiveElementExt};
+use gpui_component::tab::{Tab, TabBar, TabVariant};
 use gpui_component::Icon;
 use gpui_component::Sizable;
 use gpui_component::Size;
 use gpui_component::StyledExt;
+use gpui_component::{ActiveTheme, InteractiveElementExt, Selectable};
 
 pub struct MySQLWorkspace {
     sidebar_resize: Entity<ResizableState>,
@@ -117,58 +118,6 @@ impl MySQLWorkspace {
             .unwrap_or(TabContent::Overview)
     }
 
-    fn render_tab_bar(
-        &mut self,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
-        let mut bar = div().flex().flex_row().gap(px(10.));
-
-        for tab in &self.tabs {
-            let tab_id = tab.id.clone();
-            let mut button = Button::new(SharedString::from(format!("mysql-tab-btn-{}", tab_id)))
-                .ghost()
-                .small()
-                .tab_stop(false)
-                .icon(Icon::default().path("icons/tab.svg").with_size(Size::Small))
-                .label(tab.title.clone())
-                .on_click(cx.listener(move |this, _, _, cx| {
-                    this.set_active_tab(tab_id.clone(), cx);
-                }));
-
-            if self.active_tab == tab.id {
-                button = button.primary();
-            }
-
-            bar = bar.child(button);
-
-            if tab.closable {
-                let close_id = tab.id.clone();
-                bar = bar.child(
-                    Button::new(SharedString::from(format!("mysql-tab-close-{}", close_id)))
-                        .ghost()
-                        .xsmall()
-                        .tab_stop(false)
-                        .icon(Icon::default().path("icons/close.svg").with_size(Size::XSmall))
-                        .on_click(cx.listener(move |this, _, _, cx| {
-                            this.close_tab(&close_id, cx);
-                        }))
-                        .into_any_element(),
-                );
-            }
-        }
-
-        bar.child(
-            Button::new(SharedString::from(format!("mysql-tab-add-{}", self.meta.id)))
-                .ghost()
-                .tab_stop(false)
-                .icon(Icon::default().path("icons/add.svg").with_size(Size::Small))
-                .on_click(cx.listener(|this, _, _, cx| {
-                    this.add_placeholder_tab(cx);
-                })),
-        )
-        .into_any_element()
-    }
-
     fn render_overview(
         &self,
         theme: &gpui_component::Theme,
@@ -241,7 +190,7 @@ impl Render for MySQLWorkspace {
             self.selected_table = tables.first().cloned();
         }
 
-        let tab_bar = self.render_tab_bar(cx);
+        let selected_index = self.tabs.iter().position(|tab| tab.id == self.active_tab).unwrap_or(0);
 
         let content_body = match self.active_content() {
             TabContent::Overview => self.render_overview(&theme, &options),
@@ -383,7 +332,56 @@ impl Render for MySQLWorkspace {
                                     .gap(px(12.))
                                     .px(px(16.))
                                     .py(px(12.))
-                                    .child(tab_bar)
+                                    .child(
+                                        TabBar::new(SharedString::from(format!("mysql-tabbar-{}", self.meta.id)))
+                                            .pill()
+                                            .children(
+                                                self.tabs
+                                                    .iter()
+                                                    .enumerate()
+                                                    .map(|(index, tab)| {
+                                                        let mut node = Tab::new(tab.title.clone())
+                                                            .id(SharedString::from(format!(
+                                                                "mysql-tab-btn-{}-{}",
+                                                                self.meta.id, tab.id
+                                                            )))
+                                                            .with_size(Size::Small)
+                                                            .selected(index == selected_index)
+                                                            .on_click(cx.listener({
+                                                                let tab_id = tab.id.clone();
+                                                                move |view: &mut Self, _, _, cx| {
+                                                                    view.set_active_tab(tab_id.clone(), cx);
+                                                                }
+                                                            }));
+
+                                                        if tab.closable {
+                                                            let close_id = tab.id.clone();
+                                                            let close = Button::new(SharedString::from(format!(
+                                                                "mysql-tab-close-{}",
+                                                                close_id
+                                                            )))
+                                                            .ghost()
+                                                            .xsmall()
+                                                            .tab_stop(false)
+                                                            .icon(
+                                                                Icon::default()
+                                                                    .path("icons/close.svg")
+                                                                    .with_size(Size::XSmall),
+                                                            )
+                                                            .on_click(cx.listener(move |view: &mut Self, _, _, cx| {
+                                                                view.close_tab(&close_id, cx);
+                                                            }))
+                                                            .into_any_element();
+                                                            node = node.suffix(close);
+                                                        }
+
+                                                        node
+                                                    })
+                                                    .collect::<Vec<_>>(),
+                                            )
+                                            .selected_index(selected_index)
+                                            .into_any_element(),
+                                    )
                                     .child(content)
                                     .into_any_element(),
                             ),

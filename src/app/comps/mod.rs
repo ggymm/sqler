@@ -1,6 +1,11 @@
+use gpui::ElementId;
 use gpui_component::Icon;
 use gpui_component::Sizable;
 use gpui_component::Size;
+
+pub fn comp_id() -> ElementId {
+
+}
 
 pub fn icon_search() -> Icon {
     Icon::default().path("icons/search.svg")
