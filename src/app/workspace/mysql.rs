@@ -1,20 +1,24 @@
 use gpui::prelude::*;
+use gpui::private::inventory::collect;
 use gpui::*;
-
-use crate::app::comps::{icon_export, icon_import, icon_search};
-use crate::option::DataSource;
-use crate::option::DataSourceKind;
-use crate::option::DataSourceOptions;
-use crate::option::MySQLOptions;
 use gpui_component::button::Button;
 use gpui_component::button::ButtonVariants;
 use gpui_component::resizable::{h_resizable, resizable_panel, ResizableState};
-use gpui_component::tab::{Tab, TabBar, TabVariant};
+use gpui_component::tab::{Tab, TabBar};
 use gpui_component::Icon;
 use gpui_component::Sizable;
 use gpui_component::Size;
 use gpui_component::StyledExt;
 use gpui_component::{ActiveTheme, InteractiveElementExt, Selectable};
+
+use crate::app::comps::comp_id;
+use crate::app::comps::icon_export;
+use crate::app::comps::icon_import;
+use crate::app::comps::icon_search;
+use crate::option::DataSource;
+use crate::option::DataSourceKind;
+use crate::option::DataSourceOptions;
+use crate::option::MySQLOptions;
 
 pub struct MySQLWorkspace {
     sidebar_resize: Entity<ResizableState>,
@@ -180,6 +184,7 @@ impl Render for MySQLWorkspace {
         };
 
         let theme = cx.theme().clone();
+        let id = &self.meta.id;
         let tables = self.meta.tables();
         let has_selection = self
             .selected_table
@@ -225,6 +230,7 @@ impl Render for MySQLWorkspace {
         }
 
         div()
+            .id(comp_id(["mysql", id]))
             .flex()
             .flex_col()
             .flex_1()
@@ -233,7 +239,7 @@ impl Render for MySQLWorkspace {
             .min_h_0()
             .child(
                 div()
-                    .id("mysql-head")
+                    .id(comp_id(["mysql-head", id]))
                     .flex()
                     .flex_row()
                     .px_4()
@@ -242,19 +248,19 @@ impl Render for MySQLWorkspace {
                     .border_b_1()
                     .border_color(theme.border)
                     .child(
-                        Button::new("query")
+                        Button::new(comp_id(["mysql-head-query", id]))
                             .outline()
                             .icon(icon_search().with_size(Size::Small))
                             .label("新建查询"),
                     )
                     .child(
-                        Button::new("import")
+                        Button::new(comp_id(["mysql-head-import", id]))
                             .outline()
                             .icon(icon_import().with_size(Size::Small))
                             .label("数据导入"),
                     )
                     .child(
-                        Button::new("export")
+                        Button::new(comp_id(["mysql-head-export", id]))
                             .outline()
                             .icon(icon_export().with_size(Size::Small))
                             .label("数据导出"),
@@ -269,7 +275,7 @@ impl Render for MySQLWorkspace {
                     .min_w_0()
                     .min_h_0()
                     .child(
-                        h_resizable("mysql-main", self.sidebar_resize.clone())
+                        h_resizable(comp_id(["mysql-content", id]), self.sidebar_resize.clone())
                             .child(
                                 resizable_panel()
                                     .size(px(240.0))
@@ -277,7 +283,7 @@ impl Render for MySQLWorkspace {
                                     .child(
                                         tables.iter().cloned().fold(
                                             div()
-                                                .id("mysql-tables")
+                                                .id(comp_id(["mysql-sidebar", id]))
                                                 .flex()
                                                 .flex_col()
                                                 .flex_1()
@@ -289,15 +295,10 @@ impl Render for MySQLWorkspace {
                                             |acc, table| {
                                                 let selected = self.selected_table.as_ref() == Some(&table);
                                                 let click_table = table.clone();
-                                                let entry_id = SharedString::from(format!(
-                                                    "mysql-table-entry-{}-{}",
-                                                    self.meta.id, table
-                                                ));
-
                                                 acc.child(
                                                     div()
                                                         .flex()
-                                                        .id(entry_id.clone())
+                                                        .id(comp_id(["mysql-table-entry", &self.meta.id, &table]))
                                                         .px(px(12.))
                                                         .py(px(8.))
                                                         .rounded(px(6.))
@@ -333,49 +334,46 @@ impl Render for MySQLWorkspace {
                                     .px(px(16.))
                                     .py(px(12.))
                                     .child(
-                                        TabBar::new(SharedString::from(format!("mysql-tabbar-{}", self.meta.id)))
+                                        TabBar::new(comp_id(["mysql-content-tabs", id]))
                                             .pill()
                                             .children(
                                                 self.tabs
                                                     .iter()
                                                     .enumerate()
                                                     .map(|(index, tab)| {
-                                                        let mut node = Tab::new(tab.title.clone())
-                                                            .id(SharedString::from(format!(
-                                                                "mysql-tab-btn-{}-{}",
-                                                                self.meta.id, tab.id
-                                                            )))
+                                                        let tab_id = tab.id.clone();
+                                                        Tab::new(tab.title.clone())
+                                                            .id(comp_id(["mysql-content-tab-item", id, &tab_id]))
                                                             .with_size(Size::Small)
                                                             .selected(index == selected_index)
+                                                            .when(tab.closable, |this| {
+                                                                this.suffix(
+                                                                    Button::new(comp_id([
+                                                                        "mysql-content-tab-close",
+                                                                        &tab_id,
+                                                                    ]))
+                                                                    .ghost()
+                                                                    .xsmall()
+                                                                    .tab_stop(false)
+                                                                    .icon(
+                                                                        Icon::default()
+                                                                            .path("icons/close.svg")
+                                                                            .with_size(Size::XSmall),
+                                                                    )
+                                                                    .on_click(cx.listener(
+                                                                        move |view: &mut Self, _, _, cx| {
+                                                                            view.close_tab(&tab_id, cx);
+                                                                        },
+                                                                    ))
+                                                                    .into_any_element(),
+                                                                )
+                                                            })
                                                             .on_click(cx.listener({
                                                                 let tab_id = tab.id.clone();
                                                                 move |view: &mut Self, _, _, cx| {
                                                                     view.set_active_tab(tab_id.clone(), cx);
                                                                 }
-                                                            }));
-
-                                                        if tab.closable {
-                                                            let close_id = tab.id.clone();
-                                                            let close = Button::new(SharedString::from(format!(
-                                                                "mysql-tab-close-{}",
-                                                                close_id
-                                                            )))
-                                                            .ghost()
-                                                            .xsmall()
-                                                            .tab_stop(false)
-                                                            .icon(
-                                                                Icon::default()
-                                                                    .path("icons/close.svg")
-                                                                    .with_size(Size::XSmall),
-                                                            )
-                                                            .on_click(cx.listener(move |view: &mut Self, _, _, cx| {
-                                                                view.close_tab(&close_id, cx);
                                                             }))
-                                                            .into_any_element();
-                                                            node = node.suffix(close);
-                                                        }
-
-                                                        node
                                                     })
                                                     .collect::<Vec<_>>(),
                                             )

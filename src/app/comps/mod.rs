@@ -1,10 +1,20 @@
-use gpui::ElementId;
+use gpui::*;
 use gpui_component::Icon;
-use gpui_component::Sizable;
-use gpui_component::Size;
 
-pub fn comp_id() -> ElementId {
+pub fn comp_id<I>(parts: I) -> ElementId
+where
+    I: IntoIterator,
+    I::Item: ToString,
+{
+    let mut name = String::new();
+    for part in parts {
+        if !name.is_empty() {
+            name.push('-');
+        }
+        name.push_str(&part.to_string());
+    }
 
+    ElementId::Name(SharedString::from(name))
 }
 
 pub fn icon_search() -> Icon {
