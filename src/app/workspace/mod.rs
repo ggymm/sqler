@@ -36,7 +36,7 @@ impl WorkspaceState {
         match meta.kind {
             DataSourceKind::MySQL => {
                 let id = meta.id.clone();
-                let view = cx.new(|_| MySQLWorkspace::new(meta));
+                let view = cx.new(|cx| MySQLWorkspace::new(meta, cx));
                 WorkspaceState::MySQL { id, view }
             }
             other => {

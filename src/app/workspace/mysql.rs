@@ -8,14 +8,16 @@ use crate::option::DataSourceOptions;
 use crate::option::MySQLOptions;
 use gpui_component::button::Button;
 use gpui_component::button::ButtonVariants;
-use gpui_component::context_menu::ContextMenuExt;
-use gpui_component::ActiveTheme;
+use gpui_component::resizable::{h_resizable, resizable_panel, ResizableState};
+use gpui_component::{ActiveTheme, InteractiveElementExt};
 use gpui_component::Icon;
 use gpui_component::Sizable;
 use gpui_component::Size;
 use gpui_component::StyledExt;
 
 pub struct MySQLWorkspace {
+    sidebar_resize: Entity<ResizableState>,
+
     meta: DataSource,
     selected_table: Option<SharedString>,
     tabs: Vec<TabItem>,
@@ -24,11 +26,15 @@ pub struct MySQLWorkspace {
 }
 
 impl MySQLWorkspace {
-    pub fn new(meta: DataSource) -> Self {
+    pub fn new(
+        meta: DataSource,
+        cx: &mut Context<Self>,
+    ) -> Self {
         let selected_table = meta.tables().into_iter().next();
         let overview = TabItem::overview();
 
         Self {
+            sidebar_resize: ResizableState::new(cx),
             meta,
             selected_table,
             active_tab: overview.id.clone(),
@@ -109,80 +115,6 @@ impl MySQLWorkspace {
             .find(|tab| tab.id == self.active_tab)
             .map(|tab| tab.content.clone())
             .unwrap_or(TabContent::Overview)
-    }
-
-    fn render_sidebar(
-        &mut self,
-        cx: &mut Context<Self>,
-        theme: &gpui_component::Theme,
-        tables: Vec<SharedString>,
-    ) -> AnyElement {
-        div()
-            .flex()
-            .flex_col()
-            .size_full()
-            .w_64()
-            .min_w_0()
-            .min_h_0()
-            .border_r_1()
-            .border_color(theme.border)
-            .child(
-                div()
-                    .flex()
-                    .flex_row()
-                    .items_center()
-                    .justify_between()
-                    .px(px(12.))
-                    .py(px(10.))
-                    .child(
-                        div()
-                            .text_sm()
-                            .font_semibold()
-                            .text_color(theme.muted_foreground)
-                            .child("数据表"),
-                    )
-                    .child(Button::new("table-reload").label("刷新")),
-            )
-            .child(
-                tables.iter().cloned().fold(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .min_w_0()
-                        .min_h_0()
-                        .px_2()
-                        .gap_2()
-                        .scrollable(Axis::Vertical),
-                    |acc, table| {
-                        let selected = self.selected_table.as_ref() == Some(&table);
-                        let click_table = table.clone();
-                        let entry_id = SharedString::from(format!("mysql-table-entry-{}-{}", self.meta.id, table));
-
-                        acc.child(
-                            div()
-                                .flex()
-                                .id(entry_id.clone())
-                                .px(px(12.))
-                                .py(px(8.))
-                                .rounded(px(6.))
-                                .text_sm()
-                                .text_color(theme.muted_foreground)
-                                .cursor_pointer()
-                                .when(selected, |this| {
-                                    this.bg(theme.secondary_hover)
-                                        .text_color(theme.foreground)
-                                        .font_semibold()
-                                })
-                                .when(!selected, |this| this.hover(|this| this.bg(theme.secondary_hover)))
-                                .on_click(cx.listener(move |this, _, _, cx| {
-                                    this.select_table(click_table.clone(), cx);
-                                }))
-                                .child(table.clone()),
-                        )
-                    },
-                ),
-            )
-            .into_any_element()
     }
 
     fn render_tab_bar(
@@ -309,7 +241,6 @@ impl Render for MySQLWorkspace {
             self.selected_table = tables.first().cloned();
         }
 
-        let sidebar = self.render_sidebar(cx, &theme, tables);
         let tab_bar = self.render_tab_bar(cx);
 
         let content_body = match self.active_content() {
@@ -353,6 +284,7 @@ impl Render for MySQLWorkspace {
             .min_h_0()
             .child(
                 div()
+                    .id("mysql-head")
                     .flex()
                     .flex_row()
                     .px_4()
@@ -382,24 +314,81 @@ impl Render for MySQLWorkspace {
             .child(
                 div()
                     .flex()
-                    .flex_row()
+                    .flex_col()
                     .flex_1()
+                    .size_full()
                     .min_w_0()
                     .min_h_0()
-                    .child(sidebar)
                     .child(
-                        div()
-                            .flex()
-                            .flex_col()
-                            .flex_1()
-                            .min_w_0()
-                            .min_h_0()
-                            .gap(px(12.))
-                            .px(px(16.))
-                            .py(px(12.))
-                            .child(tab_bar)
-                            .child(content),
-                    ),
+                        h_resizable("mysql-main", self.sidebar_resize.clone())
+                            .child(
+                                resizable_panel()
+                                    .size(px(240.0))
+                                    .size_range(px(120.)..px(360.))
+                                    .child(
+                                        tables.iter().cloned().fold(
+                                            div()
+                                                .id("mysql-tables")
+                                                .flex()
+                                                .flex_col()
+                                                .flex_1()
+                                                .p_2()
+                                                .gap_2()
+                                                .min_w_0()
+                                                .min_h_0()
+                                                .scrollable(Axis::Vertical),
+                                            |acc, table| {
+                                                let selected = self.selected_table.as_ref() == Some(&table);
+                                                let click_table = table.clone();
+                                                let entry_id = SharedString::from(format!(
+                                                    "mysql-table-entry-{}-{}",
+                                                    self.meta.id, table
+                                                ));
+
+                                                acc.child(
+                                                    div()
+                                                        .flex()
+                                                        .id(entry_id.clone())
+                                                        .px(px(12.))
+                                                        .py(px(8.))
+                                                        .rounded(px(6.))
+                                                        .text_sm()
+                                                        .text_color(theme.muted_foreground)
+                                                        .cursor_pointer()
+                                                        .when(selected, |this| {
+                                                            this.bg(theme.secondary_hover)
+                                                                .text_color(theme.foreground)
+                                                                .font_semibold()
+                                                        })
+                                                        .when(!selected, |this| {
+                                                            this.hover(|this| this.bg(theme.secondary_hover))
+                                                        })
+                                                        .on_double_click(cx.listener(move |this, _, _, cx| {
+                                                            this.select_table(click_table.clone(), cx);
+                                                        }))
+                                                        .child(table.clone()),
+                                                )
+                                            },
+                                        ),
+                                    )
+                                    .child(div()),
+                            )
+                            .child(
+                                div()
+                                    .flex()
+                                    .flex_col()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .min_h_0()
+                                    .gap(px(12.))
+                                    .px(px(16.))
+                                    .py(px(12.))
+                                    .child(tab_bar)
+                                    .child(content)
+                                    .into_any_element(),
+                            ),
+                    )
+                    .child(div()),
             )
     }
 }
