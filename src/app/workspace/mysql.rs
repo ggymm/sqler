@@ -9,18 +9,17 @@ use gpui_component::scroll::Scrollable;
 use gpui_component::tab::Tab;
 use gpui_component::tab::TabBar;
 use gpui_component::ActiveTheme;
-use gpui_component::Icon;
 use gpui_component::InteractiveElementExt;
 use gpui_component::Sizable;
 use gpui_component::Size;
 use gpui_component::StyledExt;
 
 use crate::app::comps::comp_id;
+use crate::app::comps::icon_close;
 use crate::app::comps::icon_export;
 use crate::app::comps::icon_import;
 use crate::app::comps::icon_search;
 use crate::option::DataSource;
-use crate::option::DataSourceKind;
 use crate::option::DataSourceOptions;
 
 pub struct MySQLWorkspace {
@@ -169,24 +168,13 @@ impl Render for MySQLWorkspace {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        debug_assert!(matches!(self.meta.kind, DataSourceKind::MySQL));
-
         self.ensure_default_tab();
 
-        let theme = cx.theme().clone();
         let id = &self.meta.id;
         let tables = self.meta.tables();
-        let has_selection = self
-            .selected_table
-            .as_ref()
-            .map(|current| tables.iter().any(|name| name == current))
-            .unwrap_or(false);
-        if !has_selection {
-            self.selected_table = tables.first().cloned();
-        }
+        let active_tab_index = self.tabs.iter().position(|tab| tab.id == self.active_tab).unwrap_or(0);
 
-        let selected_index = self.tabs.iter().position(|tab| tab.id == self.active_tab).unwrap_or(0);
-
+        let theme = cx.theme().clone();
         let menu = tables.iter().cloned().fold(
             div()
                 .id(comp_id(["mysql-menu", id]))
@@ -242,7 +230,7 @@ impl Render for MySQLWorkspace {
                                         .ghost()
                                         .xsmall()
                                         .tab_stop(false)
-                                        .icon(Icon::default().path("icons/close.svg").with_size(Size::XSmall))
+                                        .icon(icon_close().with_size(Size::XSmall))
                                         .on_click(cx.listener(move |view: &mut Self, _, _, cx| {
                                             view.close_tab(&tab_id, cx);
                                         }))
@@ -258,7 +246,7 @@ impl Render for MySQLWorkspace {
                     })
                     .collect::<Vec<_>>(),
             )
-            .selected_index(selected_index);
+            .selected_index(active_tab_index);
 
         div()
             .id(comp_id(["mysql", id]))

@@ -17,6 +17,10 @@ where
     ElementId::Name(SharedString::from(name))
 }
 
+pub fn icon_close() -> Icon {
+    Icon::default().path("icons/close.svg")
+}
+
 pub fn icon_search() -> Icon {
     Icon::default().path("icons/search.svg")
 }
