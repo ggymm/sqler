@@ -1,19 +1,6 @@
-use std::collections::HashMap;
-
 use gpui::prelude::*;
 use gpui::*;
-use serde_json::json;
 use uuid::Uuid;
-
-use gpui_component::button::Button;
-use gpui_component::button::ButtonVariants;
-use gpui_component::theme::Theme;
-use gpui_component::theme::ThemeMode;
-use gpui_component::ActiveTheme;
-use gpui_component::Icon;
-use gpui_component::Root;
-use gpui_component::Sizable;
-use gpui_component::Size;
 
 use crate::app::create::CreateState;
 use crate::app::create::CreateWindow;
@@ -23,8 +10,15 @@ use crate::option::DataSource;
 use crate::option::DataSourceKind;
 use crate::option::DataSourceOptions;
 use crate::option::MySQLOptions;
-use crate::option::PostgreSQLOptions;
-use crate::option::SQLiteOptions;
+use gpui_component::button::Button;
+use gpui_component::button::ButtonVariants;
+use gpui_component::theme::Theme;
+use gpui_component::theme::ThemeMode;
+use gpui_component::ActiveTheme;
+use gpui_component::Icon;
+use gpui_component::Root;
+use gpui_component::Sizable;
+use gpui_component::Size;
 
 mod comps;
 mod create;
@@ -373,179 +367,20 @@ impl Render for SqlerApp {
 }
 
 fn seed_sources() -> Vec<DataSource> {
-    vec![
-        DataSource {
-            id: Uuid::new_v4().to_string(),
-            name: "生产库".to_string(),
-            desc: "线上订单主库".to_string(),
-            kind: DataSourceKind::PostgreSQL,
-            options: DataSourceOptions::PostgreSQL(PostgreSQLOptions {
-                host: "10.10.12.5".into(),
-                port: 5432,
-                database: "order_prod".into(),
-                username: "svc_order".into(),
-                password: None,
-                schema: None,
-                ssl_mode: None,
-            }),
-            extras: Some(HashMap::from([(
-                "tables".to_string(),
-                json!(["orders", "order_items", "users", "regions"]),
-            )])),
-        },
-        DataSource {
-            id: Uuid::new_v4().to_string(),
-            name: "生产库".to_string(),
-            desc: "线上订单主库".to_string(),
-            kind: DataSourceKind::PostgreSQL,
-            options: DataSourceOptions::PostgreSQL(PostgreSQLOptions {
-                host: "10.10.12.5".into(),
-                port: 5432,
-                database: "order_prod".into(),
-                username: "svc_order".into(),
-                password: None,
-                schema: None,
-                ssl_mode: None,
-            }),
-            extras: Some(HashMap::from([(
-                "tables".to_string(),
-                json!(["orders", "order_items", "users", "regions"]),
-            )])),
-        },
-        DataSource {
-            id: Uuid::new_v4().to_string(),
-            name: "生产库".to_string(),
-            desc: "线上订单主库".to_string(),
-            kind: DataSourceKind::PostgreSQL,
-            options: DataSourceOptions::PostgreSQL(PostgreSQLOptions {
-                host: "10.10.12.5".into(),
-                port: 5432,
-                database: "order_prod".into(),
-                username: "svc_order".into(),
-                password: None,
-                schema: None,
-                ssl_mode: None,
-            }),
-            extras: Some(HashMap::from([(
-                "tables".to_string(),
-                json!(["orders", "order_items", "users", "regions"]),
-            )])),
-        },
-        DataSource {
-            id: Uuid::new_v4().to_string(),
-            name: "生产库".to_string(),
-            desc: "线上订单主库".to_string(),
-            kind: DataSourceKind::PostgreSQL,
-            options: DataSourceOptions::PostgreSQL(PostgreSQLOptions {
-                host: "10.10.12.5".into(),
-                port: 5432,
-                database: "order_prod".into(),
-                username: "svc_order".into(),
-                password: None,
-                schema: None,
-                ssl_mode: None,
-            }),
-            extras: Some(HashMap::from([(
-                "tables".to_string(),
-                json!(["orders", "order_items", "users", "regions"]),
-            )])),
-        },
-        DataSource {
-            id: Uuid::new_v4().to_string(),
-            name: "生产库".to_string(),
-            desc: "线上订单主库".to_string(),
-            kind: DataSourceKind::PostgreSQL,
-            options: DataSourceOptions::PostgreSQL(PostgreSQLOptions {
-                host: "10.10.12.5".into(),
-                port: 5432,
-                database: "order_prod".into(),
-                username: "svc_order".into(),
-                password: None,
-                schema: None,
-                ssl_mode: None,
-            }),
-            extras: Some(HashMap::from([(
-                "tables".to_string(),
-                json!(["orders", "order_items", "users", "regions"]),
-            )])),
-        },
-        DataSource {
-            id: Uuid::new_v4().to_string(),
-            name: "生产库".to_string(),
-            desc: "线上订单主库".to_string(),
-            kind: DataSourceKind::PostgreSQL,
-            options: DataSourceOptions::PostgreSQL(PostgreSQLOptions {
-                host: "10.10.12.5".into(),
-                port: 5432,
-                database: "order_prod".into(),
-                username: "svc_order".into(),
-                password: None,
-                schema: None,
-                ssl_mode: None,
-            }),
-            extras: Some(HashMap::from([(
-                "tables".to_string(),
-                json!(["orders", "order_items", "users", "regions"]),
-            )])),
-        },
-        DataSource {
-            id: Uuid::new_v4().to_string(),
-            name: "生产库".to_string(),
-            desc: "线上订单主库".to_string(),
-            kind: DataSourceKind::PostgreSQL,
-            options: DataSourceOptions::PostgreSQL(PostgreSQLOptions {
-                host: "10.10.12.5".into(),
-                port: 5432,
-                database: "order_prod".into(),
-                username: "svc_order".into(),
-                password: None,
-                schema: None,
-                ssl_mode: None,
-            }),
-            extras: Some(HashMap::from([(
-                "tables".to_string(),
-                json!(["orders", "order_items", "users", "regions"]),
-            )])),
-        },
-        DataSource {
-            id: Uuid::new_v4().to_string(),
-            name: "BI 分析库".to_string(),
-            desc: "数仓汇总使用".to_string(),
-            kind: DataSourceKind::MySQL,
-            options: DataSourceOptions::MySQL(MySQLOptions {
-                host: "10.60.1.10".into(),
-                port: 3306,
-                username: "reporter".into(),
-                password: None,
-                database: "dw_report".into(),
-                charset: Some("utf8mb4".into()),
-                use_tls: false,
-            }),
-            extras: Some(HashMap::from([(
-                "tables".to_string(),
-                json!([
-                    "daily_metrics",
-                    "marketing_channels",
-                    "product_sku",
-                    "table1",
-                    "table2",
-                    "table3",
-                    "table4",
-                    "table5"
-                ]),
-            )])),
-        },
-        DataSource {
-            id: Uuid::new_v4().to_string(),
-            name: "测试环境".to_string(),
-            desc: "本地调试用".to_string(),
-            kind: DataSourceKind::SQLite,
-            options: DataSourceOptions::SQLite(SQLiteOptions {
-                file_path: "sqler-dev.db".into(),
-                password: None,
-                read_only: false,
-            }),
-            extras: Some(HashMap::from([("tables".to_string(), json!(["sample_jobs"]))])),
-        },
-    ]
+    vec![DataSource {
+        id: Uuid::new_v4().to_string(),
+        name: "测试数据库".to_string(),
+        desc: "用于测试应用功能的测试数据库".to_string(),
+        kind: DataSourceKind::MySQL,
+        options: DataSourceOptions::MySQL(MySQLOptions {
+            host: "127.0.0.1".into(),
+            port: 3306,
+            username: "root".into(),
+            password: Some("root".into()),
+            database: "qnt_robot_prod".into(),
+            charset: Some("utf8mb4".into()),
+            use_tls: false,
+        }),
+        extras: None,
+    }]
 }

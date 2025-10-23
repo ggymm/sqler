@@ -225,7 +225,7 @@ impl Render for MySQLWorkspace {
 
         let id = &self.meta.id;
         let tables = self.meta.tables();
-        let active_tab_index = self.tabs.iter().position(|tab| tab.id == self.active_tab).unwrap_or(0);
+        let active_tab = self.tabs.iter().position(|tab| tab.id == self.active_tab).unwrap_or(0);
 
         let theme = cx.theme().clone();
         let menu = tables.iter().cloned().fold(
@@ -267,7 +267,7 @@ impl Render for MySQLWorkspace {
         );
 
         let tabs = TabBar::new(comp_id(["mysql-main-tabs", id]))
-            .with_size(Size::Large)
+            .with_size(Size::Small)
             .children(
                 self.tabs
                     .iter()
@@ -299,7 +299,7 @@ impl Render for MySQLWorkspace {
                     })
                     .collect::<Vec<_>>(),
             )
-            .selected_index(active_tab_index);
+            .selected_index(active_tab);
 
         div()
             .id(comp_id(["mysql", id]))
@@ -319,6 +319,12 @@ impl Render for MySQLWorkspace {
                     .gap_2()
                     .border_b_1()
                     .border_color(theme.border)
+                    .child(
+                        Button::new(comp_id(["mysql-head-query", id]))
+                            .outline()
+                            .icon(icon_search().with_size(Size::Small))
+                            .label("刷新表"),
+                    )
                     .child(
                         Button::new(comp_id(["mysql-head-query", id]))
                             .outline()
