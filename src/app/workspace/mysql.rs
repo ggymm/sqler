@@ -136,9 +136,60 @@ impl MySQLWorkspace {
     ) -> Scrollable<Div> {
         let theme = cx.theme();
         let options = match &self.meta.options {
-            DataSourceOptions::MySQL(opts) => opts.clone(),
+            DataSourceOptions::MySQL(opts) => opts,
             _ => panic!("MySQL workspace expects MySQL options"),
         };
+
+        let host = if options.host.trim().is_empty() {
+            "未配置"
+        } else {
+            options.host.as_str()
+        };
+        let database = if options.database.trim().is_empty() {
+            "未配置"
+        } else {
+            options.database.as_str()
+        };
+        let charset = options
+            .charset
+            .as_deref()
+            .filter(|v| !v.trim().is_empty())
+            .unwrap_or("默认字符集");
+        let tls = if options.use_tls {
+            "TLS 已启用"
+        } else {
+            "未启用 TLS"
+        };
+
+        let connection_rows = [
+            ("连接地址", format!("{}:{}", host, options.port)),
+            ("数据库", database.to_string()),
+            ("字符集", charset.to_string()),
+            ("安全性", tls.to_string()),
+        ];
+
+        let detail_card = div()
+            .flex()
+            .flex_col()
+            .gap(px(6.))
+            .rounded_lg()
+            .border_1()
+            .border_color(theme.border)
+            .bg(theme.secondary)
+            .px(px(14.))
+            .py(px(12.))
+            .children(connection_rows.into_iter().map(|(label, value)| {
+                div()
+                    .flex()
+                    .flex_row()
+                    .justify_between()
+                    .text_sm()
+                    .text_color(theme.muted_foreground)
+                    .child(div().text_color(theme.muted_foreground).child(label))
+                    .child(div().text_color(theme.foreground).child(value))
+                    .into_any_element()
+            }));
+
         div()
             .flex()
             .flex_col()
@@ -146,19 +197,21 @@ impl MySQLWorkspace {
             .size_full()
             .min_w_0()
             .min_h_0()
-            .gap(px(12.))
+            .gap_5()
             .scrollable(Axis::Vertical)
-            .child(div().text_lg().font_semibold().child(self.meta.name.clone()))
             .child(
                 div()
-                    .text_sm()
+                    .text_base()
+                    .font_semibold()
+                    .child(format!("名称：{}", self.meta.name)),
+            )
+            .child(
+                div()
+                    .text_base()
                     .text_color(theme.muted_foreground)
                     .child(format!("描述：{}", self.meta.desc)),
             )
-            .child(div().text_sm().text_color(theme.muted_foreground).child(format!(
-                "连接：{}@{}:{} / {}",
-                options.username, options.host, options.port, options.database
-            )))
+            .child(detail_card)
     }
 }
 
