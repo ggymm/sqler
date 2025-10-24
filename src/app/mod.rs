@@ -1,5 +1,17 @@
+use std::collections::HashMap;
+
 use gpui::prelude::*;
 use gpui::*;
+use gpui_component::button::Button;
+use gpui_component::button::ButtonVariants;
+use gpui_component::theme::Theme;
+use gpui_component::theme::ThemeMode;
+use gpui_component::ActiveTheme;
+use gpui_component::Icon;
+use gpui_component::Root;
+use gpui_component::Sizable;
+use gpui_component::Size;
+use serde_json::json;
 use uuid::Uuid;
 
 use crate::app::create::CreateState;
@@ -10,15 +22,6 @@ use crate::option::DataSource;
 use crate::option::DataSourceKind;
 use crate::option::DataSourceOptions;
 use crate::option::MySQLOptions;
-use gpui_component::button::Button;
-use gpui_component::button::ButtonVariants;
-use gpui_component::theme::Theme;
-use gpui_component::theme::ThemeMode;
-use gpui_component::ActiveTheme;
-use gpui_component::Icon;
-use gpui_component::Root;
-use gpui_component::Sizable;
-use gpui_component::Size;
 
 mod comps;
 mod create;
@@ -381,6 +384,9 @@ fn seed_sources() -> Vec<DataSource> {
             charset: Some("utf8mb4".into()),
             use_tls: false,
         }),
-        extras: None,
+        extras: Some(HashMap::from([(
+            "tables".to_string(),
+            json!(["orders", "order_items", "users", "regions"]),
+        )])),
     }]
 }
