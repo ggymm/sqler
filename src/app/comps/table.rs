@@ -149,91 +149,12 @@ impl DataTable {
         P: 'static,
     {
         let theme = cx.theme().clone();
-        let toolbar = div()
-            .id(comp_id(["data-table-toolbar", base_id]))
-            .flex()
-            .flex_row()
-            .items_center()
-            .justify_between()
-            .gap(px(12.))
-            .child(
-                div()
-                    .id("search-input")
-                    .flex()
-                    .flex_row()
-                    .gap(px(8.))
-                    .child(div().min_w(px(220.)).child(TextInput::new(&self.search).cleanable()))
-                    .child(
-                        Button::new(comp_id(["data-table-search-trigger", base_id]))
-                            .outline()
-                            .with_size(Size::Small)
-                            .icon(icon_search().with_size(Size::Small))
-                            .label("搜索"),
-                    ),
-            )
-            .child(
-                div()
-                    .flex()
-                    .flex_row()
-                    .gap(px(8.))
-                    .child(
-                        Button::new(comp_id(["data-table-filter-trigger", base_id]))
-                            .ghost()
-                            .with_size(Size::Small)
-                            .label("筛选"),
-                    )
-                    .child(
-                        Button::new(comp_id(["data-table-sort-trigger", base_id]))
-                            .ghost()
-                            .with_size(Size::Small)
-                            .label("排序"),
-                    )
-                    .child(
-                        Button::new(comp_id(["data-table-refresh", base_id]))
-                            .ghost()
-                            .with_size(Size::Small)
-                            .label("刷新"),
-                    ),
-            );
-
-        let pagination = div()
-            .id(comp_id(["data-table-pagination", base_id]))
-            .flex()
-            .flex_row()
-            .items_center()
-            .justify_between()
-            .mt(px(12.))
-            .child(
-                div()
-                    .flex()
-                    .flex_row()
-                    .gap(px(6.))
-                    .child(
-                        Button::new(comp_id(["data-table-prev-page", base_id]))
-                            .outline()
-                            .with_size(Size::Small)
-                            .label("上一页"),
-                    )
-                    .child(
-                        Button::new(comp_id(["data-table-next-page", base_id]))
-                            .outline()
-                            .with_size(Size::Small)
-                            .label("下一页"),
-                    ),
-            )
-            .child(
-                div()
-                    .text_sm()
-                    .text_color(theme.muted_foreground)
-                    .child("第 1 页，共 10 页"),
-            );
 
         div()
             .id(comp_id(["data-table-container", base_id]))
             .flex()
             .flex_col()
-            .gap(px(12.))
-            .child(toolbar)
+            .size_full()
             .child(
                 div()
                     .border_1()
@@ -242,6 +163,5 @@ impl DataTable {
                     .bg(theme.secondary)
                     .child(self.table.clone()),
             )
-            .child(pagination)
     }
 }

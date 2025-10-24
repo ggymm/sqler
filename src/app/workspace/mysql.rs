@@ -240,20 +240,12 @@ impl MySQLWorkspace {
         let theme = cx.theme().clone();
         let container_id = tab.id.to_string();
         div()
-            .id("table")
             .flex()
             .flex_col()
-            .gap(px(12.))
-            .child(
-                div()
-                    .flex()
-                    .flex_row()
-                    .justify_between()
-                    .items_center()
-                    .text_sm()
-                    .text_color(theme.muted_foreground)
-                    .child(format!("数据表：{}", tab.title)),
-            )
+            .size_full()
+            .min_w_0()
+            .min_h_0()
+            .scrollable(Axis::Vertical)
             .child(tab.content.render(&container_id, cx))
             .into_any_element()
     }
