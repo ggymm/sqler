@@ -22,6 +22,11 @@ use crate::app::comps::icon_import;
 use crate::app::comps::icon_relead;
 use crate::app::comps::icon_search;
 use crate::app::comps::DataTable;
+use crate::driver::DatabaseDriver;
+use crate::driver::DriverError;
+use crate::driver::MySQLDriver;
+use crate::driver::QueryReq;
+use crate::driver::QueryResp;
 use crate::option::DataSource;
 use crate::option::DataSourceOptions;
 
@@ -39,11 +44,10 @@ impl MySQLWorkspace {
         meta: DataSource,
         cx: &mut Context<Self>,
     ) -> Self {
-        let tables = meta.tables();
-
+        let tables = Self::load_tables(&meta);
         let overview = TabItem::overview();
         let active_tab = overview.id.clone();
-        let active_table = meta.tables().into_iter().next();
+        let active_table = tables.first().map(|name| name.clone());
         Self {
             meta,
             tabs: vec![overview],
@@ -87,6 +91,90 @@ impl MySQLWorkspace {
             .iter()
             .find(|tab| tab.id == self.active_tab)
             .map(|tab| &tab.content)
+    }
+
+    fn load_tables(meta: &DataSource) -> Vec<SharedString> {
+        match Self::try_fetch_tables(meta) {
+            Ok(tables) if !tables.is_empty() => tables,
+            Ok(_) => meta.tables(),
+            Err(err) => {
+                eprintln!("加载 MySQL 表列表失败: {}", err);
+                meta.tables()
+            }
+        }
+    }
+
+    fn try_fetch_tables(
+        meta: &DataSource,
+    ) -> Result<Vec<SharedString>, DriverError> {
+        let DataSourceOptions::MySQL(opts) = &meta.options else {
+            return Ok(vec![]);
+        };
+
+        let database = opts.database.trim();
+        if database.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let mut session = MySQLDriver.create_connection(opts)?;
+        let statement = format!("SHOW TABLES FROM `{}`", escape_mysql_identifier(database));
+        let resp = session.query(QueryReq::Sql { statement })?;
+        let rows = match resp {
+            QueryResp::Rows(rows) => rows,
+            _ => return Ok(vec![]),
+        };
+
+        let mut tables = Vec::new();
+        for row in rows {
+            for (_, value) in row {
+                if let Some(name) = value.as_str() {
+                    tables.push(SharedString::from(name.to_string()));
+                    break;
+                }
+            }
+        }
+        Ok(tables)
+    }
+
+    fn refresh_tables(
+        &mut self,
+        cx: &mut Context<Self>,
+    ) {
+        match Self::try_fetch_tables(&self.meta) {
+            Ok(new_tables) => {
+                self.tables = new_tables;
+                if self.tables.is_empty() {
+                    self.active_table = None;
+                } else if let Some(active) = self.active_table.clone() {
+                    if !self.tables.iter().any(|name| name == &active) {
+                        self.active_table = self.tables.first().cloned();
+                    }
+                } else {
+                    self.active_table = self.tables.first().cloned();
+                }
+
+                let current_tables = self.tables.clone();
+                self.tabs.retain(|tab| match &tab.content {
+                    TabContent::DataTable(tab) => {
+                        current_tables.iter().any(|name| name == &tab.title)
+                    }
+                    _ => true,
+                });
+
+                if !self.tabs.iter().any(|tab| tab.id == self.active_tab) {
+                    if let Some(tab) = self.tabs.iter().find(|tab| !tab.closable) {
+                        self.active_tab = tab.id.clone();
+                    } else if let Some(tab) = self.tabs.first() {
+                        self.active_tab = tab.id.clone();
+                    }
+                }
+
+                cx.notify();
+            }
+            Err(err) => {
+                eprintln!("刷新 MySQL 表列表失败: {}", err);
+            }
+        }
     }
 
     fn create_tab_table_data(
@@ -265,6 +353,10 @@ impl MySQLWorkspace {
     }
 }
 
+fn escape_mysql_identifier(value: &str) -> String {
+    value.replace('`', "``")
+}
+
 impl Render for MySQLWorkspace {
     fn render(
         &mut self,
@@ -386,6 +478,9 @@ impl Render for MySQLWorkspace {
                 Button::new(comp_id(["mysql-header-refresh", id]))
                     .outline()
                     .icon(icon_relead().with_size(Size::Small))
+                    .on_click(cx.listener(|view: &mut Self, _, _, cx| {
+                        view.refresh_tables(cx);
+                    }))
                     .label("刷新表"),
             )
             .child(
