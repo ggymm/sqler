@@ -177,9 +177,6 @@ impl DataTable {
             .size_full()
             .min_w_0()
             .min_h_0()
-            .border_1()
-            .border_color(theme.border)
-            .rounded_lg()
             .bg(theme.secondary)
             .overflow_hidden()
             .child(
