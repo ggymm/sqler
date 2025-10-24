@@ -2,7 +2,6 @@ use gpui::prelude::*;
 use gpui::*;
 use gpui_component::button::{Button, ButtonVariants};
 use gpui_component::resizable::{h_resizable, resizable_panel, ResizableState};
-use gpui_component::scroll::Scrollable;
 use gpui_component::tab::{Tab, TabBar};
 use gpui_component::table::Column;
 use gpui_component::{ActiveTheme as _, InteractiveElementExt, Selectable, Sizable, Size, StyledExt};
@@ -17,13 +16,12 @@ use crate::option::DataSource;
 use crate::option::DataSourceOptions;
 
 pub struct MySQLWorkspace {
-    sidebar_resize: Entity<ResizableState>,
-
     meta: DataSource,
-    selected_table: Option<SharedString>,
     tabs: Vec<TabItem>,
     active_tab: SharedString,
-    next_tab_seq: u64,
+    tables: Vec<SharedString>,
+    active_table: Option<SharedString>,
+    sidebar_resize: Entity<ResizableState>,
 }
 
 impl MySQLWorkspace {
@@ -31,17 +29,18 @@ impl MySQLWorkspace {
         meta: DataSource,
         cx: &mut Context<Self>,
     ) -> Self {
-        let selected_table = meta.tables().into_iter().next();
+        let tables = meta.tables();
 
         let overview = TabItem::overview();
-        let active = overview.id.clone();
+        let active_tab = overview.id.clone();
+        let active_table = meta.tables().into_iter().next();
         Self {
-            sidebar_resize: ResizableState::new(cx),
             meta,
-            selected_table,
             tabs: vec![overview],
-            active_tab: active,
-            next_tab_seq: 1,
+            active_tab,
+            tables,
+            active_table,
+            sidebar_resize: ResizableState::new(cx),
         }
     }
 
@@ -61,121 +60,16 @@ impl MySQLWorkspace {
             cx.notify();
         }
     }
-    
-    fn active_tab( &mut self, id: SharedString, cx: &mut Context<Self>) {
+
+    fn active_tab(
+        &mut self,
+        id: SharedString,
+        title: SharedString,
+        cx: &mut Context<Self>,
+    ) {
         self.active_tab = id;
+        self.active_table = Some(title);
         cx.notify();
-    }
-
-    fn create_tab_table_data(
-        &mut self,
-        table: SharedString,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if let Some(existing) = self.tabs.iter().find(|tab| {
-            matches!(
-                &tab.content,
-                TabContent::TableBrowser(current) if current.table_name == table
-            )
-        }) {
-            self.active_tab = existing.id.clone();
-            cx.notify();
-            return;
-        }
-
-        let columns = self.build_table_columns();
-        let rows = self.build_sample_rows(&table);
-        let data_table = DataTable::new(window, cx, columns, rows);
-
-        let tab_id = SharedString::from(format!("mysql-table-tab-{}-{}", self.meta.id, self.next_tab_seq));
-        let tab_title = table.clone();
-
-        let tab_item = TabItem {
-            id: tab_id.clone(),
-            title: tab_title,
-            closable: true,
-            content: TabContent::TableBrowser(TableBrowserTab {
-                view_id: tab_id.clone(),
-                table_name: table,
-                data_table,
-            }),
-        };
-
-        self.tabs.push(tab_item);
-        self.active_tab = tab_id;
-        self.next_tab_seq += 1;
-        cx.notify();
-    }
-
-    fn open_table_tab(
-        &mut self,
-        table_name: SharedString,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if let Some(existing) = self.tabs.iter().find(|tab| {
-            matches!(
-                &tab.content,
-                TabContent::TableBrowser(current) if current.table_name == table_name
-            )
-        }) {
-            self.active_tab = existing.id.clone();
-            cx.notify();
-            return;
-        }
-
-        let columns = self.build_table_columns();
-        let rows = self.build_sample_rows(&table_name);
-        let data_table = DataTable::new(window, cx, columns, rows);
-
-        let tab_id = SharedString::from(format!("mysql-table-tab-{}-{}", self.meta.id, self.next_tab_seq));
-        let tab_title = table_name.clone();
-
-        let tab_item = TabItem {
-            id: tab_id.clone(),
-            title: tab_title,
-            closable: true,
-            content: TabContent::TableBrowser(TableBrowserTab {
-                view_id: tab_id.clone(),
-                table_name,
-                data_table,
-            }),
-        };
-
-        self.tabs.push(tab_item);
-        self.active_tab = tab_id;
-        self.next_tab_seq += 1;
-        cx.notify();
-    }
-
-    fn build_table_columns(&self) -> Vec<Column> {
-        vec![
-            Column::new("id", "ID").width(px(80.)).sortable(),
-            Column::new("name", "名称").width(px(160.)).sortable(),
-            Column::new("owner", "负责人").width(px(140.)),
-            Column::new("updated", "更新时间").width(px(180.)).sortable(),
-            Column::new("records", "记录数").width(px(120.)).text_right().sortable(),
-            Column::new("status", "状态").width(px(120.)),
-        ]
-    }
-
-    fn build_sample_rows(
-        &self,
-        table_name: &SharedString,
-    ) -> Vec<Vec<SharedString>> {
-        (0..25)
-            .map(|index| {
-                vec![
-                    SharedString::from(format!("{}", index + 1)),
-                    SharedString::from(format!("{} 行", table_name)),
-                    SharedString::from("数据团队"),
-                    SharedString::from(format!("2024-07-{:02} 1{:02}:32", (index % 30) + 1, index % 60)),
-                    SharedString::from(format!("{} 条", (index + 1) * 128)),
-                    SharedString::from(if index % 2 == 0 { "可用" } else { "维护中" }),
-                ]
-            })
-            .collect()
     }
 
     fn active_content(&self) -> Option<&TabContent> {
@@ -185,36 +79,68 @@ impl MySQLWorkspace {
             .map(|tab| &tab.content)
     }
 
-    fn render_table_browser(
-        &self,
-        tab: &TableBrowserTab,
+    fn create_tab_table_data(
+        &mut self,
+        table: SharedString,
+        window: &mut Window,
         cx: &mut Context<Self>,
-    ) -> AnyElement {
-        let theme = cx.theme().clone();
-        let container_id = tab.view_id.to_string();
-        div()
-            .id("table")
-            .flex()
-            .flex_col()
-            .gap(px(12.))
-            .child(
-                div()
-                    .flex()
-                    .flex_row()
-                    .justify_between()
-                    .items_center()
-                    .text_sm()
-                    .text_color(theme.muted_foreground)
-                    .child(format!("数据表：{}", tab.table_name)),
+    ) {
+        let id = SharedString::from(format!("mysql-tab-table-data-{}-{}", self.meta.id, table));
+        self.active_tab = id.clone();
+        self.active_table = Some(table.clone());
+        if let Some(existing) = self.tabs.iter().find(|tab| {
+            matches!(
+                &tab.content,
+                TabContent::DataTable(current) if current.id == id
             )
-            .child(tab.data_table.render(&container_id, cx))
-            .into_any_element()
+        }) {
+            self.active_tab = existing.id.clone();
+            cx.notify();
+            return;
+        }
+
+        let data_table = DataTable::new(
+            window,
+            cx,
+            vec![
+                Column::new("id", "ID").width(px(80.)).sortable(),
+                Column::new("name", "名称").width(px(160.)).sortable(),
+                Column::new("owner", "负责人").width(px(140.)),
+                Column::new("updated", "更新时间").width(px(180.)).sortable(),
+                Column::new("records", "记录数").width(px(120.)).text_right().sortable(),
+                Column::new("status", "状态").width(px(120.)),
+            ],
+            (0..25)
+                .map(|index| {
+                    vec![
+                        SharedString::from(format!("{}", index + 1)),
+                        SharedString::from(format!("{} 行", table)),
+                        SharedString::from("数据团队"),
+                        SharedString::from(format!("2024-07-{:02} 1{:02}:32", (index % 30) + 1, index % 60)),
+                        SharedString::from(format!("{} 条", (index + 1) * 128)),
+                        SharedString::from(if index % 2 == 0 { "可用" } else { "维护中" }),
+                    ]
+                })
+                .collect(),
+        );
+
+        self.tabs.push(TabItem {
+            id: id.clone(),
+            title: table.clone(),
+            content: TabContent::DataTable(DataTableTab {
+                id: id.clone(),
+                title: table.clone(),
+                content: data_table,
+            }),
+            closable: true,
+        });
+        cx.notify();
     }
 
     fn render_overview(
         &self,
         cx: &mut Context<Self>,
-    ) -> Scrollable<Div> {
+    ) -> AnyElement {
         let theme = cx.theme();
         let options = match &self.meta.options {
             DataSourceOptions::MySQL(opts) => opts,
@@ -293,6 +219,47 @@ impl MySQLWorkspace {
                     .child(format!("描述：{}", self.meta.desc)),
             )
             .child(detail_card)
+            .into_any_element()
+    }
+
+    fn render_datatable(
+        &self,
+        tab: &DataTableTab,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let theme = cx.theme().clone();
+        let container_id = tab.id.to_string();
+        div()
+            .id("table")
+            .flex()
+            .flex_col()
+            .gap(px(12.))
+            .child(
+                div()
+                    .flex()
+                    .flex_row()
+                    .justify_between()
+                    .items_center()
+                    .text_sm()
+                    .text_color(theme.muted_foreground)
+                    .child(format!("数据表：{}", tab.title)),
+            )
+            .child(tab.content.render(&container_id, cx))
+            .into_any_element()
+    }
+
+    fn render_placeholder(
+        &self,
+        _cx: &mut Context<Self>,
+    ) -> AnyElement {
+        div()
+            .flex()
+            .flex_col()
+            .scrollable(Axis::Vertical)
+            .gap(px(8.))
+            .child(div().text_base().font_semibold().child("自定义视图"))
+            .child(div().text_sm().child("在这里扩展你的分析组件。"))
+            .into_any_element()
     }
 }
 
@@ -303,12 +270,9 @@ impl Render for MySQLWorkspace {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let id = &self.meta.id;
-        let tables = self.meta.tables();
-        let active_tab = self.tabs.iter().position(|tab| tab.id == self.active_tab).unwrap_or(0);
-        let active_content = self.active_content().cloned();
-
         let theme = cx.theme().clone();
-        let menu = tables.iter().cloned().fold(
+
+        let menu = self.tables.iter().cloned().fold(
             div()
                 .id(comp_id(["mysql-menu", id]))
                 .flex()
@@ -320,7 +284,7 @@ impl Render for MySQLWorkspace {
                 .min_h_0()
                 .scrollable(Axis::Vertical),
             |acc, table| {
-                let selected = self.selected_table.as_ref() == Some(&table);
+                let selected = self.active_table.as_ref() == Some(&table);
                 let click_table = table.clone();
                 acc.child(
                     div()
@@ -331,7 +295,6 @@ impl Render for MySQLWorkspace {
                         .rounded_lg()
                         .text_sm()
                         .text_color(theme.muted_foreground)
-                        .cursor_pointer()
                         .hover(|this| this.bg(theme.secondary_hover))
                         .when(selected, |this| {
                             this.bg(theme.secondary_hover)
@@ -339,10 +302,7 @@ impl Render for MySQLWorkspace {
                                 .font_semibold()
                         })
                         .on_double_click(cx.listener(move |this, _, window, cx| {
-                            let table_id = click_table.clone();
-                            this.selected_table = Some(table_id.clone());
-                            this.open_table_tab(table_id, window, cx);
-                            cx.notify();
+                            this.create_tab_table_data(click_table.clone(), window, cx);
                         }))
                         .child(table.clone()),
                 )
@@ -355,11 +315,12 @@ impl Render for MySQLWorkspace {
                 self.tabs
                     .iter()
                     .enumerate()
-                    .map(|(index, tab)| {
+                    .map(|(_, tab)| {
                         let tab_id = tab.id.clone();
                         Tab::new(tab.title.clone())
                             .id(comp_id(["mysql-main-tab-item", id, &tab_id]))
                             .px_2()
+                            .selected(tab.id == self.active_tab)
                             .when(tab.closable, |this| {
                                 this.suffix(
                                     Button::new(comp_id(["mysql-main-tab-close", &tab_id]))
@@ -375,32 +336,92 @@ impl Render for MySQLWorkspace {
                             })
                             .on_click(cx.listener({
                                 let tab_id = tab.id.clone();
+                                let tab_title = tab.title.clone();
                                 move |view: &mut Self, _, _, cx| {
-                                    view.active_tab(tab_id.clone(), cx);
+                                    view.active_tab(tab_id.clone(), tab_title.clone(), cx);
                                 }
                             }))
                     })
                     .collect::<Vec<_>>(),
-            )
-            .selected_index(active_tab);
+            );
 
-        let tab_body = match active_content {
-            Some(TabContent::TableBrowser(tab)) => self.render_table_browser(&tab, cx),
-            Some(TabContent::Overview) | None => self.render_overview(cx).into_any_element(),
-            Some(TabContent::Placeholder) => div()
-                .flex()
-                .flex_col()
-                .scrollable(Axis::Vertical)
-                .gap(px(8.))
-                .child(div().text_base().font_semibold().child("自定义视图"))
-                .child(
-                    div()
-                        .text_sm()
-                        .text_color(theme.muted_foreground)
-                        .child("在这里扩展你的分析组件。"),
-                )
-                .into_any_element(),
-        };
+        let main = div()
+            .flex()
+            .flex_col()
+            .flex_1()
+            .size_full()
+            .min_w_0()
+            .min_h_0()
+            .child(tabs)
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .flex_1()
+                    .size_full()
+                    .min_w_0()
+                    .min_h_0()
+                    .p_2()
+                    .child(match self.active_content() {
+                        Some(TabContent::Overview) | None => self.render_overview(cx),
+                        Some(TabContent::DataTable(tab)) => self.render_datatable(&tab, cx),
+                        Some(TabContent::Placeholder) => self.render_placeholder(cx),
+                    }),
+            )
+            .into_any_element();
+
+        let header = div()
+            .id(comp_id(["mysql-header", id]))
+            .flex()
+            .flex_row()
+            .px_4()
+            .py_4()
+            .gap_2()
+            .border_b_1()
+            .border_color(theme.border)
+            .child(
+                Button::new(comp_id(["mysql-header-refresh", id]))
+                    .outline()
+                    .icon(icon_search().with_size(Size::Small))
+                    .label("刷新表"),
+            )
+            .child(
+                Button::new(comp_id(["mysql-header-query", id]))
+                    .outline()
+                    .icon(icon_search().with_size(Size::Small))
+                    .label("新建查询"),
+            )
+            .child(
+                Button::new(comp_id(["mysql-header-import", id]))
+                    .outline()
+                    .icon(icon_import().with_size(Size::Small))
+                    .label("数据导入"),
+            )
+            .child(
+                Button::new(comp_id(["mysql-header-export", id]))
+                    .outline()
+                    .icon(icon_export().with_size(Size::Small))
+                    .label("数据导出"),
+            );
+
+        let content = div()
+            .flex()
+            .flex_col()
+            .flex_1()
+            .size_full()
+            .min_w_0()
+            .min_h_0()
+            .child(
+                h_resizable(comp_id(["mysql-content", id]), self.sidebar_resize.clone())
+                    .child(
+                        resizable_panel()
+                            .size(px(240.0))
+                            .size_range(px(120.)..px(360.))
+                            .child(menu),
+                    )
+                    .child(main),
+            )
+            .child(div());
 
         div()
             .id(comp_id(["mysql", id]))
@@ -410,83 +431,8 @@ impl Render for MySQLWorkspace {
             .size_full()
             .min_w_0()
             .min_h_0()
-            .child(
-                div()
-                    .id(comp_id(["mysql-head", id]))
-                    .flex()
-                    .flex_row()
-                    .px_4()
-                    .py_4()
-                    .gap_2()
-                    .border_b_1()
-                    .border_color(theme.border)
-                    .child(
-                        Button::new(comp_id(["mysql-head-refresh", id]))
-                            .outline()
-                            .icon(icon_search().with_size(Size::Small))
-                            .label("刷新表"),
-                    )
-                    .child(
-                        Button::new(comp_id(["mysql-head-query", id]))
-                            .outline()
-                            .icon(icon_search().with_size(Size::Small))
-                            .label("新建查询"),
-                    )
-                    .child(
-                        Button::new(comp_id(["mysql-head-import", id]))
-                            .outline()
-                            .icon(icon_import().with_size(Size::Small))
-                            .label("数据导入"),
-                    )
-                    .child(
-                        Button::new(comp_id(["mysql-head-export", id]))
-                            .outline()
-                            .icon(icon_export().with_size(Size::Small))
-                            .label("数据导出"),
-                    ),
-            )
-            .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .flex_1()
-                    .size_full()
-                    .min_w_0()
-                    .min_h_0()
-                    .child(
-                        h_resizable(comp_id(["mysql-main", id]), self.sidebar_resize.clone())
-                            .child(
-                                resizable_panel()
-                                    .size(px(240.0))
-                                    .size_range(px(120.)..px(360.))
-                                    .child(menu),
-                            )
-                            .child(
-                                div()
-                                    .flex()
-                                    .flex_col()
-                                    .flex_1()
-                                    .size_full()
-                                    .min_w_0()
-                                    .min_h_0()
-                                    .child(tabs)
-                                    .child(
-                                        div()
-                                            .flex()
-                                            .flex_col()
-                                            .flex_1()
-                                            .size_full()
-                                            .min_w_0()
-                                            .min_h_0()
-                                            .p_2()
-                                            .rounded_lg()
-                                            .child(tab_body),
-                                    )
-                                    .into_any_element(),
-                            ),
-                    )
-                    .child(div()),
-            )
+            .child(header)
+            .child(content)
     }
 }
 
@@ -494,8 +440,8 @@ impl Render for MySQLWorkspace {
 struct TabItem {
     id: SharedString,
     title: SharedString,
-    closable: bool,
     content: TabContent,
+    closable: bool,
 }
 
 impl TabItem {
@@ -503,8 +449,8 @@ impl TabItem {
         Self {
             id: SharedString::from("mysql-tab-overview"),
             title: SharedString::from("概览"),
-            closable: false,
             content: TabContent::Overview,
+            closable: false,
         }
     }
 }
@@ -512,13 +458,13 @@ impl TabItem {
 #[derive(Clone)]
 enum TabContent {
     Overview,
-    TableBrowser(TableBrowserTab),
+    DataTable(DataTableTab),
     Placeholder,
 }
 
 #[derive(Clone)]
-struct TableBrowserTab {
-    view_id: SharedString,
-    table_name: SharedString,
-    data_table: DataTable,
+struct DataTableTab {
+    id: SharedString,
+    title: SharedString,
+    content: DataTable,
 }
