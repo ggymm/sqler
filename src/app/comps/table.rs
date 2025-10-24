@@ -1,27 +1,29 @@
 use gpui::*;
-use gpui_component::button::{Button, ButtonVariants};
-use gpui_component::input::{InputState, TextInput};
+use gpui::TextAlign;
 use gpui_component::table::{Column, ColumnSort, Table, TableDelegate};
-use gpui_component::{ActiveTheme as _, Sizable, Size};
+use gpui_component::{ActiveTheme as _, Size, StyleSized};
 
 use super::comp_id;
-use super::icon_search;
+
+pub type TableRow = Vec<SharedString>;
 
 #[derive(Clone)]
 pub struct StaticTableDelegate {
     columns: Vec<Column>,
-    rows: Vec<Vec<SharedString>>,
+    rows: Vec<TableRow>,
+    size: Size,
     sort_state: Option<(usize, ColumnSort)>,
 }
 
 impl StaticTableDelegate {
     pub fn new(
         columns: Vec<Column>,
-        rows: Vec<Vec<SharedString>>,
+        rows: Vec<TableRow>,
     ) -> Self {
         Self {
             columns,
             rows,
+            size: Size::Small,
             sort_state: None,
         }
     }
@@ -84,11 +86,10 @@ impl TableDelegate for StaticTableDelegate {
         _cx: &mut Context<Table<Self>>,
     ) -> Stateful<Div> {
         div()
+            .id(comp_id([format!("data-table-row-{}", row_ix)]))
             .flex()
             .flex_row()
-            .gap(px(12.))
-            .h(px(36.))
-            .id(("mysql-table-row", row_ix))
+            .h(self.size.table_row_height())
     }
 
     fn render_td(
@@ -104,7 +105,25 @@ impl TableDelegate for StaticTableDelegate {
             .and_then(|row| row.get(col_ix))
             .cloned()
             .unwrap_or_default();
-        div().text_sm().child(value)
+
+        let column = self.columns.get(col_ix);
+        let mut cell = div()
+            .table_cell_size(self.size)
+            .flex()
+            .flex_row()
+            .items_center()
+            .px_3()
+            .overflow_hidden()
+            .whitespace_nowrap()
+            .child(value);
+
+        if let Some(column) = column {
+            if column.align == TextAlign::Right {
+                cell = cell.justify_end().text_right();
+            }
+        }
+
+        cell.id(comp_id([format!("data-table-cell-{}-{}", row_ix, col_ix)]))
     }
 }
 
@@ -112,12 +131,14 @@ pub fn create_static_table<P>(
     window: &mut Window,
     cx: &mut Context<P>,
     columns: Vec<Column>,
-    rows: Vec<Vec<SharedString>>,
+    rows: Vec<TableRow>,
 ) -> Entity<Table<StaticTableDelegate>> {
     let delegate = StaticTableDelegate::new(columns, rows);
-    let table = cx.new(|cx| Table::new(delegate.clone(), window, cx));
+    let table = cx.new(|cx| Table::new(delegate, window, cx));
     let _ = table.update(cx, |table, cx| {
         table.set_stripe(true, cx);
+        table.set_size(Size::Small, cx);
+        table.delegate_mut().size = Size::Small;
     });
     table
 }
@@ -125,7 +146,6 @@ pub fn create_static_table<P>(
 #[derive(Clone)]
 pub struct DataTable {
     table: Entity<Table<StaticTableDelegate>>,
-    search: Entity<InputState>,
 }
 
 impl DataTable {
@@ -133,11 +153,10 @@ impl DataTable {
         window: &mut Window,
         cx: &mut Context<P>,
         columns: Vec<Column>,
-        rows: Vec<Vec<SharedString>>,
+        rows: Vec<TableRow>,
     ) -> Self {
         let table = create_static_table(window, cx, columns, rows);
-        let search = cx.new(|cx| InputState::new(window, cx).placeholder("搜索字段"));
-        Self { table, search }
+        Self { table }
     }
 
     pub fn render<P>(
@@ -148,19 +167,28 @@ impl DataTable {
     where
         P: 'static,
     {
-        let theme = cx.theme().clone();
+        let theme = cx.theme();
 
         div()
             .id(comp_id(["data-table-container", base_id]))
             .flex()
             .flex_col()
+            .flex_1()
             .size_full()
+            .min_w_0()
+            .min_h_0()
+            .border_1()
+            .border_color(theme.border)
+            .rounded_lg()
+            .bg(theme.secondary)
+            .overflow_hidden()
             .child(
                 div()
-                    .border_1()
-                    .border_color(theme.border)
-                    .rounded_lg()
-                    .bg(theme.secondary)
+                    .flex()
+                    .flex_col()
+                    .flex_1()
+                    .min_w_0()
+                    .min_h_0()
                     .child(self.table.clone()),
             )
     }

@@ -1,63 +1,51 @@
 ## 项目概览
 - 名称：`sqler`
-- 技术栈：Rust + gpui/gpui-component + SQLx/Tiberius
+- 技术栈：Rust + gpui/gpui-component + 多数据库驱动 crate
 - 目标：桌面化多标签数据库管理器，可浏览数据源、维护连接并扩展查询能力
 
 ## 代码结构
 - `src/main.rs`
-  - 程序入口，注册资源加载器 `FsAssets`，初始化运行时（包括缓存系统）后打开主窗口，挂载 `SqlerApp`
-  - 数据源结构 `DataSource` 使用 `String` 类型的 UUID 作为 `id`，使用 `Option<HashMap<String, Value>>` 类型的 `extras` 字段存储扩展属性（如 tables），`connection_hint()` 返回脱敏的连接摘要
-  - `tables()` 方法从 `extras["tables"]` 中提取表名列表
-  - `init_runtime()` 初始化 `DataSourceCache`，创建 ~/.sqler 目录
+  - 程序入口，注册本地资源加载器 `FsAssets`，设置基础主题字号并在 Application 内打开主窗口
+  - `init_runtime()` 当前为空实现，预留运行时初始化挂钩
+  - 将根视图挂载为 `SqlerApp`
 - `src/app/`
   - `mod.rs`：核心应用状态
-    - 声明 `SqlerApp`、`TabState` 等 UI 状态及 `NewDataSourceState`
-    - 管理窗口生命周期（创建/聚焦"新建数据源"窗口），驱动主题切换、标签增删
-    - 主渲染函数将工作区容器设为 `flex_1`，保证底部布局获取满高
-    - `open_data_source_tab` 接受 `&str` 类型的 source_id 参数
-    - `seed_sources()` 使用 UUID 生成数据源 ID，将 tables 存储在 extras 字段中
-  - `workspace/`
-  - `mod.rs`：主窗口渲染入口与首页面板，创建并持有各数据源的 workspace view（基于 `Entity`）
-  - `mysql.rs`：`MySqlWorkspace` 搭建图标按钮顶部栏、带刷新及右键菜单的侧栏列表和可增删的动态标签页（含默认概览）
-    - `placeholder.rs`：占位视图，当前用于非 MySQL 数据源
+    - `SqlerApp` 维护 `TabState` 列表、活动标签、创建窗口句柄以及 `CacheApp`，但数据源仍来自 `seed_sources()` 生成的默认 MySQL 示例
+    - 提供标签增删、主题切换、打开新建数据源窗口等交互逻辑
+    - `TabState`/`TabView` 管理首页与各数据源工作区的差异化渲染
+    - `seed_sources()` 构造带虚拟表列表的 MySQL 演示数据
+  - `comps/`
+    - `mod.rs`：公共组件工具，封装图标构造、元素 id 拼接工具、对外导出 `DataTable`
+    - `table.rs`：`DataTable` 包装静态表格代理 `StaticTableDelegate`，支持列排序与条纹样式
   - `create/`
-    - `mod.rs`：`CreateDataSourceWindow`，提供类型选择、表单填充和底部操作栏
-    - `{postgres,mysql,sqlite,sqlserver}.rs`：各数据库表单状态与渲染
-  - `topbar.rs`：标签栏 UI，控制标签切换/关闭、触发新建窗口与主题切换
-  - `comps/mod.rs`：通用页面布局（全屏纵向容器等）
+    - `mod.rs`：`CreateWindow` 模态窗口，状态由 `CreateState` 持有；支持在数据源类型选择页与具体表单之间切换，底部操作按钮的“测试连接”仍是占位事件
+    - `{mysql,postgres,sqlite,sqlserver,oracle,redis,mongodb}.rs`：各类型表单的输入状态初始化与渲染，主要由 `InputState` 组成（大多提供默认值/placeholder）
+  - `workspace/`
+    - `mod.rs`：根据 `DataSourceKind` 构造 `WorkspaceState`（MySQL 使用真实工作区，其余复用占位视图）；首页以网格卡片展示所有数据源，双击打开标签
+    - `mysql.rs`：带分隔面板的工作区实现，左侧表列表，右侧标签页支持概览和按表名动态生成的 `DataTable`，头部包含刷新/查询/导入/导出按钮（尚未接入业务）
+    - `placeholder.rs`：非 MySQL 数据源的占位展示，提示功能尚未实现
+- `src/cache/mod.rs`
+  - `CacheApp` 使用 AES-256-GCM 将数据源集合加密写入 `~/.sqler/sources.enc`，初始化时确保目录存在并尝试解密加载
+  - 暴露 `sources()` / `sources_mut()` / `sources_update()`，当前未被 UI 调用；错误通过 `CacheError` 枚举描述
 - `src/driver/`
-  - `mod.rs`：统一驱动接口 `DatabaseDriver`/`DatabaseSession`、标准化的 `QueryRequest`/`InsertRequest`/... 以及按 `DataSourceType` 分发的 `check_connection`、`create_connection`
-  - `postgres.rs`：基于 `postgres` crate 建立连接，提供 SQL 查询与写操作（暂不支持 SSL 模式）
-  - `mysql.rs`：使用 `mysql` crate 建立连接，支持 SQL 查询/写操作并处理字符集设置与 TLS
-  - `sqlite.rs`：基于 `rusqlite` 打开本地文件，兼容只读模式并返回 SQL CRUD 会话
-  - `sqlserver.rs`：接口占位，检查/创建连接仍返回“未实现”错误
-  - `mongodb.rs`：同步客户端创建文档型会话，支持 `find`/`insert_one`/`update_many`/`delete_many`
-  - `redis.rs`：构建同步连接并通过统一命令接口运行查询与写操作，结果转换为 JSON 表达
+  - `mod.rs`：统一驱动接口 `DatabaseDriver`/`DatabaseSession` 以及查询/写入请求响应类型，按数据源类型分发 `check_connection` 与 `create_connection`
+  - `mysql.rs`：基于 `mysql` crate 实现连接、查询与写操作，并包含字符集设置及 `mysql::Value` -> JSON 的转换
+  - `postgres.rs`：使用 `postgres` crate，禁止 SSL 模式，支持常见类型到 JSON 的映射
+  - `sqlite.rs`：使用 `rusqlite`，支持只读/创建模式并将查询结果转换为 JSON
+  - `mongodb.rs`：同步客户端封装文档型 CRUD，支持 connection string 或 host 列表配置
+  - `redis.rs`：命令式驱动，将响应转换为 JSON，写操作根据返回值估算影响行数
+  - `sqlserver.rs`：驱动占位，所有操作返回“未实现”
+  - `oracle.rs`：暂无实现内容
 - `src/option/`
-  - `mod.rs`：定义 `DataSource` 结构体、`DataSourceKind` 枚举、`DataSourceOptions` 枚举以及 `ConnectionOptions` trait
-  - 所有类型均支持 `Serialize`/`Deserialize` 用于持久化
-  - `{mysql,postgres,sqlite,sqlserver,oracle,redis,mongodb}.rs`：描述对应数据源的连接参数与默认值，并提供 `display_endpoint()` 用于生成脱敏连接字符串
-- `src/cache/`
-  - `mod.rs`：本地数据源缓存模块
-    - `DataSourceCache`：缓存管理器，init 时从 ~/.sqler/sources.enc 加载数据到内存
-    - `SerializableDataSource`：中间序列化层，将 `DataSource` 转换为可序列化格式（解决 `SharedString` 不支持 serde 的问题）
-    - 使用 AES-256-GCM 加密存储（固定 key）
-    - 存储路径：`~/.sqler/sources.enc`
-    - 公开接口：`init()` / `save()` / `sources()` / `sources_mut()`
-    - 包含完整单元测试：加密/解密、序列化往返、初始化
-- `src/export/`：为后续导出功能预留入口
-- `assets/`：静态资源（图标等）
-- `Cargo.toml`
-  - UI 依赖（gpui/gpui-component）+ 数据库驱动依赖（SQLx/Tiberius/ Tokio 等）
-  - 新增 uuid、serde/serde_json 依赖用于 UUID 生成和序列化
-  - 新增 aes-gcm 依赖用于数据加密
-  - 新增 dirs 依赖用于跨平台主目录获取
+  - `mod.rs`：定义 `DataSource`、`DataSourceKind`、`DataSourceOptions` 及工具方法（如 `DataSource::tables()`、`display()`），实现 `ConnectionOptions` trait
+  - 子模块描述各数据源连接参数结构体并提供脱敏 `display_endpoint()` 输出（如 TLS、schema、read_only 等选项）
+- `src/export/`：功能占位目录，尚无实现
+- `assets/`：静态资源（数据库图标等），供 UI 引用
+- `Cargo.toml`：声明 gpui 相关依赖、AES 加密、serde/serde_json，以及各数据库驱动 crate
 
 ## 功能现状
-- 主窗口：顶部标签栏（首页 / 数据源标签，可关闭 data 标签）、内容区与顶栏操作
-- 首页：展示预置数据源卡片，双击可打开详情标签
-- "新建数据源"窗口：
-  - 顶部标题固定；中部根据状态展示类型卡片或对应表单（支持滚动）
-  - 底部操作栏提供"测试连接 / 上一步 / 取消 / 保存"，未选类型时自动禁用相关按钮
-- 各数据库表单：按字段分类显示输入框，记忆当前配置状态
-- 驱动层：提供 `check_connection` 与统一 `create_connection` 会话，MySQL/PostgreSQL/SQLite/MongoDB/Redis 已具备基础 CRUD，SQL Server 仍占位
+- 主窗口：顶部标签栏 + 主题切换按钮，新建数据源窗口以浮动窗形式打开
+- 首页：展示当前数据源卡片（目前仅内置演示 MySQL），双击打开对应工作区标签
+- 数据源标签：MySQL 工作区提供表级导航、动态标签页与示例数据表；其他类型进入占位页
+- 新建数据源窗口：支持选择数据库类型并填充表单字段（保留但未保存到缓存，按钮逻辑待接入）
+- 缓存系统：`CacheApp` 负责读写本地加密缓存文件，但 `SqlerApp` 尚未把缓存内容注入 UI 或在保存时回写

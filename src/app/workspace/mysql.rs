@@ -242,11 +242,11 @@ impl MySQLWorkspace {
         div()
             .flex()
             .flex_col()
+            .flex_1()
             .size_full()
             .min_w_0()
             .min_h_0()
-            .scrollable(Axis::Vertical)
-            .child(tab.content.render(&container_id, cx))
+            .child(tab.content.render(&container_id, cx).flex_1())
             .into_any_element()
     }
 
