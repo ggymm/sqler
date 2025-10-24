@@ -36,3 +36,7 @@ pub fn icon_import() -> Icon {
 pub fn icon_export() -> Icon {
     Icon::default().path("icons/upload.svg")
 }
+
+pub fn icon_relead() -> Icon {
+    Icon::default().path("icons/relead.svg")
+}

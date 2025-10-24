@@ -1,15 +1,25 @@
 use gpui::prelude::*;
 use gpui::*;
-use gpui_component::button::{Button, ButtonVariants};
-use gpui_component::resizable::{h_resizable, resizable_panel, ResizableState};
-use gpui_component::tab::{Tab, TabBar};
+use gpui_component::button::Button;
+use gpui_component::button::ButtonVariants;
+use gpui_component::resizable::h_resizable;
+use gpui_component::resizable::resizable_panel;
+use gpui_component::resizable::ResizableState;
+use gpui_component::tab::Tab;
+use gpui_component::tab::TabBar;
 use gpui_component::table::Column;
-use gpui_component::{ActiveTheme as _, InteractiveElementExt, Selectable, Sizable, Size, StyledExt};
+use gpui_component::ActiveTheme;
+use gpui_component::InteractiveElementExt;
+use gpui_component::Selectable;
+use gpui_component::Sizable;
+use gpui_component::Size;
+use gpui_component::StyledExt;
 
 use crate::app::comps::comp_id;
 use crate::app::comps::icon_close;
 use crate::app::comps::icon_export;
 use crate::app::comps::icon_import;
+use crate::app::comps::icon_relead;
 use crate::app::comps::icon_search;
 use crate::app::comps::DataTable;
 use crate::option::DataSource;
@@ -309,7 +319,7 @@ impl Render for MySQLWorkspace {
             },
         );
 
-        let tabs = TabBar::new(comp_id(["mysql-main-tabs", id]))
+        let tabs = TabBar::new(comp_id(["mysql-tabs", id]))
             .with_size(Size::Small)
             .children(
                 self.tabs
@@ -318,12 +328,12 @@ impl Render for MySQLWorkspace {
                     .map(|(_, tab)| {
                         let tab_id = tab.id.clone();
                         Tab::new(tab.title.clone())
-                            .id(comp_id(["mysql-main-tab-item", id, &tab_id]))
+                            .id(comp_id(["mysql-tabs-item", id, &tab_id]))
                             .px_2()
                             .selected(tab.id == self.active_tab)
                             .when(tab.closable, |this| {
                                 this.suffix(
-                                    Button::new(comp_id(["mysql-main-tab-close", &tab_id]))
+                                    Button::new(comp_id(["mysql-tabs-close", &tab_id]))
                                         .ghost()
                                         .xsmall()
                                         .tab_stop(false)
@@ -355,6 +365,7 @@ impl Render for MySQLWorkspace {
             .child(tabs)
             .child(
                 div()
+                    .id(comp_id(["mysql-main", id]))
                     .flex()
                     .flex_col()
                     .flex_1()
@@ -382,7 +393,7 @@ impl Render for MySQLWorkspace {
             .child(
                 Button::new(comp_id(["mysql-header-refresh", id]))
                     .outline()
-                    .icon(icon_search().with_size(Size::Small))
+                    .icon(icon_relead().with_size(Size::Small))
                     .label("刷新表"),
             )
             .child(
