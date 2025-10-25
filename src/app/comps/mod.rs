@@ -4,7 +4,9 @@ use gpui_component::Icon;
 pub mod table;
 
 pub use table::DataTable;
-
+pub use table::TableColumn;
+pub use table::TableData;
+pub use table::TableRow;
 pub fn comp_id<I>(parts: I) -> ElementId
 where
     I: IntoIterator,

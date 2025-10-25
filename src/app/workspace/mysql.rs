@@ -2,15 +2,17 @@ use gpui::prelude::*;
 use gpui::*;
 use gpui_component::button::Button;
 use gpui_component::button::ButtonVariants;
+use gpui_component::input::InputState;
+use gpui_component::input::TextInput;
 use gpui_component::resizable::h_resizable;
 use gpui_component::resizable::resizable_panel;
 use gpui_component::resizable::ResizableState;
 use gpui_component::tab::Tab;
 use gpui_component::tab::TabBar;
-use gpui_component::table::Column;
 use gpui_component::ActiveTheme;
 use gpui_component::InteractiveElementExt;
 use gpui_component::Selectable;
+use gpui_component::Disableable;
 use gpui_component::Sizable;
 use gpui_component::Size;
 use gpui_component::StyledExt;
@@ -22,13 +24,21 @@ use crate::app::comps::icon_import;
 use crate::app::comps::icon_relead;
 use crate::app::comps::icon_search;
 use crate::app::comps::DataTable;
+use crate::app::comps::TableColumn;
+use crate::app::comps::TableData;
+use crate::app::comps::TableRow;
 use crate::driver::DatabaseDriver;
+use crate::driver::DatabaseSession;
 use crate::driver::DriverError;
 use crate::driver::MySQLDriver;
 use crate::driver::QueryReq;
 use crate::driver::QueryResp;
 use crate::option::DataSource;
 use crate::option::DataSourceOptions;
+use serde_json::Map;
+use serde_json::Value;
+
+const DEFAULT_PAGE_SIZE: usize = 25;
 
 pub struct MySQLWorkspace {
     meta: DataSource,
@@ -37,6 +47,7 @@ pub struct MySQLWorkspace {
     tables: Vec<SharedString>,
     active_table: Option<SharedString>,
     sidebar_resize: Entity<ResizableState>,
+    session: Option<Box<dyn DatabaseSession>>,
 }
 
 impl MySQLWorkspace {
@@ -44,18 +55,25 @@ impl MySQLWorkspace {
         meta: DataSource,
         cx: &mut Context<Self>,
     ) -> Self {
-        let tables = Self::load_tables(&meta);
         let overview = TabItem::overview();
         let active_tab = overview.id.clone();
-        let active_table = tables.first().map(|name| name.clone());
-        Self {
+        let mut workspace = Self {
             meta,
             tabs: vec![overview],
             active_tab,
-            tables,
-            active_table,
+            tables: Vec::new(),
+            active_table: None,
             sidebar_resize: ResizableState::new(cx),
+            session: None,
+        };
+
+        if let Err(err) = workspace.ensure_session() {
+            eprintln!("初始化 MySQL 连接失败: {}", err);
         }
+
+        workspace.tables = workspace.load_tables();
+        workspace.active_table = workspace.tables.first().cloned();
+        workspace
     }
 
     fn close_tab(
@@ -93,31 +111,89 @@ impl MySQLWorkspace {
             .map(|tab| &tab.content)
     }
 
-    fn load_tables(meta: &DataSource) -> Vec<SharedString> {
-        match Self::try_fetch_tables(meta) {
+    fn load_tables(&mut self) -> Vec<SharedString> {
+        match self.try_fetch_tables() {
             Ok(tables) if !tables.is_empty() => tables,
-            Ok(_) => meta.tables(),
+            Ok(_) => self.meta.tables(),
             Err(err) => {
                 eprintln!("加载 MySQL 表列表失败: {}", err);
-                meta.tables()
+                self.meta.tables()
             }
         }
     }
 
-    fn try_fetch_tables(
-        meta: &DataSource,
-    ) -> Result<Vec<SharedString>, DriverError> {
+    fn try_fetch_tables(&mut self) -> Result<Vec<SharedString>, DriverError> {
+        let database = match Self::current_database(&self.meta) {
+            Some(name) => name,
+            None => return Ok(vec![]),
+        };
+
+        self.with_session(|session| Self::query_table_list(session, &database))
+    }
+
+    fn ensure_session(&mut self) -> Result<(), DriverError> {
+        if self.session.is_some() {
+            return Ok(());
+        }
+
+        let DataSourceOptions::MySQL(opts) = &self.meta.options else {
+            return Err(DriverError::InvalidField("数据源类型不匹配".into()));
+        };
+
+        self.session = Some(MySQLDriver.create_connection(opts)?);
+        Ok(())
+    }
+
+    fn with_session<R>(
+        &mut self,
+        mut operation: impl FnMut(&mut dyn DatabaseSession) -> Result<R, DriverError>,
+    ) -> Result<R, DriverError> {
+        let mut last_err = None;
+        for _ in 0..2 {
+            if let Err(err) = self.ensure_session() {
+                last_err = Some(err);
+                break;
+            }
+
+            if let Some(session) = self.session.as_deref_mut() {
+                match operation(session) {
+                    Ok(result) => return Ok(result),
+                    Err(err) => {
+                        last_err = Some(err);
+                        self.session = None;
+                        continue;
+                    }
+                }
+            } else {
+                last_err = Some(DriverError::Other("MySQL 连接不可用".into()));
+                break;
+            }
+        }
+
+        Err(last_err.unwrap_or_else(|| DriverError::Other("MySQL 连接不可用".into())))
+    }
+
+    fn current_database(meta: &DataSource) -> Option<String> {
         let DataSourceOptions::MySQL(opts) = &meta.options else {
-            return Ok(vec![]);
+            return None;
         };
 
         let database = opts.database.trim();
         if database.is_empty() {
-            return Ok(vec![]);
+            None
+        } else {
+            Some(database.to_string())
         }
+    }
 
-        let mut session = MySQLDriver.create_connection(opts)?;
-        let statement = format!("SHOW TABLES FROM `{}`", escape_mysql_identifier(database));
+    fn query_table_list(
+        session: &mut dyn DatabaseSession,
+        database: &str,
+    ) -> Result<Vec<SharedString>, DriverError> {
+        let statement = format!(
+            "SHOW TABLES FROM `{}`",
+            escape_mysql_identifier(database),
+        );
         let resp = session.query(QueryReq::Sql { statement })?;
         let rows = match resp {
             QueryResp::Rows(rows) => rows,
@@ -136,45 +212,254 @@ impl MySQLWorkspace {
         Ok(tables)
     }
 
+    fn fetch_table_page(
+        &mut self,
+        table: &str,
+        filter: &str,
+        page_index: usize,
+        page_size: usize,
+    ) -> Result<TablePage, DriverError> {
+        let table_name = table.to_string();
+        let filter_text = filter.to_string();
+        self.with_session(|session| {
+            Self::query_table_page(session, &table_name, &filter_text, page_index, page_size)
+        })
+    }
+
+    fn query_table_page(
+        session: &mut dyn DatabaseSession,
+        table: &str,
+        filter: &str,
+        page_index: usize,
+        page_size: usize,
+    ) -> Result<TablePage, DriverError> {
+        let offset = page_index.saturating_mul(page_size);
+        let mut column_names = Self::fetch_column_names(session, table)?;
+        let filter_clause = Self::build_filter_clause(&column_names, filter);
+        let filter_sql = filter_clause.as_deref().unwrap_or("");
+
+        let statement = format!(
+            "SELECT * FROM `{}`{} LIMIT {} OFFSET {}",
+            escape_mysql_identifier(table),
+            filter_sql,
+            page_size,
+            offset,
+        );
+
+        let resp = session.query(QueryReq::Sql { statement })?;
+        let rows = match resp {
+            QueryResp::Rows(rows) => rows,
+            _ => Vec::new(),
+        };
+
+        if column_names.is_empty() {
+            if let Some(first) = rows.first() {
+                column_names = first.keys().cloned().collect();
+            }
+        }
+
+        let columns = column_names
+            .iter()
+            .map(|name| TableColumn::new(name.clone()))
+            .collect::<Vec<_>>();
+        let table_rows = Self::convert_rows(&column_names, rows);
+
+        let total_rows = Self::query_table_total(session, table, filter_clause.as_deref())?;
+
+        Ok(TablePage {
+            columns,
+            rows: table_rows,
+            total_rows,
+        })
+    }
+
+    fn fetch_column_names(
+        session: &mut dyn DatabaseSession,
+        table: &str,
+    ) -> Result<Vec<String>, DriverError> {
+        let statement = format!(
+            "SHOW COLUMNS FROM `{}`",
+            escape_mysql_identifier(table),
+        );
+        let resp = session.query(QueryReq::Sql { statement })?;
+        let rows = match resp {
+            QueryResp::Rows(rows) => rows,
+            _ => return Ok(vec![]),
+        };
+
+        let mut columns = Vec::new();
+        for row in rows {
+            if let Some(field) = row.get("Field") {
+                if let Some(name) = field.as_str() {
+                    columns.push(name.to_string());
+                    continue;
+                }
+            }
+
+            if let Some((_, value)) = row.into_iter().next() {
+                if let Some(name) = value.as_str() {
+                    columns.push(name.to_string());
+                }
+            }
+        }
+        Ok(columns)
+    }
+
+    fn build_filter_clause(
+        column_names: &[String],
+        raw_filter: &str,
+    ) -> Option<String> {
+        let trimmed = raw_filter.trim();
+        if trimmed.is_empty() {
+            return None;
+        }
+
+        let lower = trimmed.to_ascii_lowercase();
+        if lower.starts_with("where ") {
+            return Some(format!(" {}", trimmed));
+        }
+
+        if trimmed.contains('=')
+            || trimmed.contains('<')
+            || trimmed.contains('>')
+            || lower.contains(" like ")
+            || lower.starts_with("order ")
+            || lower.starts_with("group ")
+            || lower.starts_with("limit ")
+        {
+            return Some(format!(" WHERE {}", trimmed));
+        }
+
+        if column_names.is_empty() {
+            return None;
+        }
+
+        let like_pattern = trimmed
+            .replace('\\', "\\\\")
+            .replace('%', "\\%")
+            .replace('_', "\\_")
+            .replace('\'', "''");
+        let mut conditions = Vec::new();
+        for name in column_names {
+            conditions.push(format!(
+                "CAST(`{}` AS CHAR) LIKE '%{}%' ESCAPE '\\\\'",
+                escape_mysql_identifier(name),
+                like_pattern
+            ));
+        }
+        if conditions.is_empty() {
+            None
+        } else {
+            Some(format!(" WHERE {}", conditions.join(" OR ")))
+        }
+    }
+
+    fn convert_rows(
+        column_names: &[String],
+        rows: Vec<Map<String, Value>>,
+    ) -> Vec<TableRow> {
+        let mut records = Vec::with_capacity(rows.len());
+        for row in rows {
+            let mut record = Vec::with_capacity(column_names.len());
+            for name in column_names {
+                let value = row.get(name).unwrap_or(&Value::Null);
+                record.push(Self::format_cell(value));
+            }
+            records.push(record);
+        }
+        records
+    }
+
+    fn format_cell(value: &Value) -> SharedString {
+        match value {
+            Value::Null => SharedString::from(String::new()),
+            Value::String(text) => SharedString::from(text.clone()),
+            Value::Number(num) => SharedString::from(num.to_string()),
+            Value::Bool(flag) => SharedString::from(if *flag { "true" } else { "false" }),
+            other => SharedString::from(other.to_string()),
+        }
+    }
+
+    fn query_table_total(
+        session: &mut dyn DatabaseSession,
+        table: &str,
+        where_clause: Option<&str>,
+    ) -> Result<usize, DriverError> {
+        let statement = match where_clause {
+            Some(clause) if !clause.is_empty() => format!(
+                "SELECT COUNT(*) AS `total` FROM `{}`{}",
+                escape_mysql_identifier(table),
+                clause,
+            ),
+            _ => format!(
+                "SELECT COUNT(*) AS `total` FROM `{}`",
+                escape_mysql_identifier(table),
+            ),
+        };
+        let resp = session.query(QueryReq::Sql { statement })?;
+        let rows = match resp {
+            QueryResp::Rows(rows) => rows,
+            _ => return Ok(0),
+        };
+
+        if let Some(row) = rows.first() {
+            for value in row.values() {
+                if let Some(count) = value.as_u64() {
+                    return Ok(count as usize);
+                }
+                if let Some(text) = value.as_str() {
+                    if let Ok(count) = text.parse::<u64>() {
+                        return Ok(count as usize);
+                    }
+                }
+            }
+        }
+        Ok(0)
+    }
+
     fn refresh_tables(
         &mut self,
         cx: &mut Context<Self>,
     ) {
-        match Self::try_fetch_tables(&self.meta) {
-            Ok(new_tables) => {
-                self.tables = new_tables;
-                if self.tables.is_empty() {
-                    self.active_table = None;
-                } else if let Some(active) = self.active_table.clone() {
-                    if !self.tables.iter().any(|name| name == &active) {
-                        self.active_table = self.tables.first().cloned();
-                    }
-                } else {
-                    self.active_table = self.tables.first().cloned();
-                }
-
-                let current_tables = self.tables.clone();
-                self.tabs.retain(|tab| match &tab.content {
-                    TabContent::DataTable(tab) => {
-                        current_tables.iter().any(|name| name == &tab.title)
-                    }
-                    _ => true,
-                });
-
-                if !self.tabs.iter().any(|tab| tab.id == self.active_tab) {
-                    if let Some(tab) = self.tabs.iter().find(|tab| !tab.closable) {
-                        self.active_tab = tab.id.clone();
-                    } else if let Some(tab) = self.tabs.first() {
-                        self.active_tab = tab.id.clone();
-                    }
-                }
-
-                cx.notify();
-            }
+        let new_tables = match self.try_fetch_tables() {
+            Ok(tables) if !tables.is_empty() => tables,
+            Ok(_) => self.meta.tables(),
             Err(err) => {
                 eprintln!("刷新 MySQL 表列表失败: {}", err);
+                if self.tables.is_empty() {
+                    self.meta.tables()
+                } else {
+                    return;
+                }
+            }
+        };
+
+        self.tables = new_tables;
+        if self.tables.is_empty() {
+            self.active_table = None;
+        } else if let Some(active) = self.active_table.clone() {
+            if !self.tables.iter().any(|name| name == &active) {
+                self.active_table = self.tables.first().cloned();
+            }
+        } else {
+            self.active_table = self.tables.first().cloned();
+        }
+
+        let current_tables = self.tables.clone();
+        self.tabs.retain(|tab| match &tab.content {
+            TabContent::DataTable(tab) => current_tables.iter().any(|name| name == &tab.table),
+            _ => true,
+        });
+
+        if !self.tabs.iter().any(|tab| tab.id == self.active_tab) {
+            if let Some(tab) = self.tabs.iter().find(|tab| !tab.closable) {
+                self.active_tab = tab.id.clone();
+            } else if let Some(tab) = self.tabs.first() {
+                self.active_tab = tab.id.clone();
             }
         }
+
+        cx.notify();
     }
 
     fn create_tab_table_data(
@@ -197,42 +482,132 @@ impl MySQLWorkspace {
             return;
         }
 
-        let data_table = DataTable::new(
-            window,
-            cx,
-            vec![
-                Column::new("id", "ID").width(px(80.)).sortable(),
-                Column::new("name", "名称").width(px(160.)).sortable(),
-                Column::new("owner", "负责人").width(px(140.)),
-                Column::new("updated", "更新时间").width(px(180.)).sortable(),
-                Column::new("records", "记录数").width(px(120.)).text_right().sortable(),
-                Column::new("status", "状态").width(px(120.)),
-            ],
-            (0..25)
-                .map(|index| {
-                    vec![
-                        SharedString::from(format!("{}", index + 1)),
-                        SharedString::from(format!("{} 行", table)),
-                        SharedString::from("数据团队"),
-                        SharedString::from(format!("2024-07-{:02} 1{:02}:32", (index % 30) + 1, index % 60)),
-                        SharedString::from(format!("{} 条", (index + 1) * 128)),
-                        SharedString::from(if index % 2 == 0 { "可用" } else { "维护中" }),
-                    ]
-                })
-                .collect(),
-        );
+        let filter = cx.new(|cx| InputState::new(window, cx).placeholder("输入筛选条件，如 id > 10"));
+
+        let page = match self.fetch_table_page(&table, "", 0, DEFAULT_PAGE_SIZE) {
+            Ok(page) => page,
+            Err(err) => {
+                eprintln!("加载数据表失败: {}", err);
+                TablePage {
+                    columns: Vec::new(),
+                    rows: Vec::new(),
+                    total_rows: 0,
+                }
+            }
+        };
+
+        let data_table = DataTable::new(TableData::new(page.columns.clone(), page.rows.clone()));
 
         self.tabs.push(TabItem {
             id: id.clone(),
             title: table.clone(),
             content: TabContent::DataTable(DataTableTab {
                 id: id.clone(),
-                title: table.clone(),
+                table: table.clone(),
                 content: data_table,
+                filter,
+                current_page: 0,
+                page_size: DEFAULT_PAGE_SIZE,
+                total_rows: page.total_rows,
             }),
             closable: true,
         });
         cx.notify();
+    }
+
+    fn apply_filter(
+        &mut self,
+        tab_id: &SharedString,
+        cx: &mut Context<Self>,
+    ) {
+        self.reload_table_tab(tab_id, 0, cx);
+    }
+
+    fn clear_filter(
+        &mut self,
+        tab_id: &SharedString,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(tab_item) = self.tabs.iter_mut().find(|tab| tab.id == *tab_id) {
+            if let TabContent::DataTable(data_tab) = &mut tab_item.content {
+                let _ = data_tab.filter.update(cx, |state, cx| {
+                    state.set_value("", window, cx);
+                });
+            }
+        }
+        self.apply_filter(tab_id, cx);
+    }
+
+    fn goto_page(
+        &mut self,
+        tab_id: &SharedString,
+        page: usize,
+        cx: &mut Context<Self>,
+    ) {
+        self.reload_table_tab(tab_id, page, cx);
+    }
+
+    fn reload_table_tab(
+        &mut self,
+        tab_id: &SharedString,
+        mut page: usize,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(tab_index) = self.tabs.iter().position(|tab| tab.id == *tab_id) else {
+            return;
+        };
+
+        let (table_name, page_size, total_rows, filter_handle) = {
+            let TabContent::DataTable(data_tab) = &self.tabs[tab_index].content else {
+                return;
+            };
+            (
+                data_tab.table.clone(),
+                data_tab.page_size,
+                data_tab.total_rows,
+                data_tab.filter.clone(),
+            )
+        };
+
+        let filter_value = filter_handle.update(cx, |state, _cx| state.value());
+        let filter_text = filter_value.trim().to_string();
+
+        let max_page = if total_rows == 0 {
+            0
+        } else {
+            (total_rows.saturating_sub(1)) / page_size
+        };
+        if page > max_page {
+            page = max_page;
+        }
+
+        match self.fetch_table_page(&table_name, &filter_text, page, page_size) {
+            Ok(table_page) => {
+                let new_total = table_page.total_rows;
+                if new_total > 0 {
+                    let new_max_page = (new_total.saturating_sub(1)) / page_size;
+                    if page > new_max_page {
+                        self.reload_table_tab(tab_id, new_max_page, cx);
+                        return;
+                    }
+                } else {
+                    page = 0;
+                }
+
+                if let TabContent::DataTable(data_tab) = &mut self.tabs[tab_index].content {
+                    data_tab.current_page = page;
+                    data_tab.page_size = page_size;
+                    data_tab.total_rows = new_total;
+                data_tab.content.set_data(TableData::new(table_page.columns, table_page.rows));
+                }
+                cx.notify();
+            }
+            Err(err) => {
+                eprintln!("加载数据表失败: {}", err);
+                self.session = None;
+            }
+        }
     }
 
     fn render_overview(
@@ -327,6 +702,111 @@ impl MySQLWorkspace {
     ) -> AnyElement {
         let theme = cx.theme().clone();
         let container_id = tab.id.to_string();
+        let tab_id = tab.id.clone();
+        let current_page = tab.current_page;
+
+        let has_prev = tab.current_page > 0;
+        let has_next = {
+            let next_offset = (current_page + 1) * tab.page_size;
+            next_offset < tab.total_rows
+        };
+
+        let filter_bar = div()
+            .flex()
+            .flex_row()
+            .items_center()
+            .gap(px(8.))
+            .child(
+                div()
+                    .flex()
+                    .flex_1()
+                    .child(
+                        TextInput::new(&tab.filter)
+                            .cleanable()
+                            .with_size(Size::Small),
+                   ),
+           )
+            .child(
+                Button::new(comp_id(["mysql-tab-filter-apply", &tab_id]))
+                    .outline()
+                    .with_size(Size::Small)
+                    .label("应用筛选")
+                    .on_click(cx.listener({
+                        let tab_id = tab_id.clone();
+                        move |view: &mut Self, _, _, cx| {
+                            view.apply_filter(&tab_id, cx);
+                        }
+                    })),
+            )
+            .child(
+                Button::new(comp_id(["mysql-tab-filter-reset", &tab_id]))
+                    .ghost()
+                    .with_size(Size::Small)
+                    .label("清空条件")
+                    .on_click(cx.listener({
+                        let tab_id = tab_id.clone();
+                        move |view: &mut Self, _, window, cx| {
+                            view.clear_filter(&tab_id, window, cx);
+                        }
+                    })),
+            );
+
+        let pagination = div()
+            .flex()
+            .flex_row()
+            .items_center()
+            .justify_between()
+            .pt(px(8.))
+            .child(
+                div()
+                    .text_sm()
+                    .text_color(theme.muted_foreground)
+                    .child(format!(
+                        "第 {} 页 · 每页 {} 行 · 共 {} 行",
+                        tab.current_page + 1,
+                        tab.page_size,
+                        tab.total_rows
+                    )),
+            )
+            .child(
+                div()
+                    .flex()
+                    .flex_row()
+                    .gap(px(8.))
+                    .child(
+                        Button::new(comp_id(["mysql-tab-page-prev", &tab_id]))
+                            .outline()
+                            .with_size(Size::Small)
+                            .label("上一页")
+                            .disabled(!has_prev)
+                            .on_click(cx.listener({
+                                let tab_id = tab_id.clone();
+                        move |view: &mut Self, _, _, cx| {
+                            if has_prev {
+                                let prev = current_page.saturating_sub(1);
+                                view.goto_page(&tab_id, prev, cx);
+                            }
+                        }
+                            })),
+                    )
+                    .child(
+                        Button::new(comp_id(["mysql-tab-page-next", &tab_id]))
+                            .outline()
+                            .with_size(Size::Small)
+                            .label("下一页")
+                            .disabled(!has_next)
+                            .on_click(cx.listener({
+                                let tab_id = tab_id.clone();
+                                let next_page = current_page + 1;
+                                move |view: &mut Self, _, _, cx| {
+                                    if has_next {
+                                        view.goto_page(&tab_id, next_page, cx);
+                                    }
+                                }
+                            })),
+                    ),
+            );
+
         div()
             .flex()
             .flex_col()
@@ -334,7 +814,10 @@ impl MySQLWorkspace {
             .size_full()
             .min_w_0()
             .min_h_0()
-            .child(tab.content.render(&container_id, cx).flex_1())
+            .gap(px(8.))
+            .child(filter_bar)
+            .child(tab.content.render(&container_id, cx))
+            .child(pagination)
             .into_any_element()
     }
 
@@ -563,6 +1046,16 @@ enum TabContent {
 #[derive(Clone)]
 struct DataTableTab {
     id: SharedString,
-    title: SharedString,
+    table: SharedString,
     content: DataTable,
+    filter: Entity<InputState>,
+    current_page: usize,
+    page_size: usize,
+    total_rows: usize,
+}
+
+struct TablePage {
+    columns: Vec<TableColumn>,
+    rows: Vec<TableRow>,
+    total_rows: usize,
 }
