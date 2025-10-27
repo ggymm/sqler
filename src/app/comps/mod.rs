@@ -24,18 +24,22 @@ pub fn icon_close() -> Icon {
     Icon::default().path("icons/close.svg")
 }
 
-pub fn icon_search() -> Icon {
-    Icon::default().path("icons/search.svg")
+pub fn icon_export() -> Icon {
+    Icon::default().path("icons/upload.svg")
 }
 
 pub fn icon_import() -> Icon {
     Icon::default().path("icons/download.svg")
 }
 
-pub fn icon_export() -> Icon {
-    Icon::default().path("icons/upload.svg")
-}
-
 pub fn icon_relead() -> Icon {
     Icon::default().path("icons/relead.svg")
+}
+
+pub fn icon_search() -> Icon {
+    Icon::default().path("icons/search.svg")
+}
+
+pub fn icon_sheet() -> Icon {
+    Icon::default().path("icons/sheet.svg")
 }

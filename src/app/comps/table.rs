@@ -13,9 +13,9 @@ pub struct DataTable {
 impl DataTable {
     pub fn new(
         columns: Vec<SharedString>,
-        data: Vec<Vec<SharedString>>,
+        rows: Vec<Vec<SharedString>>,
     ) -> Self {
-        Self { columns, rows: data }
+        Self { columns, rows }
     }
 
     pub fn build(
@@ -33,6 +33,10 @@ impl DataTable {
                 .loop_selection(true)
                 .scrollbar_visible(true, true)
         })
+    }
+
+    pub fn columns(&self) -> &[SharedString] {
+        &self.columns
     }
 
     pub fn update_data(

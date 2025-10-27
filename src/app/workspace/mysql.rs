@@ -23,6 +23,7 @@ use crate::app::comps::icon_export;
 use crate::app::comps::icon_import;
 use crate::app::comps::icon_relead;
 use crate::app::comps::icon_search;
+use crate::app::comps::icon_sheet;
 use crate::app::comps::DataTable;
 use crate::driver::DatabaseDriver;
 use crate::driver::DatabaseSession;
@@ -213,10 +214,23 @@ impl MySQLWorkspace {
         filter: &str,
         page_index: usize,
         page_size: usize,
+        sort_column: Option<&str>,
+        sort_ascending: bool,
     ) -> Result<TablePage, DriverError> {
         let table_name = table.to_string();
         let filter_text = filter.to_string();
-        self.with_session(|session| Self::query_table_page(session, &table_name, &filter_text, page_index, page_size))
+        let sort_col = sort_column.map(|s| s.to_string());
+        self.with_session(|session| {
+            Self::query_table_page(
+                session,
+                &table_name,
+                &filter_text,
+                page_index,
+                page_size,
+                sort_col.as_deref(),
+                sort_ascending,
+            )
+        })
     }
 
     fn query_table_page(
@@ -225,16 +239,26 @@ impl MySQLWorkspace {
         filter: &str,
         page_index: usize,
         page_size: usize,
+        sort_column: Option<&str>,
+        sort_ascending: bool,
     ) -> Result<TablePage, DriverError> {
         let offset = page_index.saturating_mul(page_size);
         let mut column_names = Self::fetch_column_names(session, table)?;
         let filter_clause = Self::build_filter_clause(&column_names, filter);
         let filter_sql = filter_clause.as_deref().unwrap_or("");
 
+        let sort_clause = if let Some(col) = sort_column {
+            let direction = if sort_ascending { "ASC" } else { "DESC" };
+            format!(" ORDER BY `{}` {}", escape_mysql_identifier(col), direction)
+        } else {
+            String::new()
+        };
+
         let statement = format!(
-            "SELECT * FROM `{}`{} LIMIT {} OFFSET {}",
+            "SELECT * FROM `{}`{}{} LIMIT {} OFFSET {}",
             escape_mysql_identifier(table),
             filter_sql,
+            sort_clause,
             page_size,
             offset,
         );
@@ -471,7 +495,7 @@ impl MySQLWorkspace {
 
         let filter = cx.new(|cx| InputState::new(window, cx).placeholder("输入筛选条件，如 id > 10"));
 
-        let page = match self.fetch_table_page(&table, "", 0, DEFAULT_PAGE_SIZE) {
+        let page = match self.fetch_table_page(&table, "", 0, DEFAULT_PAGE_SIZE, None, true) {
             Ok(page) => page,
             Err(err) => {
                 eprintln!("加载数据表失败: {}", err);
@@ -496,6 +520,8 @@ impl MySQLWorkspace {
                 current_page: 0,
                 page_size: DEFAULT_PAGE_SIZE,
                 total_rows: page.total_rows,
+                sort_column: None,
+                sort_ascending: true,
             }),
             closable: true,
         });
@@ -507,6 +533,26 @@ impl MySQLWorkspace {
         tab_id: &SharedString,
         cx: &mut Context<Self>,
     ) {
+        self.reload_table_tab(tab_id, 0, cx);
+    }
+
+    fn apply_sort(
+        &mut self,
+        tab_id: &SharedString,
+        column: Option<String>,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(tab_item) = self.tabs.iter_mut().find(|tab| tab.id == *tab_id) {
+            if let TabContent::DataTable(data_tab) = &mut tab_item.content {
+                // 如果点击同一列，切换排序方向
+                if data_tab.sort_column == column {
+                    data_tab.sort_ascending = !data_tab.sort_ascending;
+                } else {
+                    data_tab.sort_column = column;
+                    data_tab.sort_ascending = true;
+                }
+            }
+        }
         self.reload_table_tab(tab_id, 0, cx);
     }
 
@@ -545,7 +591,7 @@ impl MySQLWorkspace {
             return;
         };
 
-        let (table_name, page_size, total_rows, filter_handle) = {
+        let (table_name, page_size, total_rows, filter_handle, sort_column, sort_ascending) = {
             let TabContent::DataTable(data_tab) = &self.tabs[tab_index].content else {
                 return;
             };
@@ -554,6 +600,8 @@ impl MySQLWorkspace {
                 data_tab.page_size,
                 data_tab.total_rows,
                 data_tab.filter.clone(),
+                data_tab.sort_column.clone(),
+                data_tab.sort_ascending,
             )
         };
 
@@ -569,7 +617,14 @@ impl MySQLWorkspace {
             page = max_page;
         }
 
-        match self.fetch_table_page(&table_name, &filter_text, page, page_size) {
+        match self.fetch_table_page(
+            &table_name,
+            &filter_text,
+            page,
+            page_size,
+            sort_column.as_deref(),
+            sort_ascending,
+        ) {
             Ok(table_page) => {
                 let new_total = table_page.total_rows;
                 if new_total > 0 {
@@ -690,11 +745,202 @@ impl MySQLWorkspace {
         tab: &DataTableTab,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        let theme = cx.theme();
+        let tab_id = tab.id.clone();
+
+        // 获取列名用于排序按钮
+        let columns = tab.content.read(cx).delegate().columns().to_vec();
+
+        // 计算分页信息
+        let total_pages = if tab.total_rows == 0 {
+            1
+        } else {
+            (tab.total_rows + tab.page_size - 1) / tab.page_size
+        };
+        let current_page = tab.current_page;
+        let start_row = current_page * tab.page_size + 1;
+        let end_row = ((current_page + 1) * tab.page_size).min(tab.total_rows);
+
         div()
+            .flex()
             .flex_1()
-            .rounded_md()
-            .overflow_hidden()
-            .child(tab.content.clone())
+            .flex_col()
+            .gap_2()
+            .child(
+                // 筛选和操作栏
+                div()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .gap_2()
+                    .child(div().flex().flex_1().child(tab.filter.clone()))
+                    .child(
+                        Button::new(comp_id(["datatable-filter-apply", &tab_id]))
+                            .small()
+                            .primary()
+                            .label("筛选")
+                            .on_click(cx.listener({
+                                let tab_id = tab_id.clone();
+                                move |view: &mut Self, _, _, cx| {
+                                    view.apply_filter(&tab_id, cx);
+                                }
+                            })),
+                    )
+                    .child(
+                        Button::new(comp_id(["datatable-filter-clear", &tab_id]))
+                            .small()
+                            .outline()
+                            .label("清除")
+                            .on_click(cx.listener({
+                                let tab_id = tab_id.clone();
+                                move |view: &mut Self, _, window, cx| {
+                                    view.clear_filter(&tab_id, window, cx);
+                                }
+                            })),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap_1()
+                            .text_sm()
+                            .text_color(theme.muted_foreground)
+                            .child("排序:"),
+                    )
+                    .children(
+                        columns
+                            .iter()
+                            .take(5)
+                            .map(|col| {
+                                let col_str = col.to_string();
+                                let is_active = tab.sort_column.as_ref() == Some(&col_str);
+                                Button::new(comp_id(["datatable-sort-col", &tab_id, col]))
+                                    .xsmall()
+                                    .when(is_active, |btn| btn.primary())
+                                    .when(!is_active, |btn| btn.ghost())
+                                    .label(format!(
+                                        "{} {}",
+                                        col,
+                                        if is_active && tab.sort_ascending {
+                                            "↑"
+                                        } else if is_active {
+                                            "↓"
+                                        } else {
+                                            ""
+                                        }
+                                    ))
+                                    .on_click(cx.listener({
+                                        let tab_id = tab_id.clone();
+                                        let col_str = col_str.clone();
+                                        move |view: &mut Self, _, _, cx| {
+                                            view.apply_sort(&tab_id, Some(col_str.clone()), cx);
+                                        }
+                                    }))
+                                    .into_any_element()
+                            })
+                            .collect::<Vec<_>>(),
+                    )
+                    .when(tab.sort_column.is_some(), |this| {
+                        this.child(
+                            Button::new(comp_id(["datatable-sort-clear", &tab_id]))
+                                .xsmall()
+                                .outline()
+                                .label("清除")
+                                .on_click(cx.listener({
+                                    let tab_id = tab_id.clone();
+                                    move |view: &mut Self, _, _, cx| {
+                                        view.apply_sort(&tab_id, None, cx);
+                                    }
+                                })),
+                        )
+                    }),
+            )
+            .child(
+                // 表格区域
+                div().flex_1().rounded_md().overflow_hidden().child(tab.content.clone()),
+            )
+            .child(
+                // 分页控件
+                div()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .justify_between()
+                    .px_2()
+                    .py_2()
+                    .border_t_1()
+                    .border_color(theme.border)
+                    .child(div().text_sm().text_color(theme.muted_foreground).child(format!(
+                        "显示 {} - {} / 共 {} 条",
+                        if tab.total_rows == 0 { 0 } else { start_row },
+                        end_row,
+                        tab.total_rows
+                    )))
+                    .child(
+                        div()
+                            .flex()
+                            .flex_row()
+                            .items_center()
+                            .gap_2()
+                            .when(current_page > 0, |this| {
+                                this.child(
+                                    Button::new(comp_id(["datatable-page-first", &tab_id]))
+                                        .small()
+                                        .outline()
+                                        .label("首页")
+                                        .on_click(cx.listener({
+                                            let tab_id = tab_id.clone();
+                                            move |view: &mut Self, _, _, cx| {
+                                                view.goto_page(&tab_id, 0, cx);
+                                            }
+                                        })),
+                                )
+                                .child(
+                                    Button::new(comp_id(["datatable-page-prev", &tab_id]))
+                                        .small()
+                                        .outline()
+                                        .label("上一页")
+                                        .on_click(cx.listener({
+                                            let tab_id = tab_id.clone();
+                                            move |view: &mut Self, _, _, cx| {
+                                                view.goto_page(&tab_id, current_page.saturating_sub(1), cx);
+                                            }
+                                        })),
+                                )
+                            })
+                            .child(div().text_sm().text_color(theme.foreground).child(format!(
+                                "{} / {}",
+                                current_page + 1,
+                                total_pages
+                            )))
+                            .when(current_page + 1 < total_pages, |this| {
+                                this.child(
+                                    Button::new(comp_id(["datatable-page-next", &tab_id]))
+                                        .small()
+                                        .outline()
+                                        .label("下一页")
+                                        .on_click(cx.listener({
+                                            let tab_id = tab_id.clone();
+                                            move |view: &mut Self, _, _, cx| {
+                                                view.goto_page(&tab_id, current_page + 1, cx);
+                                            }
+                                        })),
+                                )
+                                .child(
+                                    Button::new(comp_id(["datatable-page-last", &tab_id]))
+                                        .small()
+                                        .outline()
+                                        .label("末页")
+                                        .on_click(cx.listener({
+                                            let tab_id = tab_id.clone();
+                                            move |view: &mut Self, _, _, cx| {
+                                                view.goto_page(&tab_id, total_pages.saturating_sub(1), cx);
+                                            }
+                                        })),
+                                )
+                            }),
+                    ),
+            )
             .into_any_element()
     }
 }
@@ -724,26 +970,29 @@ impl Render for MySQLWorkspace {
                 .min_h_0()
                 .scrollable(Axis::Vertical),
             |acc, table| {
-                let selected = self.active_table.as_ref() == Some(&table);
-                let click_table = table.clone();
+                let active = self.active_table.as_ref() == Some(&table);
+                let active_table = table.clone();
                 acc.child(
                     div()
+                        .id(comp_id(["mysql-menu-item", &self.meta.id, &table]))
                         .flex()
-                        .id(comp_id(["mysql-menu-table", &self.meta.id, &table]))
+                        .flex_row()
+                        .items_center()
                         .px_4()
                         .py_2()
+                        .gap_2()
                         .rounded_lg()
                         .text_sm()
-                        .text_color(theme.muted_foreground)
-                        .hover(|this| this.bg(theme.secondary_hover))
-                        .when(selected, |this| {
-                            this.bg(theme.secondary_hover)
-                                .text_color(theme.foreground)
-                                .font_semibold()
-                        })
+                        .text_color(theme.foreground)
+                        .when_else(
+                            active,
+                            |this| this.bg(theme.list_active).font_semibold(),
+                            |this| this.hover(|this| this.bg(theme.list_hover)),
+                        )
                         .on_double_click(cx.listener(move |this, _, window, cx| {
-                            this.create_tab_table_data(click_table.clone(), window, cx);
+                            this.create_tab_table_data(active_table.clone(), window, cx);
                         }))
+                        .child(icon_sheet())
                         .child(table.clone()),
                 )
             },
@@ -848,6 +1097,7 @@ impl Render for MySQLWorkspace {
             );
 
         let content = div()
+            .id(comp_id(["mysql-content", id]))
             .flex()
             .flex_1()
             .flex_col()
@@ -910,6 +1160,8 @@ struct DataTableTab {
     current_page: usize,
     page_size: usize,
     total_rows: usize,
+    sort_column: Option<String>,
+    sort_ascending: bool,
 }
 
 struct TablePage {
