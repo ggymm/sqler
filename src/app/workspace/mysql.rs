@@ -2,7 +2,10 @@ use gpui::prelude::*;
 use gpui::*;
 use gpui_component::button::Button;
 use gpui_component::button::ButtonVariants;
+use gpui_component::dropdown::Dropdown;
+use gpui_component::dropdown::DropdownState;
 use gpui_component::input::InputState;
+use gpui_component::input::TextInput;
 use gpui_component::resizable::h_resizable;
 use gpui_component::resizable::resizable_panel;
 use gpui_component::resizable::ResizableState;
@@ -522,6 +525,9 @@ impl MySQLWorkspace {
                 total_rows: page.total_rows,
                 sort_column: None,
                 sort_ascending: true,
+                filter_panel_open: false,
+                filter_rules: Vec::new(),
+                sort_rules: Vec::new(),
             }),
             closable: true,
         });
@@ -579,6 +585,124 @@ impl MySQLWorkspace {
         cx: &mut Context<Self>,
     ) {
         self.reload_table_tab(tab_id, page, cx);
+    }
+
+    fn toggle_filter_panel(
+        &mut self,
+        tab_id: &SharedString,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(tab_item) = self.tabs.iter_mut().find(|tab| tab.id == *tab_id) {
+            if let TabContent::DataTable(data_tab) = &mut tab_item.content {
+                data_tab.filter_panel_open = !data_tab.filter_panel_open;
+            }
+        }
+        cx.notify();
+    }
+
+    fn add_filter_rule(
+        &mut self,
+        tab_id: &SharedString,
+        columns: &[SharedString],
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(tab_item) = self.tabs.iter_mut().find(|tab| tab.id == *tab_id) {
+            if let TabContent::DataTable(data_tab) = &mut tab_item.content {
+                let rule_id = SharedString::from(format!("filter-{}", uuid::Uuid::new_v4()));
+                let field_dropdown = cx.new(|cx| {
+                    DropdownState::new(columns.to_vec(), None, window, cx)
+                });
+
+                // 创建操作符下拉列表
+                let operators: Vec<SharedString> = FilterOperator::all()
+                    .into_iter()
+                    .map(|op| SharedString::from(op.label().to_string()))
+                    .collect();
+                let operator_dropdown = cx.new(|cx| {
+                    DropdownState::new(operators, None, window, cx)
+                });
+
+                // 创建值输入框
+                let value_input = cx.new(|cx| {
+                    InputState::new(window, cx).placeholder("输入筛选值")
+                });
+
+                data_tab.filter_rules.push(FilterRule {
+                    id: rule_id,
+                    field_dropdown,
+                    operator_dropdown,
+                    operator: FilterOperator::Equal,
+                    value_input,
+                });
+            }
+        }
+        cx.notify();
+    }
+
+    fn remove_filter_rule(
+        &mut self,
+        tab_id: &SharedString,
+        rule_id: &SharedString,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(tab_item) = self.tabs.iter_mut().find(|tab| tab.id == *tab_id) {
+            if let TabContent::DataTable(data_tab) = &mut tab_item.content {
+                data_tab.filter_rules.retain(|r| &r.id != rule_id);
+            }
+        }
+        cx.notify();
+    }
+
+    fn add_sort_rule(
+        &mut self,
+        tab_id: &SharedString,
+        columns: &[SharedString],
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(tab_item) = self.tabs.iter_mut().find(|tab| tab.id == *tab_id) {
+            if let TabContent::DataTable(data_tab) = &mut tab_item.content {
+                let rule_id = SharedString::from(format!("sort-{}", uuid::Uuid::new_v4()));
+                let field_dropdown = cx.new(|cx| {
+                    DropdownState::new(columns.to_vec(), None, window, cx)
+                });
+                data_tab.sort_rules.push(SortRule {
+                    id: rule_id,
+                    field_dropdown,
+                    ascending: true,
+                });
+            }
+        }
+        cx.notify();
+    }
+
+    fn remove_sort_rule(
+        &mut self,
+        tab_id: &SharedString,
+        rule_id: &SharedString,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(tab_item) = self.tabs.iter_mut().find(|tab| tab.id == *tab_id) {
+            if let TabContent::DataTable(data_tab) = &mut tab_item.content {
+                data_tab.sort_rules.retain(|r| &r.id != rule_id);
+            }
+        }
+        cx.notify();
+    }
+
+    fn clear_all_rules(
+        &mut self,
+        tab_id: &SharedString,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(tab_item) = self.tabs.iter_mut().find(|tab| tab.id == *tab_id) {
+            if let TabContent::DataTable(data_tab) = &mut tab_item.content {
+                data_tab.filter_rules.clear();
+                data_tab.sort_rules.clear();
+            }
+        }
+        cx.notify();
     }
 
     fn reload_table_tab(
@@ -745,10 +869,10 @@ impl MySQLWorkspace {
         tab: &DataTableTab,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let theme = cx.theme();
+        let theme = cx.theme().clone();
         let tab_id = tab.id.clone();
 
-        // 获取列名用于排序按钮
+        // 获取列名
         let columns = tab.content.read(cx).delegate().columns().to_vec();
 
         // 计算分页信息
@@ -767,97 +891,32 @@ impl MySQLWorkspace {
             .flex_col()
             .gap_2()
             .child(
-                // 筛选和操作栏
+                // 顶部操作栏
                 div()
                     .flex()
                     .flex_row()
                     .items_center()
                     .gap_2()
-                    .child(div().flex().flex_1().child(tab.filter.clone()))
                     .child(
-                        Button::new(comp_id(["datatable-filter-apply", &tab_id]))
+                        Button::new(comp_id(["datatable-toggle-filter", &tab_id]))
                             .small()
-                            .primary()
-                            .label("筛选")
+                            .when(tab.filter_panel_open, |btn| btn.primary())
+                            .when(!tab.filter_panel_open, |btn| btn.outline())
+                            .label(if tab.filter_panel_open { "隐藏筛选" } else { "筛选数据" })
                             .on_click(cx.listener({
                                 let tab_id = tab_id.clone();
                                 move |view: &mut Self, _, _, cx| {
-                                    view.apply_filter(&tab_id, cx);
+                                    view.toggle_filter_panel(&tab_id, cx);
                                 }
-                            })),
+                            }))
                     )
-                    .child(
-                        Button::new(comp_id(["datatable-filter-clear", &tab_id]))
-                            .small()
-                            .outline()
-                            .label("清除")
-                            .on_click(cx.listener({
-                                let tab_id = tab_id.clone();
-                                move |view: &mut Self, _, window, cx| {
-                                    view.clear_filter(&tab_id, window, cx);
-                                }
-                            })),
-                    )
-                    .child(
-                        div()
-                            .flex()
-                            .items_center()
-                            .gap_1()
-                            .text_sm()
-                            .text_color(theme.muted_foreground)
-                            .child("排序:"),
-                    )
-                    .children(
-                        columns
-                            .iter()
-                            .take(5)
-                            .map(|col| {
-                                let col_str = col.to_string();
-                                let is_active = tab.sort_column.as_ref() == Some(&col_str);
-                                Button::new(comp_id(["datatable-sort-col", &tab_id, col]))
-                                    .xsmall()
-                                    .when(is_active, |btn| btn.primary())
-                                    .when(!is_active, |btn| btn.ghost())
-                                    .label(format!(
-                                        "{} {}",
-                                        col,
-                                        if is_active && tab.sort_ascending {
-                                            "↑"
-                                        } else if is_active {
-                                            "↓"
-                                        } else {
-                                            ""
-                                        }
-                                    ))
-                                    .on_click(cx.listener({
-                                        let tab_id = tab_id.clone();
-                                        let col_str = col_str.clone();
-                                        move |view: &mut Self, _, _, cx| {
-                                            view.apply_sort(&tab_id, Some(col_str.clone()), cx);
-                                        }
-                                    }))
-                                    .into_any_element()
-                            })
-                            .collect::<Vec<_>>(),
-                    )
-                    .when(tab.sort_column.is_some(), |this| {
-                        this.child(
-                            Button::new(comp_id(["datatable-sort-clear", &tab_id]))
-                                .xsmall()
-                                .outline()
-                                .label("清除")
-                                .on_click(cx.listener({
-                                    let tab_id = tab_id.clone();
-                                    move |view: &mut Self, _, _, cx| {
-                                        view.apply_sort(&tab_id, None, cx);
-                                    }
-                                })),
-                        )
-                    }),
             )
+            .when(tab.filter_panel_open, |this| {
+                this.child(self.render_filter_panel(tab, &columns, cx))
+            })
             .child(
                 // 表格区域
-                div().flex_1().rounded_md().overflow_hidden().child(tab.content.clone()),
+                div().flex_1().rounded_md().overflow_hidden().child(tab.content.clone())
             )
             .child(
                 // 分页控件
@@ -893,7 +952,7 @@ impl MySQLWorkspace {
                                             move |view: &mut Self, _, _, cx| {
                                                 view.goto_page(&tab_id, 0, cx);
                                             }
-                                        })),
+                                        }))
                                 )
                                 .child(
                                     Button::new(comp_id(["datatable-page-prev", &tab_id]))
@@ -905,7 +964,7 @@ impl MySQLWorkspace {
                                             move |view: &mut Self, _, _, cx| {
                                                 view.goto_page(&tab_id, current_page.saturating_sub(1), cx);
                                             }
-                                        })),
+                                        }))
                                 )
                             })
                             .child(div().text_sm().text_color(theme.foreground).child(format!(
@@ -924,7 +983,7 @@ impl MySQLWorkspace {
                                             move |view: &mut Self, _, _, cx| {
                                                 view.goto_page(&tab_id, current_page + 1, cx);
                                             }
-                                        })),
+                                        }))
                                 )
                                 .child(
                                     Button::new(comp_id(["datatable-page-last", &tab_id]))
@@ -936,12 +995,309 @@ impl MySQLWorkspace {
                                             move |view: &mut Self, _, _, cx| {
                                                 view.goto_page(&tab_id, total_pages.saturating_sub(1), cx);
                                             }
-                                        })),
+                                        }))
                                 )
-                            }),
-                    ),
+                            })
+                    )
             )
             .into_any_element()
+    }
+
+    fn render_filter_panel(
+        &self,
+        tab: &DataTableTab,
+        columns: &[SharedString],
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let theme = cx.theme().clone();
+        let tab_id = tab.id.clone();
+
+        div()
+            .flex()
+            .flex_col()
+            .gap_3()
+            .p_3()
+            .rounded_md()
+            .border_1()
+            .border_color(theme.border)
+            .bg(theme.secondary)
+            .child(
+                // 筛选规则列表
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_2()
+                    .when(!tab.filter_rules.is_empty(), |this| {
+                        this.child(
+                            div()
+                                .text_sm()
+                                .font_semibold()
+                                .text_color(theme.foreground)
+                                .child("筛选条件")
+                        )
+                    })
+                    .children(
+                        tab.filter_rules.iter().map(|rule| {
+                            self.render_filter_rule(rule, columns, &tab_id, cx)
+                        })
+                    )
+            )
+            .child(
+                // 排序规则列表
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_2()
+                    .when(!tab.sort_rules.is_empty(), |this| {
+                        this.child(
+                            div()
+                                .text_sm()
+                                .font_semibold()
+                                .text_color(theme.foreground)
+                                .child("排序规则")
+                        )
+                    })
+                    .children(
+                        tab.sort_rules.iter().map(|rule| {
+                            self.render_sort_rule(rule, columns, &tab_id, cx)
+                        })
+                    )
+            )
+            .child(
+                // 底部按钮栏
+                div()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .gap_2()
+                    .child(
+                        Button::new(comp_id(["filter-panel-clear", &tab_id]))
+                            .small()
+                            .outline()
+                            .label("清除所有条件")
+                            .on_click(cx.listener({
+                                let tab_id = tab_id.clone();
+                                move |view: &mut Self, _, _, cx| {
+                                    view.clear_all_rules(&tab_id, cx);
+                                }
+                            }))
+                    )
+                    .child(
+                        Button::new(comp_id(["filter-panel-add-filter", &tab_id]))
+                            .small()
+                            .outline()
+                            .label("新增筛选")
+                            .on_click(cx.listener({
+                                let tab_id = tab_id.clone();
+                                let columns = columns.to_vec();
+                                move |view: &mut Self, _, window, cx| {
+                                    view.add_filter_rule(&tab_id, &columns, window, cx);
+                                }
+                            }))
+                    )
+                    .child(
+                        Button::new(comp_id(["filter-panel-add-sort", &tab_id]))
+                            .small()
+                            .outline()
+                            .label("新增排序")
+                            .on_click(cx.listener({
+                                let tab_id = tab_id.clone();
+                                let columns = columns.to_vec();
+                                move |view: &mut Self, _, window, cx| {
+                                    view.add_sort_rule(&tab_id, &columns, window, cx);
+                                }
+                            }))
+                    )
+                    .child(div().flex_1())
+                    .child(
+                        Button::new(comp_id(["filter-panel-apply", &tab_id]))
+                            .small()
+                            .primary()
+                            .label("全部应用")
+                            .on_click(cx.listener({
+                                let tab_id = tab_id.clone();
+                                move |view: &mut Self, _, _, cx| {
+                                    // TODO: 应用所有筛选和排序规则
+                                    view.apply_filter(&tab_id, cx);
+                                }
+                            }))
+                    )
+            )
+    }
+
+    fn render_filter_rule(
+        &self,
+        rule: &FilterRule,
+        columns: &[SharedString],
+        tab_id: &SharedString,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let theme = cx.theme();
+        let rule_id = rule.id.clone();
+
+        div()
+            .flex()
+            .flex_row()
+            .items_center()
+            .gap_2()
+            .p_2()
+            .w_full()
+            .rounded_md()
+            .bg(theme.background)
+            .child(
+                // 字段选择
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_1()
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(theme.muted_foreground)
+                            .child("字段")
+                    )
+                    .child(
+                        Dropdown::new(&rule.field_dropdown)
+                            .small()
+                            .placeholder("选择字段")
+                    )
+            )
+            .child(
+                // 条件选择
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_1()
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(theme.muted_foreground)
+                            .child("条件")
+                    )
+                    .child(
+                        Dropdown::new(&rule.operator_dropdown)
+                            .small()
+                            .placeholder("选择条件")
+                    )
+            )
+            .child(
+                // 条件值输入
+                div()
+                    .flex()
+                    .flex_1()
+                    .flex_col()
+                    .gap_1()
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(theme.muted_foreground)
+                            .child("值")
+                    )
+                    .child(
+                        TextInput::new(&rule.value_input).small()
+                    )
+            )
+            .child(
+                // 删除按钮
+                Button::new(comp_id(["filter-remove", &rule_id]))
+                    .xsmall()
+                    .ghost()
+                    .label("删除")
+                    .on_click(cx.listener({
+                        let tab_id = tab_id.clone();
+                        let rule_id = rule_id.clone();
+                        move |view: &mut Self, _, _, cx| {
+                            view.remove_filter_rule(&tab_id, &rule_id, cx);
+                        }
+                    }))
+            )
+    }
+
+    fn render_sort_rule(
+        &self,
+        rule: &SortRule,
+        columns: &[SharedString],
+        tab_id: &SharedString,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let theme = cx.theme();
+        let rule_id = rule.id.clone();
+        let ascending = rule.ascending;
+
+        div()
+            .flex()
+            .flex_row()
+            .items_center()
+            .gap_2()
+            .p_2()
+            .w_full()
+            .rounded_md()
+            .bg(theme.background)
+            .child(
+                // 字段选择
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_1()
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(theme.muted_foreground)
+                            .child("字段")
+                    )
+                    .child(
+                        Dropdown::new(&rule.field_dropdown)
+                            .small()
+                            .placeholder("选择字段")
+                    )
+            )
+            .child(
+                // 排序方向选择
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_1()
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(theme.muted_foreground)
+                            .child("方向")
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .gap_1()
+                            .child(
+                                Button::new(comp_id(["sort-asc", &rule_id]))
+                                    .xsmall()
+                                    .when(ascending, |btn| btn.primary())
+                                    .when(!ascending, |btn| btn.ghost())
+                                    .label("升序 ↑")
+                            )
+                            .child(
+                                Button::new(comp_id(["sort-desc", &rule_id]))
+                                    .xsmall()
+                                    .when(!ascending, |btn| btn.primary())
+                                    .when(ascending, |btn| btn.ghost())
+                                    .label("降序 ↓")
+                            )
+                    )
+            )
+            .child(div().flex_1())
+            .child(
+                // 删除按钮
+                Button::new(comp_id(["sort-remove", &rule_id]))
+                    .xsmall()
+                    .ghost()
+                    .label("删除")
+                    .on_click(cx.listener({
+                        let tab_id = tab_id.clone();
+                        let rule_id = rule_id.clone();
+                        move |view: &mut Self, _, _, cx| {
+                            view.remove_sort_rule(&tab_id, &rule_id, cx);
+                        }
+                    }))
+            )
     }
 }
 
@@ -1162,6 +1518,70 @@ struct DataTableTab {
     total_rows: usize,
     sort_column: Option<String>,
     sort_ascending: bool,
+    // 新增：筛选排序面板状态
+    filter_panel_open: bool,
+    filter_rules: Vec<FilterRule>,
+    sort_rules: Vec<SortRule>,
+}
+
+struct FilterRule {
+    id: SharedString,
+    field_dropdown: Entity<DropdownState<Vec<SharedString>>>,
+    operator_dropdown: Entity<DropdownState<Vec<SharedString>>>,
+    operator: FilterOperator,
+    value_input: Entity<InputState>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum FilterOperator {
+    Equal,
+    NotEqual,
+    GreaterThan,
+    LessThan,
+    GreaterOrEqual,
+    LessOrEqual,
+    Like,
+    NotLike,
+    IsNull,
+    IsNotNull,
+}
+
+impl FilterOperator {
+    fn label(&self) -> &str {
+        match self {
+            Self::Equal => "=",
+            Self::NotEqual => "!=",
+            Self::GreaterThan => ">",
+            Self::LessThan => "<",
+            Self::GreaterOrEqual => ">=",
+            Self::LessOrEqual => "<=",
+            Self::Like => "LIKE",
+            Self::NotLike => "NOT LIKE",
+            Self::IsNull => "IS NULL",
+            Self::IsNotNull => "IS NOT NULL",
+        }
+    }
+
+    fn all() -> Vec<Self> {
+        vec![
+            Self::Equal,
+            Self::NotEqual,
+            Self::GreaterThan,
+            Self::LessThan,
+            Self::GreaterOrEqual,
+            Self::LessOrEqual,
+            Self::Like,
+            Self::NotLike,
+            Self::IsNull,
+            Self::IsNotNull,
+        ]
+    }
+}
+
+struct SortRule {
+    id: SharedString,
+    field_dropdown: Entity<DropdownState<Vec<SharedString>>>,
+    ascending: bool,
 }
 
 struct TablePage {
