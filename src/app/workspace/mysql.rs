@@ -10,9 +10,9 @@ use gpui_component::resizable::ResizableState;
 use gpui_component::tab::Tab;
 use gpui_component::tab::TabBar;
 use gpui_component::ActiveTheme;
+use gpui_component::Disableable;
 use gpui_component::InteractiveElementExt;
 use gpui_component::Selectable;
-use gpui_component::Disableable;
 use gpui_component::Sizable;
 use gpui_component::Size;
 use gpui_component::StyledExt;
@@ -24,9 +24,6 @@ use crate::app::comps::icon_import;
 use crate::app::comps::icon_relead;
 use crate::app::comps::icon_search;
 use crate::app::comps::DataTable;
-use crate::app::comps::TableColumn;
-use crate::app::comps::TableData;
-use crate::app::comps::TableRow;
 use crate::driver::DatabaseDriver;
 use crate::driver::DatabaseSession;
 use crate::driver::DriverError;
@@ -190,10 +187,7 @@ impl MySQLWorkspace {
         session: &mut dyn DatabaseSession,
         database: &str,
     ) -> Result<Vec<SharedString>, DriverError> {
-        let statement = format!(
-            "SHOW TABLES FROM `{}`",
-            escape_mysql_identifier(database),
-        );
+        let statement = format!("SHOW TABLES FROM `{}`", escape_mysql_identifier(database),);
         let resp = session.query(QueryReq::Sql { statement })?;
         let rows = match resp {
             QueryResp::Rows(rows) => rows,
@@ -221,9 +215,7 @@ impl MySQLWorkspace {
     ) -> Result<TablePage, DriverError> {
         let table_name = table.to_string();
         let filter_text = filter.to_string();
-        self.with_session(|session| {
-            Self::query_table_page(session, &table_name, &filter_text, page_index, page_size)
-        })
+        self.with_session(|session| Self::query_table_page(session, &table_name, &filter_text, page_index, page_size))
     }
 
     fn query_table_page(
@@ -258,16 +250,16 @@ impl MySQLWorkspace {
             }
         }
 
-        let columns = column_names
+        let headers = column_names
             .iter()
-            .map(|name| TableColumn::new(name.clone()))
+            .map(|name| SharedString::from(name.clone()))
             .collect::<Vec<_>>();
         let table_rows = Self::convert_rows(&column_names, rows);
 
         let total_rows = Self::query_table_total(session, table, filter_clause.as_deref())?;
 
         Ok(TablePage {
-            columns,
+            headers,
             rows: table_rows,
             total_rows,
         })
@@ -277,10 +269,7 @@ impl MySQLWorkspace {
         session: &mut dyn DatabaseSession,
         table: &str,
     ) -> Result<Vec<String>, DriverError> {
-        let statement = format!(
-            "SHOW COLUMNS FROM `{}`",
-            escape_mysql_identifier(table),
-        );
+        let statement = format!("SHOW COLUMNS FROM `{}`", escape_mysql_identifier(table),);
         let resp = session.query(QueryReq::Sql { statement })?;
         let rows = match resp {
             QueryResp::Rows(rows) => rows,
@@ -357,7 +346,7 @@ impl MySQLWorkspace {
     fn convert_rows(
         column_names: &[String],
         rows: Vec<Map<String, Value>>,
-    ) -> Vec<TableRow> {
+    ) -> Vec<Vec<SharedString>> {
         let mut records = Vec::with_capacity(rows.len());
         for row in rows {
             let mut record = Vec::with_capacity(column_names.len());
@@ -391,10 +380,7 @@ impl MySQLWorkspace {
                 escape_mysql_identifier(table),
                 clause,
             ),
-            _ => format!(
-                "SELECT COUNT(*) AS `total` FROM `{}`",
-                escape_mysql_identifier(table),
-            ),
+            _ => format!("SELECT COUNT(*) AS `total` FROM `{}`", escape_mysql_identifier(table),),
         };
         let resp = session.query(QueryReq::Sql { statement })?;
         let rows = match resp {
@@ -489,14 +475,14 @@ impl MySQLWorkspace {
             Err(err) => {
                 eprintln!("加载数据表失败: {}", err);
                 TablePage {
-                    columns: Vec::new(),
+                    headers: Vec::new(),
                     rows: Vec::new(),
                     total_rows: 0,
                 }
             }
         };
 
-        let data_table = DataTable::new(TableData::new(page.columns.clone(), page.rows.clone()));
+        let data_table = DataTable::new(page.headers.clone(), page.rows.clone()).build(window, cx);
 
         self.tabs.push(TabItem {
             id: id.clone(),
@@ -599,7 +585,10 @@ impl MySQLWorkspace {
                     data_tab.current_page = page;
                     data_tab.page_size = page_size;
                     data_tab.total_rows = new_total;
-                data_tab.content.set_data(TableData::new(table_page.columns, table_page.rows));
+                    data_tab.content.update(cx, |table, cx| {
+                        table.delegate_mut().update_data(table_page.headers, table_page.rows);
+                        cx.notify();
+                    });
                 }
                 cx.notify();
             }
@@ -700,124 +689,13 @@ impl MySQLWorkspace {
         tab: &DataTableTab,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let theme = cx.theme().clone();
-        let container_id = tab.id.to_string();
-        let tab_id = tab.id.clone();
-        let current_page = tab.current_page;
-
-        let has_prev = tab.current_page > 0;
-        let has_next = {
-            let next_offset = (current_page + 1) * tab.page_size;
-            next_offset < tab.total_rows
-        };
-
-        let filter_bar = div()
-            .flex()
-            .flex_row()
-            .items_center()
-            .gap(px(8.))
-            .child(
-                div()
-                    .flex()
-                    .flex_1()
-                    .child(
-                        TextInput::new(&tab.filter)
-                            .cleanable()
-                            .with_size(Size::Small),
-                   ),
-           )
-            .child(
-                Button::new(comp_id(["mysql-tab-filter-apply", &tab_id]))
-                    .outline()
-                    .with_size(Size::Small)
-                    .label("应用筛选")
-                    .on_click(cx.listener({
-                        let tab_id = tab_id.clone();
-                        move |view: &mut Self, _, _, cx| {
-                            view.apply_filter(&tab_id, cx);
-                        }
-                    })),
-            )
-            .child(
-                Button::new(comp_id(["mysql-tab-filter-reset", &tab_id]))
-                    .ghost()
-                    .with_size(Size::Small)
-                    .label("清空条件")
-                    .on_click(cx.listener({
-                        let tab_id = tab_id.clone();
-                        move |view: &mut Self, _, window, cx| {
-                            view.clear_filter(&tab_id, window, cx);
-                        }
-                    })),
-            );
-
-        let pagination = div()
-            .flex()
-            .flex_row()
-            .items_center()
-            .justify_between()
-            .pt(px(8.))
-            .child(
-                div()
-                    .text_sm()
-                    .text_color(theme.muted_foreground)
-                    .child(format!(
-                        "第 {} 页 · 每页 {} 行 · 共 {} 行",
-                        tab.current_page + 1,
-                        tab.page_size,
-                        tab.total_rows
-                    )),
-            )
-            .child(
-                div()
-                    .flex()
-                    .flex_row()
-                    .gap(px(8.))
-                    .child(
-                        Button::new(comp_id(["mysql-tab-page-prev", &tab_id]))
-                            .outline()
-                            .with_size(Size::Small)
-                            .label("上一页")
-                            .disabled(!has_prev)
-                            .on_click(cx.listener({
-                                let tab_id = tab_id.clone();
-                        move |view: &mut Self, _, _, cx| {
-                            if has_prev {
-                                let prev = current_page.saturating_sub(1);
-                                view.goto_page(&tab_id, prev, cx);
-                            }
-                        }
-                            })),
-                    )
-                    .child(
-                        Button::new(comp_id(["mysql-tab-page-next", &tab_id]))
-                            .outline()
-                            .with_size(Size::Small)
-                            .label("下一页")
-                            .disabled(!has_next)
-                            .on_click(cx.listener({
-                                let tab_id = tab_id.clone();
-                                let next_page = current_page + 1;
-                                move |view: &mut Self, _, _, cx| {
-                                    if has_next {
-                                        view.goto_page(&tab_id, next_page, cx);
-                                    }
-                                }
-                            })),
-                    ),
-            );
-
         div()
-            .flex()
-            .flex_col()
             .flex_1()
-            .size_full()
-            .min_w_0()
-            .min_h_0()
-            .gap(px(8.))
-            .child(filter_bar)
-            .child(tab.content.render(&container_id, cx))
-            .child(pagination)
+            .border_1()
+            .border_color(cx.theme().border)
+            .rounded_md()
+            .overflow_hidden()
+            .child(tab.content.clone())
             .into_any_element()
     }
 
@@ -1017,7 +895,6 @@ impl Render for MySQLWorkspace {
     }
 }
 
-#[derive(Clone)]
 struct TabItem {
     id: SharedString,
     title: SharedString,
@@ -1036,18 +913,16 @@ impl TabItem {
     }
 }
 
-#[derive(Clone)]
 enum TabContent {
     Overview,
     DataTable(DataTableTab),
     Placeholder,
 }
 
-#[derive(Clone)]
 struct DataTableTab {
     id: SharedString,
     table: SharedString,
-    content: DataTable,
+    content: Entity<gpui_component::table::Table<DataTable>>,
     filter: Entity<InputState>,
     current_page: usize,
     page_size: usize,
@@ -1055,7 +930,7 @@ struct DataTableTab {
 }
 
 struct TablePage {
-    columns: Vec<TableColumn>,
-    rows: Vec<TableRow>,
+    headers: Vec<SharedString>,
+    rows: Vec<Vec<SharedString>>,
     total_rows: usize,
 }

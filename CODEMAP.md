@@ -16,13 +16,13 @@
     - `seed_sources()` 构造带虚拟表列表的 MySQL 演示数据
   - `comps/`
     - `mod.rs`：公共组件工具，封装图标构造、元素 id 拼接工具、对外导出 `DataTable`
-    - `table.rs`：`DataTable` 包装静态表格代理 `StaticTableDelegate`，支持列排序与条纹样式
+    - `table.rs`：`DataTable` 实现 gpui-component 的 `TableDelegate` trait，提供极简接口：仅需传入表头和表体数据即可构建表格组件
   - `create/`
     - `mod.rs`：`CreateWindow` 模态窗口，状态由 `CreateState` 持有；支持在数据源类型选择页与具体表单之间切换，底部操作按钮的“测试连接”仍是占位事件
     - `{mysql,postgres,sqlite,sqlserver,oracle,redis,mongodb}.rs`：各类型表单的输入状态初始化与渲染，主要由 `InputState` 组成（大多提供默认值/placeholder）
   - `workspace/`
     - `mod.rs`：根据 `DataSourceKind` 构造 `WorkspaceState`（MySQL 使用真实工作区，其余复用占位视图）；首页以网格卡片展示所有数据源，双击打开标签
-    - `mysql.rs`：带分隔面板的工作区实现，基于传入连接调用 MySQL 驱动实时拉取 `SHOW TABLES`，左侧列表与“刷新表”按钮都会使用真实表名；表格标签页提供外置的筛选输入与分页控制，并在初始化时复用持久化的数据库连接去查询真实数据；数据表展示改为使用自定义的 `DataTable` 基础组件实现，横纵向滚动条常驻
+    - `mysql.rs`：带分隔面板的工作区实现，基于传入连接调用 MySQL 驱动实时拉取 `SHOW TABLES`，左侧列表与"刷新表"按钮都会使用真实表名；表格标签页提供外置的筛选输入与分页控制，并在初始化时复用持久化的数据库连接去查询真实数据；数据表展示使用 gpui-component 的 Table 组件，支持列排序、列拖动、固定列等高级功能
     - `placeholder.rs`：非 MySQL 数据源的占位展示，提示功能尚未实现
 - `src/cache/mod.rs`
   - `CacheApp` 使用 AES-256-GCM 将数据源集合加密写入 `~/.sqler/sources.enc`，初始化时确保目录存在并尝试解密加载

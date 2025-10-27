@@ -4,12 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-aes-gcm = "0.10"
-dirs = "6"
 gpui = "0.2"
 gpui-component = "0.3"
-thiserror = "2"
+
+dirs = "6"
 uuid = "1"
+thiserror = "2"
+aes-gcm = "0.10"
 
 [dependencies.serde]
 version = "1"
