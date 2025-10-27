@@ -268,10 +268,10 @@ impl Render for SqlerApp {
                     .child(
                         div()
                             .flex()
+                            .flex_1()
                             .flex_row()
                             .px_2()
                             .gap_2()
-                            .flex_1()
                             .min_w_0()
                             .children(self.tabs.iter().map(|tab| {
                                 let tab_id = tab.id;

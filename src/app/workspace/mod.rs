@@ -101,11 +101,11 @@ pub fn render_home(
 
             div()
                 .flex()
-                .flex_col()
                 .flex_1()
-                .min_w_64()
+                .flex_col()
                 .p_5()
                 .gap_2()
+                .min_w_64()
                 .rounded_lg()
                 .bg(theme.secondary)
                 .border_1()

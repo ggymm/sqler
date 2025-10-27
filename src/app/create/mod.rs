@@ -148,8 +148,8 @@ impl Render for CreateWindow {
                 div()
                     .id("datasource-create")
                     .flex()
-                    .flex_col()
                     .flex_1()
+                    .flex_col()
                     .min_w_0()
                     .min_h_0()
                     .overflow_scroll()
@@ -187,10 +187,10 @@ impl Render for CreateWindow {
                                         .child(
                                             div()
                                                 .flex()
+                                                .flex_1()
                                                 .flex_col()
                                                 .items_start()
                                                 .justify_center()
-                                                .flex_1()
                                                 .child(div().text_base().font_semibold().child(kind.label()))
                                                 .child(
                                                     div()
