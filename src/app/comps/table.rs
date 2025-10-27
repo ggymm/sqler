@@ -1,17 +1,21 @@
+use std::sync::OnceLock;
+
 use gpui::*;
-use gpui_component::table::{Column, Table, TableDelegate};
+use gpui_component::table::Column;
+use gpui_component::table::Table;
+use gpui_component::table::TableDelegate;
 
 pub struct DataTable {
-    headers: Vec<SharedString>,
+    columns: Vec<SharedString>,
     rows: Vec<Vec<SharedString>>,
 }
 
 impl DataTable {
     pub fn new(
-        headers: Vec<SharedString>,
-        rows: Vec<Vec<SharedString>>,
+        columns: Vec<SharedString>,
+        data: Vec<Vec<SharedString>>,
     ) -> Self {
-        Self { headers, rows }
+        Self { columns, rows: data }
     }
 
     pub fn build(
@@ -36,7 +40,7 @@ impl DataTable {
         headers: Vec<SharedString>,
         rows: Vec<Vec<SharedString>>,
     ) {
-        self.headers = headers;
+        self.columns = headers;
         self.rows = rows;
     }
 }
@@ -46,7 +50,7 @@ impl TableDelegate for DataTable {
         &self,
         _cx: &App,
     ) -> usize {
-        self.headers.len()
+        self.columns.len()
     }
 
     fn rows_count(
@@ -61,7 +65,7 @@ impl TableDelegate for DataTable {
         col_ix: usize,
         _cx: &App,
     ) -> &Column {
-        static COLUMNS: std::sync::OnceLock<Vec<Column>> = std::sync::OnceLock::new();
+        static COLUMNS: OnceLock<Vec<Column>> = OnceLock::new();
         COLUMNS.get_or_init(|| {
             (0..100)
                 .map(|i| Column::new(i.to_string(), "").width(px(100.)))
@@ -78,7 +82,7 @@ impl TableDelegate for DataTable {
     ) -> impl IntoElement {
         div()
             .size_full()
-            .child(self.headers.get(col_ix).cloned().unwrap_or_default())
+            .child(self.columns.get(col_ix).cloned().unwrap_or_default())
     }
 
     fn render_td(
@@ -94,7 +98,6 @@ impl TableDelegate for DataTable {
             .and_then(|row| row.get(col_ix))
             .cloned()
             .unwrap_or_default();
-
         div().size_full().child(value)
     }
 }
