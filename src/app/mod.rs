@@ -189,17 +189,17 @@ impl SqlerApp {
 
     pub fn open_data_source_tab(
         &mut self,
-        source_id: &str,
+        id: &str,
         window: &mut Window,
         cx: &mut Context<SqlerApp>,
     ) {
-        if let Some(existing) = self.tabs.iter().find(|tab| tab.is_data_source(source_id)) {
+        if let Some(existing) = self.tabs.iter().find(|tab| tab.is_data_source(id)) {
             self.active_tab = existing.id;
             cx.notify();
             return;
         }
 
-        if let Some(meta) = self.sources.iter().find(|meta| meta.id == source_id).cloned() {
+        if let Some(meta) = self.sources.iter().find(|meta| meta.id == id).cloned() {
             let id = TabId::next(&mut self.next_tab);
             self.tabs.push(TabState::data_source(id, meta, window, cx));
             self.active_tab = id;

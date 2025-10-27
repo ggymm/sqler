@@ -3,19 +3,19 @@ use gpui::*;
 use gpui_component::button::Button;
 use gpui_component::button::ButtonVariants;
 use gpui_component::input::InputState;
-use gpui_component::input::TextInput;
 use gpui_component::resizable::h_resizable;
 use gpui_component::resizable::resizable_panel;
 use gpui_component::resizable::ResizableState;
 use gpui_component::tab::Tab;
 use gpui_component::tab::TabBar;
 use gpui_component::ActiveTheme;
-use gpui_component::Disableable;
 use gpui_component::InteractiveElementExt;
 use gpui_component::Selectable;
 use gpui_component::Sizable;
 use gpui_component::Size;
 use gpui_component::StyledExt;
+use serde_json::Map;
+use serde_json::Value;
 
 use crate::app::comps::comp_id;
 use crate::app::comps::icon_close;
@@ -32,8 +32,6 @@ use crate::driver::QueryReq;
 use crate::driver::QueryResp;
 use crate::option::DataSource;
 use crate::option::DataSourceOptions;
-use serde_json::Map;
-use serde_json::Value;
 
 const DEFAULT_PAGE_SIZE: usize = 25;
 
@@ -84,6 +82,9 @@ impl MySQLWorkspace {
             if was_active {
                 if let Some(tab) = self.tabs.get(i.min(self.tabs.len().saturating_sub(1))) {
                     self.active_tab = tab.id.clone();
+                    self.active_table = Some(tab.title.clone());
+                } else {
+                    self.active_table = None;
                 }
             }
             cx.notify();
@@ -691,25 +692,9 @@ impl MySQLWorkspace {
     ) -> AnyElement {
         div()
             .flex_1()
-            .border_1()
-            .border_color(cx.theme().border)
             .rounded_md()
             .overflow_hidden()
             .child(tab.content.clone())
-            .into_any_element()
-    }
-
-    fn render_placeholder(
-        &self,
-        _cx: &mut Context<Self>,
-    ) -> AnyElement {
-        div()
-            .flex()
-            .flex_col()
-            .scrollable(Axis::Vertical)
-            .gap(px(8.))
-            .child(div().text_base().font_semibold().child("自定义视图"))
-            .child(div().text_sm().child("在这里扩展你的分析组件。"))
             .into_any_element()
     }
 }
@@ -765,7 +750,7 @@ impl Render for MySQLWorkspace {
         );
 
         let tabs = TabBar::new(comp_id(["mysql-tabs", id]))
-            .with_size(Size::Small)
+            .with_size(Size::Medium)
             .children(
                 self.tabs
                     .iter()
@@ -821,7 +806,6 @@ impl Render for MySQLWorkspace {
                     .child(match self.active_content() {
                         Some(TabContent::Overview) | None => self.render_overview(cx),
                         Some(TabContent::DataTable(tab)) => self.render_datatable(&tab, cx),
-                        Some(TabContent::Placeholder) => self.render_placeholder(cx),
                     }),
             )
             .into_any_element();
@@ -916,7 +900,6 @@ impl TabItem {
 enum TabContent {
     Overview,
     DataTable(DataTableTab),
-    Placeholder,
 }
 
 struct DataTableTab {
