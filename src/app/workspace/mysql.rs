@@ -9,6 +9,7 @@ use gpui_component::input::TextInput;
 use gpui_component::resizable::h_resizable;
 use gpui_component::resizable::resizable_panel;
 use gpui_component::resizable::ResizableState;
+use gpui_component::switch::Switch;
 use gpui_component::tab::Tab;
 use gpui_component::tab::TabBar;
 use gpui_component::ActiveTheme;
@@ -661,6 +662,7 @@ impl MySQLWorkspace {
             if let TabContent::DataTable(data_tab) = &mut tab_item.content {
                 let rule_id = SharedString::from(format!("sort-{}", uuid::Uuid::new_v4()));
                 let field_dropdown = cx.new(|cx| DropdownState::new(columns.to_vec(), None, window, cx));
+
                 data_tab.sort_rules.push(SortRule {
                     id: rule_id,
                     field_dropdown,
@@ -680,6 +682,22 @@ impl MySQLWorkspace {
         if let Some(tab_item) = self.tabs.iter_mut().find(|tab| tab.id == *tab_id) {
             if let TabContent::DataTable(data_tab) = &mut tab_item.content {
                 data_tab.sort_rules.retain(|r| &r.id != rule_id);
+            }
+        }
+        cx.notify();
+    }
+
+    fn toggle_sort_direction(
+        &mut self,
+        tab_id: &SharedString,
+        rule_id: &SharedString,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(tab_item) = self.tabs.iter_mut().find(|tab| tab.id == *tab_id) {
+            if let TabContent::DataTable(data_tab) = &mut tab_item.content {
+                if let Some(rule) = data_tab.sort_rules.iter_mut().find(|r| &r.id == rule_id) {
+                    rule.ascending = !rule.ascending;
+                }
             }
         }
         cx.notify();
@@ -905,7 +923,214 @@ impl MySQLWorkspace {
                 ),
             )
             .when(tab.filter_panel_open, |this| {
-                this.child(self.render_filter_panel(tab, &columns, cx))
+                this.child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .gap_3()
+                        .p_3()
+                        .rounded_md()
+                        .border_1()
+                        .border_color(theme.border)
+                        .bg(theme.secondary)
+                        .child(
+                            // 筛选规则列表
+                            div()
+                                .flex()
+                                .flex_col()
+                                .gap_2()
+                                .when(!tab.filter_rules.is_empty(), |this| {
+                                    this.child(
+                                        div()
+                                            .text_sm()
+                                            .font_semibold()
+                                            .text_color(theme.foreground)
+                                            .child("筛选条件"),
+                                    )
+                                })
+                                .children(tab.filter_rules.iter().map(|rule| {
+                                    let rule_id = rule.id.clone();
+                                    div()
+                                        .flex()
+                                        .flex_row()
+                                        .items_center()
+                                        .gap_2()
+                                        .p_2()
+                                        .w_full()
+                                        .rounded_md()
+                                        .bg(theme.background)
+                                        .child(
+                                            // 字段选择
+                                            div().flex().flex_col().gap_1().w(px(180.)).child(
+                                                Dropdown::new(&rule.field_dropdown).small().placeholder("选择字段"),
+                                            ),
+                                        )
+                                        .child(
+                                            // 条件选择
+                                            div().flex().flex_col().gap_1().w(px(150.)).child(
+                                                Dropdown::new(&rule.operator_dropdown).small().placeholder("选择条件"),
+                                            ),
+                                        )
+                                        .child(
+                                            // 条件值输入
+                                            div()
+                                                .flex()
+                                                .flex_1()
+                                                .flex_col()
+                                                .gap_1()
+                                                .child(TextInput::new(&rule.value_input).small()),
+                                        )
+                                        .child(
+                                            // 删除按钮
+                                            Button::new(comp_id(["filter-remove", &rule_id]))
+                                                .xsmall()
+                                                .ghost()
+                                                .label("删除")
+                                                .on_click(cx.listener({
+                                                    let tab_id = tab_id.clone();
+                                                    let rule_id = rule_id.clone();
+                                                    move |view: &mut Self, _, _, cx| {
+                                                        view.remove_filter_rule(&tab_id, &rule_id, cx);
+                                                    }
+                                                })),
+                                        )
+                                })),
+                        )
+                        .child(
+                            // 排序规则列表
+                            div()
+                                .flex()
+                                .flex_col()
+                                .gap_2()
+                                .when(!tab.sort_rules.is_empty(), |this| {
+                                    this.child(
+                                        div()
+                                            .text_sm()
+                                            .font_semibold()
+                                            .text_color(theme.foreground)
+                                            .child("排序规则"),
+                                    )
+                                })
+                                .children(tab.sort_rules.iter().map(|rule| {
+                                    let rule_id = rule.id.clone();
+                                    let ascending = rule.ascending.clone();
+
+                                    div()
+                                        .flex()
+                                        .flex_row()
+                                        .items_center()
+                                        .gap_2()
+                                        .p_2()
+                                        .w_full()
+                                        .rounded_md()
+                                        .bg(theme.background)
+                                        .child(
+                                            // 字段选择
+                                            div().flex().flex_col().gap_1().w(px(180.)).child(
+                                                Dropdown::new(&rule.field_dropdown).small().placeholder("选择字段"),
+                                            ),
+                                        )
+                                        .child(
+                                            // 排序方向选择
+                                            div()
+                                                .flex()
+                                                .flex_row()
+                                                .items_center()
+                                                .gap_2()
+                                                .child(div().text_sm().text_color(theme.muted_foreground).child("降序"))
+                                                .child(
+                                                    Switch::new(comp_id(["sort-ascending", &rule_id]))
+                                                        .checked(ascending)
+                                                        .on_click(cx.listener({
+                                                            let tab_id = tab_id.clone();
+                                                            let rule_id = rule_id.clone();
+                                                            move |view: &mut Self, _, _, cx| {
+                                                                view.toggle_sort_direction(&tab_id, &rule_id, cx);
+                                                            }
+                                                        })),
+                                                )
+                                                .child(
+                                                    div().text_sm().text_color(theme.muted_foreground).child("升序"),
+                                                ),
+                                        )
+                                        .child(div().flex_1())
+                                        .child(
+                                            // 删除按钮
+                                            Button::new(comp_id(["sort-remove", &rule_id]))
+                                                .xsmall()
+                                                .ghost()
+                                                .label("删除")
+                                                .on_click(cx.listener({
+                                                    let tab_id = tab_id.clone();
+                                                    let rule_id = rule_id.clone();
+                                                    move |view: &mut Self, _, _, cx| {
+                                                        view.remove_sort_rule(&tab_id, &rule_id, cx);
+                                                    }
+                                                })),
+                                        )
+                                })),
+                        )
+                        .child(
+                            // 底部按钮栏
+                            div()
+                                .flex()
+                                .flex_row()
+                                .items_center()
+                                .gap_2()
+                                .child(
+                                    Button::new(comp_id(["filter-panel-clear", &tab_id]))
+                                        .small()
+                                        .outline()
+                                        .label("清除所有条件")
+                                        .on_click(cx.listener({
+                                            let tab_id = tab_id.clone();
+                                            move |view: &mut Self, _, _, cx| {
+                                                view.clear_all_rules(&tab_id, cx);
+                                            }
+                                        })),
+                                )
+                                .child(
+                                    Button::new(comp_id(["filter-panel-add-filter", &tab_id]))
+                                        .small()
+                                        .outline()
+                                        .label("新增筛选")
+                                        .on_click(cx.listener({
+                                            let tab_id = tab_id.clone();
+                                            let columns = columns.to_vec();
+                                            move |view: &mut Self, _, window, cx| {
+                                                view.add_filter_rule(&tab_id, &columns, window, cx);
+                                            }
+                                        })),
+                                )
+                                .child(
+                                    Button::new(comp_id(["filter-panel-add-sort", &tab_id]))
+                                        .small()
+                                        .outline()
+                                        .label("新增排序")
+                                        .on_click(cx.listener({
+                                            let tab_id = tab_id.clone();
+                                            let columns = columns.to_vec();
+                                            move |view: &mut Self, _, window, cx| {
+                                                view.add_sort_rule(&tab_id, &columns, window, cx);
+                                            }
+                                        })),
+                                )
+                                .child(div().flex_1())
+                                .child(
+                                    Button::new(comp_id(["filter-panel-apply", &tab_id]))
+                                        .small()
+                                        .primary()
+                                        .label("全部应用")
+                                        .on_click(cx.listener({
+                                            let tab_id = tab_id.clone();
+                                            move |view: &mut Self, _, _, cx| {
+                                                // TODO: 应用所有筛选和排序规则
+                                                view.apply_filter(&tab_id, cx);
+                                            }
+                                        })),
+                                ),
+                        ),
+                )
             })
             .child(
                 // 表格区域
@@ -994,264 +1219,6 @@ impl MySQLWorkspace {
                     ),
             )
             .into_any_element()
-    }
-
-    fn render_filter_panel(
-        &self,
-        tab: &DataTableTab,
-        columns: &[SharedString],
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        let theme = cx.theme().clone();
-        let tab_id = tab.id.clone();
-
-        div()
-            .flex()
-            .flex_col()
-            .gap_3()
-            .p_3()
-            .rounded_md()
-            .border_1()
-            .border_color(theme.border)
-            .bg(theme.secondary)
-            .child(
-                // 筛选规则列表
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap_2()
-                    .when(!tab.filter_rules.is_empty(), |this| {
-                        this.child(
-                            div()
-                                .text_sm()
-                                .font_semibold()
-                                .text_color(theme.foreground)
-                                .child("筛选条件"),
-                        )
-                    })
-                    .children(
-                        tab.filter_rules
-                            .iter()
-                            .map(|rule| self.render_filter_rule(rule, columns, &tab_id, cx)),
-                    ),
-            )
-            .child(
-                // 排序规则列表
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap_2()
-                    .when(!tab.sort_rules.is_empty(), |this| {
-                        this.child(
-                            div()
-                                .text_sm()
-                                .font_semibold()
-                                .text_color(theme.foreground)
-                                .child("排序规则"),
-                        )
-                    })
-                    .children(
-                        tab.sort_rules
-                            .iter()
-                            .map(|rule| self.render_sort_rule(rule, columns, &tab_id, cx)),
-                    ),
-            )
-            .child(
-                // 底部按钮栏
-                div()
-                    .flex()
-                    .flex_row()
-                    .items_center()
-                    .gap_2()
-                    .child(
-                        Button::new(comp_id(["filter-panel-clear", &tab_id]))
-                            .small()
-                            .outline()
-                            .label("清除所有条件")
-                            .on_click(cx.listener({
-                                let tab_id = tab_id.clone();
-                                move |view: &mut Self, _, _, cx| {
-                                    view.clear_all_rules(&tab_id, cx);
-                                }
-                            })),
-                    )
-                    .child(
-                        Button::new(comp_id(["filter-panel-add-filter", &tab_id]))
-                            .small()
-                            .outline()
-                            .label("新增筛选")
-                            .on_click(cx.listener({
-                                let tab_id = tab_id.clone();
-                                let columns = columns.to_vec();
-                                move |view: &mut Self, _, window, cx| {
-                                    view.add_filter_rule(&tab_id, &columns, window, cx);
-                                }
-                            })),
-                    )
-                    .child(
-                        Button::new(comp_id(["filter-panel-add-sort", &tab_id]))
-                            .small()
-                            .outline()
-                            .label("新增排序")
-                            .on_click(cx.listener({
-                                let tab_id = tab_id.clone();
-                                let columns = columns.to_vec();
-                                move |view: &mut Self, _, window, cx| {
-                                    view.add_sort_rule(&tab_id, &columns, window, cx);
-                                }
-                            })),
-                    )
-                    .child(div().flex_1())
-                    .child(
-                        Button::new(comp_id(["filter-panel-apply", &tab_id]))
-                            .small()
-                            .primary()
-                            .label("全部应用")
-                            .on_click(cx.listener({
-                                let tab_id = tab_id.clone();
-                                move |view: &mut Self, _, _, cx| {
-                                    // TODO: 应用所有筛选和排序规则
-                                    view.apply_filter(&tab_id, cx);
-                                }
-                            })),
-                    ),
-            )
-    }
-
-    fn render_filter_rule(
-        &self,
-        rule: &FilterRule,
-        columns: &[SharedString],
-        tab_id: &SharedString,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        let theme = cx.theme();
-        let rule_id = rule.id.clone();
-
-        div()
-            .flex()
-            .flex_row()
-            .items_center()
-            .gap_2()
-            .p_2()
-            .w_full()
-            .rounded_md()
-            .bg(theme.background)
-            .child(
-                // 字段选择
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap_1()
-                    .child(div().text_xs().text_color(theme.muted_foreground).child("字段"))
-                    .child(Dropdown::new(&rule.field_dropdown).small().placeholder("选择字段")),
-            )
-            .child(
-                // 条件选择
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap_1()
-                    .child(div().text_xs().text_color(theme.muted_foreground).child("条件"))
-                    .child(Dropdown::new(&rule.operator_dropdown).small().placeholder("选择条件")),
-            )
-            .child(
-                // 条件值输入
-                div()
-                    .flex()
-                    .flex_1()
-                    .flex_col()
-                    .gap_1()
-                    .child(div().text_xs().text_color(theme.muted_foreground).child("值"))
-                    .child(TextInput::new(&rule.value_input).small()),
-            )
-            .child(
-                // 删除按钮
-                Button::new(comp_id(["filter-remove", &rule_id]))
-                    .xsmall()
-                    .ghost()
-                    .label("删除")
-                    .on_click(cx.listener({
-                        let tab_id = tab_id.clone();
-                        let rule_id = rule_id.clone();
-                        move |view: &mut Self, _, _, cx| {
-                            view.remove_filter_rule(&tab_id, &rule_id, cx);
-                        }
-                    })),
-            )
-    }
-
-    fn render_sort_rule(
-        &self,
-        rule: &SortRule,
-        columns: &[SharedString],
-        tab_id: &SharedString,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        let theme = cx.theme();
-        let rule_id = rule.id.clone();
-        let ascending = rule.ascending;
-
-        div()
-            .flex()
-            .flex_row()
-            .items_center()
-            .gap_2()
-            .p_2()
-            .w_full()
-            .rounded_md()
-            .bg(theme.background)
-            .child(
-                // 字段选择
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap_1()
-                    .child(div().text_xs().text_color(theme.muted_foreground).child("字段"))
-                    .child(Dropdown::new(&rule.field_dropdown).small().placeholder("选择字段")),
-            )
-            .child(
-                // 排序方向选择
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap_1()
-                    .child(div().text_xs().text_color(theme.muted_foreground).child("方向"))
-                    .child(
-                        div()
-                            .flex()
-                            .gap_1()
-                            .child(
-                                Button::new(comp_id(["sort-asc", &rule_id]))
-                                    .xsmall()
-                                    .when(ascending, |btn| btn.primary())
-                                    .when(!ascending, |btn| btn.ghost())
-                                    .label("升序 ↑"),
-                            )
-                            .child(
-                                Button::new(comp_id(["sort-desc", &rule_id]))
-                                    .xsmall()
-                                    .when(!ascending, |btn| btn.primary())
-                                    .when(ascending, |btn| btn.ghost())
-                                    .label("降序 ↓"),
-                            ),
-                    ),
-            )
-            .child(div().flex_1())
-            .child(
-                // 删除按钮
-                Button::new(comp_id(["sort-remove", &rule_id]))
-                    .xsmall()
-                    .ghost()
-                    .label("删除")
-                    .on_click(cx.listener({
-                        let tab_id = tab_id.clone();
-                        let rule_id = rule_id.clone();
-                        move |view: &mut Self, _, _, cx| {
-                            view.remove_sort_rule(&tab_id, &rule_id, cx);
-                        }
-                    })),
-            )
     }
 }
 
