@@ -766,20 +766,6 @@ impl MySQLWorkspace {
                     view.reload_table_tab(&tab_id, page, cx);
                 }
             }));
-        let clear_cond_btn = Button::new(comp_id(["filter-panel-clear", &tab_id]))
-            .small()
-            .outline()
-            .label("清除所有条件")
-            .on_click(cx.listener({
-                let tab_id = tab_id.clone();
-                move |view: &mut Self, _, _, cx| {
-                    if let Some(content) = view.table_content(&tab_id) {
-                        content.query_rules.clear();
-                        content.sort_rules.clear();
-                    }
-                    cx.notify();
-                }
-            }));
         let create_sort_btn = Button::new(comp_id(["filter-panel-add-sort", &tab_id]))
             .small()
             .outline()
@@ -836,15 +822,29 @@ impl MySQLWorkspace {
                     cx.notify();
                 }
             }));
-        let apply_all_btn = Button::new(comp_id(["filter-panel-apply", &tab_id]))
+        let apply_cond_btn = Button::new(comp_id(["filter-panel-apply", &tab_id]))
             .small()
             .primary()
-            .label("全部应用")
+            .label("应用条件")
             .on_click(cx.listener({
-                let tab_id = tab_id.clone();
+                let id = tab_id.clone();
                 move |view: &mut Self, _, _, cx| {
                     // TODO: 应用所有筛选和排序规则
-                    view.apply_filter(&tab_id, cx);
+                    view.apply_filter(&id, cx);
+                }
+            }));
+        let clear_cond_btn = Button::new(comp_id(["filter-panel-clear", &tab_id]))
+            .small()
+            .outline()
+            .label("清除条件")
+            .on_click(cx.listener({
+                let id = tab_id.clone();
+                move |view: &mut Self, _, _, cx| {
+                    if let Some(content) = view.table_content(&id) {
+                        content.sort_rules.clear();
+                        content.query_rules.clear();
+                    }
+                    cx.notify();
                 }
             }));
 
@@ -896,13 +896,12 @@ impl MySQLWorkspace {
                     div()
                         .flex()
                         .flex_col()
-                        .gap_3()
                         .p_3()
+                        .gap_3()
                         .rounded_lg()
                         .border_1()
                         .border_color(theme.border)
                         .child(
-                            // 筛选规则列表
                             div()
                                 .flex()
                                 .flex_col()
@@ -918,44 +917,33 @@ impl MySQLWorkspace {
                                 })
                                 .children(tab.query_rules.iter().map(|rule| {
                                     let rule_id = rule.id.clone();
+                                    let rule_field = Dropdown::new(&rule.field).small().placeholder("选择字段");
+                                    let rule_operator = Dropdown::new(&rule.operator).small().placeholder("选择条件");
                                     div()
                                         .flex()
+                                        .flex_1()
                                         .flex_row()
-                                        .items_center()
                                         .gap_2()
-                                        .p_2()
                                         .w_full()
-                                        .rounded_lg()
-                                        .bg(theme.background)
-                                        .child(
-                                            div()
-                                                .min_w_48()
-                                                .child(Dropdown::new(&rule.field).small().placeholder("选择字段")),
-                                        )
-                                        .child(
-                                            div()
-                                                .min_w_48()
-                                                .child(Dropdown::new(&rule.operator).small().placeholder("选择条件")),
-                                        )
+                                        .items_center()
+                                        .child(div().w_48().child(rule_field))
+                                        .child(div().w_48().child(rule_operator))
                                         .child(div().flex().flex_1().child(TextInput::new(&rule.value).small()))
-                                        .child({
-                                            // 删除按钮
-                                            let rule_id_clone = rule_id.clone();
+                                        .child(
                                             Button::new(comp_id(["filter-remove", &rule_id]))
                                                 .xsmall()
                                                 .ghost()
                                                 .label("删除")
                                                 .on_click(cx.listener({
                                                     let tab_id = tab_id.clone();
-                                                    let rule_id_clone = rule_id_clone.clone();
                                                     move |view: &mut Self, _, _, cx| {
                                                         if let Some(content) = view.table_content(&tab_id) {
-                                                            content.query_rules.retain(|r| &r.id != &rule_id_clone);
+                                                            content.query_rules.retain(|r| &r.id != &rule_id);
                                                         }
                                                         cx.notify();
                                                     }
-                                                }))
-                                        })
+                                                })),
+                                        )
                                 })),
                         )
                         .child(
@@ -979,16 +967,14 @@ impl MySQLWorkspace {
 
                                     div()
                                         .flex()
+                                        .flex_1()
                                         .flex_row()
-                                        .items_center()
                                         .gap_2()
-                                        .p_2()
                                         .w_full()
-                                        .rounded_lg()
-                                        .bg(theme.background)
+                                        .items_center()
                                         .child(
                                             div()
-                                                .min_w_48()
+                                                .w_48()
                                                 .child(Dropdown::new(&rule.field).small().placeholder("选择字段")),
                                         )
                                         .child(
@@ -1023,7 +1009,6 @@ impl MySQLWorkspace {
                                                     div().text_sm().text_color(theme.muted_foreground).child("升序"),
                                                 ),
                                         )
-                                        .child(div().flex_1())
                                         .child({
                                             // 删除按钮
                                             let rule_id_clone = rule_id.clone();
@@ -1049,11 +1034,11 @@ impl MySQLWorkspace {
                                 .flex_row()
                                 .items_center()
                                 .gap_2()
-                                .child(clear_cond_btn)
-                                .child(create_sort_btn)
                                 .child(create_query_btn)
+                                .child(create_sort_btn)
                                 .child(div().flex_1())
-                                .child(apply_all_btn),
+                                .child(clear_cond_btn)
+                                .child(apply_cond_btn),
                         ),
                 )
             })
