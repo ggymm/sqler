@@ -281,9 +281,23 @@ impl MySQLWorkspace {
             QueryResp::Rows(rows) => rows,
             _ => return Ok(0),
         };
-        if let Some(first_row) = rows.first() {
-            if let Some(Value::Number(n)) = first_row.values().next() {
-                return Ok(n.as_u64().unwrap_or(0) as usize);
+
+        if let Some(row) = rows.first() {
+            for value in row.values() {
+                // 尝试解析为数字
+                if let Some(count) = value.as_u64() {
+                    return Ok(count as usize);
+                }
+                // 尝试解析为 i64
+                if let Some(count) = value.as_i64() {
+                    return Ok(count.max(0) as usize);
+                }
+                // 尝试从字符串解析
+                if let Some(text) = value.as_str() {
+                    if let Ok(count) = text.parse::<u64>() {
+                        return Ok(count as usize);
+                    }
+                }
             }
         }
         Ok(0)
@@ -559,8 +573,8 @@ impl MySQLWorkspace {
         let end_row = ((current_page + 1) * tab.page_size).min(tab.total_rows);
 
         let ctrl_btn = Button::new(comp_id(["table-toggle-filter", &tab_id]))
-            .when(tab.filter_enable, |btn| btn.primary())
-            .when(!tab.filter_enable, |btn| btn.outline())
+            .small()
+            .outline()
             .label(if tab.filter_enable {
                 "隐藏筛选"
             } else {
@@ -588,6 +602,7 @@ impl MySQLWorkspace {
                 }
             }));
         let page_next_btn = Button::new(comp_id(["table-page-next", &tab_id]))
+            .small()
             .outline()
             .label("下一页")
             .disabled(current_page + 1 >= total_pages)
@@ -599,6 +614,7 @@ impl MySQLWorkspace {
                 }
             }));
         let create_sort_btn = Button::new(comp_id(["filter-panel-add-sort", &tab_id]))
+            .small()
             .outline()
             .label("新增排序")
             .on_click(cx.listener({
@@ -814,7 +830,14 @@ impl MySQLWorkspace {
                         ),
                 )
             })
-            .child(div().flex_1().rounded_lg().overflow_hidden().child(tab.content.clone()))
+            .child(
+                div()
+                    .flex_1()
+                    .rounded_lg()
+                    .overflow_hidden()
+                    .child(tab.content.clone())
+                    .child(div()),
+            )
             .child(
                 div()
                     .flex()
@@ -824,16 +847,14 @@ impl MySQLWorkspace {
                     .gap_2()
                     .child(ctrl_btn)
                     .child(div().flex_1())
-                    .child(
-                        div().text_sm().text_color(theme.foreground).child(format!(
-                            "显示 {} - {} 第 {} / {} 页 共 {} 条",
-                            if tab.total_rows == 0 { 0 } else { start_row },
-                            end_row,
-                            current_page + 1,
-                            total_pages,
-                            tab.total_rows
-                        )),
-                    )
+                    .child(div().text_sm().child(format!(
+                        "显示 {} - {} 第 {} / {} 页 共 {} 条",
+                        if tab.total_rows == 0 { 0 } else { start_row },
+                        end_row,
+                        current_page + 1,
+                        total_pages,
+                        tab.total_rows
+                    )))
                     .child(div().flex_1())
                     .child(page_prev_btn)
                     .child(page_next_btn),
@@ -967,7 +988,6 @@ impl Render for MySQLWorkspace {
                         .gap_2()
                         .rounded_lg()
                         .items_center()
-                        .text_sm()
                         .text_color(theme.foreground)
                         .when_else(
                             active,
