@@ -19,6 +19,7 @@ use gpui_component::Selectable;
 use gpui_component::Sizable;
 use gpui_component::Size;
 use gpui_component::StyledExt;
+use gpui_component::table::Table;
 use serde_json::Map;
 use serde_json::Value;
 
@@ -465,7 +466,7 @@ impl MySQLWorkspace {
 
         let current_tables = self.tables.clone();
         self.tabs.retain(|tab| match &tab.content {
-            TabContent::DataTable(tab) => current_tables.iter().any(|name| name == &tab.table),
+            TabContent::Table(tab) => current_tables.iter().any(|name| name == &tab.table),
             _ => true,
         });
 
@@ -480,7 +481,7 @@ impl MySQLWorkspace {
         cx.notify();
     }
 
-    fn create_tab_table_data(
+    fn create_table_tab(
         &mut self,
         table: SharedString,
         window: &mut Window,
@@ -492,7 +493,7 @@ impl MySQLWorkspace {
         if let Some(existing) = self.tabs.iter().find(|tab| {
             matches!(
                 &tab.content,
-                TabContent::DataTable(current) if current.id == id
+                TabContent::Table(current) if current.id == id
             )
         }) {
             self.active_tab = existing.id.clone();
@@ -519,7 +520,7 @@ impl MySQLWorkspace {
         self.tabs.push(TabItem {
             id: id.clone(),
             title: table.clone(),
-            content: TabContent::DataTable(DataTableTab {
+            content: TabContent::Table(TableContent {
                 id: id.clone(),
                 table: table.clone(),
                 content: data_table,
@@ -546,64 +547,6 @@ impl MySQLWorkspace {
         self.reload_table_tab(tab_id, 0, cx);
     }
 
-    fn apply_sort(
-        &mut self,
-        tab_id: &SharedString,
-        column: Option<String>,
-        cx: &mut Context<Self>,
-    ) {
-        if let Some(tab_item) = self.tabs.iter_mut().find(|tab| tab.id == *tab_id) {
-            if let TabContent::DataTable(data_tab) = &mut tab_item.content {
-                // 如果点击同一列，切换排序方向
-                if data_tab.sort_column == column {
-                    data_tab.sort_ascending = !data_tab.sort_ascending;
-                } else {
-                    data_tab.sort_column = column;
-                    data_tab.sort_ascending = true;
-                }
-            }
-        }
-        self.reload_table_tab(tab_id, 0, cx);
-    }
-
-    fn clear_filter(
-        &mut self,
-        tab_id: &SharedString,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if let Some(tab_item) = self.tabs.iter_mut().find(|tab| tab.id == *tab_id) {
-            if let TabContent::DataTable(data_tab) = &mut tab_item.content {
-                let _ = data_tab.filter.update(cx, |state, cx| {
-                    state.set_value("", window, cx);
-                });
-            }
-        }
-        self.apply_filter(tab_id, cx);
-    }
-
-    fn goto_page(
-        &mut self,
-        tab_id: &SharedString,
-        page: usize,
-        cx: &mut Context<Self>,
-    ) {
-        self.reload_table_tab(tab_id, page, cx);
-    }
-
-    fn toggle_filter_panel(
-        &mut self,
-        tab_id: &SharedString,
-        cx: &mut Context<Self>,
-    ) {
-        if let Some(tab_item) = self.tabs.iter_mut().find(|tab| tab.id == *tab_id) {
-            if let TabContent::DataTable(data_tab) = &mut tab_item.content {
-                data_tab.filter_panel_open = !data_tab.filter_panel_open;
-            }
-        }
-        cx.notify();
-    }
-
     fn add_filter_rule(
         &mut self,
         tab_id: &SharedString,
@@ -611,43 +554,27 @@ impl MySQLWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if let Some(tab_item) = self.tabs.iter_mut().find(|tab| tab.id == *tab_id) {
-            if let TabContent::DataTable(data_tab) = &mut tab_item.content {
-                let rule_id = SharedString::from(format!("filter-{}", uuid::Uuid::new_v4()));
-                let field_dropdown = cx.new(|cx| DropdownState::new(columns.to_vec(), None, window, cx));
+        if let Some(data_tab) = self.table_content(tab_id) {
+            let rule_id = SharedString::from(format!("filter-{}", uuid::Uuid::new_v4()));
+            let field_dropdown = cx.new(|cx| DropdownState::new(columns.to_vec(), None, window, cx));
 
-                // 创建操作符下拉列表
-                let operators: Vec<SharedString> = FilterOperator::all()
-                    .into_iter()
-                    .map(|op| SharedString::from(op.label().to_string()))
-                    .collect();
-                let operator_dropdown = cx.new(|cx| DropdownState::new(operators, None, window, cx));
+            // 创建操作符下拉列表
+            let operators: Vec<SharedString> = FilterOperator::all()
+                .into_iter()
+                .map(|op| SharedString::from(op.label().to_string()))
+                .collect();
+            let operator_dropdown = cx.new(|cx| DropdownState::new(operators, None, window, cx));
 
-                // 创建值输入框
-                let value_input = cx.new(|cx| InputState::new(window, cx).placeholder("输入筛选值"));
+            // 创建值输入框
+            let value_input = cx.new(|cx| InputState::new(window, cx).placeholder("输入筛选值"));
 
-                data_tab.filter_rules.push(FilterRule {
-                    id: rule_id,
-                    field_dropdown,
-                    operator_dropdown,
-                    operator: FilterOperator::Equal,
-                    value_input,
-                });
-            }
-        }
-        cx.notify();
-    }
-
-    fn remove_filter_rule(
-        &mut self,
-        tab_id: &SharedString,
-        rule_id: &SharedString,
-        cx: &mut Context<Self>,
-    ) {
-        if let Some(tab_item) = self.tabs.iter_mut().find(|tab| tab.id == *tab_id) {
-            if let TabContent::DataTable(data_tab) = &mut tab_item.content {
-                data_tab.filter_rules.retain(|r| &r.id != rule_id);
-            }
+            data_tab.filter_rules.push(FilterRule {
+                id: rule_id,
+                field_dropdown,
+                operator_dropdown,
+                operator: FilterOperator::Equal,
+                value_input,
+            });
         }
         cx.notify();
     }
@@ -659,61 +586,15 @@ impl MySQLWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if let Some(tab_item) = self.tabs.iter_mut().find(|tab| tab.id == *tab_id) {
-            if let TabContent::DataTable(data_tab) = &mut tab_item.content {
-                let rule_id = SharedString::from(format!("sort-{}", uuid::Uuid::new_v4()));
-                let field_dropdown = cx.new(|cx| DropdownState::new(columns.to_vec(), None, window, cx));
+        if let Some(data_tab) = self.table_content(tab_id) {
+            let rule_id = SharedString::from(format!("sort-{}", uuid::Uuid::new_v4()));
+            let field_dropdown = cx.new(|cx| DropdownState::new(columns.to_vec(), None, window, cx));
 
-                data_tab.sort_rules.push(SortRule {
-                    id: rule_id,
-                    field_dropdown,
-                    ascending: true,
-                });
-            }
-        }
-        cx.notify();
-    }
-
-    fn remove_sort_rule(
-        &mut self,
-        tab_id: &SharedString,
-        rule_id: &SharedString,
-        cx: &mut Context<Self>,
-    ) {
-        if let Some(tab_item) = self.tabs.iter_mut().find(|tab| tab.id == *tab_id) {
-            if let TabContent::DataTable(data_tab) = &mut tab_item.content {
-                data_tab.sort_rules.retain(|r| &r.id != rule_id);
-            }
-        }
-        cx.notify();
-    }
-
-    fn toggle_sort_direction(
-        &mut self,
-        tab_id: &SharedString,
-        rule_id: &SharedString,
-        cx: &mut Context<Self>,
-    ) {
-        if let Some(tab_item) = self.tabs.iter_mut().find(|tab| tab.id == *tab_id) {
-            if let TabContent::DataTable(data_tab) = &mut tab_item.content {
-                if let Some(rule) = data_tab.sort_rules.iter_mut().find(|r| &r.id == rule_id) {
-                    rule.ascending = !rule.ascending;
-                }
-            }
-        }
-        cx.notify();
-    }
-
-    fn clear_all_rules(
-        &mut self,
-        tab_id: &SharedString,
-        cx: &mut Context<Self>,
-    ) {
-        if let Some(tab_item) = self.tabs.iter_mut().find(|tab| tab.id == *tab_id) {
-            if let TabContent::DataTable(data_tab) = &mut tab_item.content {
-                data_tab.filter_rules.clear();
-                data_tab.sort_rules.clear();
-            }
+            data_tab.sort_rules.push(SortRule {
+                id: rule_id,
+                field_dropdown,
+                ascending: true,
+            });
         }
         cx.notify();
     }
@@ -729,7 +610,7 @@ impl MySQLWorkspace {
         };
 
         let (table_name, page_size, total_rows, filter_handle, sort_column, sort_ascending) = {
-            let TabContent::DataTable(data_tab) = &self.tabs[tab_index].content else {
+            let TabContent::Table(data_tab) = &self.tabs[tab_index].content else {
                 return;
             };
             (
@@ -774,7 +655,7 @@ impl MySQLWorkspace {
                     page = 0;
                 }
 
-                if let TabContent::DataTable(data_tab) = &mut self.tabs[tab_index].content {
+                if let TabContent::Table(data_tab) = &mut self.tabs[tab_index].content {
                     data_tab.current_page = page;
                     data_tab.page_size = page_size;
                     data_tab.total_rows = new_total;
@@ -792,7 +673,353 @@ impl MySQLWorkspace {
         }
     }
 
-    fn render_overview(
+    fn table_render(
+        &self,
+        tab: &TableContent,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let theme = cx.theme().clone();
+        let tab_id = tab.id.clone();
+
+        // 获取列名
+        let columns = tab.content.read(cx).delegate().columns().to_vec();
+
+        // 计算分页信息
+        let total_pages = if tab.total_rows == 0 {
+            1
+        } else {
+            (tab.total_rows + tab.page_size - 1) / tab.page_size
+        };
+        let current_page = tab.current_page;
+        let start_row = current_page * tab.page_size + 1;
+        let end_row = ((current_page + 1) * tab.page_size).min(tab.total_rows);
+
+        macro_rules! mutate_tab {
+            ($tab_id:expr, $op:expr) => {
+                cx.listener({
+                    let tab_id = $tab_id.clone();
+                    move |view: &mut Self, _, _, cx| {
+                        if let Some(tab_item) = view.tabs.iter_mut().find(|tab| tab.id == tab_id) {
+                            if let TabContent::Table(data_tab) = &mut tab_item.content {
+                                $op(data_tab);
+                            }
+                        }
+                        cx.notify();
+                    }
+                })
+            };
+        }
+
+        div()
+            .flex()
+            .flex_1()
+            .flex_col()
+            .gap_2()
+            .child(
+                // 顶部操作栏
+                div()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .justify_between()
+                    .gap_2()
+                    .px_2()
+                    .py_2()
+                    .child(
+                        Button::new(comp_id(["table-toggle-filter", &tab_id]))
+                            .small()
+                            .when(tab.filter_panel_open, |btn| btn.primary())
+                            .when(!tab.filter_panel_open, |btn| btn.outline())
+                            .label(if tab.filter_panel_open {
+                                "隐藏筛选"
+                            } else {
+                                "筛选数据"
+                            })
+                            .on_click(mutate_tab!(tab_id, |data_tab: &mut TableContent| {
+                                data_tab.filter_panel_open = !data_tab.filter_panel_open;
+                            })),
+                    )
+                    .child(
+                        // 分页控件
+                        div()
+                            .flex()
+                            .flex_row()
+                            .items_center()
+                            .gap_4()
+                            .child(div().text_sm().text_color(theme.muted_foreground).child(format!(
+                                "显示 {} - {} / 共 {} 条",
+                                if tab.total_rows == 0 { 0 } else { start_row },
+                                end_row,
+                                tab.total_rows
+                            )))
+                            .child(
+                                div()
+                                    .flex()
+                                    .flex_row()
+                                    .items_center()
+                                    .gap_2()
+                                    .child(
+                                        Button::new(comp_id(["table-page-prev", &tab_id]))
+                                            .small()
+                                            .outline()
+                                            .label("上一页")
+                                            .disabled(current_page == 0)
+                                            .on_click(cx.listener({
+                                                let tab_id = tab_id.clone();
+                                                let page = current_page.saturating_sub(1);
+                                                move |view: &mut Self, _, _, cx| {
+                                                    view.reload_table_tab(&tab_id, page, cx);
+                                                }
+                                            })),
+                                    )
+                                    .child(div().text_sm().text_color(theme.foreground).child(format!(
+                                        "{} / {}",
+                                        current_page + 1,
+                                        total_pages
+                                    )))
+                                    .child(
+                                        Button::new(comp_id(["table-page-next", &tab_id]))
+                                            .small()
+                                            .outline()
+                                            .label("下一页")
+                                            .disabled(current_page + 1 >= total_pages)
+                                            .on_click(cx.listener({
+                                                let tab_id = tab_id.clone();
+                                                let page = current_page + 1;
+                                                move |view: &mut Self, _, _, cx| {
+                                                    view.reload_table_tab(&tab_id, page, cx);
+                                                }
+                                            })),
+                                    ),
+                            ),
+                    ),
+            )
+            .when(tab.filter_panel_open, |this| {
+                this.child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .gap_3()
+                        .p_3()
+                        .rounded_md()
+                        .border_1()
+                        .border_color(theme.border)
+                        .bg(theme.secondary)
+                        .child(
+                            // 筛选规则列表
+                            div()
+                                .flex()
+                                .flex_col()
+                                .gap_2()
+                                .when(!tab.filter_rules.is_empty(), |this| {
+                                    this.child(
+                                        div()
+                                            .text_sm()
+                                            .font_semibold()
+                                            .text_color(theme.foreground)
+                                            .child("筛选条件"),
+                                    )
+                                })
+                                .children(tab.filter_rules.iter().map(|rule| {
+                                    let rule_id = rule.id.clone();
+                                    div()
+                                        .flex()
+                                        .flex_row()
+                                        .items_center()
+                                        .gap_2()
+                                        .p_2()
+                                        .w_full()
+                                        .rounded_md()
+                                        .bg(theme.background)
+                                        .child(
+                                            // 字段选择
+                                            div().flex().flex_col().gap_1().w(px(180.)).child(
+                                                Dropdown::new(&rule.field_dropdown).small().placeholder("选择字段"),
+                                            ),
+                                        )
+                                        .child(
+                                            // 条件选择
+                                            div().flex().flex_col().gap_1().w(px(150.)).child(
+                                                Dropdown::new(&rule.operator_dropdown).small().placeholder("选择条件"),
+                                            ),
+                                        )
+                                        .child(
+                                            // 条件值输入
+                                            div()
+                                                .flex()
+                                                .flex_1()
+                                                .flex_col()
+                                                .gap_1()
+                                                .child(TextInput::new(&rule.value_input).small()),
+                                        )
+                                        .child({
+                                            // 删除按钮
+                                            let rule_id_clone = rule_id.clone();
+                                            Button::new(comp_id(["filter-remove", &rule_id]))
+                                                .xsmall()
+                                                .ghost()
+                                                .label("删除")
+                                                .on_click(mutate_tab!(tab_id, |data_tab: &mut TableContent| {
+                                                    data_tab.filter_rules.retain(|r| &r.id != &rule_id_clone);
+                                                }))
+                                        })
+                                })),
+                        )
+                        .child(
+                            // 排序规则列表
+                            div()
+                                .flex()
+                                .flex_col()
+                                .gap_2()
+                                .when(!tab.sort_rules.is_empty(), |this| {
+                                    this.child(
+                                        div()
+                                            .text_sm()
+                                            .font_semibold()
+                                            .text_color(theme.foreground)
+                                            .child("排序规则"),
+                                    )
+                                })
+                                .children(tab.sort_rules.iter().map(|rule| {
+                                    let rule_id = rule.id.clone();
+                                    let ascending = rule.ascending.clone();
+
+                                    div()
+                                        .flex()
+                                        .flex_row()
+                                        .items_center()
+                                        .gap_2()
+                                        .p_2()
+                                        .w_full()
+                                        .rounded_md()
+                                        .bg(theme.background)
+                                        .child(
+                                            // 字段选择
+                                            div().flex().flex_col().gap_1().w(px(180.)).child(
+                                                Dropdown::new(&rule.field_dropdown).small().placeholder("选择字段"),
+                                            ),
+                                        )
+                                        .child(
+                                            // 排序方向选择
+                                            div()
+                                                .flex()
+                                                .flex_row()
+                                                .items_center()
+                                                .gap_2()
+                                                .child(div().text_sm().text_color(theme.muted_foreground).child("降序"))
+                                                .child({
+                                                    let rule_id_clone = rule_id.clone();
+                                                    Switch::new(comp_id(["sort-ascending", &rule_id]))
+                                                        .checked(ascending)
+                                                        .on_click(mutate_tab!(tab_id, |data_tab: &mut TableContent| {
+                                                            if let Some(rule) = data_tab
+                                                                .sort_rules
+                                                                .iter_mut()
+                                                                .find(|r| &r.id == &rule_id_clone)
+                                                            {
+                                                                rule.ascending = !rule.ascending;
+                                                            }
+                                                        }))
+                                                })
+                                                .child(
+                                                    div().text_sm().text_color(theme.muted_foreground).child("升序"),
+                                                ),
+                                        )
+                                        .child(div().flex_1())
+                                        .child({
+                                            // 删除按钮
+                                            let rule_id_clone = rule_id.clone();
+                                            Button::new(comp_id(["sort-remove", &rule_id]))
+                                                .xsmall()
+                                                .ghost()
+                                                .label("删除")
+                                                .on_click(mutate_tab!(tab_id, |data_tab: &mut TableContent| {
+                                                    data_tab.sort_rules.retain(|r| &r.id != &rule_id_clone);
+                                                }))
+                                        })
+                                })),
+                        )
+                        .child(
+                            // 底部按钮栏
+                            div()
+                                .flex()
+                                .flex_row()
+                                .items_center()
+                                .gap_2()
+                                .child(
+                                    Button::new(comp_id(["filter-panel-clear", &tab_id]))
+                                        .small()
+                                        .outline()
+                                        .label("清除所有条件")
+                                        .on_click(mutate_tab!(tab_id, |data_tab: &mut TableContent| {
+                                            data_tab.filter_rules.clear();
+                                            data_tab.sort_rules.clear();
+                                        })),
+                                )
+                                .child(
+                                    Button::new(comp_id(["filter-panel-add-filter", &tab_id]))
+                                        .small()
+                                        .outline()
+                                        .label("新增筛选")
+                                        .on_click(cx.listener({
+                                            let tab_id = tab_id.clone();
+                                            let columns = columns.to_vec();
+                                            move |view: &mut Self, _, window, cx| {
+                                                view.add_filter_rule(&tab_id, &columns, window, cx);
+                                            }
+                                        })),
+                                )
+                                .child(
+                                    Button::new(comp_id(["filter-panel-add-sort", &tab_id]))
+                                        .small()
+                                        .outline()
+                                        .label("新增排序")
+                                        .on_click(cx.listener({
+                                            let tab_id = tab_id.clone();
+                                            let columns = columns.to_vec();
+                                            move |view: &mut Self, _, window, cx| {
+                                                view.add_sort_rule(&tab_id, &columns, window, cx);
+                                            }
+                                        })),
+                                )
+                                .child(div().flex_1())
+                                .child(
+                                    Button::new(comp_id(["filter-panel-apply", &tab_id]))
+                                        .small()
+                                        .primary()
+                                        .label("全部应用")
+                                        .on_click(cx.listener({
+                                            let tab_id = tab_id.clone();
+                                            move |view: &mut Self, _, _, cx| {
+                                                // TODO: 应用所有筛选和排序规则
+                                                view.apply_filter(&tab_id, cx);
+                                            }
+                                        })),
+                                ),
+                        ),
+                )
+            })
+            .child(
+                // 表格区域
+                div().flex_1().rounded_md().overflow_hidden().child(tab.content.clone()),
+            )
+            .into_any_element()
+    }
+
+    fn table_content(
+        &mut self,
+        tab_id: &SharedString,
+    ) -> Option<&mut TableContent> {
+        self.tabs.iter_mut().find(|tab| tab.id == *tab_id).and_then(|item| {
+            if let TabContent::Table(tab) = &mut item.content {
+                Some(tab)
+            } else {
+                None
+            }
+        })
+    }
+
+    fn overview_render(
         &self,
         cx: &mut Context<Self>,
     ) -> AnyElement {
@@ -876,329 +1103,6 @@ impl MySQLWorkspace {
             .child(detail_card)
             .into_any_element()
     }
-
-    fn render_datatable(
-        &self,
-        tab: &DataTableTab,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
-        let theme = cx.theme().clone();
-        let tab_id = tab.id.clone();
-
-        // 获取列名
-        let columns = tab.content.read(cx).delegate().columns().to_vec();
-
-        // 计算分页信息
-        let total_pages = if tab.total_rows == 0 {
-            1
-        } else {
-            (tab.total_rows + tab.page_size - 1) / tab.page_size
-        };
-        let current_page = tab.current_page;
-        let start_row = current_page * tab.page_size + 1;
-        let end_row = ((current_page + 1) * tab.page_size).min(tab.total_rows);
-
-        div()
-            .flex()
-            .flex_1()
-            .flex_col()
-            .gap_2()
-            .child(
-                // 顶部操作栏
-                div()
-                    .flex()
-                    .flex_row()
-                    .items_center()
-                    .justify_between()
-                    .gap_2()
-                    .px_2()
-                    .py_2()
-                    .child(
-                        Button::new(comp_id(["datatable-toggle-filter", &tab_id]))
-                            .small()
-                            .when(tab.filter_panel_open, |btn| btn.primary())
-                            .when(!tab.filter_panel_open, |btn| btn.outline())
-                            .label(if tab.filter_panel_open {
-                                "隐藏筛选"
-                            } else {
-                                "筛选数据"
-                            })
-                            .on_click(cx.listener({
-                                let tab_id = tab_id.clone();
-                                move |view: &mut Self, _, _, cx| {
-                                    view.toggle_filter_panel(&tab_id, cx);
-                                }
-                            })),
-                    )
-                    .child(
-                        // 分页控件
-                        div()
-                            .flex()
-                            .flex_row()
-                            .items_center()
-                            .gap_4()
-                            .child(div().text_sm().text_color(theme.muted_foreground).child(format!(
-                                "显示 {} - {} / 共 {} 条",
-                                if tab.total_rows == 0 { 0 } else { start_row },
-                                end_row,
-                                tab.total_rows
-                            )))
-                            .child(
-                                div()
-                                    .flex()
-                                    .flex_row()
-                                    .items_center()
-                                    .gap_2()
-                                    .child(
-                                        Button::new(comp_id(["datatable-page-prev", &tab_id]))
-                                            .small()
-                                            .outline()
-                                            .label("上一页")
-                                            .disabled(current_page == 0)
-                                            .on_click(cx.listener({
-                                                let tab_id = tab_id.clone();
-                                                move |view: &mut Self, _, _, cx| {
-                                                    view.goto_page(&tab_id, current_page.saturating_sub(1), cx);
-                                                }
-                                            })),
-                                    )
-                                    .child(div().text_sm().text_color(theme.foreground).child(format!(
-                                        "{} / {}",
-                                        current_page + 1,
-                                        total_pages
-                                    )))
-                                    .child(
-                                        Button::new(comp_id(["datatable-page-next", &tab_id]))
-                                            .small()
-                                            .outline()
-                                            .label("下一页")
-                                            .disabled(current_page + 1 >= total_pages)
-                                            .on_click(cx.listener({
-                                                let tab_id = tab_id.clone();
-                                                move |view: &mut Self, _, _, cx| {
-                                                    view.goto_page(&tab_id, current_page + 1, cx);
-                                                }
-                                            })),
-                                    ),
-                            ),
-                    ),
-            )
-            .when(tab.filter_panel_open, |this| {
-                this.child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap_3()
-                        .p_3()
-                        .rounded_md()
-                        .border_1()
-                        .border_color(theme.border)
-                        .bg(theme.secondary)
-                        .child(
-                            // 筛选规则列表
-                            div()
-                                .flex()
-                                .flex_col()
-                                .gap_2()
-                                .when(!tab.filter_rules.is_empty(), |this| {
-                                    this.child(
-                                        div()
-                                            .text_sm()
-                                            .font_semibold()
-                                            .text_color(theme.foreground)
-                                            .child("筛选条件"),
-                                    )
-                                })
-                                .children(tab.filter_rules.iter().map(|rule| {
-                                    let rule_id = rule.id.clone();
-                                    div()
-                                        .flex()
-                                        .flex_row()
-                                        .items_center()
-                                        .gap_2()
-                                        .p_2()
-                                        .w_full()
-                                        .rounded_md()
-                                        .bg(theme.background)
-                                        .child(
-                                            // 字段选择
-                                            div().flex().flex_col().gap_1().w(px(180.)).child(
-                                                Dropdown::new(&rule.field_dropdown).small().placeholder("选择字段"),
-                                            ),
-                                        )
-                                        .child(
-                                            // 条件选择
-                                            div().flex().flex_col().gap_1().w(px(150.)).child(
-                                                Dropdown::new(&rule.operator_dropdown).small().placeholder("选择条件"),
-                                            ),
-                                        )
-                                        .child(
-                                            // 条件值输入
-                                            div()
-                                                .flex()
-                                                .flex_1()
-                                                .flex_col()
-                                                .gap_1()
-                                                .child(TextInput::new(&rule.value_input).small()),
-                                        )
-                                        .child(
-                                            // 删除按钮
-                                            Button::new(comp_id(["filter-remove", &rule_id]))
-                                                .xsmall()
-                                                .ghost()
-                                                .label("删除")
-                                                .on_click(cx.listener({
-                                                    let tab_id = tab_id.clone();
-                                                    let rule_id = rule_id.clone();
-                                                    move |view: &mut Self, _, _, cx| {
-                                                        view.remove_filter_rule(&tab_id, &rule_id, cx);
-                                                    }
-                                                })),
-                                        )
-                                })),
-                        )
-                        .child(
-                            // 排序规则列表
-                            div()
-                                .flex()
-                                .flex_col()
-                                .gap_2()
-                                .when(!tab.sort_rules.is_empty(), |this| {
-                                    this.child(
-                                        div()
-                                            .text_sm()
-                                            .font_semibold()
-                                            .text_color(theme.foreground)
-                                            .child("排序规则"),
-                                    )
-                                })
-                                .children(tab.sort_rules.iter().map(|rule| {
-                                    let rule_id = rule.id.clone();
-                                    let ascending = rule.ascending.clone();
-
-                                    div()
-                                        .flex()
-                                        .flex_row()
-                                        .items_center()
-                                        .gap_2()
-                                        .p_2()
-                                        .w_full()
-                                        .rounded_md()
-                                        .bg(theme.background)
-                                        .child(
-                                            // 字段选择
-                                            div().flex().flex_col().gap_1().w(px(180.)).child(
-                                                Dropdown::new(&rule.field_dropdown).small().placeholder("选择字段"),
-                                            ),
-                                        )
-                                        .child(
-                                            // 排序方向选择
-                                            div()
-                                                .flex()
-                                                .flex_row()
-                                                .items_center()
-                                                .gap_2()
-                                                .child(div().text_sm().text_color(theme.muted_foreground).child("降序"))
-                                                .child(
-                                                    Switch::new(comp_id(["sort-ascending", &rule_id]))
-                                                        .checked(ascending)
-                                                        .on_click(cx.listener({
-                                                            let tab_id = tab_id.clone();
-                                                            let rule_id = rule_id.clone();
-                                                            move |view: &mut Self, _, _, cx| {
-                                                                view.toggle_sort_direction(&tab_id, &rule_id, cx);
-                                                            }
-                                                        })),
-                                                )
-                                                .child(
-                                                    div().text_sm().text_color(theme.muted_foreground).child("升序"),
-                                                ),
-                                        )
-                                        .child(div().flex_1())
-                                        .child(
-                                            // 删除按钮
-                                            Button::new(comp_id(["sort-remove", &rule_id]))
-                                                .xsmall()
-                                                .ghost()
-                                                .label("删除")
-                                                .on_click(cx.listener({
-                                                    let tab_id = tab_id.clone();
-                                                    let rule_id = rule_id.clone();
-                                                    move |view: &mut Self, _, _, cx| {
-                                                        view.remove_sort_rule(&tab_id, &rule_id, cx);
-                                                    }
-                                                })),
-                                        )
-                                })),
-                        )
-                        .child(
-                            // 底部按钮栏
-                            div()
-                                .flex()
-                                .flex_row()
-                                .items_center()
-                                .gap_2()
-                                .child(
-                                    Button::new(comp_id(["filter-panel-clear", &tab_id]))
-                                        .small()
-                                        .outline()
-                                        .label("清除所有条件")
-                                        .on_click(cx.listener({
-                                            let tab_id = tab_id.clone();
-                                            move |view: &mut Self, _, _, cx| {
-                                                view.clear_all_rules(&tab_id, cx);
-                                            }
-                                        })),
-                                )
-                                .child(
-                                    Button::new(comp_id(["filter-panel-add-filter", &tab_id]))
-                                        .small()
-                                        .outline()
-                                        .label("新增筛选")
-                                        .on_click(cx.listener({
-                                            let tab_id = tab_id.clone();
-                                            let columns = columns.to_vec();
-                                            move |view: &mut Self, _, window, cx| {
-                                                view.add_filter_rule(&tab_id, &columns, window, cx);
-                                            }
-                                        })),
-                                )
-                                .child(
-                                    Button::new(comp_id(["filter-panel-add-sort", &tab_id]))
-                                        .small()
-                                        .outline()
-                                        .label("新增排序")
-                                        .on_click(cx.listener({
-                                            let tab_id = tab_id.clone();
-                                            let columns = columns.to_vec();
-                                            move |view: &mut Self, _, window, cx| {
-                                                view.add_sort_rule(&tab_id, &columns, window, cx);
-                                            }
-                                        })),
-                                )
-                                .child(div().flex_1())
-                                .child(
-                                    Button::new(comp_id(["filter-panel-apply", &tab_id]))
-                                        .small()
-                                        .primary()
-                                        .label("全部应用")
-                                        .on_click(cx.listener({
-                                            let tab_id = tab_id.clone();
-                                            move |view: &mut Self, _, _, cx| {
-                                                // TODO: 应用所有筛选和排序规则
-                                                view.apply_filter(&tab_id, cx);
-                                            }
-                                        })),
-                                ),
-                        ),
-                )
-            })
-            .child(
-                // 表格区域
-                div().flex_1().rounded_md().overflow_hidden().child(tab.content.clone()),
-            )
-            .into_any_element()
-    }
 }
 
 fn escape_mysql_identifier(value: &str) -> String {
@@ -1239,7 +1143,7 @@ impl Render for MySQLWorkspace {
                             |this| this.hover(|this| this.bg(theme.list_hover)),
                         )
                         .on_double_click(cx.listener(move |this, _, window, cx| {
-                            this.create_tab_table_data(active_table.clone(), window, cx);
+                            this.create_table_tab(active_table.clone(), window, cx);
                         }))
                         .child(icon_sheet())
                         .child(table.clone()),
@@ -1292,8 +1196,8 @@ impl Render for MySQLWorkspace {
                     .id(comp_id(["mysql-main", id]))
                     .p_2()
                     .child(match self.active_content() {
-                        Some(TabContent::Overview) | None => self.render_overview(cx),
-                        Some(TabContent::DataTable(tab)) => self.render_datatable(&tab, cx),
+                        Some(TabContent::Table(tab)) => self.table_render(&tab, cx),
+                        Some(TabContent::Overview) | None => self.overview_render(cx),
                     }),
             )
             .into_any_element();
@@ -1374,14 +1278,14 @@ impl TabItem {
 }
 
 enum TabContent {
+    Table(TableContent),
     Overview,
-    DataTable(DataTableTab),
 }
 
-struct DataTableTab {
+struct TableContent {
     id: SharedString,
     table: SharedString,
-    content: Entity<gpui_component::table::Table<DataTable>>,
+    content: Entity<Table<DataTable>>,
     filter: Entity<InputState>,
     current_page: usize,
     page_size: usize,
