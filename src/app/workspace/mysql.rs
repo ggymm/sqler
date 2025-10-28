@@ -12,6 +12,7 @@ use gpui_component::resizable::ResizableState;
 use gpui_component::switch::Switch;
 use gpui_component::tab::Tab;
 use gpui_component::tab::TabBar;
+use gpui_component::table::Table;
 use gpui_component::ActiveTheme;
 use gpui_component::Disableable;
 use gpui_component::InteractiveElementExt;
@@ -19,7 +20,6 @@ use gpui_component::Selectable;
 use gpui_component::Sizable;
 use gpui_component::Size;
 use gpui_component::StyledExt;
-use gpui_component::table::Table;
 use serde_json::Map;
 use serde_json::Value;
 
@@ -554,7 +554,7 @@ impl MySQLWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if let Some(data_tab) = self.table_content(tab_id) {
+        if let Some(content) = self.table_content(tab_id) {
             let rule_id = SharedString::from(format!("filter-{}", uuid::Uuid::new_v4()));
             let field_dropdown = cx.new(|cx| DropdownState::new(columns.to_vec(), None, window, cx));
 
@@ -568,7 +568,7 @@ impl MySQLWorkspace {
             // 创建值输入框
             let value_input = cx.new(|cx| InputState::new(window, cx).placeholder("输入筛选值"));
 
-            data_tab.filter_rules.push(FilterRule {
+            content.filter_rules.push(FilterRule {
                 id: rule_id,
                 field_dropdown,
                 operator_dropdown,
@@ -586,11 +586,11 @@ impl MySQLWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if let Some(data_tab) = self.table_content(tab_id) {
+        if let Some(content) = self.table_content(tab_id) {
             let rule_id = SharedString::from(format!("sort-{}", uuid::Uuid::new_v4()));
             let field_dropdown = cx.new(|cx| DropdownState::new(columns.to_vec(), None, window, cx));
 
-            data_tab.sort_rules.push(SortRule {
+            content.sort_rules.push(SortRule {
                 id: rule_id,
                 field_dropdown,
                 ascending: true,
@@ -694,22 +694,6 @@ impl MySQLWorkspace {
         let start_row = current_page * tab.page_size + 1;
         let end_row = ((current_page + 1) * tab.page_size).min(tab.total_rows);
 
-        macro_rules! mutate_tab {
-            ($tab_id:expr, $op:expr) => {
-                cx.listener({
-                    let tab_id = $tab_id.clone();
-                    move |view: &mut Self, _, _, cx| {
-                        if let Some(tab_item) = view.tabs.iter_mut().find(|tab| tab.id == tab_id) {
-                            if let TabContent::Table(data_tab) = &mut tab_item.content {
-                                $op(data_tab);
-                            }
-                        }
-                        cx.notify();
-                    }
-                })
-            };
-        }
-
         div()
             .flex()
             .flex_1()
@@ -735,8 +719,14 @@ impl MySQLWorkspace {
                             } else {
                                 "筛选数据"
                             })
-                            .on_click(mutate_tab!(tab_id, |data_tab: &mut TableContent| {
-                                data_tab.filter_panel_open = !data_tab.filter_panel_open;
+                            .on_click(cx.listener({
+                                let tab_id = tab_id.clone();
+                                move |view: &mut Self, _, _, cx| {
+                                    if let Some(content) = view.table_content(&tab_id) {
+                                        content.filter_panel_open = !content.filter_panel_open;
+                                    }
+                                    cx.notify();
+                                }
                             })),
                     )
                     .child(
@@ -859,8 +849,15 @@ impl MySQLWorkspace {
                                                 .xsmall()
                                                 .ghost()
                                                 .label("删除")
-                                                .on_click(mutate_tab!(tab_id, |data_tab: &mut TableContent| {
-                                                    data_tab.filter_rules.retain(|r| &r.id != &rule_id_clone);
+                                                .on_click(cx.listener({
+                                                    let tab_id = tab_id.clone();
+                                                    let rule_id_clone = rule_id_clone.clone();
+                                                    move |view: &mut Self, _, _, cx| {
+                                                        if let Some(content) = view.table_content(&tab_id) {
+                                                            content.filter_rules.retain(|r| &r.id != &rule_id_clone);
+                                                        }
+                                                        cx.notify();
+                                                    }
                                                 }))
                                         })
                                 })),
@@ -911,13 +908,20 @@ impl MySQLWorkspace {
                                                     let rule_id_clone = rule_id.clone();
                                                     Switch::new(comp_id(["sort-ascending", &rule_id]))
                                                         .checked(ascending)
-                                                        .on_click(mutate_tab!(tab_id, |data_tab: &mut TableContent| {
-                                                            if let Some(rule) = data_tab
-                                                                .sort_rules
-                                                                .iter_mut()
-                                                                .find(|r| &r.id == &rule_id_clone)
-                                                            {
-                                                                rule.ascending = !rule.ascending;
+                                                        .on_click(cx.listener({
+                                                            let tab_id = tab_id.clone();
+                                                            let rule_id_clone = rule_id_clone.clone();
+                                                            move |view: &mut Self, _, _, cx| {
+                                                                if let Some(content) = view.table_content(&tab_id) {
+                                                                    if let Some(rule) = content
+                                                                        .sort_rules
+                                                                        .iter_mut()
+                                                                        .find(|r| &r.id == &rule_id_clone)
+                                                                    {
+                                                                        rule.ascending = !rule.ascending;
+                                                                    }
+                                                                }
+                                                                cx.notify();
                                                             }
                                                         }))
                                                 })
@@ -933,8 +937,15 @@ impl MySQLWorkspace {
                                                 .xsmall()
                                                 .ghost()
                                                 .label("删除")
-                                                .on_click(mutate_tab!(tab_id, |data_tab: &mut TableContent| {
-                                                    data_tab.sort_rules.retain(|r| &r.id != &rule_id_clone);
+                                                .on_click(cx.listener({
+                                                    let tab_id = tab_id.clone();
+                                                    let rule_id_clone = rule_id_clone.clone();
+                                                    move |view: &mut Self, _, _, cx| {
+                                                        if let Some(content) = view.table_content(&tab_id) {
+                                                            content.sort_rules.retain(|r| &r.id != &rule_id_clone);
+                                                        }
+                                                        cx.notify();
+                                                    }
                                                 }))
                                         })
                                 })),
@@ -951,9 +962,15 @@ impl MySQLWorkspace {
                                         .small()
                                         .outline()
                                         .label("清除所有条件")
-                                        .on_click(mutate_tab!(tab_id, |data_tab: &mut TableContent| {
-                                            data_tab.filter_rules.clear();
-                                            data_tab.sort_rules.clear();
+                                        .on_click(cx.listener({
+                                            let tab_id = tab_id.clone();
+                                            move |view: &mut Self, _, _, cx| {
+                                                if let Some(content) = view.table_content(&tab_id) {
+                                                    content.filter_rules.clear();
+                                                    content.sort_rules.clear();
+                                                }
+                                                cx.notify();
+                                            }
                                         })),
                                 )
                                 .child(
