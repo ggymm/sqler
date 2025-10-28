@@ -20,6 +20,14 @@ where
     ElementId::Name(SharedString::from(name))
 }
 
+pub fn full_col() -> Div {
+    div().flex().flex_1().flex_col().size_full().min_w_0().min_h_0()
+}
+
+pub fn full_row() -> Div {
+    div().flex().flex_1().flex_row().size_full().min_w_0().min_h_0()
+}
+
 pub fn icon_close() -> Icon {
     Icon::default().path("icons/close.svg")
 }

@@ -21,6 +21,8 @@ use serde_json::Map;
 use serde_json::Value;
 
 use crate::app::comps::comp_id;
+use crate::app::comps::full_col;
+use crate::app::comps::full_row;
 use crate::app::comps::icon_close;
 use crate::app::comps::icon_export;
 use crate::app::comps::icon_import;
@@ -71,7 +73,7 @@ impl MySQLWorkspace {
         }
 
         workspace.tables = workspace.load_tables();
-        workspace.active_table = workspace.tables.first().cloned();
+        // workspace.active_table = workspace.tables.first().cloned();
         workspace
     }
 
@@ -610,23 +612,17 @@ impl MySQLWorkspace {
         if let Some(tab_item) = self.tabs.iter_mut().find(|tab| tab.id == *tab_id) {
             if let TabContent::DataTable(data_tab) = &mut tab_item.content {
                 let rule_id = SharedString::from(format!("filter-{}", uuid::Uuid::new_v4()));
-                let field_dropdown = cx.new(|cx| {
-                    DropdownState::new(columns.to_vec(), None, window, cx)
-                });
+                let field_dropdown = cx.new(|cx| DropdownState::new(columns.to_vec(), None, window, cx));
 
                 // 创建操作符下拉列表
                 let operators: Vec<SharedString> = FilterOperator::all()
                     .into_iter()
                     .map(|op| SharedString::from(op.label().to_string()))
                     .collect();
-                let operator_dropdown = cx.new(|cx| {
-                    DropdownState::new(operators, None, window, cx)
-                });
+                let operator_dropdown = cx.new(|cx| DropdownState::new(operators, None, window, cx));
 
                 // 创建值输入框
-                let value_input = cx.new(|cx| {
-                    InputState::new(window, cx).placeholder("输入筛选值")
-                });
+                let value_input = cx.new(|cx| InputState::new(window, cx).placeholder("输入筛选值"));
 
                 data_tab.filter_rules.push(FilterRule {
                     id: rule_id,
@@ -664,9 +660,7 @@ impl MySQLWorkspace {
         if let Some(tab_item) = self.tabs.iter_mut().find(|tab| tab.id == *tab_id) {
             if let TabContent::DataTable(data_tab) = &mut tab_item.content {
                 let rule_id = SharedString::from(format!("sort-{}", uuid::Uuid::new_v4()));
-                let field_dropdown = cx.new(|cx| {
-                    DropdownState::new(columns.to_vec(), None, window, cx)
-                });
+                let field_dropdown = cx.new(|cx| DropdownState::new(columns.to_vec(), None, window, cx));
                 data_tab.sort_rules.push(SortRule {
                     id: rule_id,
                     field_dropdown,
@@ -892,31 +886,30 @@ impl MySQLWorkspace {
             .gap_2()
             .child(
                 // 顶部操作栏
-                div()
-                    .flex()
-                    .flex_row()
-                    .items_center()
-                    .gap_2()
-                    .child(
-                        Button::new(comp_id(["datatable-toggle-filter", &tab_id]))
-                            .small()
-                            .when(tab.filter_panel_open, |btn| btn.primary())
-                            .when(!tab.filter_panel_open, |btn| btn.outline())
-                            .label(if tab.filter_panel_open { "隐藏筛选" } else { "筛选数据" })
-                            .on_click(cx.listener({
-                                let tab_id = tab_id.clone();
-                                move |view: &mut Self, _, _, cx| {
-                                    view.toggle_filter_panel(&tab_id, cx);
-                                }
-                            }))
-                    )
+                div().flex().flex_row().items_center().gap_2().child(
+                    Button::new(comp_id(["datatable-toggle-filter", &tab_id]))
+                        .small()
+                        .when(tab.filter_panel_open, |btn| btn.primary())
+                        .when(!tab.filter_panel_open, |btn| btn.outline())
+                        .label(if tab.filter_panel_open {
+                            "隐藏筛选"
+                        } else {
+                            "筛选数据"
+                        })
+                        .on_click(cx.listener({
+                            let tab_id = tab_id.clone();
+                            move |view: &mut Self, _, _, cx| {
+                                view.toggle_filter_panel(&tab_id, cx);
+                            }
+                        })),
+                ),
             )
             .when(tab.filter_panel_open, |this| {
                 this.child(self.render_filter_panel(tab, &columns, cx))
             })
             .child(
                 // 表格区域
-                div().flex_1().rounded_md().overflow_hidden().child(tab.content.clone())
+                div().flex_1().rounded_md().overflow_hidden().child(tab.content.clone()),
             )
             .child(
                 // 分页控件
@@ -952,7 +945,7 @@ impl MySQLWorkspace {
                                             move |view: &mut Self, _, _, cx| {
                                                 view.goto_page(&tab_id, 0, cx);
                                             }
-                                        }))
+                                        })),
                                 )
                                 .child(
                                     Button::new(comp_id(["datatable-page-prev", &tab_id]))
@@ -964,7 +957,7 @@ impl MySQLWorkspace {
                                             move |view: &mut Self, _, _, cx| {
                                                 view.goto_page(&tab_id, current_page.saturating_sub(1), cx);
                                             }
-                                        }))
+                                        })),
                                 )
                             })
                             .child(div().text_sm().text_color(theme.foreground).child(format!(
@@ -983,7 +976,7 @@ impl MySQLWorkspace {
                                             move |view: &mut Self, _, _, cx| {
                                                 view.goto_page(&tab_id, current_page + 1, cx);
                                             }
-                                        }))
+                                        })),
                                 )
                                 .child(
                                     Button::new(comp_id(["datatable-page-last", &tab_id]))
@@ -995,10 +988,10 @@ impl MySQLWorkspace {
                                             move |view: &mut Self, _, _, cx| {
                                                 view.goto_page(&tab_id, total_pages.saturating_sub(1), cx);
                                             }
-                                        }))
+                                        })),
                                 )
-                            })
-                    )
+                            }),
+                    ),
             )
             .into_any_element()
     }
@@ -1033,14 +1026,14 @@ impl MySQLWorkspace {
                                 .text_sm()
                                 .font_semibold()
                                 .text_color(theme.foreground)
-                                .child("筛选条件")
+                                .child("筛选条件"),
                         )
                     })
                     .children(
-                        tab.filter_rules.iter().map(|rule| {
-                            self.render_filter_rule(rule, columns, &tab_id, cx)
-                        })
-                    )
+                        tab.filter_rules
+                            .iter()
+                            .map(|rule| self.render_filter_rule(rule, columns, &tab_id, cx)),
+                    ),
             )
             .child(
                 // 排序规则列表
@@ -1054,14 +1047,14 @@ impl MySQLWorkspace {
                                 .text_sm()
                                 .font_semibold()
                                 .text_color(theme.foreground)
-                                .child("排序规则")
+                                .child("排序规则"),
                         )
                     })
                     .children(
-                        tab.sort_rules.iter().map(|rule| {
-                            self.render_sort_rule(rule, columns, &tab_id, cx)
-                        })
-                    )
+                        tab.sort_rules
+                            .iter()
+                            .map(|rule| self.render_sort_rule(rule, columns, &tab_id, cx)),
+                    ),
             )
             .child(
                 // 底部按钮栏
@@ -1080,7 +1073,7 @@ impl MySQLWorkspace {
                                 move |view: &mut Self, _, _, cx| {
                                     view.clear_all_rules(&tab_id, cx);
                                 }
-                            }))
+                            })),
                     )
                     .child(
                         Button::new(comp_id(["filter-panel-add-filter", &tab_id]))
@@ -1093,7 +1086,7 @@ impl MySQLWorkspace {
                                 move |view: &mut Self, _, window, cx| {
                                     view.add_filter_rule(&tab_id, &columns, window, cx);
                                 }
-                            }))
+                            })),
                     )
                     .child(
                         Button::new(comp_id(["filter-panel-add-sort", &tab_id]))
@@ -1106,7 +1099,7 @@ impl MySQLWorkspace {
                                 move |view: &mut Self, _, window, cx| {
                                     view.add_sort_rule(&tab_id, &columns, window, cx);
                                 }
-                            }))
+                            })),
                     )
                     .child(div().flex_1())
                     .child(
@@ -1120,8 +1113,8 @@ impl MySQLWorkspace {
                                     // TODO: 应用所有筛选和排序规则
                                     view.apply_filter(&tab_id, cx);
                                 }
-                            }))
-                    )
+                            })),
+                    ),
             )
     }
 
@@ -1150,17 +1143,8 @@ impl MySQLWorkspace {
                     .flex()
                     .flex_col()
                     .gap_1()
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.muted_foreground)
-                            .child("字段")
-                    )
-                    .child(
-                        Dropdown::new(&rule.field_dropdown)
-                            .small()
-                            .placeholder("选择字段")
-                    )
+                    .child(div().text_xs().text_color(theme.muted_foreground).child("字段"))
+                    .child(Dropdown::new(&rule.field_dropdown).small().placeholder("选择字段")),
             )
             .child(
                 // 条件选择
@@ -1168,17 +1152,8 @@ impl MySQLWorkspace {
                     .flex()
                     .flex_col()
                     .gap_1()
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.muted_foreground)
-                            .child("条件")
-                    )
-                    .child(
-                        Dropdown::new(&rule.operator_dropdown)
-                            .small()
-                            .placeholder("选择条件")
-                    )
+                    .child(div().text_xs().text_color(theme.muted_foreground).child("条件"))
+                    .child(Dropdown::new(&rule.operator_dropdown).small().placeholder("选择条件")),
             )
             .child(
                 // 条件值输入
@@ -1187,15 +1162,8 @@ impl MySQLWorkspace {
                     .flex_1()
                     .flex_col()
                     .gap_1()
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.muted_foreground)
-                            .child("值")
-                    )
-                    .child(
-                        TextInput::new(&rule.value_input).small()
-                    )
+                    .child(div().text_xs().text_color(theme.muted_foreground).child("值"))
+                    .child(TextInput::new(&rule.value_input).small()),
             )
             .child(
                 // 删除按钮
@@ -1209,7 +1177,7 @@ impl MySQLWorkspace {
                         move |view: &mut Self, _, _, cx| {
                             view.remove_filter_rule(&tab_id, &rule_id, cx);
                         }
-                    }))
+                    })),
             )
     }
 
@@ -1239,17 +1207,8 @@ impl MySQLWorkspace {
                     .flex()
                     .flex_col()
                     .gap_1()
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.muted_foreground)
-                            .child("字段")
-                    )
-                    .child(
-                        Dropdown::new(&rule.field_dropdown)
-                            .small()
-                            .placeholder("选择字段")
-                    )
+                    .child(div().text_xs().text_color(theme.muted_foreground).child("字段"))
+                    .child(Dropdown::new(&rule.field_dropdown).small().placeholder("选择字段")),
             )
             .child(
                 // 排序方向选择
@@ -1257,12 +1216,7 @@ impl MySQLWorkspace {
                     .flex()
                     .flex_col()
                     .gap_1()
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.muted_foreground)
-                            .child("方向")
-                    )
+                    .child(div().text_xs().text_color(theme.muted_foreground).child("方向"))
                     .child(
                         div()
                             .flex()
@@ -1272,16 +1226,16 @@ impl MySQLWorkspace {
                                     .xsmall()
                                     .when(ascending, |btn| btn.primary())
                                     .when(!ascending, |btn| btn.ghost())
-                                    .label("升序 ↑")
+                                    .label("升序 ↑"),
                             )
                             .child(
                                 Button::new(comp_id(["sort-desc", &rule_id]))
                                     .xsmall()
                                     .when(!ascending, |btn| btn.primary())
                                     .when(ascending, |btn| btn.ghost())
-                                    .label("降序 ↓")
-                            )
-                    )
+                                    .label("降序 ↓"),
+                            ),
+                    ),
             )
             .child(div().flex_1())
             .child(
@@ -1296,7 +1250,7 @@ impl MySQLWorkspace {
                         move |view: &mut Self, _, _, cx| {
                             view.remove_sort_rule(&tab_id, &rule_id, cx);
                         }
-                    }))
+                    })),
             )
     }
 }
@@ -1314,30 +1268,23 @@ impl Render for MySQLWorkspace {
         let id = &self.meta.id;
         let theme = cx.theme().clone();
 
-        let menu = self.tables.iter().cloned().fold(
-            div()
-                .id(comp_id(["mysql-menu", id]))
-                .flex()
-                .flex_1()
-                .flex_col()
+        let sidebar = self.tables.iter().cloned().fold(
+            full_col()
+                .id(comp_id(["mysql-sidebar", id]))
                 .p_2()
                 .gap_2()
-                .min_w_0()
-                .min_h_0()
                 .scrollable(Axis::Vertical),
             |acc, table| {
                 let active = self.active_table.as_ref() == Some(&table);
                 let active_table = table.clone();
                 acc.child(
-                    div()
-                        .id(comp_id(["mysql-menu-item", &self.meta.id, &table]))
-                        .flex()
-                        .flex_row()
-                        .items_center()
+                    full_row()
+                        .id(comp_id(["mysql-sidebar-item", &self.meta.id, &table]))
                         .px_4()
                         .py_2()
                         .gap_2()
                         .rounded_lg()
+                        .items_center()
                         .text_sm()
                         .text_color(theme.foreground)
                         .when_else(
@@ -1354,59 +1301,49 @@ impl Render for MySQLWorkspace {
             },
         );
 
-        let tabs = TabBar::new(comp_id(["mysql-tabs", id]))
-            .with_size(Size::Medium)
-            .children(
-                self.tabs
-                    .iter()
-                    .enumerate()
-                    .map(|(_, tab)| {
-                        let tab_id = tab.id.clone();
-                        Tab::new(tab.title.clone())
-                            .id(comp_id(["mysql-tabs-item", id, &tab_id]))
-                            .px_2()
-                            .selected(tab.id == self.active_tab)
-                            .when(tab.closable, |this| {
-                                this.suffix(
-                                    Button::new(comp_id(["mysql-tabs-close", &tab_id]))
-                                        .ghost()
-                                        .xsmall()
-                                        .tab_stop(false)
-                                        .icon(icon_close().with_size(Size::XSmall))
-                                        .on_click(cx.listener(move |view: &mut Self, _, _, cx| {
-                                            view.close_tab(&tab_id, cx);
-                                        }))
-                                        .into_any_element(),
-                                )
-                            })
-                            .on_click(cx.listener({
-                                let tab_id = tab.id.clone();
-                                let tab_title = tab.title.clone();
-                                move |view: &mut Self, _, _, cx| {
-                                    view.active_tab(tab_id.clone(), tab_title.clone(), cx);
-                                }
-                            }))
-                    })
-                    .collect::<Vec<_>>(),
-            );
-
-        let main = div()
-            .flex()
-            .flex_1()
-            .flex_col()
-            .size_full()
-            .min_w_0()
-            .min_h_0()
-            .child(tabs)
+        let container = full_col()
             .child(
-                div()
+                TabBar::new(comp_id(["mysql-tabs", id]))
+                    .with_size(Size::Medium)
+                    .children(
+                        self.tabs
+                            .iter()
+                            .enumerate()
+                            .map(|(_, tab)| {
+                                let tab_id = tab.id.clone();
+                                let mut tab_item = Tab::new(tab.title.clone())
+                                    .id(comp_id(["mysql-tabs-item", id, &tab_id]))
+                                    .px_2()
+                                    .selected(tab.id == self.active_tab)
+                                    .on_click(cx.listener({
+                                        let tab_id = tab.id.clone();
+                                        let tab_title = tab.title.clone();
+                                        move |view: &mut Self, _, _, cx| {
+                                            view.active_tab(tab_id.clone(), tab_title.clone(), cx);
+                                        }
+                                    }));
+
+                                if tab.closable {
+                                    tab_item = tab_item.suffix(
+                                        Button::new(comp_id(["mysql-tabs-close", &tab_id]))
+                                            .ghost()
+                                            .xsmall()
+                                            .compact()
+                                            .tab_stop(false)
+                                            .icon(icon_close().with_size(Size::XSmall))
+                                            .on_click(cx.listener(move |view: &mut Self, _, _, cx| {
+                                                view.close_tab(&tab_id, cx);
+                                            })),
+                                    )
+                                }
+                                tab_item
+                            })
+                            .collect::<Vec<_>>(),
+                    ),
+            )
+            .child(
+                full_col()
                     .id(comp_id(["mysql-main", id]))
-                    .flex()
-                    .flex_1()
-                    .flex_col()
-                    .size_full()
-                    .min_w_0()
-                    .min_h_0()
                     .p_2()
                     .child(match self.active_content() {
                         Some(TabContent::Overview) | None => self.render_overview(cx),
@@ -1415,73 +1352,60 @@ impl Render for MySQLWorkspace {
             )
             .into_any_element();
 
-        let header = div()
-            .id(comp_id(["mysql-header", id]))
-            .flex()
-            .flex_row()
-            .px_4()
-            .py_4()
-            .gap_2()
-            .border_b_1()
-            .border_color(theme.border)
-            .child(
-                Button::new(comp_id(["mysql-header-refresh", id]))
-                    .outline()
-                    .icon(icon_relead().with_size(Size::Small))
-                    .on_click(cx.listener(|view: &mut Self, _, _, cx| {
-                        view.refresh_tables(cx);
-                    }))
-                    .label("刷新表"),
-            )
-            .child(
-                Button::new(comp_id(["mysql-header-query", id]))
-                    .outline()
-                    .icon(icon_search().with_size(Size::Small))
-                    .label("新建查询"),
-            )
-            .child(
-                Button::new(comp_id(["mysql-header-import", id]))
-                    .outline()
-                    .icon(icon_import().with_size(Size::Small))
-                    .label("数据导入"),
-            )
-            .child(
-                Button::new(comp_id(["mysql-header-export", id]))
-                    .outline()
-                    .icon(icon_export().with_size(Size::Small))
-                    .label("数据导出"),
-            );
-
-        let content = div()
-            .id(comp_id(["mysql-content", id]))
-            .flex()
-            .flex_1()
-            .flex_col()
-            .size_full()
-            .min_w_0()
-            .min_h_0()
-            .child(
-                h_resizable(comp_id(["mysql-content", id]), self.sidebar_resize.clone())
-                    .child(
-                        resizable_panel()
-                            .size(px(240.0))
-                            .size_range(px(120.)..px(360.))
-                            .child(menu),
-                    )
-                    .child(main),
-            )
-            .child(div());
-
-        div()
+        full_col()
             .id(comp_id(["mysql", id]))
-            .flex()
-            .flex_1()
-            .flex_col()
-            .size_full()
-            .min_w_0()
-            .min_h_0()
-            .child(header)
-            .child(content)
+            .child(
+                div()
+                    .id(comp_id(["mysql-header", id]))
+                    .flex()
+                    .flex_row()
+                    .p_4()
+                    .gap_2()
+                    .border_b_1()
+                    .border_color(theme.border)
+                    .child(
+                        Button::new(comp_id(["mysql-header-refresh", id]))
+                            .outline()
+                            .icon(icon_relead().with_size(Size::Small))
+                            .on_click(cx.listener(|view: &mut Self, _, _, cx| {
+                                view.refresh_tables(cx);
+                            }))
+                            .label("刷新表"),
+                    )
+                    .child(
+                        Button::new(comp_id(["mysql-header-query", id]))
+                            .outline()
+                            .icon(icon_search().with_size(Size::Small))
+                            .label("新建查询"),
+                    )
+                    .child(
+                        Button::new(comp_id(["mysql-header-import", id]))
+                            .outline()
+                            .icon(icon_import().with_size(Size::Small))
+                            .label("数据导入"),
+                    )
+                    .child(
+                        Button::new(comp_id(["mysql-header-export", id]))
+                            .outline()
+                            .icon(icon_export().with_size(Size::Small))
+                            .label("数据导出"),
+                    ),
+            )
+            .child(
+                full_col()
+                    .id(comp_id(["mysql-content", id]))
+                    .child(
+                        h_resizable(comp_id(["mysql-content", id]), self.sidebar_resize.clone())
+                            .child(
+                                resizable_panel()
+                                    .size(px(240.0))
+                                    .size_range(px(120.)..px(360.))
+                                    .child(sidebar),
+                            )
+                            .child(container),
+                    )
+                    .child(div()),
+            )
     }
 }
 
@@ -1547,21 +1471,6 @@ enum FilterOperator {
 }
 
 impl FilterOperator {
-    fn label(&self) -> &str {
-        match self {
-            Self::Equal => "=",
-            Self::NotEqual => "!=",
-            Self::GreaterThan => ">",
-            Self::LessThan => "<",
-            Self::GreaterOrEqual => ">=",
-            Self::LessOrEqual => "<=",
-            Self::Like => "LIKE",
-            Self::NotLike => "NOT LIKE",
-            Self::IsNull => "IS NULL",
-            Self::IsNotNull => "IS NOT NULL",
-        }
-    }
-
     fn all() -> Vec<Self> {
         vec![
             Self::Equal,
@@ -1575,6 +1484,21 @@ impl FilterOperator {
             Self::IsNull,
             Self::IsNotNull,
         ]
+    }
+
+    fn label(&self) -> &str {
+        match self {
+            Self::Equal => "=",
+            Self::NotEqual => "!=",
+            Self::GreaterThan => ">",
+            Self::LessThan => "<",
+            Self::GreaterOrEqual => ">=",
+            Self::LessOrEqual => "<=",
+            Self::Like => "LIKE",
+            Self::NotLike => "NOT LIKE",
+            Self::IsNull => "IS NULL",
+            Self::IsNotNull => "IS NOT NULL",
+        }
     }
 }
 
