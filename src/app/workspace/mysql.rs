@@ -13,6 +13,7 @@ use gpui_component::switch::Switch;
 use gpui_component::tab::Tab;
 use gpui_component::tab::TabBar;
 use gpui_component::ActiveTheme;
+use gpui_component::Disableable;
 use gpui_component::InteractiveElementExt;
 use gpui_component::Selectable;
 use gpui_component::Sizable;
@@ -904,23 +905,83 @@ impl MySQLWorkspace {
             .gap_2()
             .child(
                 // 顶部操作栏
-                div().flex().flex_row().items_center().gap_2().child(
-                    Button::new(comp_id(["datatable-toggle-filter", &tab_id]))
-                        .small()
-                        .when(tab.filter_panel_open, |btn| btn.primary())
-                        .when(!tab.filter_panel_open, |btn| btn.outline())
-                        .label(if tab.filter_panel_open {
-                            "隐藏筛选"
-                        } else {
-                            "筛选数据"
-                        })
-                        .on_click(cx.listener({
-                            let tab_id = tab_id.clone();
-                            move |view: &mut Self, _, _, cx| {
-                                view.toggle_filter_panel(&tab_id, cx);
-                            }
-                        })),
-                ),
+                div()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .justify_between()
+                    .gap_2()
+                    .px_2()
+                    .py_2()
+                    .child(
+                        Button::new(comp_id(["datatable-toggle-filter", &tab_id]))
+                            .small()
+                            .when(tab.filter_panel_open, |btn| btn.primary())
+                            .when(!tab.filter_panel_open, |btn| btn.outline())
+                            .label(if tab.filter_panel_open {
+                                "隐藏筛选"
+                            } else {
+                                "筛选数据"
+                            })
+                            .on_click(cx.listener({
+                                let tab_id = tab_id.clone();
+                                move |view: &mut Self, _, _, cx| {
+                                    view.toggle_filter_panel(&tab_id, cx);
+                                }
+                            })),
+                    )
+                    .child(
+                        // 分页控件
+                        div()
+                            .flex()
+                            .flex_row()
+                            .items_center()
+                            .gap_4()
+                            .child(div().text_sm().text_color(theme.muted_foreground).child(format!(
+                                "显示 {} - {} / 共 {} 条",
+                                if tab.total_rows == 0 { 0 } else { start_row },
+                                end_row,
+                                tab.total_rows
+                            )))
+                            .child(
+                                div()
+                                    .flex()
+                                    .flex_row()
+                                    .items_center()
+                                    .gap_2()
+                                    .child(
+                                        Button::new(comp_id(["datatable-page-prev", &tab_id]))
+                                            .small()
+                                            .outline()
+                                            .label("上一页")
+                                            .disabled(current_page == 0)
+                                            .on_click(cx.listener({
+                                                let tab_id = tab_id.clone();
+                                                move |view: &mut Self, _, _, cx| {
+                                                    view.goto_page(&tab_id, current_page.saturating_sub(1), cx);
+                                                }
+                                            })),
+                                    )
+                                    .child(div().text_sm().text_color(theme.foreground).child(format!(
+                                        "{} / {}",
+                                        current_page + 1,
+                                        total_pages
+                                    )))
+                                    .child(
+                                        Button::new(comp_id(["datatable-page-next", &tab_id]))
+                                            .small()
+                                            .outline()
+                                            .label("下一页")
+                                            .disabled(current_page + 1 >= total_pages)
+                                            .on_click(cx.listener({
+                                                let tab_id = tab_id.clone();
+                                                move |view: &mut Self, _, _, cx| {
+                                                    view.goto_page(&tab_id, current_page + 1, cx);
+                                                }
+                                            })),
+                                    ),
+                            ),
+                    ),
             )
             .when(tab.filter_panel_open, |this| {
                 this.child(
@@ -1135,88 +1196,6 @@ impl MySQLWorkspace {
             .child(
                 // 表格区域
                 div().flex_1().rounded_md().overflow_hidden().child(tab.content.clone()),
-            )
-            .child(
-                // 分页控件
-                div()
-                    .flex()
-                    .flex_row()
-                    .items_center()
-                    .justify_between()
-                    .px_2()
-                    .py_2()
-                    .border_t_1()
-                    .border_color(theme.border)
-                    .child(div().text_sm().text_color(theme.muted_foreground).child(format!(
-                        "显示 {} - {} / 共 {} 条",
-                        if tab.total_rows == 0 { 0 } else { start_row },
-                        end_row,
-                        tab.total_rows
-                    )))
-                    .child(
-                        div()
-                            .flex()
-                            .flex_row()
-                            .items_center()
-                            .gap_2()
-                            .when(current_page > 0, |this| {
-                                this.child(
-                                    Button::new(comp_id(["datatable-page-first", &tab_id]))
-                                        .small()
-                                        .outline()
-                                        .label("首页")
-                                        .on_click(cx.listener({
-                                            let tab_id = tab_id.clone();
-                                            move |view: &mut Self, _, _, cx| {
-                                                view.goto_page(&tab_id, 0, cx);
-                                            }
-                                        })),
-                                )
-                                .child(
-                                    Button::new(comp_id(["datatable-page-prev", &tab_id]))
-                                        .small()
-                                        .outline()
-                                        .label("上一页")
-                                        .on_click(cx.listener({
-                                            let tab_id = tab_id.clone();
-                                            move |view: &mut Self, _, _, cx| {
-                                                view.goto_page(&tab_id, current_page.saturating_sub(1), cx);
-                                            }
-                                        })),
-                                )
-                            })
-                            .child(div().text_sm().text_color(theme.foreground).child(format!(
-                                "{} / {}",
-                                current_page + 1,
-                                total_pages
-                            )))
-                            .when(current_page + 1 < total_pages, |this| {
-                                this.child(
-                                    Button::new(comp_id(["datatable-page-next", &tab_id]))
-                                        .small()
-                                        .outline()
-                                        .label("下一页")
-                                        .on_click(cx.listener({
-                                            let tab_id = tab_id.clone();
-                                            move |view: &mut Self, _, _, cx| {
-                                                view.goto_page(&tab_id, current_page + 1, cx);
-                                            }
-                                        })),
-                                )
-                                .child(
-                                    Button::new(comp_id(["datatable-page-last", &tab_id]))
-                                        .small()
-                                        .outline()
-                                        .label("末页")
-                                        .on_click(cx.listener({
-                                            let tab_id = tab_id.clone();
-                                            move |view: &mut Self, _, _, cx| {
-                                                view.goto_page(&tab_id, total_pages.saturating_sub(1), cx);
-                                            }
-                                        })),
-                                )
-                            }),
-                    ),
             )
             .into_any_element()
     }
