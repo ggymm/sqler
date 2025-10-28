@@ -1,25 +1,3 @@
-use crate::app::comps::comp_id;
-use crate::app::comps::full_col;
-use crate::app::comps::full_row;
-use crate::app::comps::icon_close;
-use crate::app::comps::icon_export;
-use crate::app::comps::icon_import;
-use crate::app::comps::icon_relead;
-use crate::app::comps::icon_search;
-use crate::app::comps::icon_sheet;
-use crate::app::comps::DataTable;
-use crate::build::create_builder;
-use crate::build::DatabaseType;
-use crate::build::Operator;
-use crate::build::QueryConditions;
-use crate::driver::DatabaseDriver;
-use crate::driver::DatabaseSession;
-use crate::driver::DriverError;
-use crate::driver::MySQLDriver;
-use crate::driver::QueryReq;
-use crate::driver::QueryResp;
-use crate::option::DataSource;
-use crate::option::DataSourceOptions;
 use gpui::prelude::*;
 use gpui::*;
 use gpui_component::button::Button;
@@ -45,6 +23,28 @@ use gpui_component::StyledExt;
 use serde_json::Map;
 use serde_json::Value;
 use uuid::Uuid;
+
+use crate::app::comps::comp_id;
+use crate::app::comps::icon_close;
+use crate::app::comps::icon_export;
+use crate::app::comps::icon_import;
+use crate::app::comps::icon_relead;
+use crate::app::comps::icon_search;
+use crate::app::comps::icon_sheet;
+use crate::app::comps::DataTable;
+use crate::app::comps::DivExt;
+use crate::build::create_builder;
+use crate::build::DatabaseType;
+use crate::build::Operator;
+use crate::build::QueryConditions;
+use crate::driver::DatabaseDriver;
+use crate::driver::DatabaseSession;
+use crate::driver::DriverError;
+use crate::driver::MySQLDriver;
+use crate::driver::QueryReq;
+use crate::driver::QueryResp;
+use crate::option::DataSource;
+use crate::option::DataSourceOptions;
 
 const DEFAULT_PAGE_SIZE: usize = 25;
 
@@ -220,59 +220,30 @@ impl MySQLWorkspace {
         Ok(tables)
     }
 
-    fn fetch_table_page(
-        &mut self,
-        table: &str,
-        filter: &str,
-        page_index: usize,
-        page_size: usize,
-        sort_column: Option<&str>,
-        sort_ascending: bool,
-    ) -> Result<TablePage, DriverError> {
-        let table_name = table.to_string();
-        let filter_text = filter.to_string();
-        let sort_col = sort_column.map(|s| s.to_string());
-        self.with_session(|session| {
-            Self::query_table_page(
-                session,
-                &table_name,
-                &filter_text,
-                page_index,
-                page_size,
-                sort_col.as_deref(),
-                sort_ascending,
-            )
-        })
-    }
-
-    /// 使用查询条件获取表数据
-    fn fetch_table_page_with_conditions(
+    /// 查询表数据（统一入口）
+    fn fetch_page(
         &mut self,
         table: &str,
         conditions: &QueryConditions,
     ) -> Result<TablePage, DriverError> {
         let table_name = table.to_string();
         let conditions_clone = conditions.clone();
-        self.with_session(|session| Self::query_table_page_with_conditions(session, &table_name, &conditions_clone))
+        self.with_session(|session| Self::query_page(session, &table_name, &conditions_clone))
     }
 
-    /// 使用查询构建器执行查询
-    fn query_table_page_with_conditions(
+    /// 执行查询
+    fn query_page(
         session: &mut dyn DatabaseSession,
         table: &str,
         conditions: &QueryConditions,
     ) -> Result<TablePage, DriverError> {
-        // 使用查询构建器生成 SQL
         let builder = create_builder(DatabaseType::MySQL);
-
-        // 先获取列名
         let column_names = Self::fetch_column_names(session, table)?;
 
-        // 构建 SELECT 查询
+        // 构建并执行 SELECT 查询
         let columns_refs: Vec<&str> = column_names.iter().map(|s| s.as_str()).collect();
         let (query_sql, _params) = builder.build_select_query(table, &columns_refs, conditions);
 
-        // 执行查询获取数据
         let resp = session.query(QueryReq::Sql { statement: query_sql })?;
         let rows = match resp {
             QueryResp::Rows(rows) => rows,
@@ -280,7 +251,7 @@ impl MySQLWorkspace {
         };
         let converted_rows = Self::convert_rows(&column_names, rows);
 
-        // 构建 COUNT 查询获取总行数
+        // 构建并执行 COUNT 查询
         let count_conditions = QueryConditions {
             filters: conditions.filters.clone(),
             sorts: Vec::new(),
@@ -288,7 +259,7 @@ impl MySQLWorkspace {
             offset: None,
         };
         let (count_sql, count_params) = builder.build_count_query(table, &count_conditions);
-        let total_rows = Self::query_total_rows(session, &count_sql, &count_params)?;
+        let total_rows = Self::query_count(session, &count_sql, &count_params)?;
 
         Ok(TablePage {
             headers: column_names.iter().map(|s| SharedString::from(s.clone())).collect(),
@@ -297,8 +268,8 @@ impl MySQLWorkspace {
         })
     }
 
-    /// 执行 COUNT 查询
-    fn query_total_rows(
+    /// 查询总数
+    fn query_count(
         session: &mut dyn DatabaseSession,
         sql: &str,
         _params: &[String],
@@ -316,63 +287,6 @@ impl MySQLWorkspace {
             }
         }
         Ok(0)
-    }
-
-    fn query_table_page(
-        session: &mut dyn DatabaseSession,
-        table: &str,
-        filter: &str,
-        page_index: usize,
-        page_size: usize,
-        sort_column: Option<&str>,
-        sort_ascending: bool,
-    ) -> Result<TablePage, DriverError> {
-        let offset = page_index.saturating_mul(page_size);
-        let mut column_names = Self::fetch_column_names(session, table)?;
-        let filter_clause = Self::build_filter_clause(&column_names, filter);
-        let filter_sql = filter_clause.as_deref().unwrap_or("");
-
-        let sort_clause = if let Some(col) = sort_column {
-            let direction = if sort_ascending { "ASC" } else { "DESC" };
-            format!(" ORDER BY `{}` {}", escape_mysql_identifier(col), direction)
-        } else {
-            String::new()
-        };
-
-        let statement = format!(
-            "SELECT * FROM `{}`{}{} LIMIT {} OFFSET {}",
-            escape_mysql_identifier(table),
-            filter_sql,
-            sort_clause,
-            page_size,
-            offset,
-        );
-
-        let resp = session.query(QueryReq::Sql { statement })?;
-        let rows = match resp {
-            QueryResp::Rows(rows) => rows,
-            _ => Vec::new(),
-        };
-
-        if column_names.is_empty() {
-            if let Some(first) = rows.first() {
-                column_names = first.keys().cloned().collect();
-            }
-        }
-
-        let headers = column_names
-            .iter()
-            .map(|name| SharedString::from(name.clone()))
-            .collect::<Vec<_>>();
-        let table_rows = Self::convert_rows(&column_names, rows);
-
-        let total_rows = Self::query_table_total(session, table, filter_clause.as_deref())?;
-
-        Ok(TablePage {
-            headers,
-            rows: table_rows,
-            total_rows,
-        })
     }
 
     fn fetch_column_names(
@@ -404,55 +318,6 @@ impl MySQLWorkspace {
         Ok(columns)
     }
 
-    fn build_filter_clause(
-        column_names: &[String],
-        raw_filter: &str,
-    ) -> Option<String> {
-        let trimmed = raw_filter.trim();
-        if trimmed.is_empty() {
-            return None;
-        }
-
-        let lower = trimmed.to_ascii_lowercase();
-        if lower.starts_with("where ") {
-            return Some(format!(" {}", trimmed));
-        }
-
-        if trimmed.contains('=')
-            || trimmed.contains('<')
-            || trimmed.contains('>')
-            || lower.contains(" like ")
-            || lower.starts_with("order ")
-            || lower.starts_with("group ")
-            || lower.starts_with("limit ")
-        {
-            return Some(format!(" WHERE {}", trimmed));
-        }
-
-        if column_names.is_empty() {
-            return None;
-        }
-
-        let like_pattern = trimmed
-            .replace('\\', "\\\\")
-            .replace('%', "\\%")
-            .replace('_', "\\_")
-            .replace('\'', "''");
-        let mut conditions = Vec::new();
-        for name in column_names {
-            conditions.push(format!(
-                "CAST(`{}` AS CHAR) LIKE '%{}%' ESCAPE '\\\\'",
-                escape_mysql_identifier(name),
-                like_pattern
-            ));
-        }
-        if conditions.is_empty() {
-            None
-        } else {
-            Some(format!(" WHERE {}", conditions.join(" OR ")))
-        }
-    }
-
     fn convert_rows(
         column_names: &[String],
         rows: Vec<Map<String, Value>>,
@@ -477,40 +342,6 @@ impl MySQLWorkspace {
             Value::Bool(flag) => SharedString::from(if *flag { "true" } else { "false" }),
             other => SharedString::from(other.to_string()),
         }
-    }
-
-    fn query_table_total(
-        session: &mut dyn DatabaseSession,
-        table: &str,
-        where_clause: Option<&str>,
-    ) -> Result<usize, DriverError> {
-        let statement = match where_clause {
-            Some(clause) if !clause.is_empty() => format!(
-                "SELECT COUNT(*) AS `total` FROM `{}`{}",
-                escape_mysql_identifier(table),
-                clause,
-            ),
-            _ => format!("SELECT COUNT(*) AS `total` FROM `{}`", escape_mysql_identifier(table),),
-        };
-        let resp = session.query(QueryReq::Sql { statement })?;
-        let rows = match resp {
-            QueryResp::Rows(rows) => rows,
-            _ => return Ok(0),
-        };
-
-        if let Some(row) = rows.first() {
-            for value in row.values() {
-                if let Some(count) = value.as_u64() {
-                    return Ok(count as usize);
-                }
-                if let Some(text) = value.as_str() {
-                    if let Ok(count) = text.parse::<u64>() {
-                        return Ok(count as usize);
-                    }
-                }
-            }
-        }
-        Ok(0)
     }
 
     fn refresh_tables(
@@ -578,16 +409,20 @@ impl MySQLWorkspace {
             return;
         }
 
-        let page = self
-            .fetch_table_page(&table, "", 0, DEFAULT_PAGE_SIZE, None, true)
-            .unwrap_or_else(|err| {
-                eprintln!("加载数据表失败: {}", err);
-                TablePage {
-                    headers: Vec::new(),
-                    rows: Vec::new(),
-                    total_rows: 0,
-                }
-            });
+        let conditions = QueryConditions {
+            filters: Vec::new(),
+            sorts: Vec::new(),
+            limit: Some(DEFAULT_PAGE_SIZE),
+            offset: Some(0),
+        };
+        let page = self.fetch_page(&table, &conditions).unwrap_or_else(|err| {
+            eprintln!("加载数据表失败: {}", err);
+            TablePage {
+                headers: Vec::new(),
+                rows: Vec::new(),
+                total_rows: 0,
+            }
+        });
 
         let data_table = DataTable::new(page.headers.clone(), page.rows.clone()).build(window, cx);
 
@@ -671,7 +506,7 @@ impl MySQLWorkspace {
             page = max_page;
         }
 
-        match self.fetch_table_page_with_conditions(&table_name, &query_conditions) {
+        match self.fetch_page(&table_name, &query_conditions) {
             Ok(table_page) => {
                 let new_total = table_page.total_rows;
                 if new_total > 0 {
@@ -989,7 +824,7 @@ impl MySQLWorkspace {
                     .gap_2()
                     .child(ctrl_btn)
                     .child(div().flex_1())
-                    .child(div().flex().flex_row().items_center().child(
+                    .child(
                         div().text_sm().text_color(theme.foreground).child(format!(
                             "显示 {} - {} 第 {} / {} 页 共 {} 条",
                             if tab.total_rows == 0 { 0 } else { start_row },
@@ -998,7 +833,7 @@ impl MySQLWorkspace {
                             total_pages,
                             tab.total_rows
                         )),
-                    ))
+                    )
                     .child(div().flex_1())
                     .child(page_prev_btn)
                     .child(page_next_btn),
@@ -1080,12 +915,7 @@ impl MySQLWorkspace {
             }));
 
         div()
-            .flex()
-            .flex_1()
-            .flex_col()
-            .size_full()
-            .min_w_0()
-            .min_h_0()
+            .full_col()
             .gap_5()
             .scrollable(Axis::Vertical)
             .child(
@@ -1119,7 +949,8 @@ impl Render for MySQLWorkspace {
         let theme = cx.theme().clone();
 
         let sidebar = self.tables.iter().cloned().fold(
-            full_col()
+            div()
+                .full_col()
                 .id(comp_id(["mysql-sidebar", id]))
                 .p_2()
                 .gap_2()
@@ -1128,7 +959,8 @@ impl Render for MySQLWorkspace {
                 let active = self.active_table.as_ref() == Some(&table);
                 let active_table = table.clone();
                 acc.child(
-                    full_row()
+                    div()
+                        .full_row()
                         .id(comp_id(["mysql-sidebar-item", &self.meta.id, &table]))
                         .px_4()
                         .py_2()
@@ -1151,7 +983,8 @@ impl Render for MySQLWorkspace {
             },
         );
 
-        let container = full_col()
+        let container = div()
+            .full_col()
             .child(
                 TabBar::new(comp_id(["mysql-tabs", id]))
                     .with_size(Size::Medium)
@@ -1193,7 +1026,8 @@ impl Render for MySQLWorkspace {
                     ),
             )
             .child(
-                full_col()
+                div()
+                    .full_col()
                     .id(comp_id(["mysql-main", id]))
                     .p_2()
                     .child(match self.active_content() {
@@ -1203,7 +1037,8 @@ impl Render for MySQLWorkspace {
             )
             .into_any_element();
 
-        full_col()
+        div()
+            .full_col()
             .id(comp_id(["mysql", id]))
             .child(
                 div()
@@ -1243,7 +1078,7 @@ impl Render for MySQLWorkspace {
                     ),
             )
             .child(
-                full_col().id(comp_id(["mysql-content", id])).child(
+                div().full_col().id(comp_id(["mysql-content", id])).child(
                     h_resizable(comp_id(["mysql-content", id]), self.sidebar_resize.clone())
                         .child(
                             resizable_panel()

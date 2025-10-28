@@ -20,12 +20,19 @@ where
     ElementId::Name(SharedString::from(name))
 }
 
-pub fn full_col() -> Div {
-    div().flex().flex_1().flex_col().size_full().min_w_0().min_h_0()
+pub trait DivExt {
+    fn full_col(self) -> Self;
+    fn full_row(self) -> Self;
 }
 
-pub fn full_row() -> Div {
-    div().flex().flex_1().flex_row().size_full().min_w_0().min_h_0()
+impl DivExt for Div {
+    fn full_col(self) -> Self {
+        self.flex().flex_1().flex_col().size_full().min_w_0().min_h_0()
+    }
+
+    fn full_row(self) -> Self {
+        self.flex().flex_1().flex_row().size_full().min_w_0().min_h_0()
+    }
 }
 
 pub fn icon_close() -> Icon {
