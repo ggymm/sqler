@@ -11,6 +11,7 @@ use gpui_component::Theme;
 use app::SqlerApp;
 
 mod app;
+mod build;
 mod cache;
 mod driver;
 mod option;

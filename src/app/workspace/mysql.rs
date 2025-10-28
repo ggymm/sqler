@@ -33,6 +33,10 @@ use crate::app::comps::icon_relead;
 use crate::app::comps::icon_search;
 use crate::app::comps::icon_sheet;
 use crate::app::comps::DataTable;
+use crate::build::create_builder;
+use crate::build::DatabaseType;
+use crate::build::Operator;
+use crate::build::QueryConditions;
 use crate::driver::DatabaseDriver;
 use crate::driver::DatabaseSession;
 use crate::driver::DriverError;
@@ -239,6 +243,79 @@ impl MySQLWorkspace {
                 sort_ascending,
             )
         })
+    }
+
+    /// 使用查询条件获取表数据
+    fn fetch_table_page_with_conditions(
+        &mut self,
+        table: &str,
+        conditions: &QueryConditions,
+    ) -> Result<TablePage, DriverError> {
+        let table_name = table.to_string();
+        let conditions_clone = conditions.clone();
+        self.with_session(|session| Self::query_table_page_with_conditions(session, &table_name, &conditions_clone))
+    }
+
+    /// 使用查询构建器执行查询
+    fn query_table_page_with_conditions(
+        session: &mut dyn DatabaseSession,
+        table: &str,
+        conditions: &QueryConditions,
+    ) -> Result<TablePage, DriverError> {
+        // 使用查询构建器生成 SQL
+        let builder = create_builder(DatabaseType::MySQL);
+
+        // 先获取列名
+        let column_names = Self::fetch_column_names(session, table)?;
+
+        // 构建 SELECT 查询
+        let columns_refs: Vec<&str> = column_names.iter().map(|s| s.as_str()).collect();
+        let (query_sql, _params) = builder.build_select_query(table, &columns_refs, conditions);
+
+        // 执行查询获取数据
+        let resp = session.query(QueryReq::Sql { statement: query_sql })?;
+        let rows = match resp {
+            QueryResp::Rows(rows) => rows,
+            _ => Vec::new(),
+        };
+        let converted_rows = Self::convert_rows(&column_names, rows);
+
+        // 构建 COUNT 查询获取总行数
+        let count_conditions = QueryConditions {
+            filters: conditions.filters.clone(),
+            sorts: Vec::new(),
+            limit: None,
+            offset: None,
+        };
+        let (count_sql, count_params) = builder.build_count_query(table, &count_conditions);
+        let total_rows = Self::query_total_rows(session, &count_sql, &count_params)?;
+
+        Ok(TablePage {
+            headers: column_names.iter().map(|s| SharedString::from(s.clone())).collect(),
+            rows: converted_rows,
+            total_rows,
+        })
+    }
+
+    /// 执行 COUNT 查询
+    fn query_total_rows(
+        session: &mut dyn DatabaseSession,
+        sql: &str,
+        _params: &[String],
+    ) -> Result<usize, DriverError> {
+        let resp = session.query(QueryReq::Sql {
+            statement: sql.to_string(),
+        })?;
+        let rows = match resp {
+            QueryResp::Rows(rows) => rows,
+            _ => return Ok(0),
+        };
+        if let Some(first_row) = rows.first() {
+            if let Some(Value::Number(n)) = first_row.values().next() {
+                return Ok(n.as_u64().unwrap_or(0) as usize);
+            }
+        }
+        Ok(0)
     }
 
     fn query_table_page(
@@ -501,8 +578,6 @@ impl MySQLWorkspace {
             return;
         }
 
-        let filter = cx.new(|cx| InputState::new(window, cx).placeholder("输入筛选条件，如 id > 10"));
-
         let page = match self.fetch_table_page(&table, "", 0, DEFAULT_PAGE_SIZE, None, true) {
             Ok(page) => page,
             Err(err) => {
@@ -524,12 +599,9 @@ impl MySQLWorkspace {
                 id: id.clone(),
                 table: table.clone(),
                 content: data_table,
-                filter,
                 current_page: 0,
                 page_size: DEFAULT_PAGE_SIZE,
                 total_rows: page.total_rows,
-                sort_column: None,
-                sort_ascending: true,
                 filter_panel_open: false,
                 filter_rules: Vec::new(),
                 sort_rules: Vec::new(),
@@ -559,7 +631,7 @@ impl MySQLWorkspace {
             let field_dropdown = cx.new(|cx| DropdownState::new(columns.to_vec(), None, window, cx));
 
             // 创建操作符下拉列表
-            let operators: Vec<SharedString> = FilterOperator::all()
+            let operators: Vec<SharedString> = Operator::all()
                 .into_iter()
                 .map(|op| SharedString::from(op.label().to_string()))
                 .collect();
@@ -572,7 +644,6 @@ impl MySQLWorkspace {
                 id: rule_id,
                 field_dropdown,
                 operator_dropdown,
-                operator: FilterOperator::Equal,
                 value_input,
             });
         }
@@ -609,22 +680,39 @@ impl MySQLWorkspace {
             return;
         };
 
-        let (table_name, page_size, total_rows, filter_handle, sort_column, sort_ascending) = {
+        let (table_name, page_size, total_rows, mut query_conditions) = {
             let TabContent::Table(data_tab) = &self.tabs[tab_index].content else {
                 return;
             };
+
+            // 构建查询条件
+            let mut conditions = QueryConditions::default();
+
+            // 转换筛选规则
+            for rule in &data_tab.filter_rules {
+                // TODO: 从 dropdown 读取选中的值
+                // 暂时跳过，等 gpui-component API 确定后再实现
+                let _ = rule;
+            }
+
+            // 转换排序规则
+            for rule in &data_tab.sort_rules {
+                // TODO: 从 dropdown 读取选中的值
+                // 暂时跳过，等 gpui-component API 确定后再实现
+                let _ = rule;
+            }
+
             (
                 data_tab.table.clone(),
                 data_tab.page_size,
                 data_tab.total_rows,
-                data_tab.filter.clone(),
-                data_tab.sort_column.clone(),
-                data_tab.sort_ascending,
+                conditions,
             )
         };
 
-        let filter_value = filter_handle.update(cx, |state, _cx| state.value());
-        let filter_text = filter_value.trim().to_string();
+        // 设置分页
+        query_conditions.limit = Some(page_size);
+        query_conditions.offset = Some(page * page_size);
 
         let max_page = if total_rows == 0 {
             0
@@ -635,14 +723,7 @@ impl MySQLWorkspace {
             page = max_page;
         }
 
-        match self.fetch_table_page(
-            &table_name,
-            &filter_text,
-            page,
-            page_size,
-            sort_column.as_deref(),
-            sort_ascending,
-        ) {
+        match self.fetch_table_page_with_conditions(&table_name, &query_conditions) {
             Ok(table_page) => {
                 let new_total = table_page.total_rows;
                 if new_total > 0 {
@@ -1259,19 +1340,16 @@ impl Render for MySQLWorkspace {
                     ),
             )
             .child(
-                full_col()
-                    .id(comp_id(["mysql-content", id]))
-                    .child(
-                        h_resizable(comp_id(["mysql-content", id]), self.sidebar_resize.clone())
-                            .child(
-                                resizable_panel()
-                                    .size(px(240.0))
-                                    .size_range(px(120.)..px(360.))
-                                    .child(sidebar),
-                            )
-                            .child(container),
-                    )
-                    .child(div()),
+                full_col().id(comp_id(["mysql-content", id])).child(
+                    h_resizable(comp_id(["mysql-content", id]), self.sidebar_resize.clone())
+                        .child(
+                            resizable_panel()
+                                .size(px(240.0))
+                                .size_range(px(120.)..px(360.))
+                                .child(sidebar),
+                        )
+                        .child(container),
+                ),
             )
     }
 }
@@ -1303,13 +1381,9 @@ struct TableContent {
     id: SharedString,
     table: SharedString,
     content: Entity<Table<DataTable>>,
-    filter: Entity<InputState>,
     current_page: usize,
     page_size: usize,
     total_rows: usize,
-    sort_column: Option<String>,
-    sort_ascending: bool,
-    // 新增：筛选排序面板状态
     filter_panel_open: bool,
     filter_rules: Vec<FilterRule>,
     sort_rules: Vec<SortRule>,
@@ -1319,54 +1393,7 @@ struct FilterRule {
     id: SharedString,
     field_dropdown: Entity<DropdownState<Vec<SharedString>>>,
     operator_dropdown: Entity<DropdownState<Vec<SharedString>>>,
-    operator: FilterOperator,
     value_input: Entity<InputState>,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-enum FilterOperator {
-    Equal,
-    NotEqual,
-    GreaterThan,
-    LessThan,
-    GreaterOrEqual,
-    LessOrEqual,
-    Like,
-    NotLike,
-    IsNull,
-    IsNotNull,
-}
-
-impl FilterOperator {
-    fn all() -> Vec<Self> {
-        vec![
-            Self::Equal,
-            Self::NotEqual,
-            Self::GreaterThan,
-            Self::LessThan,
-            Self::GreaterOrEqual,
-            Self::LessOrEqual,
-            Self::Like,
-            Self::NotLike,
-            Self::IsNull,
-            Self::IsNotNull,
-        ]
-    }
-
-    fn label(&self) -> &str {
-        match self {
-            Self::Equal => "=",
-            Self::NotEqual => "!=",
-            Self::GreaterThan => ">",
-            Self::LessThan => "<",
-            Self::GreaterOrEqual => ">=",
-            Self::LessOrEqual => "<=",
-            Self::Like => "LIKE",
-            Self::NotLike => "NOT LIKE",
-            Self::IsNull => "IS NULL",
-            Self::IsNotNull => "IS NOT NULL",
-        }
-    }
 }
 
 struct SortRule {
