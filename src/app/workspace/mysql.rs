@@ -95,10 +95,10 @@ impl MySQLWorkspace {
 
     fn close_tab(
         &mut self,
-        id: &SharedString,
+        tab_id: &SharedString,
         cx: &mut Context<Self>,
     ) {
-        if let Some(i) = self.tabs.iter().position(|tab| &tab.id == id && tab.closable) {
+        if let Some(i) = self.tabs.iter().position(|tab| &tab.id == tab_id && tab.closable) {
             let was_active = self.tabs[i].id == self.active_tab;
             self.tabs.remove(i);
             if was_active {
@@ -339,24 +339,13 @@ impl MySQLWorkspace {
         cx.notify();
     }
 
-    fn create_query_tab(
-        &mut self,
-        _cx: &mut Context<Self>,
-    ) {
-    }
-
     fn reload_table_tab(
         &mut self,
         tab_id: &SharedString,
-        mut page: usize,
         cx: &mut Context<Self>,
     ) {
-        let Some(tab_index) = self.tabs.iter().position(|tab| tab.id == *tab_id) else {
-            return;
-        };
-
-        let (table_name, page_size, total_rows, mut query_conditions) = {
-            let TabContent::Table(data_tab) = &self.tabs[tab_index].content else {
+        let (table_name, page_size, total_rows, mut page, mut query_conditions) = {
+            let Some(data_tab) = self.table_content(tab_id) else {
                 return;
             };
 
@@ -381,6 +370,7 @@ impl MySQLWorkspace {
                 data_tab.table.clone(),
                 data_tab.page_size,
                 data_tab.total_rows,
+                data_tab.current_page,
                 conditions,
             )
         };
@@ -398,37 +388,36 @@ impl MySQLWorkspace {
             page = max_page;
         }
 
-        match self.fetch_page(&table_name, &query_conditions) {
-            Ok(table_page) => {
-                let new_total = table_page.total_rows;
-                if new_total > 0 {
-                    let new_max_page = (new_total.saturating_sub(1)) / page_size;
-                    if page > new_max_page {
-                        self.reload_table_tab(tab_id, new_max_page, cx);
-                        return;
-                    }
-                } else {
-                    page = 0;
-                }
-
-                if let TabContent::Table(data_tab) = &mut self.tabs[tab_index].content {
-                    data_tab.current_page = page;
-                    data_tab.page_size = page_size;
-                    data_tab.total_rows = new_total;
-                    data_tab.columns = table_page.columns.clone();
-
-                    data_tab.content.update(cx, |table, cx| {
-                        table.delegate_mut().update_data(table_page.columns, table_page.rows);
-                        cx.notify();
-                    });
-                }
-                cx.notify();
-            }
+        let table_page = match self.fetch_page(&table_name, &query_conditions) {
+            Ok(page) => page,
             Err(err) => {
                 eprintln!("加载数据表失败: {}", err);
                 self.session = None;
+                return;
             }
-        }
+        };
+
+        let Some(data_tab) = self.table_content(tab_id) else {
+            return;
+        };
+
+        data_tab.current_page = page;
+        data_tab.page_size = page_size;
+        data_tab.total_rows = table_page.total_rows;
+        data_tab.columns = table_page.columns.clone();
+
+        data_tab.content.update(cx, |table, cx| {
+            table.delegate_mut().update_data(table_page.columns, table_page.rows);
+            cx.notify();
+        });
+
+        cx.notify();
+    }
+
+    fn create_query_tab(
+        &mut self,
+        _cx: &mut Context<Self>,
+    ) {
     }
 
     fn table_render(
@@ -483,7 +472,10 @@ impl MySQLWorkspace {
                 let tab_id = tab_id.clone();
                 let prev_page = current_page.saturating_sub(1);
                 move |view: &mut Self, _, _, cx| {
-                    view.reload_table_tab(&tab_id, prev_page, cx);
+                    if let Some(content) = view.table_content(&tab_id) {
+                        content.current_page = prev_page;
+                    }
+                    view.reload_table_tab(&tab_id, cx);
                 }
             }));
         let page_next_btn = Button::new(comp_id(["table-page-next", &tab_id]))
@@ -495,7 +487,10 @@ impl MySQLWorkspace {
                 let tab_id = tab_id.clone();
                 let next_page = current_page.saturating_add(1);
                 move |view: &mut Self, _, _, cx| {
-                    view.reload_table_tab(&tab_id, next_page, cx);
+                    if let Some(content) = view.table_content(&tab_id) {
+                        content.current_page = next_page;
+                    }
+                    view.reload_table_tab(&tab_id, cx);
                 }
             }));
         let create_sort_btn = Button::new(comp_id(["filter-panel-add-sort", &tab_id]))
@@ -562,7 +557,10 @@ impl MySQLWorkspace {
                 let tab_id = tab_id.clone();
                 move |view: &mut Self, _, _, cx| {
                     // TODO: 应用所有筛选和排序规则
-                    view.reload_table_tab(&tab_id, 0, cx);
+                    if let Some(content) = view.table_content(&tab_id) {
+                        content.current_page = 0;
+                    }
+                    view.reload_table_tab(&tab_id, cx);
                 }
             }));
         let clear_cond_btn = Button::new(comp_id(["filter-panel-clear", &tab_id]))
@@ -744,9 +742,9 @@ impl MySQLWorkspace {
 
     fn table_content(
         &mut self,
-        id: &SharedString,
+        tab_id: &SharedString,
     ) -> Option<&mut TableContent> {
-        self.tabs.iter_mut().find(|tab| tab.id == *id).and_then(|item| {
+        self.tabs.iter_mut().find(|tab| tab.id == *tab_id).and_then(|item| {
             if let TabContent::Table(tab) = &mut item.content {
                 Some(tab)
             } else {

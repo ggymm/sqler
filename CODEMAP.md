@@ -8,6 +8,9 @@
   - 程序入口，注册本地资源加载器 `FsAssets`，设置基础主题字号并在 Application 内打开主窗口
   - `init_runtime()` 当前为空实现，预留运行时初始化挂钩
   - 将根视图挂载为 `SqlerApp`
+- `src/build/`
+  - `mod.rs`：抽象出通用查询构建器，定义 `Operator`/`ConditionValue`/`FilterCondition`/`SortOrder`/`QueryConditions` 以及 `QueryBuilder` trait；`create_builder()` 根据数据库类型返回实现（目前 MySQL/PostgreSQL/SQLite 提供具体实现，其他类型退回 MySQL 语法）
+  - `mysql.rs` / `postgres.rs` / `sqlite.rs`：实现对应数据库的 WHERE/ORDER BY/LIMIT 拼接、标识符转义和占位符格式；MySQL/SQLite 使用 `?`，PostgreSQL 使用 `$n`
 - `src/app/`
   - `mod.rs`：核心应用状态
     - `SqlerApp` 维护 `TabState` 列表、活动标签、创建窗口句柄以及 `CacheApp`，但数据源仍来自 `seed_sources()` 生成的默认 MySQL 示例
@@ -16,13 +19,13 @@
     - `seed_sources()` 构造带虚拟表列表的 MySQL 演示数据
   - `comps/`
     - `mod.rs`：公共组件工具，封装图标构造、元素 id 拼接工具、对外导出 `DataTable`
-    - `table.rs`：`DataTable` 实现 gpui-component 的 `TableDelegate` trait，提供极简接口：仅需传入表头和表体数据即可构建表格组件
+    - `table.rs`：`DataTable` 实现 gpui-component 的 `TableDelegate` trait，封装列/行渲染并开启列拖拽、列/行选择等默认配置
   - `create/`
     - `mod.rs`：`CreateWindow` 模态窗口，状态由 `CreateState` 持有；支持在数据源类型选择页与具体表单之间切换，底部操作按钮的“测试连接”仍是占位事件
     - `{mysql,postgres,sqlite,sqlserver,oracle,redis,mongodb}.rs`：各类型表单的输入状态初始化与渲染，主要由 `InputState` 组成（大多提供默认值/placeholder）
   - `workspace/`
     - `mod.rs`：根据 `DataSourceKind` 构造 `WorkspaceState`（MySQL 使用真实工作区，其余复用占位视图）；首页以网格卡片展示所有数据源，双击打开标签
-    - `mysql.rs`：带分隔面板的工作区实现，基于传入连接调用 MySQL 驱动实时拉取 `SHOW TABLES`，左侧列表与"刷新表"按钮都会使用真实表名；表格标签页提供外置的筛选输入与分页控制，并在初始化时复用持久化的数据库连接去查询真实数据；数据表展示使用 gpui-component 的 Table 组件，支持列排序、列拖动、固定列等高级功能
+    - `mysql.rs`：带分隔面板的工作区实现，延迟建立 MySQL 会话并通过驱动执行 `SHOW TABLES` 等查询；表格标签页调用 `build::create_builder()` 拼接 SQL，支持分页刷新、筛选/排序 UI（筛选条件已经收集但 TODO：尚未真正写入 `QueryConditions`，目前仍以分页查询为主）
     - `placeholder.rs`：非 MySQL 数据源的占位展示，提示功能尚未实现
 - `src/cache/mod.rs`
   - `CacheApp` 使用 AES-256-GCM 将数据源集合加密写入 `~/.sqler/sources.enc`，初始化时确保目录存在并尝试解密加载
@@ -39,13 +42,13 @@
 - `src/option/`
   - `mod.rs`：定义 `DataSource`、`DataSourceKind`、`DataSourceOptions` 及工具方法（如 `DataSource::tables()`、`display()`），实现 `ConnectionOptions` trait
   - 子模块描述各数据源连接参数结构体并提供脱敏 `display_endpoint()` 输出（如 TLS、schema、read_only 等选项）
-- `src/export/`：功能占位目录，尚无实现
 - `assets/`：静态资源（数据库图标等），供 UI 引用
 - `Cargo.toml`：声明 gpui 相关依赖、AES 加密、serde/serde_json，以及各数据库驱动 crate
 
 ## 功能现状
 - 主窗口：顶部标签栏 + 主题切换按钮，新建数据源窗口以浮动窗形式打开
 - 首页：展示当前数据源卡片（目前仅内置演示 MySQL），双击打开对应工作区标签
-- 数据源标签：MySQL 工作区提供表级导航、动态标签页与示例数据表；其他类型进入占位页
+- 数据源标签：MySQL 工作区提供表级导航、动态标签页、分页查询与筛选/排序 UI；筛选面板当前只触发分页刷新，尚未真正把条件注入 SQL；其他数据源仍进入占位页
+- 查询构建：`build` 模块可为 MySQL/PostgreSQL/SQLite 生成 SELECT/COUNT 语句和参数列表，目前仅被 MySQL 工作区调用
 - 新建数据源窗口：支持选择数据库类型并填充表单字段（保留但未保存到缓存，按钮逻辑待接入）
 - 缓存系统：`CacheApp` 负责读写本地加密缓存文件，但 `SqlerApp` 尚未把缓存内容注入 UI 或在保存时回写
