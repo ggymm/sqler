@@ -131,15 +131,19 @@ impl MySQLWorkspace {
             .map(|tab| &tab.content)
     }
 
-    fn check_session(&mut self) -> Result<(), DriverError> {
-        if self.session.is_some() {
-            return Ok(());
+    fn active_session(&mut self) -> Result<&mut (dyn DatabaseSession + '_), DriverError> {
+        if self.session.is_none() {
+            let DataSourceOptions::MySQL(opts) = &self.meta.options else {
+                return Err(DriverError::InvalidField("数据源类型不匹配".into()));
+            };
+
+            self.session = Some(MySQLDriver.create_connection(opts)?);
         }
 
-        let DataSourceOptions::MySQL(opts) = &self.meta.options else {
-            return Err(DriverError::InvalidField("数据源类型不匹配".into()));
-        };
-        MySQLDriver.create_connection(opts).map(|s| self.session = Some(s))
+        match self.session.as_deref_mut() {
+            Some(session) => Ok(session),
+            None => Err(DriverError::Other("MySQL 连接不可用".into())),
+        }
     }
 
     fn refresh_tables(
@@ -156,8 +160,7 @@ impl MySQLWorkspace {
 
         // 重新查询表
         let ret: Result<Vec<SharedString>, DriverError> = (|| {
-            self.check_session()?;
-            let session = self.session.as_deref_mut().unwrap();
+            let session = self.active_session()?;
 
             let statement = format!("SHOW TABLES FROM `{}`", escape_mysql_identifier(&database));
             let rows = match session.query(QueryReq::Sql { statement })? {
@@ -201,12 +204,34 @@ impl MySQLWorkspace {
         &mut self,
         table: &str,
         conditions: &QueryConditions,
-        columns: Option<Vec<String>>,
     ) -> Result<TablePage, DriverError> {
-        self.check_session()?;
-        let session = self.session.as_deref_mut().unwrap();
+        let session = self.active_session()?;
 
         let builder = create_builder(DatabaseType::MySQL);
+
+        // 查询列名
+        let statement = format!("SHOW COLUMNS FROM `{}`", escape_mysql_identifier(table));
+        let resp = session.query(QueryReq::Sql { statement })?;
+        let column_rows = match resp {
+            QueryResp::Rows(rows) => rows,
+            _ => vec![],
+        };
+
+        let mut columns = Vec::new();
+        for row in column_rows {
+            if let Some(field) = row.get("Field") {
+                if let Some(name) = field.as_str() {
+                    columns.push(name.to_string());
+                    continue;
+                }
+            }
+
+            if let Some((_, value)) = row.into_iter().next() {
+                if let Some(name) = value.as_str() {
+                    columns.push(name.to_string());
+                }
+            }
+        }
 
         // 使用 SELECT * 查询所有列
         let (query_sql, _params) = builder.build_select_query(table, &[], conditions);
@@ -217,21 +242,11 @@ impl MySQLWorkspace {
             _ => Vec::new(),
         };
 
-        // 从返回数据中提取列名，如果没有数据则使用传入的列名或查询
-        let column_names = if let Some(first_row) = rows.first() {
-            first_row.keys().cloned().collect()
-        } else {
-            match &columns {
-                Some(cols) => cols.clone(),
-                None => Self::fetch_columns(session, table)?,
-            }
-        };
-
         // 转换行数据
         let mut converted_rows = Vec::with_capacity(rows.len());
         for row in rows {
-            let mut record = Vec::with_capacity(column_names.len());
-            for name in &column_names {
+            let mut record = Vec::with_capacity(columns.len());
+            for name in &columns {
                 let value = row.get(name).unwrap_or(&Value::Null);
                 record.push(super::format_cell(value));
             }
@@ -258,40 +273,13 @@ impl MySQLWorkspace {
             _ => 0,
         };
 
+        let headers: Vec<SharedString> = columns.iter().map(|s| SharedString::from(s.clone())).collect();
+
         Ok(TablePage {
-            headers: column_names.iter().map(|s| SharedString::from(s.clone())).collect(),
+            columns: headers,
             rows: converted_rows,
             total_rows,
         })
-    }
-
-    fn fetch_columns(
-        session: &mut dyn DatabaseSession,
-        table: &str,
-    ) -> Result<Vec<String>, DriverError> {
-        let statement = format!("SHOW COLUMNS FROM `{}`", escape_mysql_identifier(table),);
-        let resp = session.query(QueryReq::Sql { statement })?;
-        let rows = match resp {
-            QueryResp::Rows(rows) => rows,
-            _ => return Ok(vec![]),
-        };
-
-        let mut columns = Vec::new();
-        for row in rows {
-            if let Some(field) = row.get("Field") {
-                if let Some(name) = field.as_str() {
-                    columns.push(name.to_string());
-                    continue;
-                }
-            }
-
-            if let Some((_, value)) = row.into_iter().next() {
-                if let Some(name) = value.as_str() {
-                    columns.push(name.to_string());
-                }
-            }
-        }
-        Ok(columns)
     }
 
     fn create_table_tab(
@@ -320,16 +308,16 @@ impl MySQLWorkspace {
             limit: Some(DEFAULT_PAGE_SIZE),
             offset: Some(0),
         };
-        let page = self.fetch_page(&table, &conditions, None).unwrap_or_else(|err| {
+        let page = self.fetch_page(&table, &conditions).unwrap_or_else(|err| {
             eprintln!("加载数据表失败: {}", err);
             TablePage {
-                headers: Vec::new(),
+                columns: vec![],
                 rows: Vec::new(),
                 total_rows: 0,
             }
         });
 
-        let data_table = DataTable::new(page.headers.clone(), page.rows.clone()).build(window, cx);
+        let data_table = DataTable::new(page.columns.clone(), page.rows.clone()).build(window, cx);
 
         self.tabs.push(TabItem {
             id: id.clone(),
@@ -338,6 +326,7 @@ impl MySQLWorkspace {
                 id: id.clone(),
                 table: table.clone(),
                 content: data_table,
+                columns: page.columns,
                 current_page: 0,
                 page_size: DEFAULT_PAGE_SIZE,
                 total_rows: page.total_rows,
@@ -366,7 +355,7 @@ impl MySQLWorkspace {
             return;
         };
 
-        let (table_name, page_size, total_rows, columns, mut query_conditions) = {
+        let (table_name, page_size, total_rows, mut query_conditions) = {
             let TabContent::Table(data_tab) = &self.tabs[tab_index].content else {
                 return;
             };
@@ -388,14 +377,10 @@ impl MySQLWorkspace {
                 let _ = rule;
             }
 
-            // 从 DataTable 中获取列名，避免重复查询
-            let cols = data_tab.content.read(cx).delegate().columns().to_vec();
-
             (
                 data_tab.table.clone(),
                 data_tab.page_size,
                 data_tab.total_rows,
-                cols.into_iter().map(|s| s.to_string()).collect::<Vec<String>>(),
                 conditions,
             )
         };
@@ -413,7 +398,7 @@ impl MySQLWorkspace {
             page = max_page;
         }
 
-        match self.fetch_page(&table_name, &query_conditions, Some(columns)) {
+        match self.fetch_page(&table_name, &query_conditions) {
             Ok(table_page) => {
                 let new_total = table_page.total_rows;
                 if new_total > 0 {
@@ -430,8 +415,10 @@ impl MySQLWorkspace {
                     data_tab.current_page = page;
                     data_tab.page_size = page_size;
                     data_tab.total_rows = new_total;
+                    data_tab.columns = table_page.columns.clone();
+
                     data_tab.content.update(cx, |table, cx| {
-                        table.delegate_mut().update_data(table_page.headers, table_page.rows);
+                        table.delegate_mut().update_data(table_page.columns, table_page.rows);
                         cx.notify();
                     });
                 }
@@ -453,7 +440,7 @@ impl MySQLWorkspace {
         let tab_id = tab.id.clone();
 
         // 获取列名
-        let columns = tab.content.read(cx).delegate().columns().to_vec();
+        let headers = &tab.columns;
 
         // 计算分页信息
         let total_pages = if tab.total_rows == 0 {
@@ -517,11 +504,11 @@ impl MySQLWorkspace {
             .label("新增排序")
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
-                let columns = columns.to_vec();
+                let headers = headers.clone();
                 move |view: &mut Self, _, window, cx| {
                     if let Some(content) = view.table_content(&tab_id) {
                         let id = SharedString::from(Uuid::new_v4().to_string());
-                        let field = cx.new(|cx| DropdownState::new(columns.to_vec(), None, window, cx));
+                        let field = cx.new(|cx| DropdownState::new(headers.clone(), None, window, cx));
 
                         content.sort_rules.push(SortRule {
                             id,
@@ -538,12 +525,12 @@ impl MySQLWorkspace {
             .label("新增筛选")
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
-                let columns = columns.to_vec();
+                let headers = headers.clone();
                 move |view: &mut Self, _, window, cx| {
                     if let Some(content) = view.table_content(&tab_id) {
                         let id = SharedString::from(Uuid::new_v4().to_string());
 
-                        let field = cx.new(|cx| DropdownState::new(columns.to_vec(), None, window, cx));
+                        let field = cx.new(|cx| DropdownState::new(headers.clone(), None, window, cx));
                         let operator = cx.new(|cx| {
                             DropdownState::new(
                                 Operator::all()
@@ -1035,6 +1022,7 @@ struct TableContent {
     id: SharedString,
     table: SharedString,
     content: Entity<Table<DataTable>>,
+    columns: Vec<SharedString>,
     current_page: usize,
     page_size: usize,
     total_rows: usize,
@@ -1057,7 +1045,7 @@ struct SortRule {
 }
 
 struct TablePage {
-    headers: Vec<SharedString>,
+    columns: Vec<SharedString>,
     rows: Vec<Vec<SharedString>>,
     total_rows: usize,
 }

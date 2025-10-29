@@ -46,10 +46,10 @@ impl DataTable {
 
     pub fn update_data(
         &mut self,
-        headers: Vec<SharedString>,
+        columns: Vec<SharedString>,
         rows: Vec<Vec<SharedString>>,
     ) {
-        self.columns = headers;
+        self.columns = columns;
         self.rows = rows;
     }
 }
