@@ -20,7 +20,6 @@ use gpui_component::Selectable;
 use gpui_component::Sizable;
 use gpui_component::Size;
 use gpui_component::StyledExt;
-use serde_json::Map;
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -51,12 +50,14 @@ const DEFAULT_PAGE_SIZE: usize = 25;
 
 pub struct MySQLWorkspace {
     meta: DataSource,
+    session: Option<Box<dyn DatabaseSession>>,
+    database: Option<String>,
+    
     tabs: Vec<TabItem>,
     active_tab: SharedString,
     tables: Vec<SharedString>,
     active_table: Option<SharedString>,
     sidebar_resize: Entity<ResizableState>,
-    session: Option<Box<dyn DatabaseSession>>,
 }
 
 impl MySQLWorkspace {
@@ -67,17 +68,28 @@ impl MySQLWorkspace {
         let overview = TabItem::overview();
         let active_tab = overview.id.clone();
 
-        // 直接从 DataSource 读取表列表，不执行数据库查询
         let tables = meta.tables();
+        let database = if let DataSourceOptions::MySQL(opts) = &meta.options {
+            let db = opts.database.trim();
+            if db.is_empty() {
+                None
+            } else {
+                Some(db.to_string())
+            }
+        } else {
+            None
+        };
 
         Self {
             meta,
+            session: None,
+            database,
+            
             tabs: vec![overview],
             active_tab,
             tables,
             active_table: None,
             sidebar_resize: ResizableState::new(cx),
-            session: None,
         }
     }
 
@@ -119,37 +131,25 @@ impl MySQLWorkspace {
             .map(|tab| &tab.content)
     }
 
-    fn try_fetch_tables(&mut self) -> Result<Vec<SharedString>, DriverError> {
-        let database = match Self::current_database(&self.meta) {
-            Some(name) => name,
-            None => return Ok(vec![]),
-        };
-
-        self.with_session(|session| Self::query_table_list(session, &database))
-    }
-
-    fn ensure_session(&mut self) -> Result<(), DriverError> {
-        if self.session.is_some() {
-            return Ok(());
-        }
-
-        let DataSourceOptions::MySQL(opts) = &self.meta.options else {
-            return Err(DriverError::InvalidField("数据源类型不匹配".into()));
-        };
-
-        self.session = Some(MySQLDriver.create_connection(opts)?);
-        Ok(())
-    }
-
     fn with_session<R>(
         &mut self,
         mut operation: impl FnMut(&mut dyn DatabaseSession) -> Result<R, DriverError>,
     ) -> Result<R, DriverError> {
         let mut last_err = None;
         for _ in 0..2 {
-            if let Err(err) = self.ensure_session() {
-                last_err = Some(err);
-                break;
+            // 确保会话存在
+            if self.session.is_none() {
+                let DataSourceOptions::MySQL(opts) = &self.meta.options else {
+                    return Err(DriverError::InvalidField("数据源类型不匹配".into()));
+                };
+
+                match MySQLDriver.create_connection(opts) {
+                    Ok(session) => self.session = Some(session),
+                    Err(err) => {
+                        last_err = Some(err);
+                        break;
+                    }
+                }
             }
 
             if let Some(session) = self.session.as_deref_mut() {
@@ -170,43 +170,6 @@ impl MySQLWorkspace {
         Err(last_err.unwrap_or_else(|| DriverError::Other("MySQL 连接不可用".into())))
     }
 
-    fn current_database(meta: &DataSource) -> Option<String> {
-        let DataSourceOptions::MySQL(opts) = &meta.options else {
-            return None;
-        };
-
-        let database = opts.database.trim();
-        if database.is_empty() {
-            None
-        } else {
-            Some(database.to_string())
-        }
-    }
-
-    fn query_table_list(
-        session: &mut dyn DatabaseSession,
-        database: &str,
-    ) -> Result<Vec<SharedString>, DriverError> {
-        let statement = format!("SHOW TABLES FROM `{}`", escape_mysql_identifier(database),);
-        let resp = session.query(QueryReq::Sql { statement })?;
-        let rows = match resp {
-            QueryResp::Rows(rows) => rows,
-            _ => return Ok(vec![]),
-        };
-
-        let mut tables = Vec::new();
-        for row in rows {
-            for (_, value) in row {
-                if let Some(name) = value.as_str() {
-                    tables.push(SharedString::from(name.to_string()));
-                    break;
-                }
-            }
-        }
-        Ok(tables)
-    }
-
-    /// 查询表数据（统一入口）
     fn fetch_page(
         &mut self,
         table: &str,
@@ -215,89 +178,83 @@ impl MySQLWorkspace {
     ) -> Result<TablePage, DriverError> {
         let table_name = table.to_string();
         let conditions_clone = conditions.clone();
-        self.with_session(|session| Self::query_page(session, &table_name, &conditions_clone, columns.clone()))
-    }
 
-    /// 执行查询
-    fn query_page(
-        session: &mut dyn DatabaseSession,
-        table: &str,
-        conditions: &QueryConditions,
-        columns: Option<Vec<String>>,
-    ) -> Result<TablePage, DriverError> {
-        let builder = create_builder(DatabaseType::MySQL);
+        self.with_session(|session| {
+            let builder = create_builder(DatabaseType::MySQL);
 
-        // 使用 SELECT * 查询所有列
-        let (query_sql, _params) = builder.build_select_query(table, &[], conditions);
+            // 使用 SELECT * 查询所有列
+            let (query_sql, _params) = builder.build_select_query(&table_name, &[], &conditions_clone);
 
-        let resp = session.query(QueryReq::Sql { statement: query_sql })?;
-        let rows = match resp {
-            QueryResp::Rows(rows) => rows,
-            _ => Vec::new(),
-        };
+            let resp = session.query(QueryReq::Sql { statement: query_sql })?;
+            let rows = match resp {
+                QueryResp::Rows(rows) => rows,
+                _ => Vec::new(),
+            };
 
-        // 从返回数据中提取列名，如果没有数据则使用传入的列名或查询
-        let column_names = if let Some(first_row) = rows.first() {
-            first_row.keys().cloned().collect()
-        } else {
-            match columns {
-                Some(cols) => cols,
-                None => Self::fetch_column_names(session, table)?,
+            // 从返回数据中提取列名，如果没有数据则使用传入的列名或查询
+            let column_names = if let Some(first_row) = rows.first() {
+                first_row.keys().cloned().collect()
+            } else {
+                match &columns {
+                    Some(cols) => cols.clone(),
+                    None => Self::fetch_column_names(session, &table_name)?,
+                }
+            };
+
+            // 转换行数据
+            let mut converted_rows = Vec::with_capacity(rows.len());
+            for row in rows {
+                let mut record = Vec::with_capacity(column_names.len());
+                for name in &column_names {
+                    let value = row.get(name).unwrap_or(&Value::Null);
+                    record.push(Self::format_cell(value));
+                }
+                converted_rows.push(record);
             }
-        };
 
-        let converted_rows = Self::convert_rows(&column_names, rows);
+            // 构建并执行 COUNT 查询
+            let count_conditions = QueryConditions {
+                filters: conditions_clone.filters.clone(),
+                sorts: Vec::new(),
+                limit: None,
+                offset: None,
+            };
+            let (count_sql, _count_params) = builder.build_count_query(&table_name, &count_conditions);
 
-        // 构建并执行 COUNT 查询
-        let count_conditions = QueryConditions {
-            filters: conditions.filters.clone(),
-            sorts: Vec::new(),
-            limit: None,
-            offset: None,
-        };
-        let (count_sql, count_params) = builder.build_count_query(table, &count_conditions);
-        let total_rows = Self::query_count(session, &count_sql, &count_params)?;
-
-        Ok(TablePage {
-            headers: column_names.iter().map(|s| SharedString::from(s.clone())).collect(),
-            rows: converted_rows,
-            total_rows,
-        })
-    }
-
-    /// 查询总数
-    fn query_count(
-        session: &mut dyn DatabaseSession,
-        sql: &str,
-        _params: &[String],
-    ) -> Result<usize, DriverError> {
-        let resp = session.query(QueryReq::Sql {
-            statement: sql.to_string(),
-        })?;
-        let rows = match resp {
-            QueryResp::Rows(rows) => rows,
-            _ => return Ok(0),
-        };
-
-        if let Some(row) = rows.first() {
-            for value in row.values() {
-                // 尝试解析为数字
-                if let Some(count) = value.as_u64() {
-                    return Ok(count as usize);
-                }
-                // 尝试解析为 i64
-                if let Some(count) = value.as_i64() {
-                    return Ok(count.max(0) as usize);
-                }
-                // 尝试从字符串解析
-                if let Some(text) = value.as_str() {
-                    if let Ok(count) = text.parse::<u64>() {
-                        return Ok(count as usize);
+            // 执行 COUNT 查询获取总行数
+            let count_resp = session.query(QueryReq::Sql { statement: count_sql })?;
+            let total_rows = match count_resp {
+                QueryResp::Rows(count_rows) => {
+                    if let Some(row) = count_rows.first() {
+                        let mut count = 0;
+                        for value in row.values() {
+                            if let Some(c) = value.as_u64() {
+                                count = c as usize;
+                                break;
+                            } else if let Some(c) = value.as_i64() {
+                                count = c.max(0) as usize;
+                                break;
+                            } else if let Some(text) = value.as_str() {
+                                if let Ok(c) = text.parse::<u64>() {
+                                    count = c as usize;
+                                    break;
+                                }
+                            }
+                        }
+                        count
+                    } else {
+                        0
                     }
                 }
-            }
-        }
-        Ok(0)
+                _ => 0,
+            };
+
+            Ok(TablePage {
+                headers: column_names.iter().map(|s| SharedString::from(s.clone())).collect(),
+                rows: converted_rows,
+                total_rows,
+            })
+        })
     }
 
     fn fetch_column_names(
@@ -329,22 +286,6 @@ impl MySQLWorkspace {
         Ok(columns)
     }
 
-    fn convert_rows(
-        column_names: &[String],
-        rows: Vec<Map<String, Value>>,
-    ) -> Vec<Vec<SharedString>> {
-        let mut records = Vec::with_capacity(rows.len());
-        for row in rows {
-            let mut record = Vec::with_capacity(column_names.len());
-            for name in column_names {
-                let value = row.get(name).unwrap_or(&Value::Null);
-                record.push(Self::format_cell(value));
-            }
-            records.push(record);
-        }
-        records
-    }
-
     fn format_cell(value: &Value) -> SharedString {
         match value {
             Value::Null => SharedString::from(String::new()),
@@ -359,16 +300,47 @@ impl MySQLWorkspace {
         &mut self,
         cx: &mut Context<Self>,
     ) {
-        let new_tables = match self.try_fetch_tables() {
-            Ok(tables) if !tables.is_empty() => tables,
-            Ok(_) => self.meta.tables(),
-            Err(err) => {
-                eprintln!("刷新 MySQL 表列表失败: {}", err);
-                if self.tables.is_empty() {
-                    self.meta.tables()
-                } else {
-                    return;
+        // 尝试从数据库查询表列表
+        let new_tables = match self.database.clone() {
+            Some(database) => {
+                let result = self.with_session(|session| {
+                    // 执行 SHOW TABLES 查询
+                    let statement = format!("SHOW TABLES FROM `{}`", escape_mysql_identifier(&database));
+                    let resp = session.query(QueryReq::Sql { statement })?;
+                    let rows = match resp {
+                        QueryResp::Rows(rows) => rows,
+                        _ => return Ok(vec![]),
+                    };
+
+                    // 提取表名
+                    let mut tables = Vec::new();
+                    for row in rows {
+                        for (_, value) in row {
+                            if let Some(name) = value.as_str() {
+                                tables.push(SharedString::from(name.to_string()));
+                                break;
+                            }
+                        }
+                    }
+                    Ok(tables)
+                });
+
+                match result {
+                    Ok(tables) if !tables.is_empty() => tables,
+                    Ok(_) => self.meta.tables(),
+                    Err(err) => {
+                        eprintln!("刷新 MySQL 表列表失败: {}", err);
+                        if self.tables.is_empty() {
+                            self.meta.tables()
+                        } else {
+                            return;
+                        }
+                    }
                 }
+            }
+            None => {
+                // 没有配置数据库，使用缓存的表列表
+                self.meta.tables()
             }
         };
 
@@ -717,6 +689,8 @@ impl MySQLWorkspace {
                                     let rule_id = rule.id.clone();
                                     let ascending = rule.ascending.clone();
 
+                                    let field = Dropdown::new(&rule.field).small().placeholder("选择字段");
+
                                     div()
                                         .flex()
                                         .flex_1()
@@ -724,11 +698,7 @@ impl MySQLWorkspace {
                                         .gap_2()
                                         .w_full()
                                         .items_center()
-                                        .child(
-                                            div()
-                                                .w_48()
-                                                .child(Dropdown::new(&rule.field).small().placeholder("选择字段")),
-                                        )
+                                        .child(div().w_48().child(field))
                                         .child(
                                             // 排序方向选择
                                             div()
