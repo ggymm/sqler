@@ -66,23 +66,19 @@ impl MySQLWorkspace {
     ) -> Self {
         let overview = TabItem::overview();
         let active_tab = overview.id.clone();
-        let mut workspace = Self {
+
+        // 直接从 DataSource 读取表列表，不执行数据库查询
+        let tables = meta.tables();
+
+        Self {
             meta,
             tabs: vec![overview],
             active_tab,
-            tables: Vec::new(),
+            tables,
             active_table: None,
             sidebar_resize: ResizableState::new(cx),
             session: None,
-        };
-
-        if let Err(err) = workspace.ensure_session() {
-            eprintln!("初始化 MySQL 连接失败: {}", err);
         }
-
-        workspace.tables = workspace.load_tables();
-        // workspace.active_table = workspace.tables.first().cloned();
-        workspace
     }
 
     fn close_tab(
@@ -121,17 +117,6 @@ impl MySQLWorkspace {
             .iter()
             .find(|tab| tab.id == self.active_tab)
             .map(|tab| &tab.content)
-    }
-
-    fn load_tables(&mut self) -> Vec<SharedString> {
-        match self.try_fetch_tables() {
-            Ok(tables) if !tables.is_empty() => tables,
-            Ok(_) => self.meta.tables(),
-            Err(err) => {
-                eprintln!("加载 MySQL 表列表失败: {}", err);
-                self.meta.tables()
-            }
-        }
     }
 
     fn try_fetch_tables(&mut self) -> Result<Vec<SharedString>, DriverError> {
@@ -226,10 +211,11 @@ impl MySQLWorkspace {
         &mut self,
         table: &str,
         conditions: &QueryConditions,
+        columns: Option<Vec<String>>,
     ) -> Result<TablePage, DriverError> {
         let table_name = table.to_string();
         let conditions_clone = conditions.clone();
-        self.with_session(|session| Self::query_page(session, &table_name, &conditions_clone))
+        self.with_session(|session| Self::query_page(session, &table_name, &conditions_clone, columns.clone()))
     }
 
     /// 执行查询
@@ -237,19 +223,29 @@ impl MySQLWorkspace {
         session: &mut dyn DatabaseSession,
         table: &str,
         conditions: &QueryConditions,
+        columns: Option<Vec<String>>,
     ) -> Result<TablePage, DriverError> {
         let builder = create_builder(DatabaseType::MySQL);
-        let column_names = Self::fetch_column_names(session, table)?;
 
-        // 构建并执行 SELECT 查询
-        let columns_refs: Vec<&str> = column_names.iter().map(|s| s.as_str()).collect();
-        let (query_sql, _params) = builder.build_select_query(table, &columns_refs, conditions);
+        // 使用 SELECT * 查询所有列
+        let (query_sql, _params) = builder.build_select_query(table, &[], conditions);
 
         let resp = session.query(QueryReq::Sql { statement: query_sql })?;
         let rows = match resp {
             QueryResp::Rows(rows) => rows,
             _ => Vec::new(),
         };
+
+        // 从返回数据中提取列名，如果没有数据则使用传入的列名或查询
+        let column_names = if let Some(first_row) = rows.first() {
+            first_row.keys().cloned().collect()
+        } else {
+            match columns {
+                Some(cols) => cols,
+                None => Self::fetch_column_names(session, table)?,
+            }
+        };
+
         let converted_rows = Self::convert_rows(&column_names, rows);
 
         // 构建并执行 COUNT 查询
@@ -430,7 +426,7 @@ impl MySQLWorkspace {
             limit: Some(DEFAULT_PAGE_SIZE),
             offset: Some(0),
         };
-        let page = self.fetch_page(&table, &conditions).unwrap_or_else(|err| {
+        let page = self.fetch_page(&table, &conditions, None).unwrap_or_else(|err| {
             eprintln!("加载数据表失败: {}", err);
             TablePage {
                 headers: Vec::new(),
@@ -460,14 +456,6 @@ impl MySQLWorkspace {
         cx.notify();
     }
 
-    fn apply_filter(
-        &mut self,
-        tab_id: &SharedString,
-        cx: &mut Context<Self>,
-    ) {
-        self.reload_table_tab(tab_id, 0, cx);
-    }
-
     fn reload_table_tab(
         &mut self,
         tab_id: &SharedString,
@@ -478,7 +466,7 @@ impl MySQLWorkspace {
             return;
         };
 
-        let (table_name, page_size, total_rows, mut query_conditions) = {
+        let (table_name, page_size, total_rows, columns, mut query_conditions) = {
             let TabContent::Table(data_tab) = &self.tabs[tab_index].content else {
                 return;
             };
@@ -500,10 +488,14 @@ impl MySQLWorkspace {
                 let _ = rule;
             }
 
+            // 从 DataTable 中获取列名，避免重复查询
+            let cols = data_tab.content.read(cx).delegate().columns().to_vec();
+
             (
                 data_tab.table.clone(),
                 data_tab.page_size,
                 data_tab.total_rows,
+                cols.into_iter().map(|s| s.to_string()).collect::<Vec<String>>(),
                 conditions,
             )
         };
@@ -521,7 +513,7 @@ impl MySQLWorkspace {
             page = max_page;
         }
 
-        match self.fetch_page(&table_name, &query_conditions) {
+        match self.fetch_page(&table_name, &query_conditions, Some(columns)) {
             Ok(table_page) => {
                 let new_total = table_page.total_rows;
                 if new_total > 0 {
@@ -683,7 +675,7 @@ impl MySQLWorkspace {
                 let tab_id = tab_id.clone();
                 move |view: &mut Self, _, _, cx| {
                     // TODO: 应用所有筛选和排序规则
-                    view.apply_filter(&tab_id, cx);
+                    view.reload_table_tab(&tab_id, 0, cx);
                 }
             }));
         let clear_cond_btn = Button::new(comp_id(["filter-panel-clear", &tab_id]))
