@@ -68,3 +68,7 @@ pub fn icon_search() -> Icon {
 pub fn icon_sheet() -> Icon {
     Icon::default().path("icons/sheet.svg")
 }
+
+pub fn icon_trash() -> Icon {
+    Icon::default().path("icons/trash.svg")
+}

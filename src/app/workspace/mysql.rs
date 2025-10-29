@@ -986,9 +986,9 @@ impl Render for MySQLWorkspace {
                         .py_2()
                         .gap_2()
                         .row_full()
-                        .rounded_lg()
                         .items_center()
-                        .text_color(theme.foreground)
+                        .text_sm()
+                        .rounded_lg()
                         .when_else(
                             active,
                             |this| this.bg(theme.list_active).font_semibold(),
