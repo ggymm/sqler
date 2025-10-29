@@ -21,16 +21,26 @@ where
 }
 
 pub trait DivExt {
-    fn full_col(self) -> Self;
-    fn full_row(self) -> Self;
+    fn col_full(self) -> Self;
+    fn row_full(self) -> Self;
 }
 
 impl DivExt for Div {
-    fn full_col(self) -> Self {
+    fn col_full(self) -> Self {
         self.flex().flex_1().flex_col().size_full().min_w_0().min_h_0()
     }
 
-    fn full_row(self) -> Self {
+    fn row_full(self) -> Self {
+        self.flex().flex_1().flex_row().size_full().min_w_0().min_h_0()
+    }
+}
+
+impl DivExt for Stateful<Div> {
+    fn col_full(self) -> Self {
+        self.flex().flex_1().flex_col().size_full().min_w_0().min_h_0()
+    }
+
+    fn row_full(self) -> Self {
         self.flex().flex_1().flex_row().size_full().min_w_0().min_h_0()
     }
 }

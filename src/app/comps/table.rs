@@ -4,6 +4,8 @@ use gpui::*;
 use gpui_component::table::Column;
 use gpui_component::table::Table;
 use gpui_component::table::TableDelegate;
+use gpui_component::Sizable;
+use gpui_component::Size;
 
 pub struct DataTable {
     columns: Vec<SharedString>,
@@ -25,11 +27,14 @@ impl DataTable {
     ) -> Entity<Table<Self>> {
         cx.new(|cx| {
             Table::new(self, window, cx)
+                .with_size(Size::Small)
                 .border(true)
                 .stripe(false)
                 .sortable(false)
                 .col_movable(true)
                 .col_resizable(true)
+                .col_selectable(true)
+                .row_selectable(true)
                 .loop_selection(true)
                 .scrollbar_visible(true, true)
         })
@@ -70,11 +75,7 @@ impl TableDelegate for DataTable {
         _cx: &App,
     ) -> &Column {
         static COLUMNS: OnceLock<Vec<Column>> = OnceLock::new();
-        COLUMNS.get_or_init(|| {
-            (0..100)
-                .map(|i| Column::new(i.to_string(), "").width(px(100.)))
-                .collect()
-        });
+        COLUMNS.get_or_init(|| (0..100).map(|i| Column::new(i.to_string(), "")).collect());
         &COLUMNS.get().unwrap()[col_ix]
     }
 

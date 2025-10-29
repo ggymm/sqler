@@ -936,8 +936,8 @@ impl MySQLWorkspace {
             }));
 
         div()
-            .full_col()
             .gap_5()
+            .col_full()
             .scrollable(Axis::Vertical)
             .child(
                 div()
@@ -971,21 +971,21 @@ impl Render for MySQLWorkspace {
 
         let sidebar = self.tables.iter().cloned().fold(
             div()
-                .full_col()
                 .id(comp_id(["mysql-sidebar", id]))
                 .p_2()
                 .gap_2()
+                .col_full()
                 .scrollable(Axis::Vertical),
             |acc, table| {
                 let active = self.active_table.as_ref() == Some(&table);
                 let active_table = table.clone();
                 acc.child(
                     div()
-                        .full_row()
                         .id(comp_id(["mysql-sidebar-item", &self.meta.id, &table]))
                         .px_4()
                         .py_2()
                         .gap_2()
+                        .row_full()
                         .rounded_lg()
                         .items_center()
                         .text_color(theme.foreground)
@@ -1004,7 +1004,7 @@ impl Render for MySQLWorkspace {
         );
 
         let container = div()
-            .full_col()
+            .col_full()
             .child(
                 TabBar::new(comp_id(["mysql-tabs", id]))
                     .with_size(Size::Medium)
@@ -1047,9 +1047,9 @@ impl Render for MySQLWorkspace {
             )
             .child(
                 div()
-                    .full_col()
                     .id(comp_id(["mysql-main", id]))
                     .p_2()
+                    .col_full()
                     .child(match self.active_content() {
                         Some(TabContent::Table(tab)) => self.table_render(&tab, cx),
                         Some(TabContent::Overview) | None => self.overview_render(cx),
@@ -1058,8 +1058,8 @@ impl Render for MySQLWorkspace {
             .into_any_element();
 
         div()
-            .full_col()
             .id(comp_id(["mysql", id]))
+            .col_full()
             .child(
                 div()
                     .id(comp_id(["mysql-header", id]))
@@ -1098,7 +1098,7 @@ impl Render for MySQLWorkspace {
                     ),
             )
             .child(
-                div().full_col().id(comp_id(["mysql-content", id])).child(
+                div().id(comp_id(["mysql-content", id])).col_full().child(
                     h_resizable(comp_id(["mysql-content", id]), self.sidebar_resize.clone())
                         .child(
                             resizable_panel()
