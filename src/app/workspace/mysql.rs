@@ -142,6 +142,61 @@ impl MySQLWorkspace {
         MySQLDriver.create_connection(opts).map(|s| self.session = Some(s))
     }
 
+    fn refresh_tables(
+        &mut self,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(database) = self.database.clone() else {
+            self.tables = self.meta.tables();
+            self.active_tab = TabItem::overview().id;
+            self.active_table = None;
+            cx.notify();
+            return;
+        };
+
+        // 重新查询表
+        let ret: Result<Vec<SharedString>, DriverError> = (|| {
+            self.check_session()?;
+            let session = self.session.as_deref_mut().unwrap();
+
+            let statement = format!("SHOW TABLES FROM `{}`", escape_mysql_identifier(&database));
+            let rows = match session.query(QueryReq::Sql { statement })? {
+                QueryResp::Rows(rows) => rows,
+                _ => return Ok(vec![]),
+            };
+
+            let mut tables = Vec::new();
+            for row in rows {
+                if let Some(value) = row.values().next() {
+                    tables.push(super::format_cell(value));
+                }
+            }
+            Ok(tables)
+        })();
+
+        // 更新本地数据
+        self.tables = match ret {
+            Ok(tables) => tables,
+            Err(err) => {
+                eprintln!("刷新 MySQL 表列表失败: {}", err);
+                if !self.tables.is_empty() {
+                    return;
+                }
+                self.meta.tables()
+            }
+        };
+        self.active_tab = TabItem::overview().id;
+        self.active_table = None;
+
+        // 清除失效的标签页
+        self.tabs.retain(|tab| match &tab.content {
+            TabContent::Table(tab) => self.tables.iter().any(|t| t == &tab.table),
+            _ => true,
+        });
+
+        cx.notify();
+    }
+
     fn fetch_page(
         &mut self,
         table: &str,
@@ -168,7 +223,7 @@ impl MySQLWorkspace {
         } else {
             match &columns {
                 Some(cols) => cols.clone(),
-                None => Self::fetch_column_names(session, table)?,
+                None => Self::fetch_columns(session, table)?,
             }
         };
 
@@ -210,7 +265,7 @@ impl MySQLWorkspace {
         })
     }
 
-    fn fetch_column_names(
+    fn fetch_columns(
         session: &mut dyn DatabaseSession,
         table: &str,
     ) -> Result<Vec<String>, DriverError> {
@@ -237,85 +292,6 @@ impl MySQLWorkspace {
             }
         }
         Ok(columns)
-    }
-
-    fn refresh_tables(
-        &mut self,
-        cx: &mut Context<Self>,
-    ) {
-        // 尝试从数据库查询表列表
-        let new_tables = match self.database.clone() {
-            Some(database) => {
-                let result: Result<Vec<SharedString>, DriverError> = (|| {
-                    self.check_session()?;
-                    let session = self.session.as_deref_mut().unwrap();
-
-                    // 执行 SHOW TABLES 查询
-                    let statement = format!("SHOW TABLES FROM `{}`", escape_mysql_identifier(&database));
-                    let resp = session.query(QueryReq::Sql { statement })?;
-                    let rows = match resp {
-                        QueryResp::Rows(rows) => rows,
-                        _ => return Ok(vec![]),
-                    };
-
-                    // 提取表名
-                    let mut tables = Vec::new();
-                    for row in rows {
-                        for (_, value) in row {
-                            if let Some(name) = value.as_str() {
-                                tables.push(SharedString::from(name.to_string()));
-                                break;
-                            }
-                        }
-                    }
-                    Ok(tables)
-                })();
-
-                match result {
-                    Ok(tables) if !tables.is_empty() => tables,
-                    Ok(_) => self.meta.tables(),
-                    Err(err) => {
-                        eprintln!("刷新 MySQL 表列表失败: {}", err);
-                        if self.tables.is_empty() {
-                            self.meta.tables()
-                        } else {
-                            return;
-                        }
-                    }
-                }
-            }
-            None => {
-                // 没有配置数据库，使用缓存的表列表
-                self.meta.tables()
-            }
-        };
-
-        self.tables = new_tables;
-        if self.tables.is_empty() {
-            self.active_table = None;
-        } else if let Some(active) = self.active_table.clone() {
-            if !self.tables.iter().any(|name| name == &active) {
-                self.active_table = self.tables.first().cloned();
-            }
-        } else {
-            self.active_table = self.tables.first().cloned();
-        }
-
-        let current_tables = self.tables.clone();
-        self.tabs.retain(|tab| match &tab.content {
-            TabContent::Table(tab) => current_tables.iter().any(|name| name == &tab.table),
-            _ => true,
-        });
-
-        if !self.tabs.iter().any(|tab| tab.id == self.active_tab) {
-            if let Some(tab) = self.tabs.iter().find(|tab| !tab.closable) {
-                self.active_tab = tab.id.clone();
-            } else if let Some(tab) = self.tabs.first() {
-                self.active_tab = tab.id.clone();
-            }
-        }
-
-        cx.notify();
     }
 
     fn create_table_tab(
@@ -372,6 +348,12 @@ impl MySQLWorkspace {
             closable: true,
         });
         cx.notify();
+    }
+
+    fn create_query_tab(
+        &mut self,
+        _cx: &mut Context<Self>,
+    ) {
     }
 
     fn reload_table_tab(
@@ -993,7 +975,10 @@ impl Render for MySQLWorkspace {
                         Button::new(comp_id(["mysql-header-query", id]))
                             .outline()
                             .icon(icon_search().with_size(Size::Small))
-                            .label("新建查询"),
+                            .label("新建查询")
+                            .on_click(cx.listener(|view: &mut Self, _, _, cx| {
+                                view.create_query_tab(cx);
+                            })),
                     )
                     .child(
                         Button::new(comp_id(["mysql-header-import", id]))
