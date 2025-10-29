@@ -25,7 +25,7 @@
     - `{mysql,postgres,sqlite,sqlserver,oracle,redis,mongodb}.rs`：各类型表单的输入状态初始化与渲染，主要由 `InputState` 组成（大多提供默认值/placeholder）
   - `workspace/`
     - `mod.rs`：根据 `DataSourceKind` 构造 `WorkspaceState`（MySQL 使用真实工作区，其余复用占位视图）；首页以网格卡片展示所有数据源，双击打开标签
-    - `mysql.rs`：带分隔面板的工作区实现，延迟建立 MySQL 会话并通过驱动执行 `SHOW TABLES` 等查询；表格标签页调用 `build::create_builder()` 拼接 SQL，支持分页刷新、筛选/排序 UI（筛选条件已经收集但 TODO：尚未真正写入 `QueryConditions`，目前仍以分页查询为主）
+    - `mysql.rs`：带分隔面板的工作区实现，延迟建立 MySQL 会话并通过驱动执行 `SHOW TABLES` 等查询；`create_table_tab` 创建空标签页后直接调用 `reload_table_tab` 加载数据（避免代码重复），`reload_table_tab` 通过 `active_session()` 获取或创建连接，将连接移动到后台线程执行查询，完成后归还连接以实现复用；更新UI时先解构 `TablePage` 结构体为独立变量（columns/rows/total_rows），避免闭包捕获整体导致所有权冲突；表格标签页调用 `build::create_builder()` 拼接 SQL，支持分页刷新、筛选/排序 UI（筛选条件已经收集但 TODO：尚未真正写入 `QueryConditions`，目前仍以分页查询为主）
     - `placeholder.rs`：非 MySQL 数据源的占位展示，提示功能尚未实现
 - `src/cache/mod.rs`
   - `CacheApp` 使用 AES-256-GCM 将数据源集合加密写入 `~/.sqler/sources.enc`，初始化时确保目录存在并尝试解密加载

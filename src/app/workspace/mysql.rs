@@ -200,88 +200,6 @@ impl MySQLWorkspace {
         cx.notify();
     }
 
-    fn fetch_page(
-        &mut self,
-        table: &str,
-        conditions: &QueryConditions,
-    ) -> Result<TablePage, DriverError> {
-        let session = self.active_session()?;
-
-        let builder = create_builder(DatabaseType::MySQL);
-
-        // 查询列名
-        let statement = format!("SHOW COLUMNS FROM `{}`", escape_mysql_identifier(table));
-        let resp = session.query(QueryReq::Sql { statement })?;
-        let column_rows = match resp {
-            QueryResp::Rows(rows) => rows,
-            _ => vec![],
-        };
-
-        let mut columns = Vec::new();
-        for row in column_rows {
-            if let Some(field) = row.get("Field") {
-                if let Some(name) = field.as_str() {
-                    columns.push(name.to_string());
-                    continue;
-                }
-            }
-
-            if let Some((_, value)) = row.into_iter().next() {
-                if let Some(name) = value.as_str() {
-                    columns.push(name.to_string());
-                }
-            }
-        }
-
-        // 使用 SELECT * 查询所有列
-        let (query_sql, _params) = builder.build_select_query(table, &[], conditions);
-
-        let resp = session.query(QueryReq::Sql { statement: query_sql })?;
-        let rows = match resp {
-            QueryResp::Rows(rows) => rows,
-            _ => Vec::new(),
-        };
-
-        // 转换行数据
-        let mut converted_rows = Vec::with_capacity(rows.len());
-        for row in rows {
-            let mut record = Vec::with_capacity(columns.len());
-            for name in &columns {
-                let value = row.get(name).unwrap_or(&Value::Null);
-                record.push(super::format_cell(value));
-            }
-            converted_rows.push(record);
-        }
-
-        // 构建并执行 COUNT 查询
-        let count_conditions = QueryConditions {
-            filters: conditions.filters.clone(),
-            sorts: Vec::new(),
-            limit: None,
-            offset: None,
-        };
-        let (count_sql, _count_params) = builder.build_count_query(table, &count_conditions);
-
-        // 执行 COUNT 查询获取总行数
-        let count_resp = session.query(QueryReq::Sql { statement: count_sql })?;
-        let total_rows = match count_resp {
-            QueryResp::Rows(count_rows) => count_rows
-                .first()
-                .and_then(|row| row.values().next())
-                .map(super::parse_count)
-                .unwrap_or(0),
-            _ => 0,
-        };
-
-        let headers: Vec<SharedString> = columns.iter().map(|s| SharedString::from(s.clone())).collect();
-
-        Ok(TablePage {
-            columns: headers,
-            rows: converted_rows,
-            total_rows,
-        })
-    }
-
     fn create_table_tab(
         &mut self,
         table: SharedString,
@@ -289,8 +207,8 @@ impl MySQLWorkspace {
         cx: &mut Context<Self>,
     ) {
         let id = SharedString::from(format!("mysql-tab-table-data-{}-{}", self.meta.id, table));
-        self.active_tab = id.clone();
-        self.active_table = Some(table.clone());
+
+        // 检查标签页是否已存在
         if let Some(existing) = self.tabs.iter().find(|tab| {
             matches!(
                 &tab.content,
@@ -298,26 +216,13 @@ impl MySQLWorkspace {
             )
         }) {
             self.active_tab = existing.id.clone();
+            self.active_table = Some(table.clone());
             cx.notify();
             return;
         }
 
-        let conditions = QueryConditions {
-            filters: Vec::new(),
-            sorts: Vec::new(),
-            limit: Some(DEFAULT_PAGE_SIZE),
-            offset: Some(0),
-        };
-        let page = self.fetch_page(&table, &conditions).unwrap_or_else(|err| {
-            eprintln!("加载数据表失败: {}", err);
-            TablePage {
-                columns: vec![],
-                rows: Vec::new(),
-                total_rows: 0,
-            }
-        });
-
-        let data_table = DataTable::new(page.columns.clone(), page.rows.clone()).build(window, cx);
+        // 创建空的数据表
+        let data_table = DataTable::new(vec![], Vec::new()).build(window, cx);
 
         self.tabs.push(TabItem {
             id: id.clone(),
@@ -326,26 +231,33 @@ impl MySQLWorkspace {
                 id: id.clone(),
                 table: table.clone(),
                 content: data_table,
-                columns: page.columns,
+                columns: vec![],
                 current_page: 0,
                 page_size: DEFAULT_PAGE_SIZE,
-                total_rows: page.total_rows,
+                total_rows: 0,
                 filter_enable: false,
                 query_rules: Vec::new(),
                 sort_rules: Vec::new(),
             }),
             closable: true,
         });
+
+        self.active_tab = id.clone();
+        self.active_table = Some(table.clone());
         cx.notify();
+
+        // 调用 reload_table_tab 加载数据
+        self.reload_table_tab(&id, window, cx);
     }
 
     fn reload_table_tab(
         &mut self,
         tab_id: &SharedString,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let (table_name, page_size, total_rows, mut page, mut query_conditions) = {
-            let Some(data_tab) = self.table_content(tab_id) else {
+        let (table, mut page, size, total, mut conditions) = {
+            let Some(content) = self.table_content(tab_id) else {
                 return;
             };
 
@@ -353,65 +265,179 @@ impl MySQLWorkspace {
             let conditions = QueryConditions::default();
 
             // 转换筛选规则
-            for rule in &data_tab.query_rules {
+            for rule in &content.query_rules {
                 // TODO: 从 dropdown 读取选中的值
                 // 暂时跳过，等 gpui-component API 确定后再实现
                 let _ = rule;
             }
 
             // 转换排序规则
-            for rule in &data_tab.sort_rules {
+            for rule in &content.sort_rules {
                 // TODO: 从 dropdown 读取选中的值
                 // 暂时跳过，等 gpui-component API 确定后再实现
                 let _ = rule;
             }
 
             (
-                data_tab.table.clone(),
-                data_tab.page_size,
-                data_tab.total_rows,
-                data_tab.current_page,
+                content.table.clone(),
+                content.current_page,
+                content.page_size,
+                content.total_rows,
                 conditions,
             )
         };
 
         // 设置分页
-        query_conditions.limit = Some(page_size);
-        query_conditions.offset = Some(page * page_size);
+        conditions.limit = Some(size);
+        conditions.offset = Some(page * size);
 
-        let max_page = if total_rows == 0 {
+        let max_page = if total == 0 {
             0
         } else {
-            (total_rows.saturating_sub(1)) / page_size
+            (total.saturating_sub(1)) / size
         };
         if page > max_page {
             page = max_page;
         }
 
-        let table_page = match self.fetch_page(&table_name, &query_conditions) {
-            Ok(page) => page,
+        // 获取或创建连接，然后将其移动到后台任务
+        let session = match self.active_session() {
+            Ok(_) => self.session.take(),
             Err(err) => {
-                eprintln!("加载数据表失败: {}", err);
-                self.session = None;
+                eprintln!("获取数据库连接失败: {}", err);
                 return;
             }
         };
 
-        let Some(data_tab) = self.table_content(tab_id) else {
+        let Some(session) = session else {
             return;
         };
 
-        data_tab.current_page = page;
-        data_tab.page_size = page_size;
-        data_tab.total_rows = table_page.total_rows;
-        data_tab.columns = table_page.columns.clone();
+        let tab_id = tab_id.clone();
 
-        data_tab.content.update(cx, |table, cx| {
-            table.delegate_mut().update_data(table_page.columns, table_page.rows);
-            cx.notify();
-        });
+        // 在后台线程执行数据库查询
+        cx.spawn_in(window, async move |this, cx| {
+            let result = cx
+                .background_executor()
+                .spawn(async move {
+                    // 使用传递过来的连接
+                    let mut session = session;
 
-        cx.notify();
+                    // 执行查询
+                    let builder = create_builder(DatabaseType::MySQL);
+
+                    // 查询列名
+                    let statement = format!("SHOW COLUMNS FROM `{}`", escape_mysql_identifier(&table));
+                    let resp = session.query(QueryReq::Sql { statement })?;
+                    let column_rows = match resp {
+                        QueryResp::Rows(rows) => rows,
+                        _ => vec![],
+                    };
+
+                    let mut columns = Vec::new();
+                    for row in column_rows {
+                        if let Some(field) = row.get("Field") {
+                            if let Some(name) = field.as_str() {
+                                columns.push(name.to_string());
+                                continue;
+                            }
+                        }
+
+                        if let Some((_, value)) = row.into_iter().next() {
+                            if let Some(name) = value.as_str() {
+                                columns.push(name.to_string());
+                            }
+                        }
+                    }
+
+                    // 查询数据
+                    let (query_sql, _params) = builder.build_select_query(&table, &[], &conditions);
+                    let resp = session.query(QueryReq::Sql { statement: query_sql })?;
+                    let rows = match resp {
+                        QueryResp::Rows(rows) => rows,
+                        _ => Vec::new(),
+                    };
+
+                    // 转换行数据
+                    let mut converted_rows = Vec::with_capacity(rows.len());
+                    for row in rows {
+                        let mut record = Vec::with_capacity(columns.len());
+                        for name in &columns {
+                            let value = row.get(name).unwrap_or(&Value::Null);
+                            record.push(super::format_cell(value));
+                        }
+                        converted_rows.push(record);
+                    }
+
+                    // 查询总行数
+                    let count_conditions = QueryConditions {
+                        filters: conditions.filters.clone(),
+                        sorts: Vec::new(),
+                        limit: None,
+                        offset: None,
+                    };
+                    let (count_sql, _) = builder.build_count_query(&table, &count_conditions);
+                    let count_resp = session.query(QueryReq::Sql { statement: count_sql })?;
+                    let total_rows = match count_resp {
+                        QueryResp::Rows(count_rows) => count_rows
+                            .first()
+                            .and_then(|row| row.values().next())
+                            .map(super::parse_count)
+                            .unwrap_or(0),
+                        _ => 0,
+                    };
+
+                    let headers: Vec<SharedString> = columns.iter().map(|s| SharedString::from(s.clone())).collect();
+
+                    Ok::<_, DriverError>((
+                        TablePage {
+                            columns: headers,
+                            rows: converted_rows,
+                            total_rows,
+                        },
+                        session,
+                    ))
+                })
+                .await;
+
+            // 更新 UI
+            let _ = cx.update(|_window, cx| {
+                let _ = this.update(cx, |this, cx| match result {
+                    Ok((table_page, session)) => {
+                        // 归还连接
+                        this.session = Some(session);
+
+                        let Some(data_tab) = this.table_content(&tab_id) else {
+                            return;
+                        };
+
+                        // 提前解构 table_page，避免闭包捕获整个结构体导致所有权问题
+                        let TablePage {
+                            columns,
+                            rows,
+                            total_rows,
+                        } = table_page;
+
+                        data_tab.current_page = page;
+                        data_tab.page_size = size;
+                        data_tab.total_rows = total_rows;
+                        data_tab.columns = columns.clone();
+
+                        data_tab.content.update(cx, |tbl, cx| {
+                            tbl.delegate_mut().update_data(columns, rows);
+                            cx.notify();
+                        });
+
+                        cx.notify();
+                    }
+                    Err(err) => {
+                        eprintln!("加载数据表失败: {}", err);
+                        this.session = None;
+                    }
+                });
+            });
+        })
+        .detach();
     }
 
     fn create_query_tab(
@@ -471,11 +497,11 @@ impl MySQLWorkspace {
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
                 let prev_page = current_page.saturating_sub(1);
-                move |view: &mut Self, _, _, cx| {
+                move |view: &mut Self, _, window, cx| {
                     if let Some(content) = view.table_content(&tab_id) {
                         content.current_page = prev_page;
                     }
-                    view.reload_table_tab(&tab_id, cx);
+                    view.reload_table_tab(&tab_id, window, cx);
                 }
             }));
         let page_next_btn = Button::new(comp_id(["table-page-next", &tab_id]))
@@ -486,11 +512,11 @@ impl MySQLWorkspace {
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
                 let next_page = current_page.saturating_add(1);
-                move |view: &mut Self, _, _, cx| {
+                move |view: &mut Self, _, window, cx| {
                     if let Some(content) = view.table_content(&tab_id) {
                         content.current_page = next_page;
                     }
-                    view.reload_table_tab(&tab_id, cx);
+                    view.reload_table_tab(&tab_id, window, cx);
                 }
             }));
         let create_sort_btn = Button::new(comp_id(["filter-panel-add-sort", &tab_id]))
@@ -555,12 +581,12 @@ impl MySQLWorkspace {
             .label("应用条件")
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
-                move |view: &mut Self, _, _, cx| {
+                move |view: &mut Self, _, window, cx| {
                     // TODO: 应用所有筛选和排序规则
                     if let Some(content) = view.table_content(&tab_id) {
                         content.current_page = 0;
                     }
-                    view.reload_table_tab(&tab_id, cx);
+                    view.reload_table_tab(&tab_id, window, cx);
                 }
             }));
         let clear_cond_btn = Button::new(comp_id(["filter-panel-clear", &tab_id]))
