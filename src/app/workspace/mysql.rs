@@ -31,6 +31,7 @@ use crate::app::comps::icon_import;
 use crate::app::comps::icon_relead;
 use crate::app::comps::icon_search;
 use crate::app::comps::icon_sheet;
+use crate::app::comps::icon_trash;
 use crate::app::comps::DataTable;
 use crate::app::comps::DivExt;
 use crate::build::create_builder;
@@ -572,13 +573,17 @@ impl MySQLWorkspace {
         let start_row = current_page * tab.page_size + 1;
         let end_row = ((current_page + 1) * tab.page_size).min(tab.total_rows);
 
-        let ctrl_btn = Button::new(comp_id(["table-toggle-filter", &tab_id]))
+        let column_btn = Button::new(comp_id(["table-choose-column", &tab_id]))
+            .small()
+            .outline()
+            .label("列筛选");
+        let filter_btn = Button::new(comp_id(["table-toggle-filter", &tab_id]))
             .small()
             .outline()
             .label(if tab.filter_enable {
                 "隐藏筛选"
             } else {
-                "筛选数据"
+                "数据筛选"
             })
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
@@ -589,6 +594,7 @@ impl MySQLWorkspace {
                     cx.notify();
                 }
             }));
+
         let page_prev_btn = Button::new(comp_id(["table-page-prev", &tab_id]))
             .small()
             .outline()
@@ -596,9 +602,9 @@ impl MySQLWorkspace {
             .disabled(current_page == 0)
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
-                let page = current_page.saturating_sub(1);
+                let prev_page = current_page.saturating_sub(1);
                 move |view: &mut Self, _, _, cx| {
-                    view.reload_table_tab(&tab_id, page, cx);
+                    view.reload_table_tab(&tab_id, prev_page, cx);
                 }
             }));
         let page_next_btn = Button::new(comp_id(["table-page-next", &tab_id]))
@@ -608,9 +614,9 @@ impl MySQLWorkspace {
             .disabled(current_page + 1 >= total_pages)
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
-                let page = current_page.saturating_add(1);
+                let next_page = current_page.saturating_add(1);
                 move |view: &mut Self, _, _, cx| {
-                    view.reload_table_tab(&tab_id, page, cx);
+                    view.reload_table_tab(&tab_id, next_page, cx);
                 }
             }));
         let create_sort_btn = Button::new(comp_id(["filter-panel-add-sort", &tab_id]))
@@ -674,10 +680,10 @@ impl MySQLWorkspace {
             .primary()
             .label("应用条件")
             .on_click(cx.listener({
-                let id = tab_id.clone();
+                let tab_id = tab_id.clone();
                 move |view: &mut Self, _, _, cx| {
                     // TODO: 应用所有筛选和排序规则
-                    view.apply_filter(&id, cx);
+                    view.apply_filter(&tab_id, cx);
                 }
             }));
         let clear_cond_btn = Button::new(comp_id(["filter-panel-clear", &tab_id]))
@@ -685,9 +691,9 @@ impl MySQLWorkspace {
             .outline()
             .label("清除条件")
             .on_click(cx.listener({
-                let id = tab_id.clone();
+                let tab_id = tab_id.clone();
                 move |view: &mut Self, _, _, cx| {
-                    if let Some(content) = view.table_content(&id) {
+                    if let Some(content) = view.table_content(&tab_id) {
                         content.sort_rules.clear();
                         content.query_rules.clear();
                     }
@@ -765,9 +771,8 @@ impl MySQLWorkspace {
                                         )
                                         .child({
                                             Button::new(comp_id(["sort-remove", &rule_id]))
-                                                .xsmall()
-                                                .ghost()
-                                                .label("删除")
+                                                .outline()
+                                                .icon(icon_trash())
                                                 .on_click(cx.listener({
                                                     let tab_id = tab_id.clone();
                                                     move |view: &mut Self, _, _, cx| {
@@ -801,9 +806,8 @@ impl MySQLWorkspace {
                                         .child(div().flex().flex_1().child(TextInput::new(&rule.value).small()))
                                         .child(
                                             Button::new(comp_id(["filter-remove", &rule_id]))
-                                                .xsmall()
-                                                .ghost()
-                                                .label("删除")
+                                                .outline()
+                                                .icon(icon_trash())
                                                 .on_click(cx.listener({
                                                     let tab_id = tab_id.clone();
                                                     move |view: &mut Self, _, _, cx| {
@@ -845,14 +849,13 @@ impl MySQLWorkspace {
                     .items_center()
                     .p_2()
                     .gap_2()
-                    .child(ctrl_btn)
+                    .child(column_btn)
+                    .child(filter_btn)
                     .child(div().flex_1())
                     .child(div().text_sm().child(format!(
-                        "显示 {} - {} 第 {} / {} 页 共 {} 条",
+                        "显示 {} - {} / 共 {} 条",
                         if tab.total_rows == 0 { 0 } else { start_row },
                         end_row,
-                        current_page + 1,
-                        total_pages,
                         tab.total_rows
                     )))
                     .child(div().flex_1())
@@ -864,9 +867,9 @@ impl MySQLWorkspace {
 
     fn table_content(
         &mut self,
-        tab_id: &SharedString,
+        id: &SharedString,
     ) -> Option<&mut TableContent> {
-        self.tabs.iter_mut().find(|tab| tab.id == *tab_id).and_then(|item| {
+        self.tabs.iter_mut().find(|tab| tab.id == *id).and_then(|item| {
             if let TabContent::Table(tab) = &mut item.content {
                 Some(tab)
             } else {
