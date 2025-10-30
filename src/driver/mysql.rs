@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use mysql::{prelude::Queryable, Conn, Opts, OptsBuilder, SslOpts, Value};
 
 use super::{
-    validate_statement, DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp,
-    UpdateReq, WriteResp,
+    validate_stmt, DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp, UpdateReq,
+    WriteResp,
 };
 use crate::option::MySQLOptions;
 
@@ -27,15 +27,15 @@ impl DatabaseSession for MySQLConnection {
         request: QueryReq,
     ) -> Result<QueryResp, DriverError> {
         match request {
-            QueryReq::Sql { statement, params } => {
-                validate_statement(&statement)?;
+            QueryReq::Sql { stmt, params } => {
+                validate_stmt(&stmt)?;
 
                 // 字符串参数直接转换为 MySQL 值
                 let mysql_params: Vec<Value> = params.into_iter().map(Value::from).collect();
 
                 let rows: Vec<mysql::Row> = self
                     .conn
-                    .exec(&statement, mysql_params)
+                    .exec(&stmt, mysql_params)
                     .map_err(|err| DriverError::Other(format!("执行查询失败: {}", err)))?;
 
                 if rows.is_empty() {
@@ -75,7 +75,7 @@ impl DatabaseSession for MySQLConnection {
         request: InsertReq,
     ) -> Result<WriteResp, DriverError> {
         match request {
-            InsertReq::Sql { statement } => self.exec_write(&statement),
+            InsertReq::Sql { stmt: statement } => self.exec_write(&statement),
             other => Err(DriverError::InvalidField(format!(
                 "MySQL 插入仅支持 SQL，收到: {:?}",
                 other
@@ -88,7 +88,7 @@ impl DatabaseSession for MySQLConnection {
         request: UpdateReq,
     ) -> Result<WriteResp, DriverError> {
         match request {
-            UpdateReq::Sql { statement } => self.exec_write(&statement),
+            UpdateReq::Sql { stmt: statement } => self.exec_write(&statement),
             other => Err(DriverError::InvalidField(format!(
                 "MySQL 更新仅支持 SQL，收到: {:?}",
                 other
@@ -101,7 +101,7 @@ impl DatabaseSession for MySQLConnection {
         request: DeleteReq,
     ) -> Result<WriteResp, DriverError> {
         match request {
-            DeleteReq::Sql { statement } => self.exec_write(&statement),
+            DeleteReq::Sql { stmt: statement } => self.exec_write(&statement),
             other => Err(DriverError::InvalidField(format!(
                 "MySQL 删除仅支持 SQL，收到: {:?}",
                 other
@@ -115,12 +115,12 @@ impl MySQLConnection {
         &mut self,
         statement: &str,
     ) -> Result<WriteResp, DriverError> {
-        validate_statement(statement)?;
+        validate_stmt(statement)?;
         self.conn
             .query_drop(statement)
             .map_err(|err| DriverError::Other(format!("执行写入失败: {}", err)))?;
         Ok(WriteResp {
-            affected: self.conn.affected_rows() as u64,
+            affected: self.conn.affected_rows(),
         })
     }
 }

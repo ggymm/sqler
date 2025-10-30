@@ -3,8 +3,8 @@ use std::{collections::HashMap, fs, path::Path};
 use rusqlite::{types::ValueRef, Connection, OpenFlags};
 
 use super::{
-    validate_statement, DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp,
-    UpdateReq, WriteResp,
+    validate_stmt, DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp, UpdateReq,
+    WriteResp,
 };
 use crate::option::SQLiteOptions;
 
@@ -27,8 +27,11 @@ impl DatabaseSession for SQLiteConnection {
         request: QueryReq,
     ) -> Result<QueryResp, DriverError> {
         match request {
-            QueryReq::Sql { statement, params } => {
-                validate_statement(&statement)?;
+            QueryReq::Sql {
+                stmt: statement,
+                params,
+            } => {
+                validate_stmt(&statement)?;
 
                 let mut stmt = self
                     .conn
@@ -72,7 +75,7 @@ impl DatabaseSession for SQLiteConnection {
         request: InsertReq,
     ) -> Result<WriteResp, DriverError> {
         match request {
-            InsertReq::Sql { statement } => self.exec_write(&statement),
+            InsertReq::Sql { stmt: statement } => self.exec_write(&statement),
             other => Err(DriverError::InvalidField(format!(
                 "SQLite 插入仅支持 SQL，收到: {:?}",
                 other
@@ -85,7 +88,7 @@ impl DatabaseSession for SQLiteConnection {
         request: UpdateReq,
     ) -> Result<WriteResp, DriverError> {
         match request {
-            UpdateReq::Sql { statement } => self.exec_write(&statement),
+            UpdateReq::Sql { stmt: statement } => self.exec_write(&statement),
             other => Err(DriverError::InvalidField(format!(
                 "SQLite 更新仅支持 SQL，收到: {:?}",
                 other
@@ -98,7 +101,7 @@ impl DatabaseSession for SQLiteConnection {
         request: DeleteReq,
     ) -> Result<WriteResp, DriverError> {
         match request {
-            DeleteReq::Sql { statement } => self.exec_write(&statement),
+            DeleteReq::Sql { stmt: statement } => self.exec_write(&statement),
             other => Err(DriverError::InvalidField(format!(
                 "SQLite 删除仅支持 SQL，收到: {:?}",
                 other
@@ -112,7 +115,7 @@ impl SQLiteConnection {
         &mut self,
         statement: &str,
     ) -> Result<WriteResp, DriverError> {
-        validate_statement(statement)?;
+        validate_stmt(statement)?;
         let affected = self
             .conn
             .execute(statement, [])

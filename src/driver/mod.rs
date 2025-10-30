@@ -22,8 +22,8 @@ pub use sqlserver::SQLServerDriver;
 // ==================== 通用工具函数 ====================
 
 /// 验证 SQL 语句是否为空
-pub(crate) fn validate_statement(statement: &str) -> Result<(), DriverError> {
-    if statement.trim().is_empty() {
+pub(crate) fn validate_stmt(stmt: &str) -> Result<(), DriverError> {
+    if stmt.trim().is_empty() {
         return Err(DriverError::InvalidField("statement".into()));
     }
     Ok(())
@@ -50,25 +50,21 @@ pub enum DriverError {
 
 #[derive(Clone, Debug)]
 pub enum QueryReq {
-    // SQL 数据库：使用字符串参数（简单高效）
-    Sql { statement: String, params: Vec<String> },
-    // NoSQL 数据库：使用 JSON 值（语义正确）
+    Sql { stmt: String, params: Vec<String> },
     Command { name: String, args: Vec<Value> },
     Document { collection: String, filter: Value },
 }
 
 #[derive(Clone, Debug)]
 pub enum QueryResp {
-    // SQL 数据库：字符串 Map（零序列化开销）
     Rows(Vec<HashMap<String, String>>),
-    // NoSQL 数据库：JSON 值（保持灵活性）
     Value(Value),
     Documents(Vec<Value>),
 }
 
 #[derive(Clone, Debug)]
 pub enum InsertReq {
-    Sql { statement: String },
+    Sql { stmt: String },
     Command { name: String, args: Vec<Value> },
     Document { collection: String, document: Value },
 }
@@ -76,7 +72,7 @@ pub enum InsertReq {
 #[derive(Clone, Debug)]
 pub enum UpdateReq {
     Sql {
-        statement: String,
+        stmt: String,
     },
     Command {
         name: String,
@@ -91,7 +87,7 @@ pub enum UpdateReq {
 
 #[derive(Clone, Debug)]
 pub enum DeleteReq {
-    Sql { statement: String },
+    Sql { stmt: String },
     Command { name: String, args: Vec<Value> },
     Document { collection: String, filter: Value },
 }

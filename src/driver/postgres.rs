@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use postgres::{types::Type, Client, Config, Error as PostgresError, NoTls};
 
 use super::{
-    validate_statement, DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp,
-    UpdateReq, WriteResp,
+    validate_stmt, DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp, UpdateReq,
+    WriteResp,
 };
 use crate::option::{PostgreSQLOptions, SslMode};
 
@@ -28,8 +28,11 @@ impl DatabaseSession for PostgresConnection {
         request: QueryReq,
     ) -> Result<QueryResp, DriverError> {
         match request {
-            QueryReq::Sql { statement, params } => {
-                validate_statement(&statement)?;
+            QueryReq::Sql {
+                stmt: statement,
+                params,
+            } => {
+                validate_stmt(&statement)?;
 
                 // 字符串参数转换为 PostgreSQL 参数引用
                 let param_refs: Vec<&(dyn postgres::types::ToSql + Sync)> = params
@@ -66,7 +69,7 @@ impl DatabaseSession for PostgresConnection {
         request: InsertReq,
     ) -> Result<WriteResp, DriverError> {
         match request {
-            InsertReq::Sql { statement } => self.exec_write(&statement),
+            InsertReq::Sql { stmt: statement } => self.exec_write(&statement),
             other => Err(DriverError::InvalidField(format!(
                 "PostgreSQL 插入仅支持 SQL，收到: {:?}",
                 other
@@ -79,7 +82,7 @@ impl DatabaseSession for PostgresConnection {
         request: UpdateReq,
     ) -> Result<WriteResp, DriverError> {
         match request {
-            UpdateReq::Sql { statement } => self.exec_write(&statement),
+            UpdateReq::Sql { stmt: statement } => self.exec_write(&statement),
             other => Err(DriverError::InvalidField(format!(
                 "PostgreSQL 更新仅支持 SQL，收到: {:?}",
                 other
@@ -92,7 +95,7 @@ impl DatabaseSession for PostgresConnection {
         request: DeleteReq,
     ) -> Result<WriteResp, DriverError> {
         match request {
-            DeleteReq::Sql { statement } => self.exec_write(&statement),
+            DeleteReq::Sql { stmt: statement } => self.exec_write(&statement),
             other => Err(DriverError::InvalidField(format!(
                 "PostgreSQL 删除仅支持 SQL，收到: {:?}",
                 other
@@ -106,7 +109,7 @@ impl PostgresConnection {
         &mut self,
         statement: &str,
     ) -> Result<WriteResp, DriverError> {
-        validate_statement(statement)?;
+        validate_stmt(statement)?;
         let affected = self
             .client
             .execute(statement, &[])

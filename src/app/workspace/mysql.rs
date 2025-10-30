@@ -128,12 +128,11 @@ impl MySQLWorkspace {
         };
 
         // 重新查询表
-        let ret: Result<Vec<SharedString>, DriverError> = (|| {
+        let result: Result<Vec<SharedString>, DriverError> = (|| {
             let session = self.active_session()?;
-
-            let statement = format!("SHOW TABLES FROM `{}`", escape_mysql_identifier(&database));
+            let stmt = format!("SHOW TABLES FROM `{}`", escape_mysql_identifier(&database));
             let rows = match session.query(QueryReq::Sql {
-                statement,
+                stmt,
                 params: Vec::new(),
             })? {
                 QueryResp::Rows(rows) => rows,
@@ -150,7 +149,7 @@ impl MySQLWorkspace {
         })();
 
         // 更新本地数据
-        self.tables = match ret {
+        self.tables = match result {
             Ok(tables) => tables,
             Err(err) => {
                 eprintln!("刷新 MySQL 表列表失败: {}", err);
@@ -216,7 +215,7 @@ impl MySQLWorkspace {
                 table: table.clone(),
                 content,
                 columns: vec![],
-                current_page: 0,
+                page_no: 0,
                 page_size: DEFAULT_PAGE_SIZE,
                 total_rows: 0,
                 filter_enable: false,
@@ -248,6 +247,19 @@ impl MySQLWorkspace {
             // 构建查询条件
             let mut conditions = QueryConditions::default();
 
+            // 转换排序规则
+            for rule in &content.sort_rules {
+                // 读取字段名
+                let Some(field) = rule.field.read(cx).selected_value() else {
+                    continue;
+                };
+
+                conditions.sorts.push(SortOrder {
+                    field: field.to_string(),
+                    ascending: rule.ascending,
+                });
+            }
+
             // 转换筛选规则
             for rule in &content.query_rules {
                 // 读取字段名
@@ -262,15 +274,15 @@ impl MySQLWorkspace {
                 let operator = Operator::from_label(operator_label.as_ref());
 
                 // 读取值
-                let value_text = rule.value.read(cx).text().to_string();
-                if value_text.trim().is_empty() && !matches!(operator, Operator::IsNull | Operator::IsNotNull) {
+                let input = rule.value.read(cx).text().to_string();
+                if input.trim().is_empty() && !matches!(operator, Operator::IsNull | Operator::IsNotNull) {
                     continue;
                 }
 
                 // 构建条件值
                 let value = match operator {
                     Operator::IsNull | Operator::IsNotNull => ConditionValue::Null,
-                    _ => ConditionValue::String(value_text),
+                    _ => ConditionValue::String(input),
                 };
 
                 conditions.filters.push(FilterCondition {
@@ -280,22 +292,9 @@ impl MySQLWorkspace {
                 });
             }
 
-            // 转换排序规则
-            for rule in &content.sort_rules {
-                // 读取字段名
-                let Some(field) = rule.field.read(cx).selected_value() else {
-                    continue;
-                };
-
-                conditions.sorts.push(SortOrder {
-                    field: field.to_string(),
-                    ascending: rule.ascending,
-                });
-            }
-
             (
                 content.table.clone(),
-                content.current_page,
+                content.page_no,
                 content.page_size,
                 content.total_rows,
                 conditions,
@@ -315,7 +314,7 @@ impl MySQLWorkspace {
             page = max_page;
         }
 
-        // 获取或创建连接，然后将其移动到后台任务
+        let tab_id = tab_id.clone();
         let session = match self.active_session() {
             Ok(_) => self.session.take(),
             Err(err) => {
@@ -323,12 +322,9 @@ impl MySQLWorkspace {
                 return;
             }
         };
-
         let Some(session) = session else {
             return;
         };
-
-        let tab_id = tab_id.clone();
 
         // 在后台线程执行数据库查询
         cx.spawn_in(window, async move |this, cx| {
@@ -342,9 +338,9 @@ impl MySQLWorkspace {
                     let builder = create_builder(DatabaseType::MySQL);
 
                     // 查询列名
-                    let statement = format!("SHOW COLUMNS FROM `{}`", escape_mysql_identifier(&table));
+                    let stmt = format!("SHOW COLUMNS FROM `{}`", escape_mysql_identifier(&table));
                     let resp = session.query(QueryReq::Sql {
-                        statement,
+                        stmt,
                         params: Vec::new(),
                     })?;
                     let column_rows = match resp {
@@ -363,45 +359,11 @@ impl MySQLWorkspace {
                             columns.push(value);
                         }
                     }
-                    println!("{:?}", columns);
 
-                    // 查询数据
-                    let (query_sql, query_params) = builder.build_select_query(&table, &[], &conditions);
-                    println!("Query SQL: {}", query_sql);
-                    println!("Query Params: {:?}", query_params);
-
-                    let resp = session.query(QueryReq::Sql {
-                        statement: query_sql,
-                        params: query_params,
-                    })?;
-                    let rows = match resp {
-                        QueryResp::Rows(rows) => rows,
-                        _ => Vec::new(),
-                    };
-
-                    // 转换行数据（现在直接是字符串，无需额外转换）
-                    let mut converted_rows = Vec::with_capacity(rows.len());
-                    for row in rows {
-                        let mut record = Vec::with_capacity(columns.len());
-                        for name in &columns {
-                            let value = row.get(name).cloned().unwrap_or_default();
-                            record.push(SharedString::from(value));
-                        }
-                        converted_rows.push(record);
-                    }
-
-                    // 查询总行数
-                    let count_conditions = QueryConditions {
-                        filters: conditions.filters.clone(),
-                        sorts: Vec::new(),
-                        limit: None,
-                        offset: None,
-                    };
-                    let (count_sql, count_params) = builder.build_count_query(&table, &count_conditions);
-                    println!("Count SQL: {}", count_sql);
-                    println!("Count Params: {:?}", count_params);
+                    // 查询总数
+                    let (count_sql, count_params) = builder.build_count_query(&table, &conditions);
                     let count_resp = session.query(QueryReq::Sql {
-                        statement: count_sql,
+                        stmt: count_sql,
                         params: count_params,
                     })?;
                     let total_rows = match count_resp {
@@ -413,45 +375,51 @@ impl MySQLWorkspace {
                         _ => 0,
                     };
 
-                    let headers: Vec<SharedString> = columns.iter().map(|s| SharedString::from(s.clone())).collect();
+                    // 查询数据
+                    let (query_sql, query_params) = builder.build_select_query(&table, &[], &conditions);
+                    let query_resp = session.query(QueryReq::Sql {
+                        stmt: query_sql,
+                        params: query_params,
+                    })?;
+                    let rows = match query_resp {
+                        QueryResp::Rows(rows) => rows,
+                        _ => Vec::new(),
+                    };
 
-                    Ok::<_, DriverError>((
-                        TablePage {
-                            columns: headers,
-                            rows: converted_rows,
-                            total_rows,
-                        },
-                        session,
-                    ))
+                    // 构建渲染数据
+                    let table_cols: Vec<SharedString> = columns.iter().map(|s| SharedString::from(s.clone())).collect();
+                    let mut table_rows = Vec::with_capacity(rows.len());
+                    for row in rows {
+                        let mut record = Vec::with_capacity(columns.len());
+                        for name in &columns {
+                            let value = row.get(name).cloned().unwrap_or_default();
+                            record.push(SharedString::from(value));
+                        }
+                        table_rows.push(record);
+                    }
+
+                    Ok::<_, DriverError>(((table_cols, table_rows, total_rows), session))
                 })
                 .await;
 
             // 更新 UI
             let _ = cx.update(|_window, cx| {
                 let _ = this.update(cx, |this, cx| match result {
-                    Ok((table_page, session)) => {
-                        // 归还连接
+                    Ok((data, session)) => {
                         this.session = Some(session);
 
+                        let (columns, rows, total_rows) = data;
                         let Some(content) = this.table_content(&tab_id) else {
                             return;
                         };
-
-                        // 提前解构 table_page，避免闭包捕获整个结构体导致所有权问题
-                        let TablePage {
-                            columns,
-                            rows,
-                            total_rows,
-                        } = table_page;
-
-                        content.current_page = page;
+                        content.page_no = page;
                         content.page_size = size;
                         content.total_rows = total_rows;
                         content.columns = columns.clone();
 
                         content.content.update(cx, |t, cx| {
                             t.delegate_mut().update_data(columns, rows);
-                            t.refresh(cx); // 重新准备列/行结构
+                            t.refresh(cx);
                             cx.notify();
                         });
 
@@ -484,7 +452,7 @@ impl MySQLWorkspace {
         } else {
             (tab.total_rows + tab.page_size - 1) / tab.page_size
         };
-        let current_page = tab.current_page;
+        let current_page = tab.page_no;
         let start_row = current_page * tab.page_size + 1;
         let end_row = ((current_page + 1) * tab.page_size).min(tab.total_rows);
 
@@ -520,7 +488,7 @@ impl MySQLWorkspace {
                 let prev_page = current_page.saturating_sub(1);
                 move |view: &mut Self, _, window, cx| {
                     if let Some(content) = view.table_content(&tab_id) {
-                        content.current_page = prev_page;
+                        content.page_no = prev_page;
                     }
                     view.reload_table_tab(&tab_id, window, cx);
                 }
@@ -535,7 +503,7 @@ impl MySQLWorkspace {
                 let next_page = current_page.saturating_add(1);
                 move |view: &mut Self, _, window, cx| {
                     if let Some(content) = view.table_content(&tab_id) {
-                        content.current_page = next_page;
+                        content.page_no = next_page;
                     }
                     view.reload_table_tab(&tab_id, window, cx);
                 }
@@ -605,7 +573,7 @@ impl MySQLWorkspace {
                 move |view: &mut Self, _, window, cx| {
                     // TODO: 应用所有筛选和排序规则
                     if let Some(content) = view.table_content(&tab_id) {
-                        content.current_page = 0;
+                        content.page_no = 0;
                     }
                     view.reload_table_tab(&tab_id, window, cx);
                 }
@@ -1069,7 +1037,7 @@ struct TableContent {
     table: SharedString,
     content: Entity<Table<DataTable>>,
     columns: Vec<SharedString>,
-    current_page: usize,
+    page_no: usize,
     page_size: usize,
     total_rows: usize,
     sort_rules: Vec<SortRule>,
@@ -1088,10 +1056,4 @@ struct SortRule {
     id: SharedString,
     field: Entity<DropdownState<Vec<SharedString>>>,
     ascending: bool,
-}
-
-struct TablePage {
-    columns: Vec<SharedString>,
-    rows: Vec<Vec<SharedString>>,
-    total_rows: usize,
 }

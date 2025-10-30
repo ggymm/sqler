@@ -99,8 +99,8 @@ pub struct SortOrder {
 /// 完整的查询条件
 #[derive(Clone, Debug, Default)]
 pub struct QueryConditions {
-    pub filters: Vec<FilterCondition>,
     pub sorts: Vec<SortOrder>,
+    pub filters: Vec<FilterCondition>,
     pub limit: Option<usize>,
     pub offset: Option<usize>,
 }
