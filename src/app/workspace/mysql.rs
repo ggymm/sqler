@@ -287,9 +287,7 @@ impl MySQLWorkspace {
 
                 // 读取值
                 let value_text = rule.value.read(cx).text().to_string();
-                if value_text.trim().is_empty()
-                    && !matches!(operator, Operator::IsNull | Operator::IsNotNull)
-                {
+                if value_text.trim().is_empty() && !matches!(operator, Operator::IsNull | Operator::IsNotNull) {
                     continue;
                 }
 
