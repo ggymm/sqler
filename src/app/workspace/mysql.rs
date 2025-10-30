@@ -534,15 +534,12 @@ impl MySQLWorkspace {
                 let headers = headers.clone();
                 move |view: &mut Self, _, window, cx| {
                     if let Some(content) = view.table_content(&tab_id) {
-                        let id = SharedString::from(Uuid::new_v4().to_string());
-                        let field = cx.new(|cx| {
-                            // rustfmt::skip
-                            DropdownState::new(headers.clone(), None, window, cx)
-                        });
-
                         content.sort_rules.push(SortRule {
-                            id,
-                            field,
+                            id: SharedString::from(Uuid::new_v4().to_string()),
+                            field: cx.new(|cx| {
+                                // rustfmt::skip
+                                DropdownState::new(headers.clone(), None, window, cx)
+                            }),
                             ascending: true,
                         });
                     }
@@ -558,24 +555,19 @@ impl MySQLWorkspace {
                 let headers = headers.clone();
                 move |view: &mut Self, _, window, cx| {
                     if let Some(content) = view.table_content(&tab_id) {
-                        let id = SharedString::from(Uuid::new_v4().to_string());
                         let ops = ops.clone();
 
-                        let field = cx.new(|cx| {
-                            // rustfmt::skip
-                            DropdownState::new(headers.clone(), None, window, cx)
-                        });
-                        let operator = cx.new(|cx| {
-                            // rustfmt::skip
-                            DropdownState::new(ops, None, window, cx)
-                        });
-                        let value = cx.new(|cx| InputState::new(window, cx));
-
                         content.query_rules.push(QueryRule {
-                            id,
-                            field,
-                            operator,
-                            value,
+                            id: SharedString::from(Uuid::new_v4().to_string()),
+                            field: cx.new(|cx| {
+                                // rustfmt::skip
+                                DropdownState::new(headers.clone(), None, window, cx)
+                            }),
+                            operator: cx.new(|cx| {
+                                // rustfmt::skip
+                                DropdownState::new(ops, None, window, cx)
+                            }),
+                            value: cx.new(|cx| InputState::new(window, cx)),
                         });
                     }
                     cx.notify();
