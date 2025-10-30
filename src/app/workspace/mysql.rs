@@ -1,6 +1,15 @@
 use gpui::{prelude::*, *};
 use uuid::Uuid;
 
+use crate::{
+    app::comps::{
+        comp_id, icon_close, icon_export, icon_import, icon_relead, icon_search, icon_sheet, icon_trash, DataTable,
+        DivExt,
+    },
+    build::{create_builder, ConditionValue, DatabaseType, FilterCondition, Operator, QueryConditions, SortOrder},
+    driver::{DatabaseDriver, DatabaseSession, DriverError, MySQLDriver, QueryReq, QueryResp},
+    option::{DataSource, DataSourceOptions},
+};
 use gpui_component::{
     button::{Button, ButtonVariants},
     dropdown::{Dropdown, DropdownState},
@@ -10,16 +19,6 @@ use gpui_component::{
     tab::{Tab, TabBar},
     table::Table,
     ActiveTheme, Disableable, InteractiveElementExt, Selectable, Sizable, Size, StyledExt,
-};
-
-use crate::{
-    app::comps::{
-        comp_id, icon_close, icon_export, icon_import, icon_relead, icon_search, icon_sheet, icon_trash, DataTable,
-        DivExt,
-    },
-    build::{create_builder, ConditionValue, DatabaseType, FilterCondition, Operator, QueryConditions, SortOrder},
-    driver::{DatabaseDriver, DatabaseSession, DriverError, MySQLDriver, QueryReq, QueryResp},
-    option::{DataSource, DataSourceOptions},
 };
 
 const DEFAULT_PAGE_SIZE: usize = 25;
@@ -456,6 +455,10 @@ impl MySQLWorkspace {
     ) -> AnyElement {
         let theme = cx.theme().clone();
         let tab_id = tab.id.clone();
+        let ops: Vec<SharedString> = Operator::all()
+            .into_iter()
+            .map(|op| SharedString::from(op.label().to_string()))
+            .collect();
 
         // 获取列名
         let headers = &tab.columns;
@@ -473,7 +476,7 @@ impl MySQLWorkspace {
         let column_btn = Button::new(comp_id(["table-choose-column", &tab_id]))
             .small()
             .outline()
-            .label("列筛选");
+            .label("字段筛选");
         let filter_btn = Button::new(comp_id(["table-toggle-filter", &tab_id]))
             .small()
             .outline()
@@ -522,7 +525,7 @@ impl MySQLWorkspace {
                     view.reload_table_tab(&tab_id, window, cx);
                 }
             }));
-        let create_sort_btn = Button::new(comp_id(["filter-panel-add-sort", &tab_id]))
+        let create_sort_btn = Button::new(comp_id(["filter-add-sort", &tab_id]))
             .small()
             .outline()
             .label("新增排序")
@@ -532,7 +535,10 @@ impl MySQLWorkspace {
                 move |view: &mut Self, _, window, cx| {
                     if let Some(content) = view.table_content(&tab_id) {
                         let id = SharedString::from(Uuid::new_v4().to_string());
-                        let field = cx.new(|cx| DropdownState::new(headers.clone(), None, window, cx));
+                        let field = cx.new(|cx| {
+                            // rustfmt::skip
+                            DropdownState::new(headers.clone(), None, window, cx)
+                        });
 
                         content.sort_rules.push(SortRule {
                             id,
@@ -543,7 +549,7 @@ impl MySQLWorkspace {
                     cx.notify();
                 }
             }));
-        let create_query_btn = Button::new(comp_id(["filter-panel-add-filter", &tab_id]))
+        let create_query_btn = Button::new(comp_id(["filter-add-filter", &tab_id]))
             .small()
             .outline()
             .label("新增筛选")
@@ -553,18 +559,15 @@ impl MySQLWorkspace {
                 move |view: &mut Self, _, window, cx| {
                     if let Some(content) = view.table_content(&tab_id) {
                         let id = SharedString::from(Uuid::new_v4().to_string());
+                        let ops = ops.clone();
 
-                        let field = cx.new(|cx| DropdownState::new(headers.clone(), None, window, cx));
+                        let field = cx.new(|cx| {
+                            // rustfmt::skip
+                            DropdownState::new(headers.clone(), None, window, cx)
+                        });
                         let operator = cx.new(|cx| {
-                            DropdownState::new(
-                                Operator::all()
-                                    .into_iter()
-                                    .map(|op| SharedString::from(op.label().to_string()))
-                                    .collect(),
-                                None,
-                                window,
-                                cx,
-                            )
+                            // rustfmt::skip
+                            DropdownState::new(ops, None, window, cx)
                         });
                         let value = cx.new(|cx| InputState::new(window, cx));
 
@@ -578,21 +581,20 @@ impl MySQLWorkspace {
                     cx.notify();
                 }
             }));
-        let apply_cond_btn = Button::new(comp_id(["filter-panel-apply", &tab_id]))
+        let apply_cond_btn = Button::new(comp_id(["filter-apply", &tab_id]))
             .small()
-            .primary()
+            .outline()
             .label("应用条件")
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
                 move |view: &mut Self, _, window, cx| {
-                    // TODO: 应用所有筛选和排序规则
                     if let Some(content) = view.table_content(&tab_id) {
                         content.page_no = 0;
                     }
                     view.reload_table_tab(&tab_id, window, cx);
                 }
             }));
-        let clear_cond_btn = Button::new(comp_id(["filter-panel-clear", &tab_id]))
+        let clear_cond_btn = Button::new(comp_id(["filter-clear", &tab_id]))
             .small()
             .outline()
             .label("清除条件")
@@ -642,7 +644,6 @@ impl MySQLWorkspace {
                                         .items_center()
                                         .child(div().w_48().child(field))
                                         .child(
-                                            // 排序方向选择
                                             div()
                                                 .flex()
                                                 .flex_row()
@@ -675,7 +676,7 @@ impl MySQLWorkspace {
                                         )
                                         .child({
                                             Button::new(comp_id(["sort-remove", &rule_id]))
-                                                .outline()
+                                                .ghost()
                                                 .icon(icon_trash())
                                                 .on_click(cx.listener({
                                                     let tab_id = tab_id.clone();
@@ -710,7 +711,7 @@ impl MySQLWorkspace {
                                         .child(div().flex().flex_1().child(TextInput::new(&rule.value).small()))
                                         .child(
                                             Button::new(comp_id(["filter-remove", &rule_id]))
-                                                .outline()
+                                                .ghost()
                                                 .icon(icon_trash())
                                                 .on_click(cx.listener({
                                                     let tab_id = tab_id.clone();
@@ -753,8 +754,8 @@ impl MySQLWorkspace {
                     .items_center()
                     .p_2()
                     .gap_2()
-                    .child(column_btn)
                     .child(filter_btn)
+                    .child(column_btn)
                     .child(div().flex_1())
                     .child(div().text_sm().child(format!(
                         "显示 {} - {} / 共 {} 条",
