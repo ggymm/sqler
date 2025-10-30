@@ -1,5 +1,5 @@
-use serde_json::Map;
-use serde_json::Value;
+use serde_json::{Number, Value};
+use std::collections::HashMap;
 
 use crate::option::ConnectionOptions;
 use crate::option::DataSourceKind;
@@ -20,6 +20,25 @@ pub mod redis;
 pub mod sqlite;
 pub mod sqlserver;
 
+// ==================== 通用工具函数 ====================
+
+/// 验证 SQL 语句是否为空
+pub(crate) fn validate_statement(statement: &str) -> Result<(), DriverError> {
+    if statement.trim().is_empty() {
+        return Err(DriverError::InvalidField("statement".into()));
+    }
+    Ok(())
+}
+
+/// 将 f64 转换为 JSON 数字，无效时转为字符串
+pub(crate) fn number_from_f64(value: f64) -> Value {
+    Number::from_f64(value)
+        .map(Value::Number)
+        .unwrap_or_else(|| Value::String(value.to_string()))
+}
+
+// ==================== 错误定义 ====================
+
 #[derive(Debug, thiserror::Error)]
 pub enum DriverError {
     #[error("配置字段缺失: {0}")]
@@ -32,14 +51,18 @@ pub enum DriverError {
 
 #[derive(Clone, Debug)]
 pub enum QueryReq {
-    Sql { statement: String },
+    // SQL 数据库：使用字符串参数（简单高效）
+    Sql { statement: String, params: Vec<String> },
+    // NoSQL 数据库：使用 JSON 值（语义正确）
     Command { name: String, args: Vec<Value> },
     Document { collection: String, filter: Value },
 }
 
 #[derive(Clone, Debug)]
 pub enum QueryResp {
-    Rows(Vec<Map<String, Value>>),
+    // SQL 数据库：字符串 Map（零序列化开销）
+    Rows(Vec<HashMap<String, String>>),
+    // NoSQL 数据库：JSON 值（保持灵活性）
     Value(Value),
     Documents(Vec<Value>),
 }

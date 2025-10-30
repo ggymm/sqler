@@ -20,7 +20,6 @@ use gpui_component::Selectable;
 use gpui_component::Sizable;
 use gpui_component::Size;
 use gpui_component::StyledExt;
-use serde_json::Value;
 use uuid::Uuid;
 
 use crate::app::comps::comp_id;
@@ -159,7 +158,10 @@ impl MySQLWorkspace {
             let session = self.active_session()?;
 
             let statement = format!("SHOW TABLES FROM `{}`", escape_mysql_identifier(&database));
-            let rows = match session.query(QueryReq::Sql { statement })? {
+            let rows = match session.query(QueryReq::Sql {
+                statement,
+                params: Vec::new(),
+            })? {
                 QueryResp::Rows(rows) => rows,
                 _ => return Ok(vec![]),
             };
@@ -167,7 +169,7 @@ impl MySQLWorkspace {
             let mut tables = Vec::new();
             for row in rows {
                 if let Some(value) = row.values().next() {
-                    tables.push(super::format_cell(value));
+                    tables.push(SharedString::from(value.clone()));
                 }
             }
             Ok(tables)
@@ -367,7 +369,10 @@ impl MySQLWorkspace {
 
                     // 查询列名
                     let statement = format!("SHOW COLUMNS FROM `{}`", escape_mysql_identifier(&table));
-                    let resp = session.query(QueryReq::Sql { statement })?;
+                    let resp = session.query(QueryReq::Sql {
+                        statement,
+                        params: Vec::new(),
+                    })?;
                     let column_rows = match resp {
                         QueryResp::Rows(rows) => rows,
                         _ => vec![],
@@ -376,37 +381,37 @@ impl MySQLWorkspace {
                     let mut columns = Vec::new();
                     for row in column_rows {
                         if let Some(field) = row.get("Field") {
-                            if let Some(name) = field.as_str() {
-                                columns.push(name.to_string());
-                                continue;
-                            }
+                            columns.push(field.to_string());
+                            continue;
                         }
 
                         if let Some((_, value)) = row.into_iter().next() {
-                            if let Some(name) = value.as_str() {
-                                columns.push(name.to_string());
-                            }
+                            columns.push(value);
                         }
                     }
                     println!("{:?}", columns);
 
                     // 查询数据
-                    let (query_sql, _params) = builder.build_select_query(&table, &[], &conditions);
-                    println!("{}", query_sql);
+                    let (query_sql, query_params) = builder.build_select_query(&table, &[], &conditions);
+                    println!("Query SQL: {}", query_sql);
+                    println!("Query Params: {:?}", query_params);
 
-                    let resp = session.query(QueryReq::Sql { statement: query_sql })?;
+                    let resp = session.query(QueryReq::Sql {
+                        statement: query_sql,
+                        params: query_params,
+                    })?;
                     let rows = match resp {
                         QueryResp::Rows(rows) => rows,
                         _ => Vec::new(),
                     };
 
-                    // 转换行数据
+                    // 转换行数据（现在直接是字符串，无需额外转换）
                     let mut converted_rows = Vec::with_capacity(rows.len());
                     for row in rows {
                         let mut record = Vec::with_capacity(columns.len());
                         for name in &columns {
-                            let value = row.get(name).unwrap_or(&Value::Null);
-                            record.push(super::format_cell(value));
+                            let value = row.get(name).cloned().unwrap_or_default();
+                            record.push(SharedString::from(value));
                         }
                         converted_rows.push(record);
                     }
@@ -418,14 +423,18 @@ impl MySQLWorkspace {
                         limit: None,
                         offset: None,
                     };
-                    let (count_sql, _) = builder.build_count_query(&table, &count_conditions);
-                    println!("{}", count_sql);
-                    let count_resp = session.query(QueryReq::Sql { statement: count_sql })?;
+                    let (count_sql, count_params) = builder.build_count_query(&table, &count_conditions);
+                    println!("Count SQL: {}", count_sql);
+                    println!("Count Params: {:?}", count_params);
+                    let count_resp = session.query(QueryReq::Sql {
+                        statement: count_sql,
+                        params: count_params,
+                    })?;
                     let total_rows = match count_resp {
                         QueryResp::Rows(count_rows) => count_rows
                             .first()
                             .and_then(|row| row.values().next())
-                            .map(super::parse_count)
+                            .map(|s| super::parse_count(s.as_str()))
                             .unwrap_or(0),
                         _ => 0,
                     };

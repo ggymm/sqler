@@ -372,7 +372,7 @@
 
 **请求/响应类型**:
 
-- `QueryReq`: 查询请求（SQL/Command/Document）
+- `QueryReq`: 查询请求（SQL/Command/Document）；SQL 变体现包含 `params: Vec<Value>`，用于绑定占位符参数
 - `QueryResp`: 查询响应（Rows/Value/Documents）
 - `InsertReq`: 插入请求
 - `UpdateReq`: 更新请求
@@ -393,9 +393,10 @@
 **核心功能**:
 
 1. 连接管理: 支持字符集设置
-2. 查询操作: 执行 SQL 并返回结果集
+2. 查询操作: 执行 SQL 并返回结果集（支持位置参数绑定）
 3. 写操作: INSERT/UPDATE/DELETE
 4. 类型转换: `mysql::Value` → `serde_json::Value`
+5. 参数转换: `serde_json::Value` → `mysql::Value`
 
 **特性**:
 
@@ -411,9 +412,10 @@
 **核心功能**:
 
 1. 连接管理: 禁止 SSL 模式
-2. 查询操作: 执行 SQL 并返回结果集
+2. 查询操作: 执行 SQL 并返回结果集（支持位置参数绑定）
 3. 写操作: INSERT/UPDATE/DELETE
 4. 类型转换: PostgreSQL 原生类型 → JSON
+5. 参数转换: `serde_json::Value` → `Box<dyn ToSql + Sync>`
 
 **特性**:
 
@@ -429,9 +431,10 @@
 **核心功能**:
 
 1. 连接管理: 支持只读/创建模式
-2. 查询操作: 执行 SQL 并返回结果集
+2. 查询操作: 执行 SQL 并返回结果集（支持位置参数绑定）
 3. 写操作: INSERT/UPDATE/DELETE
 4. 类型转换: SQLite 类型 → JSON
+5. 参数转换: `serde_json::Value` → SQLite 值
 
 **特性**:
 

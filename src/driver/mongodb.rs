@@ -26,18 +26,17 @@ impl MongoConnection {
         &'a self,
         full_name: &'a str,
     ) -> Result<(&'a str, &'a str), DriverError> {
-        if let Some((db, coll)) = full_name.split_once('.') {
-            if db.is_empty() || coll.is_empty() {
-                return Err(DriverError::InvalidField("collection".into()));
+        match full_name.split_once('.') {
+            Some((db, coll)) if !db.is_empty() && !coll.is_empty() => Ok((db, coll)),
+            Some(_) => Err(DriverError::InvalidField("collection".into())),
+            None => {
+                if self.default_db.is_empty() {
+                    return Err(DriverError::InvalidField(
+                        "collection 需要包含数据库前缀，例如 db.collection".into(),
+                    ));
+                }
+                Ok((self.default_db.as_str(), full_name))
             }
-            Ok((db, coll))
-        } else {
-            if self.default_db.is_empty() {
-                return Err(DriverError::InvalidField(
-                    "collection 需要包含数据库前缀，例如 db.collection".into(),
-                ));
-            }
-            Ok((self.default_db.as_str(), full_name))
         }
     }
 }
@@ -220,19 +219,23 @@ fn build_uri(config: &MongoDBOptions) -> Result<String, DriverError> {
 
     let mut uri = String::from("mongodb://");
 
-    if let Some(username) = &config.username {
-        let username = username.trim();
-        if username.is_empty() {
+    match (&config.username, &config.password) {
+        (Some(username), password) => {
+            let username = username.trim();
+            if username.is_empty() {
+                return Err(DriverError::InvalidField("username".into()));
+            }
+            uri.push_str(username);
+            if let Some(password) = password {
+                uri.push(':');
+                uri.push_str(password);
+            }
+            uri.push('@');
+        }
+        (None, Some(_)) => {
             return Err(DriverError::InvalidField("username".into()));
         }
-        uri.push_str(username);
-        if let Some(password) = &config.password {
-            uri.push(':');
-            uri.push_str(password);
-        }
-        uri.push('@');
-    } else if config.password.is_some() {
-        return Err(DriverError::InvalidField("username".into()));
+        (None, None) => {}
     }
 
     let hosts = config
@@ -250,15 +253,11 @@ fn build_uri(config: &MongoDBOptions) -> Result<String, DriverError> {
     uri.push_str(&hosts.join(","));
 
     let mut params = Vec::new();
-    if let Some(auth) = &config.auth_source {
-        if !auth.is_empty() {
-            params.push(format!("authSource={}", auth));
-        }
+    if let Some(auth) = &config.auth_source.as_deref().filter(|s| !s.is_empty()) {
+        params.push(format!("authSource={}", auth));
     }
-    if let Some(rs) = &config.replica_set {
-        if !rs.is_empty() {
-            params.push(format!("replicaSet={}", rs));
-        }
+    if let Some(rs) = &config.replica_set.as_deref().filter(|s| !s.is_empty()) {
+        params.push(format!("replicaSet={}", rs));
     }
     if config.tls {
         params.push("tls=true".to_string());

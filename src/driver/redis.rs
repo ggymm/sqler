@@ -1,5 +1,6 @@
 use super::{
-    DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp, UpdateReq, WriteResp,
+    number_from_f64, DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp,
+    UpdateReq, WriteResp,
 };
 use crate::option::RedisOptions;
 
@@ -41,12 +42,7 @@ impl DatabaseSession for RedisConnection {
         request: InsertReq,
     ) -> Result<WriteResp, DriverError> {
         match request {
-            InsertReq::Command { name, args } => {
-                let value = execute(&mut self.conn, &name, &args)?;
-                Ok(WriteResp {
-                    affected: redis_value_to_affected(&value),
-                })
-            }
+            InsertReq::Command { name, args } => self.exec_write(&name, &args),
             other => Err(DriverError::InvalidField(format!(
                 "Redis 插入仅支持命令，收到: {:?}",
                 other
@@ -59,12 +55,7 @@ impl DatabaseSession for RedisConnection {
         request: UpdateReq,
     ) -> Result<WriteResp, DriverError> {
         match request {
-            UpdateReq::Command { name, args } => {
-                let value = execute(&mut self.conn, &name, &args)?;
-                Ok(WriteResp {
-                    affected: redis_value_to_affected(&value),
-                })
-            }
+            UpdateReq::Command { name, args } => self.exec_write(&name, &args),
             other => Err(DriverError::InvalidField(format!(
                 "Redis 更新仅支持命令，收到: {:?}",
                 other
@@ -77,17 +68,25 @@ impl DatabaseSession for RedisConnection {
         request: DeleteReq,
     ) -> Result<WriteResp, DriverError> {
         match request {
-            DeleteReq::Command { name, args } => {
-                let value = execute(&mut self.conn, &name, &args)?;
-                Ok(WriteResp {
-                    affected: redis_value_to_affected(&value),
-                })
-            }
+            DeleteReq::Command { name, args } => self.exec_write(&name, &args),
             other => Err(DriverError::InvalidField(format!(
                 "Redis 删除仅支持命令，收到: {:?}",
                 other
             ))),
         }
+    }
+}
+
+impl RedisConnection {
+    fn exec_write(
+        &mut self,
+        name: &str,
+        args: &[JsonValue],
+    ) -> Result<WriteResp, DriverError> {
+        let value = execute(&mut self.conn, name, args)?;
+        Ok(WriteResp {
+            affected: redis_value_to_affected(&value),
+        })
     }
 }
 
@@ -246,14 +245,6 @@ fn redis_value_key(value: &Value) -> String {
         Value::Nil => "nil".into(),
         Value::Boolean(v) => v.to_string(),
         _ => format!("{:?}", value),
-    }
-}
-
-fn number_from_f64(value: f64) -> JsonValue {
-    if let Some(num) = Number::from_f64(value) {
-        JsonValue::Number(num)
-    } else {
-        JsonValue::String(value.to_string())
     }
 }
 

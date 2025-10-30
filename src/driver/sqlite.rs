@@ -1,11 +1,12 @@
 use super::{
-    DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp, UpdateReq, WriteResp,
+    validate_statement, DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp,
+    UpdateReq, WriteResp,
 };
 use crate::option::SQLiteOptions;
 
 use rusqlite::types::ValueRef;
 use rusqlite::{Connection, OpenFlags};
-use serde_json::{Map, Number};
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
@@ -28,10 +29,8 @@ impl DatabaseSession for SQLiteConnection {
         request: QueryReq,
     ) -> Result<QueryResp, DriverError> {
         match request {
-            QueryReq::Sql { statement } => {
-                if statement.trim().is_empty() {
-                    return Err(DriverError::InvalidField("statement".into()));
-                }
+            QueryReq::Sql { statement, params } => {
+                validate_statement(&statement)?;
 
                 let mut stmt = self
                     .conn
@@ -39,8 +38,11 @@ impl DatabaseSession for SQLiteConnection {
                     .map_err(|err| DriverError::Other(format!("准备查询失败: {}", err)))?;
                 let names = stmt.column_names().iter().map(|s| s.to_string()).collect::<Vec<_>>();
 
+                // 字符串参数直接传递（SQLite 自动处理类型）
+                let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
+
                 let mut rows = stmt
-                    .query([])
+                    .query(&param_refs[..])
                     .map_err(|err| DriverError::Other(format!("执行查询失败: {}", err)))?;
 
                 let mut records = Vec::new();
@@ -48,12 +50,12 @@ impl DatabaseSession for SQLiteConnection {
                     .next()
                     .map_err(|err| DriverError::Other(format!("读取结果失败: {}", err)))?
                 {
-                    let mut record = Map::with_capacity(names.len());
+                    let mut record = HashMap::with_capacity(names.len());
                     for (idx, name) in names.iter().enumerate() {
                         let value = row
                             .get_ref(idx)
                             .map_err(|err| DriverError::Other(format!("读取列 {name} 失败: {}", err)))?;
-                        record.insert(name.clone(), sqlite_value_to_json(value));
+                        record.insert(name.clone(), sqlite_value_to_string(value));
                     }
                     records.push(record);
                 }
@@ -72,7 +74,7 @@ impl DatabaseSession for SQLiteConnection {
         request: InsertReq,
     ) -> Result<WriteResp, DriverError> {
         match request {
-            InsertReq::Sql { statement } => self.exec_write(statement),
+            InsertReq::Sql { statement } => self.exec_write(&statement),
             other => Err(DriverError::InvalidField(format!(
                 "SQLite 插入仅支持 SQL，收到: {:?}",
                 other
@@ -85,7 +87,7 @@ impl DatabaseSession for SQLiteConnection {
         request: UpdateReq,
     ) -> Result<WriteResp, DriverError> {
         match request {
-            UpdateReq::Sql { statement } => self.exec_write(statement),
+            UpdateReq::Sql { statement } => self.exec_write(&statement),
             other => Err(DriverError::InvalidField(format!(
                 "SQLite 更新仅支持 SQL，收到: {:?}",
                 other
@@ -98,7 +100,7 @@ impl DatabaseSession for SQLiteConnection {
         request: DeleteReq,
     ) -> Result<WriteResp, DriverError> {
         match request {
-            DeleteReq::Sql { statement } => self.exec_write(statement),
+            DeleteReq::Sql { statement } => self.exec_write(&statement),
             other => Err(DriverError::InvalidField(format!(
                 "SQLite 删除仅支持 SQL，收到: {:?}",
                 other
@@ -110,14 +112,12 @@ impl DatabaseSession for SQLiteConnection {
 impl SQLiteConnection {
     fn exec_write(
         &mut self,
-        statement: String,
+        statement: &str,
     ) -> Result<WriteResp, DriverError> {
-        if statement.trim().is_empty() {
-            return Err(DriverError::InvalidField("statement".into()));
-        }
+        validate_statement(statement)?;
         let affected = self
             .conn
-            .execute(&statement, [])
+            .execute(statement, [])
             .map_err(|err| DriverError::Other(format!("执行写入失败: {}", err)))?;
         Ok(WriteResp {
             affected: affected as u64,
@@ -174,22 +174,16 @@ fn open_connection(config: &SQLiteOptions) -> Result<Connection, DriverError> {
     Connection::open_with_flags(path, flags).map_err(|err| DriverError::Other(format!("打开 SQLite 失败: {}", err)))
 }
 
-fn sqlite_value_to_json(value: ValueRef<'_>) -> serde_json::Value {
+/// 将 SQLite 值转换为字符串（用于 UI 显示）
+fn sqlite_value_to_string(value: ValueRef<'_>) -> String {
     match value {
-        ValueRef::Null => serde_json::Value::Null,
-        ValueRef::Integer(int) => serde_json::Value::Number(Number::from(int)),
-        ValueRef::Real(real) => {
-            if let Some(num) = Number::from_f64(real) {
-                serde_json::Value::Number(num)
-            } else {
-                serde_json::Value::String(real.to_string())
-            }
+        ValueRef::Null => String::new(),
+        ValueRef::Integer(int) => int.to_string(),
+        ValueRef::Real(real) => real.to_string(),
+        ValueRef::Text(text) => String::from_utf8_lossy(text).into_owned(),
+        ValueRef::Blob(blob) => {
+            // Blob 显示为十六进制字符串
+            blob.iter().map(|b| format!("{:02x}", b)).collect::<String>()
         }
-        ValueRef::Text(text) => serde_json::Value::String(String::from_utf8_lossy(text).into_owned()),
-        ValueRef::Blob(blob) => serde_json::Value::Array(
-            blob.iter()
-                .map(|byte| serde_json::Value::Number(Number::from(*byte as u64)))
-                .collect(),
-        ),
     }
 }

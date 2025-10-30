@@ -1,11 +1,12 @@
 use super::{
-    DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp, UpdateReq, WriteResp,
+    validate_statement, DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp,
+    UpdateReq, WriteResp,
 };
 use crate::option::MySQLOptions;
 
 use mysql::prelude::Queryable;
 use mysql::{Conn, Opts, OptsBuilder, SslOpts, Value};
-use serde_json::{Map, Number};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy)]
 pub struct MySQLDriver;
@@ -26,28 +27,36 @@ impl DatabaseSession for MySQLConnection {
         request: QueryReq,
     ) -> Result<QueryResp, DriverError> {
         match request {
-            QueryReq::Sql { statement } => {
-                if statement.trim().is_empty() {
-                    return Err(DriverError::InvalidField("statement".into()));
-                }
+            QueryReq::Sql { statement, params } => {
+                validate_statement(&statement)?;
+
+                // 字符串参数直接转换为 MySQL 值
+                let mysql_params: Vec<Value> = params.into_iter().map(Value::from).collect();
+
                 let rows: Vec<mysql::Row> = self
                     .conn
-                    .query(statement)
+                    .exec(&statement, mysql_params)
                     .map_err(|err| DriverError::Other(format!("执行查询失败: {}", err)))?;
 
-                let mut records = Vec::new();
-                for row in rows {
-                    let columns = row
-                        .columns_ref()
-                        .iter()
-                        .map(|col| col.name_str().to_string())
-                        .collect::<Vec<_>>();
-                    let raw_values = row.unwrap();
+                if rows.is_empty() {
+                    return Ok(QueryResp::Rows(Vec::new()));
+                }
 
-                    let mut map = Map::with_capacity(columns.len());
-                    for (idx, name) in columns.into_iter().enumerate() {
+                // 提取列名（只需一次）
+                let columns: Vec<String> = rows[0]
+                    .columns_ref()
+                    .iter()
+                    .map(|col| col.name_str().to_string())
+                    .collect();
+
+                // 转换行数据为字符串 Map
+                let mut records = Vec::with_capacity(rows.len());
+                for row in rows {
+                    let raw_values = row.unwrap();
+                    let mut map = HashMap::with_capacity(columns.len());
+                    for (idx, name) in columns.iter().enumerate() {
                         let value = raw_values.get(idx).cloned().unwrap_or(Value::NULL);
-                        map.insert(name, mysql_value_to_json(value));
+                        map.insert(name.clone(), mysql_value_to_string(value));
                     }
                     records.push(map);
                 }
@@ -66,7 +75,7 @@ impl DatabaseSession for MySQLConnection {
         request: InsertReq,
     ) -> Result<WriteResp, DriverError> {
         match request {
-            InsertReq::Sql { statement } => self.exec_write(statement),
+            InsertReq::Sql { statement } => self.exec_write(&statement),
             other => Err(DriverError::InvalidField(format!(
                 "MySQL 插入仅支持 SQL，收到: {:?}",
                 other
@@ -79,7 +88,7 @@ impl DatabaseSession for MySQLConnection {
         request: UpdateReq,
     ) -> Result<WriteResp, DriverError> {
         match request {
-            UpdateReq::Sql { statement } => self.exec_write(statement),
+            UpdateReq::Sql { statement } => self.exec_write(&statement),
             other => Err(DriverError::InvalidField(format!(
                 "MySQL 更新仅支持 SQL，收到: {:?}",
                 other
@@ -92,7 +101,7 @@ impl DatabaseSession for MySQLConnection {
         request: DeleteReq,
     ) -> Result<WriteResp, DriverError> {
         match request {
-            DeleteReq::Sql { statement } => self.exec_write(statement),
+            DeleteReq::Sql { statement } => self.exec_write(&statement),
             other => Err(DriverError::InvalidField(format!(
                 "MySQL 删除仅支持 SQL，收到: {:?}",
                 other
@@ -104,11 +113,9 @@ impl DatabaseSession for MySQLConnection {
 impl MySQLConnection {
     fn exec_write(
         &mut self,
-        statement: String,
+        statement: &str,
     ) -> Result<WriteResp, DriverError> {
-        if statement.trim().is_empty() {
-            return Err(DriverError::InvalidField("statement".into()));
-        }
+        validate_statement(statement)?;
         self.conn
             .query_drop(statement)
             .map_err(|err| DriverError::Other(format!("执行写入失败: {}", err)))?;
@@ -187,46 +194,33 @@ fn apply_charset(
     if trimmed.is_empty() {
         return Ok(());
     }
-    if !trimmed
+
+    let is_valid = trimmed
         .chars()
-        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-'))
-    {
+        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
+    if !is_valid {
         return Err(DriverError::InvalidField("charset".into()));
     }
+
     conn.query_drop(format!("SET NAMES {}", trimmed))
         .map_err(|err| DriverError::Other(format!("设置字符集失败: {}", err)))
 }
 
-fn mysql_value_to_json(value: Value) -> serde_json::Value {
+/// 将 MySQL 值转换为字符串（用于 UI 显示）
+fn mysql_value_to_string(value: Value) -> String {
     match value {
-        Value::NULL => serde_json::Value::Null,
-        Value::Bytes(bytes) => serde_json::Value::String(String::from_utf8_lossy(&bytes).into_owned()),
-        Value::Int(int) => serde_json::Value::Number(Number::from(int)),
-        Value::UInt(uint) => serde_json::Value::Number(Number::from(uint)),
-        Value::Float(float) => {
-            if let Some(num) = Number::from_f64(float as f64) {
-                serde_json::Value::Number(num)
-            } else {
-                serde_json::Value::String(float.to_string())
-            }
+        Value::NULL => String::new(),
+        Value::Bytes(bytes) => String::from_utf8_lossy(&bytes).into_owned(),
+        Value::Int(int) => int.to_string(),
+        Value::UInt(uint) => uint.to_string(),
+        Value::Float(float) => float.to_string(),
+        Value::Double(double) => double.to_string(),
+        Value::Date(year, month, day, hour, minute, second, micros) => {
+            format!("{year:04}-{month:02}-{day:02} {hour:02}:{minute:02}:{second:02}.{micros:06}")
         }
-        Value::Double(double) => {
-            if let Some(num) = Number::from_f64(double) {
-                serde_json::Value::Number(num)
-            } else {
-                serde_json::Value::String(double.to_string())
-            }
-        }
-        Value::Date(year, month, day, hour, minute, second, micros) => serde_json::Value::String(format!(
-            "{year:04}-{month:02}-{day:02} {hour:02}:{minute:02}:{second:02}.{:06}",
-            micros
-        )),
         Value::Time(neg, days, hours, minutes, seconds, micros) => {
             let sign = if neg { "-" } else { "" };
-            serde_json::Value::String(format!(
-                "{sign}{days} {:02}:{:02}:{:02}.{:06}",
-                hours, minutes, seconds, micros
-            ))
+            format!("{sign}{days} {hours:02}:{minutes:02}:{seconds:02}.{micros:06}")
         }
     }
 }

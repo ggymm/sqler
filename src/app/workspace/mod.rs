@@ -3,7 +3,6 @@ use gpui::*;
 use gpui_component::ActiveTheme;
 use gpui_component::InteractiveElementExt;
 use gpui_component::StyledExt;
-use serde_json::Value;
 
 use crate::app::SqlerApp;
 use crate::app::TabView;
@@ -16,25 +15,9 @@ mod placeholder;
 use mysql::MySQLWorkspace;
 use placeholder::PlaceholderWorkspace;
 
-/// 将数据库值格式化为字符串用于显示
-pub fn format_cell(value: &Value) -> SharedString {
-    match value {
-        Value::Null => SharedString::from(String::new()),
-        Value::String(text) => SharedString::from(text.clone()),
-        Value::Number(num) => SharedString::from(num.to_string()),
-        Value::Bool(flag) => SharedString::from(if *flag { "true" } else { "false" }),
-        other => SharedString::from(other.to_string()),
-    }
-}
-
-/// 从数据库值中解析总数（用于 COUNT 查询结果）
-pub fn parse_count(value: &Value) -> usize {
-    value
-        .as_u64()
-        .map(|n| n as usize)
-        .or_else(|| value.as_i64().map(|n| n.max(0) as usize))
-        .or_else(|| value.as_str().and_then(|s| s.parse::<usize>().ok()))
-        .unwrap_or(0)
+/// 从字符串中解析总数（用于 COUNT 查询结果）
+pub fn parse_count(value: &str) -> usize {
+    value.parse::<usize>().unwrap_or(0)
 }
 
 pub enum WorkspaceState {

@@ -1,11 +1,12 @@
 use super::{
-    DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp, UpdateReq, WriteResp,
+    validate_statement, DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp,
+    UpdateReq, WriteResp,
 };
 use crate::option::{PostgreSQLOptions, SslMode};
 
 use postgres::types::Type;
 use postgres::{Client, Config, Error as PostgresError, NoTls};
-use serde_json::{Map, Number, Value};
+use std::collections::HashMap;
 
 /// Postgres 驱动实现。
 #[derive(Debug, Clone, Copy)]
@@ -27,20 +28,25 @@ impl DatabaseSession for PostgresConnection {
         request: QueryReq,
     ) -> Result<QueryResp, DriverError> {
         match request {
-            QueryReq::Sql { statement } => {
-                if statement.trim().is_empty() {
-                    return Err(DriverError::InvalidField("statement".into()));
-                }
+            QueryReq::Sql { statement, params } => {
+                validate_statement(&statement)?;
+
+                // 字符串参数转换为 PostgreSQL 参数引用
+                let param_refs: Vec<&(dyn postgres::types::ToSql + Sync)> = params
+                    .iter()
+                    .map(|s| s as &(dyn postgres::types::ToSql + Sync))
+                    .collect();
+
                 let rows = self
                     .client
-                    .query(statement.as_str(), &[])
+                    .query(&statement, &param_refs[..])
                     .map_err(|err| DriverError::Other(format!("执行查询失败: {}", err)))?;
 
                 let mut records = Vec::with_capacity(rows.len());
                 for row in rows {
-                    let mut record = Map::with_capacity(row.len());
+                    let mut record = HashMap::with_capacity(row.len());
                     for (idx, column) in row.columns().iter().enumerate() {
-                        let value = postgres_value_to_json(&row, idx)?;
+                        let value = postgres_value_to_string(&row, idx)?;
                         record.insert(column.name().to_string(), value);
                     }
                     records.push(record);
@@ -60,7 +66,7 @@ impl DatabaseSession for PostgresConnection {
         request: InsertReq,
     ) -> Result<WriteResp, DriverError> {
         match request {
-            InsertReq::Sql { statement } => self.exec_write(statement),
+            InsertReq::Sql { statement } => self.exec_write(&statement),
             other => Err(DriverError::InvalidField(format!(
                 "PostgreSQL 插入仅支持 SQL，收到: {:?}",
                 other
@@ -73,7 +79,7 @@ impl DatabaseSession for PostgresConnection {
         request: UpdateReq,
     ) -> Result<WriteResp, DriverError> {
         match request {
-            UpdateReq::Sql { statement } => self.exec_write(statement),
+            UpdateReq::Sql { statement } => self.exec_write(&statement),
             other => Err(DriverError::InvalidField(format!(
                 "PostgreSQL 更新仅支持 SQL，收到: {:?}",
                 other
@@ -86,7 +92,7 @@ impl DatabaseSession for PostgresConnection {
         request: DeleteReq,
     ) -> Result<WriteResp, DriverError> {
         match request {
-            DeleteReq::Sql { statement } => self.exec_write(statement),
+            DeleteReq::Sql { statement } => self.exec_write(&statement),
             other => Err(DriverError::InvalidField(format!(
                 "PostgreSQL 删除仅支持 SQL，收到: {:?}",
                 other
@@ -98,14 +104,12 @@ impl DatabaseSession for PostgresConnection {
 impl PostgresConnection {
     fn exec_write(
         &mut self,
-        statement: String,
+        statement: &str,
     ) -> Result<WriteResp, DriverError> {
-        if statement.trim().is_empty() {
-            return Err(DriverError::InvalidField("statement".into()));
-        }
+        validate_statement(statement)?;
         let affected = self
             .client
-            .execute(statement.as_str(), &[])
+            .execute(statement, &[])
             .map_err(|err| DriverError::Other(format!("执行写入失败: {}", err)))?;
         Ok(WriteResp { affected })
     }
@@ -175,68 +179,50 @@ fn connect(config: &PostgreSQLOptions) -> Result<Client, DriverError> {
     Ok(client)
 }
 
-fn postgres_value_to_json(
+/// 将 PostgreSQL 值转换为字符串（用于 UI 显示）
+fn postgres_value_to_string(
     row: &postgres::Row,
     idx: usize,
-) -> Result<Value, DriverError> {
+) -> Result<String, DriverError> {
     let column = row
         .columns()
         .get(idx)
         .ok_or_else(|| DriverError::Other(format!("列索引越界: {}", idx)))?;
     let ty = column.type_();
+
+    // 所有类型统一转换为字符串
     let value = match *ty {
-        Type::BOOL => Value::Bool(row.try_get::<usize, bool>(idx).map_err(map_pg_err)?),
+        Type::BOOL => {
+            let val: Option<bool> = row.try_get(idx).map_err(map_pg_err)?;
+            val.map(|b| b.to_string()).unwrap_or_default()
+        }
         Type::INT2 => {
-            let value: i16 = row.try_get(idx).map_err(map_pg_err)?;
-            Value::Number(Number::from(value as i64))
+            let val: Option<i16> = row.try_get(idx).map_err(map_pg_err)?;
+            val.map(|v| v.to_string()).unwrap_or_default()
         }
         Type::INT4 => {
-            let value: i32 = row.try_get(idx).map_err(map_pg_err)?;
-            Value::Number(Number::from(value as i64))
+            let val: Option<i32> = row.try_get(idx).map_err(map_pg_err)?;
+            val.map(|v| v.to_string()).unwrap_or_default()
         }
         Type::INT8 => {
-            let value: i64 = row.try_get(idx).map_err(map_pg_err)?;
-            Value::Number(Number::from(value))
+            let val: Option<i64> = row.try_get(idx).map_err(map_pg_err)?;
+            val.map(|v| v.to_string()).unwrap_or_default()
         }
-        Type::FLOAT4 => number_from_f64(row.try_get::<usize, f32>(idx).map_err(map_pg_err)? as f64),
-        Type::FLOAT8 => number_from_f64(row.try_get::<usize, f64>(idx).map_err(map_pg_err)?),
-        Type::NUMERIC => {
-            let text: Option<String> = row.try_get(idx).map_err(map_pg_err)?;
-            text.map_or(Value::Null, |s| Value::String(s))
+        Type::FLOAT4 => {
+            let val: Option<f32> = row.try_get(idx).map_err(map_pg_err)?;
+            val.map(|v| v.to_string()).unwrap_or_default()
         }
-        Type::TEXT | Type::VARCHAR | Type::BPCHAR | Type::NAME => {
-            let text: Option<String> = row.try_get(idx).map_err(map_pg_err)?;
-            text.map_or(Value::Null, Value::String)
-        }
-        Type::JSON | Type::JSONB => {
-            let text: Option<String> = row.try_get(idx).map_err(map_pg_err)?;
-            match text {
-                Some(raw) => serde_json::from_str(&raw).unwrap_or(Value::String(raw)),
-                None => Value::Null,
-            }
-        }
-        Type::UUID => {
-            let text: Option<String> = row.try_get(idx).map_err(map_pg_err)?;
-            text.map_or(Value::Null, Value::String)
-        }
-        Type::TIMESTAMP | Type::TIMESTAMPTZ | Type::DATE | Type::TIME => {
-            let text: Option<String> = row.try_get(idx).map_err(map_pg_err)?;
-            text.map_or(Value::Null, Value::String)
+        Type::FLOAT8 => {
+            let val: Option<f64> = row.try_get(idx).map_err(map_pg_err)?;
+            val.map(|v| v.to_string()).unwrap_or_default()
         }
         _ => {
+            // 其他所有类型都尝试转为字符串
             let text: Option<String> = row.try_get(idx).map_err(map_pg_err)?;
-            text.map_or(Value::Null, Value::String)
+            text.unwrap_or_default()
         }
     };
     Ok(value)
-}
-
-fn number_from_f64(value: f64) -> Value {
-    if let Some(num) = Number::from_f64(value) {
-        Value::Number(num)
-    } else {
-        Value::String(value.to_string())
-    }
 }
 
 fn map_pg_err(err: PostgresError) -> DriverError {
