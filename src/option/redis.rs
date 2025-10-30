@@ -1,8 +1,6 @@
-use serde::Deserialize;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-use crate::option::ConnectionOptions;
-use crate::option::DataSourceKind;
+use crate::option::{ConnectionOptions, DataSourceKind};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct RedisOptions {

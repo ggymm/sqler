@@ -1,11 +1,11 @@
+use redis::{Client, Connection, Value};
+use serde_json::{Map as JsonMap, Number, Value as JsonValue};
+
 use super::{
     number_from_f64, DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp,
     UpdateReq, WriteResp,
 };
 use crate::option::RedisOptions;
-
-use redis::{Client, Connection, Value};
-use serde_json::{Map as JsonMap, Number, Value as JsonValue};
 
 #[derive(Debug, Clone, Copy)]
 pub struct RedisDriver;

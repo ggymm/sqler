@@ -1,13 +1,10 @@
-use gpui::prelude::*;
-use gpui::*;
-use gpui_component::ActiveTheme;
-use gpui_component::InteractiveElementExt;
-use gpui_component::StyledExt;
+use gpui::{prelude::*, *};
+use gpui_component::{ActiveTheme, InteractiveElementExt, StyledExt};
 
-use crate::app::SqlerApp;
-use crate::app::TabView;
-use crate::option::DataSource;
-use crate::option::DataSourceKind;
+use crate::{
+    app::{SqlerApp, TabView},
+    option::{DataSource, DataSourceKind},
+};
 
 mod mysql;
 mod placeholder;

@@ -1,9 +1,11 @@
-use crate::app::create::CreateWindow;
-use crate::app::SqlerApp;
 use gpui::{div, px, AppContext, Context, Entity, ParentElement, Styled, Window};
-use gpui_component::form::{form_field, v_form};
-use gpui_component::input::{InputState, TextInput};
-use gpui_component::{v_flex, ActiveTheme};
+use gpui_component::{
+    form::{form_field, v_form},
+    input::{InputState, TextInput},
+    v_flex, ActiveTheme,
+};
+
+use crate::app::{create::CreateWindow, SqlerApp};
 
 #[derive(Clone)]
 pub struct OracleState {

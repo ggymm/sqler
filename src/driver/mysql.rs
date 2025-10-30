@@ -1,12 +1,12 @@
+use std::collections::HashMap;
+
+use mysql::{prelude::Queryable, Conn, Opts, OptsBuilder, SslOpts, Value};
+
 use super::{
     validate_statement, DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp,
     UpdateReq, WriteResp,
 };
 use crate::option::MySQLOptions;
-
-use mysql::prelude::Queryable;
-use mysql::{Conn, Opts, OptsBuilder, SslOpts, Value};
-use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy)]
 pub struct MySQLDriver;

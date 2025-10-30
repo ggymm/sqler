@@ -1,12 +1,12 @@
+use std::collections::HashMap;
+
+use postgres::{types::Type, Client, Config, Error as PostgresError, NoTls};
+
 use super::{
     validate_statement, DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp,
     UpdateReq, WriteResp,
 };
 use crate::option::{PostgreSQLOptions, SslMode};
-
-use postgres::types::Type;
-use postgres::{Client, Config, Error as PostgresError, NoTls};
-use std::collections::HashMap;
 
 /// Postgres 驱动实现。
 #[derive(Debug, Clone, Copy)]

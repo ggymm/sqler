@@ -1,12 +1,7 @@
-use std::borrow::Cow;
-use std::fs::read;
-use std::path::PathBuf;
+use std::{borrow::Cow, fs::read, path::PathBuf};
 
 use gpui::*;
-use gpui_component::init;
-use gpui_component::scroll::ScrollbarShow;
-use gpui_component::Root;
-use gpui_component::Theme;
+use gpui_component::{init, scroll::ScrollbarShow, Root, Theme};
 
 use app::SqlerApp;
 

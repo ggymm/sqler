@@ -1,14 +1,12 @@
+use std::{collections::HashMap, fs, path::Path};
+
+use rusqlite::{types::ValueRef, Connection, OpenFlags};
+
 use super::{
     validate_statement, DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp,
     UpdateReq, WriteResp,
 };
 use crate::option::SQLiteOptions;
-
-use rusqlite::types::ValueRef;
-use rusqlite::{Connection, OpenFlags};
-use std::collections::HashMap;
-use std::fs;
-use std::path::Path;
 
 #[derive(Debug, Clone, Copy)]
 pub struct SQLiteDriver;

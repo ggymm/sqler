@@ -1,10 +1,7 @@
 use gpui::*;
-use gpui_component::button::Button;
-use gpui_component::ActiveTheme;
-use gpui_component::StyledExt;
+use gpui_component::{button::Button, ActiveTheme, StyledExt};
 
-use crate::app::SqlerApp;
-use crate::option::DataSourceKind;
+use crate::{app::SqlerApp, option::DataSourceKind};
 
 pub mod mongodb;
 pub mod mysql;
@@ -93,9 +90,9 @@ impl CreateWindow {
 
     fn check_conn(
         &mut self,
-        cx: &mut Context<Self>,
+        _cx: &mut Context<Self>,
     ) -> bool {
-        if let Some(selected) = self.state.selected.take() {}
+        if let Some(_selected) = self.state.selected.take() {}
 
         true
     }

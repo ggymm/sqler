@@ -1,6 +1,4 @@
-use gpui::prelude::*;
-use gpui::*;
-
+use gpui::{prelude::*, *};
 use gpui_component::{v_flex, ActiveTheme as _, StyledExt};
 
 use crate::option::DataSource;

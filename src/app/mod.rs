@@ -1,27 +1,22 @@
 use std::collections::HashMap;
 
-use gpui::prelude::*;
-use gpui::*;
-use gpui_component::button::Button;
-use gpui_component::button::ButtonVariants;
-use gpui_component::theme::Theme;
-use gpui_component::theme::ThemeMode;
-use gpui_component::ActiveTheme;
-use gpui_component::Icon;
-use gpui_component::Root;
-use gpui_component::Sizable;
-use gpui_component::Size;
+use gpui::{prelude::*, *};
+use gpui_component::{
+    button::{Button, ButtonVariants},
+    theme::{Theme, ThemeMode},
+    ActiveTheme, Icon, Root, Sizable, Size,
+};
 use serde_json::json;
 use uuid::Uuid;
 
-use crate::app::create::CreateState;
-use crate::app::create::CreateWindow;
-use crate::app::workspace::WorkspaceState;
-use crate::cache::CacheApp;
-use crate::option::DataSource;
-use crate::option::DataSourceKind;
-use crate::option::DataSourceOptions;
-use crate::option::MySQLOptions;
+use crate::{
+    app::{
+        create::{CreateState, CreateWindow},
+        workspace::WorkspaceState,
+    },
+    cache::CacheApp,
+    option::{DataSource, DataSourceKind, DataSourceOptions, MySQLOptions},
+};
 
 mod comps;
 mod create;

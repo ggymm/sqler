@@ -1,10 +1,12 @@
+use mongodb::{
+    bson::{doc, to_document, Document},
+    sync::Client,
+};
+
 use super::{
     DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp, UpdateReq, WriteResp,
 };
 use crate::option::{MongoDBHost, MongoDBOptions};
-
-use mongodb::bson::{doc, to_document, Document};
-use mongodb::sync::Client;
 
 #[derive(Debug, Clone, Copy)]
 pub struct MongoDBDriver;

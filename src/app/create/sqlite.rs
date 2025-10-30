@@ -1,9 +1,7 @@
-use gpui::{div, px, Context, ParentElement, Styled, Window};
-use gpui::{AppContext as _, Entity};
+use gpui::{div, px, AppContext as _, Context, Entity, ParentElement, Styled, Window};
 use gpui_component::{
     form::{form_field, v_form},
-    input::InputState,
-    input::TextInput,
+    input::{InputState, TextInput},
     v_flex, ActiveTheme as _,
 };
 

@@ -1,21 +1,8 @@
 use std::collections::HashMap;
 
 use gpui::SharedString;
-use serde::Deserialize;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
-pub use mongodb::MongoDBHost;
-pub use mongodb::MongoDBOptions;
-pub use mysql::MySQLOptions;
-pub use oracle::OracleAddress;
-pub use oracle::OracleOptions;
-pub use postgres::PostgreSQLOptions;
-pub use postgres::SslMode;
-pub use redis::RedisOptions;
-pub use sqlite::SQLiteOptions;
-pub use sqlserver::SQLServerAuth;
-pub use sqlserver::SQLServerOptions;
 
 pub mod mongodb;
 pub mod mysql;
@@ -24,6 +11,14 @@ pub mod postgres;
 pub mod redis;
 pub mod sqlite;
 pub mod sqlserver;
+
+pub use mongodb::{MongoDBHost, MongoDBOptions};
+pub use mysql::MySQLOptions;
+pub use oracle::OracleOptions;
+pub use postgres::{PostgreSQLOptions, SslMode};
+pub use redis::RedisOptions;
+pub use sqlite::SQLiteOptions;
+pub use sqlserver::SQLServerOptions;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct DataSource {

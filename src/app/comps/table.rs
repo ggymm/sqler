@@ -1,9 +1,8 @@
 use gpui::*;
-use gpui_component::table::Column;
-use gpui_component::table::Table;
-use gpui_component::table::TableDelegate;
-use gpui_component::Sizable;
-use gpui_component::Size;
+use gpui_component::{
+    table::{Column, Table, TableDelegate},
+    Sizable, Size,
+};
 
 pub struct DataTable {
     col_defs: Vec<Column>,
