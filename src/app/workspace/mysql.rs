@@ -124,13 +124,6 @@ impl MySQLWorkspace {
         cx.notify();
     }
 
-    fn active_content(&self) -> Option<&TabContent> {
-        self.tabs
-            .iter()
-            .find(|tab| tab.id == self.active_tab)
-            .map(|tab| &tab.content)
-    }
-
     fn active_session(&mut self) -> Result<&mut (dyn DatabaseSession + '_), DriverError> {
         if self.session.is_none() {
             let DataSourceOptions::MySQL(opts) = &self.meta.options else {
@@ -198,6 +191,19 @@ impl MySQLWorkspace {
         });
 
         cx.notify();
+    }
+
+    fn table_content(
+        &mut self,
+        tab_id: &SharedString,
+    ) -> Option<&mut TableContent> {
+        self.tabs.iter_mut().find(|tab| tab.id == *tab_id).and_then(|item| {
+            if let TabContent::Table(tab) = &mut item.content {
+                Some(tab)
+            } else {
+                None
+            }
+        })
     }
 
     fn create_table_tab(
@@ -405,7 +411,7 @@ impl MySQLWorkspace {
                 .await;
 
             // 更新 UI
-            let _ = cx.update(|window, cx| {
+            let _ = cx.update(|_window, cx| {
                 let _ = this.update(cx, |this, cx| match result {
                     Ok((table_page, session)) => {
                         // 归还连接
@@ -445,13 +451,8 @@ impl MySQLWorkspace {
         .detach();
     }
 
-    fn create_query_tab(
-        &mut self,
-        _cx: &mut Context<Self>,
-    ) {
-    }
 
-    fn table_render(
+    fn render_table_tab(
         &self,
         tab: &TableContent,
         cx: &mut Context<Self>,
@@ -771,20 +772,13 @@ impl MySQLWorkspace {
             .into_any_element()
     }
 
-    fn table_content(
+    fn create_query_tab(
         &mut self,
-        tab_id: &SharedString,
-    ) -> Option<&mut TableContent> {
-        self.tabs.iter_mut().find(|tab| tab.id == *tab_id).and_then(|item| {
-            if let TabContent::Table(tab) = &mut item.content {
-                Some(tab)
-            } else {
-                None
-            }
-        })
+        _cx: &mut Context<Self>,
+    ) {
     }
 
-    fn overview_render(
+    fn render_overview_tab(
         &self,
         cx: &mut Context<Self>,
     ) -> AnyElement {
@@ -959,10 +953,18 @@ impl Render for MySQLWorkspace {
                     .id(comp_id(["mysql-main", id]))
                     .p_2()
                     .col_full()
-                    .child(match self.active_content() {
-                        Some(TabContent::Table(tab)) => self.table_render(&tab, cx),
-                        Some(TabContent::Overview) | None => self.overview_render(cx),
-                    }),
+                    .child(
+                        match self
+                            .tabs
+                            .iter()
+                            .find(|tab| tab.id == self.active_tab)
+                            .map(|tab| &tab.content)
+                        {
+                            Some(TabContent::Table(tab)) => self.render_table_tab(&tab, cx),
+                            Some(TabContent::Overview) | None => self.render_overview_tab(cx),
+                        },
+                    )
+                    .child(div()),
             )
             .into_any_element();
 
