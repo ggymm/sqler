@@ -1,52 +1,26 @@
-use gpui::prelude::*;
-use gpui::*;
-use gpui_component::button::Button;
-use gpui_component::button::ButtonVariants;
-use gpui_component::dropdown::Dropdown;
-use gpui_component::dropdown::DropdownState;
-use gpui_component::input::InputState;
-use gpui_component::input::TextInput;
-use gpui_component::resizable::h_resizable;
-use gpui_component::resizable::resizable_panel;
-use gpui_component::resizable::ResizableState;
-use gpui_component::switch::Switch;
-use gpui_component::tab::Tab;
-use gpui_component::tab::TabBar;
-use gpui_component::table::Table;
-use gpui_component::ActiveTheme;
-use gpui_component::Disableable;
-use gpui_component::InteractiveElementExt;
-use gpui_component::Selectable;
-use gpui_component::Sizable;
-use gpui_component::Size;
-use gpui_component::StyledExt;
+use gpui::{prelude::*, *};
 use uuid::Uuid;
 
-use crate::app::comps::comp_id;
-use crate::app::comps::icon_close;
-use crate::app::comps::icon_export;
-use crate::app::comps::icon_import;
-use crate::app::comps::icon_relead;
-use crate::app::comps::icon_search;
-use crate::app::comps::icon_sheet;
-use crate::app::comps::icon_trash;
-use crate::app::comps::DataTable;
-use crate::app::comps::DivExt;
-use crate::build::create_builder;
-use crate::build::ConditionValue;
-use crate::build::DatabaseType;
-use crate::build::FilterCondition;
-use crate::build::Operator;
-use crate::build::QueryConditions;
-use crate::build::SortOrder;
-use crate::driver::DatabaseDriver;
-use crate::driver::DatabaseSession;
-use crate::driver::DriverError;
-use crate::driver::MySQLDriver;
-use crate::driver::QueryReq;
-use crate::driver::QueryResp;
-use crate::option::DataSource;
-use crate::option::DataSourceOptions;
+use gpui_component::{
+    button::{Button, ButtonVariants},
+    dropdown::{Dropdown, DropdownState},
+    input::{InputState, TextInput},
+    resizable::{h_resizable, resizable_panel, ResizableState},
+    switch::Switch,
+    tab::{Tab, TabBar},
+    table::Table,
+    ActiveTheme, Disableable, InteractiveElementExt, Selectable, Sizable, Size, StyledExt,
+};
+
+use crate::{
+    app::comps::{
+        comp_id, icon_close, icon_export, icon_import, icon_relead, icon_search, icon_sheet, icon_trash, DataTable,
+        DivExt,
+    },
+    build::{create_builder, ConditionValue, DatabaseType, FilterCondition, Operator, QueryConditions, SortOrder},
+    driver::{DatabaseDriver, DatabaseSession, DriverError, MySQLDriver, QueryReq, QueryResp},
+    option::{DataSource, DataSourceOptions},
+};
 
 const DEFAULT_PAGE_SIZE: usize = 25;
 
