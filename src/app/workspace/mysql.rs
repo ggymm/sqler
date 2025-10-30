@@ -15,13 +15,14 @@ use gpui_component::{
     dropdown::{Dropdown, DropdownState},
     input::{InputState, TextInput},
     resizable::{h_resizable, resizable_panel, ResizableState},
-    switch::Switch,
     tab::{Tab, TabBar},
     table::Table,
     ActiveTheme, Disableable, InteractiveElementExt, Selectable, Sizable, Size, StyledExt,
 };
 
 const DEFAULT_PAGE_SIZE: usize = 25;
+const SORT_ORDER_ASC: &str = "升序";
+const SORT_ORDER_DESC: &str = "降序";
 
 pub struct MySQLWorkspace {
     meta: DataSource,
@@ -259,9 +260,15 @@ impl MySQLWorkspace {
                     continue;
                 };
 
+                // 读取排序方式
+                let Some(order) = rule.order.read(cx).selected_value() else {
+                    continue;
+                };
+                let ascending = order.as_ref() == SORT_ORDER_ASC;
+
                 conditions.sorts.push(SortOrder {
                     field: field.to_string(),
-                    ascending: rule.ascending,
+                    ascending,
                 });
             }
 
@@ -455,7 +462,9 @@ impl MySQLWorkspace {
     ) -> AnyElement {
         let theme = cx.theme().clone();
         let tab_id = tab.id.clone();
-        let ops: Vec<SharedString> = Operator::all()
+
+        let sort_ops = vec![SharedString::from(SORT_ORDER_ASC), SharedString::from(SORT_ORDER_DESC)];
+        let filter_ops: Vec<SharedString> = Operator::all()
             .into_iter()
             .map(|op| SharedString::from(op.label().to_string()))
             .collect();
@@ -540,7 +549,10 @@ impl MySQLWorkspace {
                                 // rustfmt::skip
                                 DropdownState::new(headers.clone(), None, window, cx)
                             }),
-                            ascending: true,
+                            order: cx.new(|cx| {
+                                // rustfmt::skip
+                                DropdownState::new(sort_ops.clone(), None, window, cx)
+                            }),
                         });
                     }
                     cx.notify();
@@ -555,8 +567,6 @@ impl MySQLWorkspace {
                 let headers = headers.clone();
                 move |view: &mut Self, _, window, cx| {
                     if let Some(content) = view.table_content(&tab_id) {
-                        let ops = ops.clone();
-
                         content.query_rules.push(QueryRule {
                             id: SharedString::from(Uuid::new_v4().to_string()),
                             field: cx.new(|cx| {
@@ -565,7 +575,7 @@ impl MySQLWorkspace {
                             }),
                             operator: cx.new(|cx| {
                                 // rustfmt::skip
-                                DropdownState::new(ops, None, window, cx)
+                                DropdownState::new(filter_ops.clone(), None, window, cx)
                             }),
                             value: cx.new(|cx| InputState::new(window, cx)),
                         });
@@ -623,9 +633,8 @@ impl MySQLWorkspace {
                                 .gap_2()
                                 .children(tab.sort_rules.iter().map(|rule| {
                                     let rule_id = rule.id.clone();
-                                    let ascending = rule.ascending.clone();
-
                                     let field = Dropdown::new(&rule.field).small().placeholder("选择字段");
+                                    let order = Dropdown::new(&rule.order).small().placeholder("选择顺序");
 
                                     div()
                                         .flex()
@@ -635,38 +644,8 @@ impl MySQLWorkspace {
                                         .w_full()
                                         .items_center()
                                         .child(div().w_48().child(field))
+                                        .child(div().w_48().child(order))
                                         .child(
-                                            div()
-                                                .flex()
-                                                .flex_row()
-                                                .items_center()
-                                                .gap_2()
-                                                .child(div().text_sm().text_color(theme.muted_foreground).child("降序"))
-                                                .child({
-                                                    Switch::new(comp_id(["sort-ascending", &rule_id]))
-                                                        .checked(ascending)
-                                                        .on_click(cx.listener({
-                                                            let tab_id = tab_id.clone();
-                                                            let rule_id = rule_id.clone();
-                                                            move |view: &mut Self, _, _, cx| {
-                                                                if let Some(content) = view.table_content(&tab_id) {
-                                                                    if let Some(rule) = content
-                                                                        .sort_rules
-                                                                        .iter_mut()
-                                                                        .find(|r| &r.id == &rule_id)
-                                                                    {
-                                                                        rule.ascending = !rule.ascending;
-                                                                    }
-                                                                }
-                                                                cx.notify();
-                                                            }
-                                                        }))
-                                                })
-                                                .child(
-                                                    div().text_sm().text_color(theme.muted_foreground).child("升序"),
-                                                ),
-                                        )
-                                        .child({
                                             Button::new(comp_id(["sort-remove", &rule_id]))
                                                 .ghost()
                                                 .icon(icon_trash())
@@ -678,8 +657,8 @@ impl MySQLWorkspace {
                                                         }
                                                         cx.notify();
                                                     }
-                                                }))
-                                        })
+                                                })),
+                                        )
                                 })),
                         )
                         .child(
@@ -1062,5 +1041,5 @@ struct QueryRule {
 struct SortRule {
     id: SharedString,
     field: Entity<DropdownState<Vec<SharedString>>>,
-    ascending: bool,
+    order: Entity<DropdownState<Vec<SharedString>>>,
 }

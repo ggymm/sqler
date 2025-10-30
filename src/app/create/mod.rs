@@ -1,7 +1,7 @@
 use gpui::*;
 use gpui_component::{button::Button, ActiveTheme, StyledExt};
 
-use crate::{app::SqlerApp, option::DataSourceKind};
+use crate::{app::comps::DivExt, app::SqlerApp, option::DataSourceKind};
 
 pub mod mongodb;
 pub mod mysql;
@@ -144,12 +144,8 @@ impl Render for CreateWindow {
             .child(
                 div()
                     .id("datasource-create")
-                    .flex()
-                    .flex_1()
-                    .flex_col()
-                    .min_w_0()
-                    .min_h_0()
-                    .overflow_scroll()
+                    .col_full()
+                    .scrollable(Axis::Vertical)
                     .child(match selected {
                         Some(kind) => div().flex().flex_col().px_8().py_6().gap_5().child(match kind {
                             DataSourceKind::MySQL => mysql::render(&mut self.state.mysql),
