@@ -34,9 +34,12 @@ use crate::app::comps::icon_trash;
 use crate::app::comps::DataTable;
 use crate::app::comps::DivExt;
 use crate::build::create_builder;
+use crate::build::ConditionValue;
 use crate::build::DatabaseType;
+use crate::build::FilterCondition;
 use crate::build::Operator;
 use crate::build::QueryConditions;
+use crate::build::SortOrder;
 use crate::driver::DatabaseDriver;
 use crate::driver::DatabaseSession;
 use crate::driver::DriverError;
@@ -227,8 +230,7 @@ impl MySQLWorkspace {
             return;
         }
 
-        // 创建空的数据表（数据加载后通过 refresh() 更新）
-        let data_table = DataTable::new(vec![], Vec::new()).build(window, cx);
+        let content = DataTable::new(vec![], Vec::new()).build(window, cx);
 
         self.tabs.push(TabItem {
             id: id.clone(),
@@ -236,7 +238,7 @@ impl MySQLWorkspace {
             content: TabContent::Table(TableContent {
                 id: id.clone(),
                 table: table.clone(),
-                content: data_table,
+                content,
                 columns: vec![],
                 current_page: 0,
                 page_size: DEFAULT_PAGE_SIZE,
@@ -268,20 +270,53 @@ impl MySQLWorkspace {
             };
 
             // 构建查询条件
-            let conditions = QueryConditions::default();
+            let mut conditions = QueryConditions::default();
 
             // 转换筛选规则
             for rule in &content.query_rules {
-                // TODO: 从 dropdown 读取选中的值
-                // 暂时跳过，等 gpui-component API 确定后再实现
-                let _ = rule;
+                // 读取字段名
+                let Some(field) = rule.field.read(cx).selected_value() else {
+                    continue;
+                };
+
+                // 读取操作符
+                let Some(operator_label) = rule.operator.read(cx).selected_value() else {
+                    continue;
+                };
+                let operator = Operator::from_label(operator_label.as_ref());
+
+                // 读取值
+                let value_text = rule.value.read(cx).text().to_string();
+                if value_text.trim().is_empty()
+                    && !matches!(operator, Operator::IsNull | Operator::IsNotNull)
+                {
+                    continue;
+                }
+
+                // 构建条件值
+                let value = match operator {
+                    Operator::IsNull | Operator::IsNotNull => ConditionValue::Null,
+                    _ => ConditionValue::String(value_text),
+                };
+
+                conditions.filters.push(FilterCondition {
+                    field: field.to_string(),
+                    operator,
+                    value,
+                });
             }
 
             // 转换排序规则
             for rule in &content.sort_rules {
-                // TODO: 从 dropdown 读取选中的值
-                // 暂时跳过，等 gpui-component API 确定后再实现
-                let _ = rule;
+                // 读取字段名
+                let Some(field) = rule.field.read(cx).selected_value() else {
+                    continue;
+                };
+
+                conditions.sorts.push(SortOrder {
+                    field: field.to_string(),
+                    ascending: rule.ascending,
+                });
             }
 
             (
