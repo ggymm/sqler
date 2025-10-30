@@ -8,6 +8,7 @@ pub struct DataTable {
     col_defs: Vec<Column>,
     cols: Vec<SharedString>,
     rows: Vec<Vec<SharedString>>,
+    loading: bool,
 }
 
 impl DataTable {
@@ -16,7 +17,12 @@ impl DataTable {
         rows: Vec<Vec<SharedString>>,
     ) -> Self {
         let col_defs = cols.iter().map(|name| Column::new(name.to_string(), "")).collect();
-        Self { col_defs, cols, rows }
+        Self {
+            col_defs,
+            cols,
+            rows,
+            loading: false,
+        }
     }
 
     pub fn build(
@@ -39,10 +45,6 @@ impl DataTable {
         })
     }
 
-    pub fn columns(&self) -> &[SharedString] {
-        &self.cols
-    }
-
     pub fn update_data(
         &mut self,
         cols: Vec<SharedString>,
@@ -51,6 +53,13 @@ impl DataTable {
         self.col_defs = cols.iter().map(|name| Column::new(name.to_string(), "")).collect();
         self.cols = cols;
         self.rows = rows;
+    }
+
+    pub fn update_loading(
+        &mut self,
+        loading: bool,
+    ) {
+        self.loading = loading;
     }
 }
 
@@ -102,5 +111,12 @@ impl TableDelegate for DataTable {
             .cloned()
             .unwrap_or_default();
         div().size_full().child(value)
+    }
+
+    fn loading(
+        &self,
+        _cx: &App,
+    ) -> bool {
+        self.loading
     }
 }

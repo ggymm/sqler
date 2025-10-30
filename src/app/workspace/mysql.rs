@@ -115,7 +115,7 @@ impl MySQLWorkspace {
         }
     }
 
-    fn refresh_tables(
+    fn reload_tables(
         &mut self,
         cx: &mut Context<Self>,
     ) {
@@ -213,8 +213,8 @@ impl MySQLWorkspace {
             content: TabContent::Table(TableContent {
                 id: id.clone(),
                 table: table.clone(),
-                content,
                 columns: vec![],
+                content,
                 page_no: 0,
                 page_size: DEFAULT_PAGE_SIZE,
                 total_rows: 0,
@@ -243,6 +243,12 @@ impl MySQLWorkspace {
             let Some(content) = self.table_content(tab_id) else {
                 return;
             };
+
+            // 设置表格加载状态
+            content.content.update(cx, |t, cx| {
+                t.delegate_mut().update_loading(true);
+                cx.notify();
+            });
 
             // 构建查询条件
             let mut conditions = QueryConditions::default();
@@ -419,15 +425,23 @@ impl MySQLWorkspace {
 
                         content.content.update(cx, |t, cx| {
                             t.delegate_mut().update_data(columns, rows);
+                            t.delegate_mut().update_loading(false);
                             t.refresh(cx);
                             cx.notify();
                         });
-
                         cx.notify();
                     }
                     Err(err) => {
                         eprintln!("加载数据表失败: {}", err);
                         this.session = None;
+
+                        if let Some(content) = this.table_content(&tab_id) {
+                            content.content.update(cx, |t, cx| {
+                                t.delegate_mut().update_loading(false);
+                                cx.notify();
+                            });
+                        }
+                        cx.notify();
                     }
                 });
             });
@@ -968,7 +982,7 @@ impl Render for MySQLWorkspace {
                             .outline()
                             .icon(icon_relead().with_size(Size::Small))
                             .on_click(cx.listener(|view: &mut Self, _, _, cx| {
-                                view.refresh_tables(cx);
+                                view.reload_tables(cx);
                             }))
                             .label("刷新表"),
                     )
@@ -1035,8 +1049,8 @@ enum TabContent {
 struct TableContent {
     id: SharedString,
     table: SharedString,
-    content: Entity<Table<DataTable>>,
     columns: Vec<SharedString>,
+    content: Entity<Table<DataTable>>,
     page_no: usize,
     page_size: usize,
     total_rows: usize,
