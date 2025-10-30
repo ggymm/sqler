@@ -417,7 +417,7 @@ impl MySQLWorkspace {
                         // 归还连接
                         this.session = Some(session);
 
-                        let Some(data_tab) = this.table_content(&tab_id) else {
+                        let Some(content) = this.table_content(&tab_id) else {
                             return;
                         };
 
@@ -428,14 +428,14 @@ impl MySQLWorkspace {
                             total_rows,
                         } = table_page;
 
-                        data_tab.current_page = page;
-                        data_tab.page_size = size;
-                        data_tab.total_rows = total_rows;
-                        data_tab.columns = columns.clone();
+                        content.current_page = page;
+                        content.page_size = size;
+                        content.total_rows = total_rows;
+                        content.columns = columns.clone();
 
-                        data_tab.content.update(cx, |tbl, cx| {
-                            tbl.delegate_mut().update_data(columns, rows);
-                            tbl.refresh(cx); // 重新准备列/行结构
+                        content.content.update(cx, |t, cx| {
+                            t.delegate_mut().update_data(columns, rows);
+                            t.refresh(cx); // 重新准备列/行结构
                             cx.notify();
                         });
 
@@ -450,7 +450,6 @@ impl MySQLWorkspace {
         })
         .detach();
     }
-
 
     fn render_table_tab(
         &self,
@@ -960,7 +959,7 @@ impl Render for MySQLWorkspace {
                             .find(|tab| tab.id == self.active_tab)
                             .map(|tab| &tab.content)
                         {
-                            Some(TabContent::Table(tab)) => self.render_table_tab(&tab, cx),
+                            Some(TabContent::Table(content)) => self.render_table_tab(&content, cx),
                             Some(TabContent::Overview) | None => self.render_overview_tab(cx),
                         },
                     )
