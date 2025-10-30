@@ -221,7 +221,7 @@ impl MySQLWorkspace {
             return;
         }
 
-        // 创建空的数据表
+        // 创建空的数据表（数据加载后通过 refresh() 更新）
         let data_table = DataTable::new(vec![], Vec::new()).build(window, cx);
 
         self.tabs.push(TabItem {
@@ -349,9 +349,12 @@ impl MySQLWorkspace {
                             }
                         }
                     }
+                    println!("{:?}", columns);
 
                     // 查询数据
                     let (query_sql, _params) = builder.build_select_query(&table, &[], &conditions);
+                    println!("{}", query_sql);
+
                     let resp = session.query(QueryReq::Sql { statement: query_sql })?;
                     let rows = match resp {
                         QueryResp::Rows(rows) => rows,
@@ -377,6 +380,7 @@ impl MySQLWorkspace {
                         offset: None,
                     };
                     let (count_sql, _) = builder.build_count_query(&table, &count_conditions);
+                    println!("{}", count_sql);
                     let count_resp = session.query(QueryReq::Sql { statement: count_sql })?;
                     let total_rows = match count_resp {
                         QueryResp::Rows(count_rows) => count_rows
@@ -401,7 +405,7 @@ impl MySQLWorkspace {
                 .await;
 
             // 更新 UI
-            let _ = cx.update(|_window, cx| {
+            let _ = cx.update(|window, cx| {
                 let _ = this.update(cx, |this, cx| match result {
                     Ok((table_page, session)) => {
                         // 归还连接
@@ -425,6 +429,7 @@ impl MySQLWorkspace {
 
                         data_tab.content.update(cx, |tbl, cx| {
                             tbl.delegate_mut().update_data(columns, rows);
+                            tbl.refresh(cx); // 重新准备列/行结构
                             cx.notify();
                         });
 

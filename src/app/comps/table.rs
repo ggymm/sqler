@@ -1,5 +1,3 @@
-use std::sync::OnceLock;
-
 use gpui::*;
 use gpui_component::table::Column;
 use gpui_component::table::Table;
@@ -8,16 +6,18 @@ use gpui_component::Sizable;
 use gpui_component::Size;
 
 pub struct DataTable {
-    columns: Vec<SharedString>,
+    col_defs: Vec<Column>,
+    cols: Vec<SharedString>,
     rows: Vec<Vec<SharedString>>,
 }
 
 impl DataTable {
     pub fn new(
-        columns: Vec<SharedString>,
+        cols: Vec<SharedString>,
         rows: Vec<Vec<SharedString>>,
     ) -> Self {
-        Self { columns, rows }
+        let col_defs = cols.iter().map(|name| Column::new(name.to_string(), "")).collect();
+        Self { col_defs, cols, rows }
     }
 
     pub fn build(
@@ -41,15 +41,16 @@ impl DataTable {
     }
 
     pub fn columns(&self) -> &[SharedString] {
-        &self.columns
+        &self.cols
     }
 
     pub fn update_data(
         &mut self,
-        columns: Vec<SharedString>,
+        cols: Vec<SharedString>,
         rows: Vec<Vec<SharedString>>,
     ) {
-        self.columns = columns;
+        self.col_defs = cols.iter().map(|name| Column::new(name.to_string(), "")).collect();
+        self.cols = cols;
         self.rows = rows;
     }
 }
@@ -59,7 +60,7 @@ impl TableDelegate for DataTable {
         &self,
         _cx: &App,
     ) -> usize {
-        self.columns.len()
+        self.cols.len()
     }
 
     fn rows_count(
@@ -74,9 +75,7 @@ impl TableDelegate for DataTable {
         col_ix: usize,
         _cx: &App,
     ) -> &Column {
-        static COLUMNS: OnceLock<Vec<Column>> = OnceLock::new();
-        COLUMNS.get_or_init(|| (0..100).map(|i| Column::new(i.to_string(), "")).collect());
-        &COLUMNS.get().unwrap()[col_ix]
+        &self.col_defs[col_ix]
     }
 
     fn render_th(
@@ -87,7 +86,7 @@ impl TableDelegate for DataTable {
     ) -> impl IntoElement {
         div()
             .size_full()
-            .child(self.columns.get(col_ix).cloned().unwrap_or_default())
+            .child(self.cols.get(col_ix).cloned().unwrap_or_default())
     }
 
     fn render_td(
