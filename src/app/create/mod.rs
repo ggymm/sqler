@@ -1,7 +1,10 @@
 use gpui::*;
 use gpui_component::{button::Button, ActiveTheme, StyledExt};
 
-use crate::{app::comps::DivExt, app::SqlerApp, option::DataSourceKind};
+use crate::{
+    app::{comps::DivExt, SqlerApp},
+    option::DataSourceKind,
+};
 
 pub mod mongodb;
 pub mod mysql;

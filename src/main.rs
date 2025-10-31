@@ -3,7 +3,7 @@ use std::{borrow::Cow, fs::read, path::PathBuf};
 use gpui::*;
 use gpui_component::{init, scroll::ScrollbarShow, Root, Theme};
 
-use app::SqlerApp;
+use crate::app::SqlerApp;
 
 mod app;
 mod build;

@@ -1,10 +1,10 @@
-use crate::app::SqlerApp;
 use gpui::{div, px, AppContext, Axis, Context, Div, Entity, ParentElement, Styled, Window};
-use gpui_component::form::Form;
 use gpui_component::{
-    form::form_field,
+    form::{form_field, Form},
     input::{InputState, TextInput},
 };
+
+use crate::app::SqlerApp;
 
 #[derive(Clone)]
 pub struct RedisState {

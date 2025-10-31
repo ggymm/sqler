@@ -1,4 +1,13 @@
 use gpui::{prelude::*, *};
+use gpui_component::{
+    button::{Button, ButtonVariants},
+    dropdown::{Dropdown, DropdownState},
+    input::{InputState, TextInput},
+    resizable::{h_resizable, resizable_panel, ResizableState},
+    tab::{Tab, TabBar},
+    table::Table,
+    ActiveTheme, Disableable, InteractiveElementExt, Selectable, Sizable, Size, StyledExt,
+};
 use uuid::Uuid;
 
 use crate::{
@@ -9,15 +18,6 @@ use crate::{
     build::{create_builder, ConditionValue, DatabaseType, FilterCondition, Operator, QueryConditions, SortOrder},
     driver::{DatabaseDriver, DatabaseSession, DriverError, MySQLDriver, QueryReq, QueryResp},
     option::{DataSource, DataSourceOptions},
-};
-use gpui_component::{
-    button::{Button, ButtonVariants},
-    dropdown::{Dropdown, DropdownState},
-    input::{InputState, TextInput},
-    resizable::{h_resizable, resizable_panel, ResizableState},
-    tab::{Tab, TabBar},
-    table::Table,
-    ActiveTheme, Disableable, InteractiveElementExt, Selectable, Sizable, Size, StyledExt,
 };
 
 const PAGE_SIZE: usize = 25;
