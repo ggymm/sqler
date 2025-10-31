@@ -23,7 +23,7 @@ impl MySQLState {
     ) -> Self {
         Self {
             name: cx.new(|cx| InputState::new(window, cx).default_value("MySQL数据源")),
-            host: cx.new(|cx| InputState::new(window, cx).default_value("localhost")),
+            host: cx.new(|cx| InputState::new(window, cx).default_value("127.0.0.1")),
             port: cx.new(|cx| InputState::new(window, cx).default_value("3306")),
             username: cx.new(|cx| InputState::new(window, cx).default_value("root")),
             password: cx.new(|cx| InputState::new(window, cx).masked(true)),

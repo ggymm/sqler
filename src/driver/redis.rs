@@ -99,11 +99,6 @@ impl DatabaseDriver for RedisDriver {
     ) -> Result<(), DriverError> {
         let mut conn = open_connection(config)?;
 
-        redis::cmd("SELECT")
-            .arg(config.db as i64)
-            .query::<()>(&mut conn)
-            .map_err(|err| DriverError::Other(format!("选择数据库失败: {}", err)))?;
-
         redis::cmd("PING")
             .query::<String>(&mut conn)
             .map_err(|err| DriverError::Other(format!("PING 失败: {}", err)))?;
@@ -159,8 +154,6 @@ fn build_connection_url(config: &RedisOptions) -> Result<String, DriverError> {
     url.push_str(config.host.trim());
     url.push(':');
     url.push_str(&config.port.to_string());
-    url.push('/');
-    url.push_str(&config.db.to_string());
 
     Ok(url)
 }

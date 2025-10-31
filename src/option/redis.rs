@@ -8,7 +8,6 @@ pub struct RedisOptions {
     pub port: u16,
     pub username: Option<String>,
     pub password: Option<String>,
-    pub db: u8,
     pub use_tls: bool,
 }
 
@@ -19,7 +18,6 @@ impl Default for RedisOptions {
             port: 6379,
             username: None,
             password: None,
-            db: 0,
             use_tls: false,
         }
     }
@@ -34,6 +32,6 @@ impl ConnectionOptions for RedisOptions {
 impl RedisOptions {
     pub fn display_endpoint(&self) -> String {
         let scheme = if self.use_tls { "rediss" } else { "redis" };
-        format!("{}://{}:{}/{}", scheme, self.host, self.port, self.db)
+        format!("{}://{}:{}", scheme, self.host, self.port)
     }
 }

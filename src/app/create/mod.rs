@@ -152,7 +152,7 @@ impl Render for CreateWindow {
                             DataSourceKind::SQLite => sqlite::render(&mut self.state.sqlite, cx),
                             DataSourceKind::SQLServer => sqlserver::render(&mut self.state.sqlserver, cx),
                             DataSourceKind::PostgreSQL => postgres::render(&mut self.state.postgres, cx),
-                            DataSourceKind::Redis => redis::render(&mut self.state.redis, cx),
+                            DataSourceKind::Redis => redis::render(&mut self.state.redis),
                             DataSourceKind::MongoDB => mongodb::render(&mut self.state.mongodb, cx),
                         }),
                     None => div().p_6().gap_5().col_full().scrollable(Axis::Vertical).children(
@@ -218,8 +218,8 @@ impl Render for CreateWindow {
                         Button::new("datasource-check-connection")
                             .outline()
                             .label("测试连接")
-                            .on_click(cx.listener(|_this: &mut CreateWindow, _ev, _window, _cx| {
-                                // TODO: 实现连接测试逻辑
+                            .on_click(cx.listener(|this: &mut CreateWindow, _ev, _window, cx| {
+                                this.check_conn(cx);
                             })),
                     )
                     .child(

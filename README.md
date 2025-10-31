@@ -40,3 +40,44 @@
 2. 需要有测试连接按钮
 3. 有上一步，取消和确认按钮
 4. 内容区域需要可以滚动
+
+```rust
+
+// 1. 标准库导入
+use std::collections::HashMap;
+use std::sync::Arc;
+
+// 2. 外部 crate 导入（按字母顺序）
+use gpui::{prelude::*, *};
+use gpui_component::{
+    button::{Button, ButtonVariants},
+    dropdown::{Dropdown, DropdownState},
+    input::{InputState, TextInput},
+    resizable::{h_resizable, resizable_panel, ResizableState},
+    switch::Switch,
+    tab::{Tab, TabBar},
+    table::Table,
+    ActiveTheme, Disableable, InteractiveElementExt,
+    Selectable, Sizable, Size, StyledExt,
+};
+use uuid::Uuid;
+
+// 4. 当前 crate 导入（按模块分组）
+use crate::{
+    app::comps::{
+        comp_id, icon_close, icon_export, icon_import,
+        icon_relead, icon_search, icon_sheet, icon_trash,
+        DataTable, DivExt,
+    },
+    build::{
+        create_builder, ConditionValue, DatabaseType,
+        FilterCondition, Operator, QueryConditions, SortOrder,
+    },
+    driver::{
+        DatabaseDriver, DatabaseSession, DriverError,
+        MySQLDriver, QueryReq, QueryResp,
+    },
+    option::{DataSource, DataSourceOptions},
+};
+
+```
