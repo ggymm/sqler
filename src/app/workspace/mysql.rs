@@ -20,7 +20,7 @@ use gpui_component::{
     ActiveTheme, Disableable, InteractiveElementExt, Selectable, Sizable, Size, StyledExt,
 };
 
-const DEFAULT_PAGE_SIZE: usize = 25;
+const PAGE_SIZE: usize = 25;
 const SORT_ORDER_ASC: &str = "升序";
 const SORT_ORDER_DESC: &str = "降序";
 
@@ -216,7 +216,7 @@ impl MySQLWorkspace {
                 columns: vec![],
                 content,
                 page_no: 0,
-                page_size: DEFAULT_PAGE_SIZE,
+                page_size: PAGE_SIZE,
                 total_rows: 0,
                 filter_enable: false,
                 query_rules: Vec::new(),
@@ -621,81 +621,70 @@ impl MySQLWorkspace {
                     div()
                         .flex()
                         .flex_col()
-                        .p_3()
-                        .gap_3()
-                        .rounded_lg()
+                        .p_2()
                         .border_1()
+                        .rounded_lg()
                         .border_color(theme.border)
-                        .child(
-                            div()
-                                .flex()
-                                .flex_col()
-                                .gap_2()
-                                .children(tab.sort_rules.iter().map(|rule| {
-                                    let rule_id = rule.id.clone();
-                                    let field = Dropdown::new(&rule.field).small().placeholder("选择字段");
-                                    let order = Dropdown::new(&rule.order).small().placeholder("选择顺序");
+                        .child(div().flex().flex_col().children(tab.sort_rules.iter().map(|rule| {
+                            let rule_id = rule.id.clone();
+                            let field = Dropdown::new(&rule.field).small().placeholder("选择字段");
+                            let order = Dropdown::new(&rule.order).small().placeholder("选择顺序");
 
-                                    div()
-                                        .flex()
-                                        .flex_1()
-                                        .flex_row()
-                                        .gap_2()
-                                        .w_full()
-                                        .items_center()
-                                        .child(div().w_48().child(field))
-                                        .child(div().w_48().child(order))
-                                        .child(
-                                            Button::new(comp_id(["sort-remove", &rule_id]))
-                                                .ghost()
-                                                .icon(icon_trash())
-                                                .on_click(cx.listener({
-                                                    let tab_id = tab_id.clone();
-                                                    move |view: &mut Self, _, _, cx| {
-                                                        if let Some(content) = view.table_content(&tab_id) {
-                                                            content.sort_rules.retain(|r| &r.id != &rule_id);
-                                                        }
-                                                        cx.notify();
-                                                    }
-                                                })),
-                                        )
-                                })),
-                        )
-                        .child(
                             div()
                                 .flex()
-                                .flex_col()
+                                .flex_1()
+                                .flex_row()
+                                .items_center()
+                                .mb_2()
                                 .gap_2()
-                                .children(tab.query_rules.iter().map(|rule| {
-                                    let rule_id = rule.id.clone();
-                                    let rule_field = Dropdown::new(&rule.field).small().placeholder("选择字段");
-                                    let rule_operator = Dropdown::new(&rule.operator).small().placeholder("选择条件");
-                                    div()
-                                        .flex()
-                                        .flex_1()
-                                        .flex_row()
-                                        .gap_2()
-                                        .w_full()
-                                        .items_center()
-                                        .child(div().w_48().child(rule_field))
-                                        .child(div().w_48().child(rule_operator))
-                                        .child(div().flex().flex_1().child(TextInput::new(&rule.value).small()))
-                                        .child(
-                                            Button::new(comp_id(["filter-remove", &rule_id]))
-                                                .ghost()
-                                                .icon(icon_trash())
-                                                .on_click(cx.listener({
-                                                    let tab_id = tab_id.clone();
-                                                    move |view: &mut Self, _, _, cx| {
-                                                        if let Some(content) = view.table_content(&tab_id) {
-                                                            content.query_rules.retain(|r| &r.id != &rule_id);
-                                                        }
-                                                        cx.notify();
-                                                    }
-                                                })),
-                                        )
-                                })),
-                        )
+                                .w_full()
+                                .child(div().w_48().child(field))
+                                .child(div().w_48().child(order))
+                                .child(
+                                    Button::new(comp_id(["sort-remove", &rule_id]))
+                                        .ghost()
+                                        .icon(icon_trash())
+                                        .on_click(cx.listener({
+                                            let tab_id = tab_id.clone();
+                                            move |view: &mut Self, _, _, cx| {
+                                                if let Some(content) = view.table_content(&tab_id) {
+                                                    content.sort_rules.retain(|r| &r.id != &rule_id);
+                                                }
+                                                cx.notify();
+                                            }
+                                        })),
+                                )
+                        })))
+                        .child(div().flex().flex_col().children(tab.query_rules.iter().map(|rule| {
+                            let rule_id = rule.id.clone();
+                            let rule_field = Dropdown::new(&rule.field).small().placeholder("选择字段");
+                            let rule_operator = Dropdown::new(&rule.operator).small().placeholder("选择条件");
+                            div()
+                                .flex()
+                                .flex_1()
+                                .flex_row()
+                                .items_center()
+                                .mb_2()
+                                .gap_2()
+                                .w_full()
+                                .child(div().w_48().child(rule_field))
+                                .child(div().w_48().child(rule_operator))
+                                .child(div().flex().flex_1().child(TextInput::new(&rule.value).small()))
+                                .child(
+                                    Button::new(comp_id(["filter-remove", &rule_id]))
+                                        .ghost()
+                                        .icon(icon_trash())
+                                        .on_click(cx.listener({
+                                            let tab_id = tab_id.clone();
+                                            move |view: &mut Self, _, _, cx| {
+                                                if let Some(content) = view.table_content(&tab_id) {
+                                                    content.query_rules.retain(|r| &r.id != &rule_id);
+                                                }
+                                                cx.notify();
+                                            }
+                                        })),
+                                )
+                        })))
                         .child(
                             div()
                                 .flex()
