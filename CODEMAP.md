@@ -87,9 +87,15 @@
 **维护状态**:
 
 1. `TabState` 列表: 所有打开的标签页
-2. 活动标签索引
+2. 活动标签 ID（String）: 首页为 `"home"`，工作区为数据源 UUID
 3. 窗口句柄
 4. `CacheApp` 缓存管理器
+
+**标签 ID 设计**:
+
+- **首页**: 使用固定字符串 `"home"` 作为 ID
+- **工作区**: 直接使用数据源的 UUID 作为 ID
+- **优势**: 消除了 TabId 包装类型和计数器，简化了查找逻辑
 
 **核心功能**:
 
@@ -195,6 +201,12 @@
 
 - MySQL: 使用 `MySQLWorkspace` 真实工作区
 - 其他: 使用 `PlaceholderWorkspace` 占位视图
+
+**WorkspaceState 设计**:
+
+- **移除冗余**: 不再保存数据源 ID（直接使用 TabState.id）
+- **简化结构**: 只保存 view（Entity）字段
+- **类型区分**: MySQL 和 Placeholder 两种变体
 
 **首页渲染**:
 

@@ -11,6 +11,7 @@ use uuid::Uuid;
 
 use crate::{
     app::{
+        comps::comp_id,
         create::{CreateState, CreateWindow},
         workspace::WorkspaceState,
     },
@@ -22,49 +23,41 @@ mod comps;
 mod create;
 mod workspace;
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct TabId(u64);
-
-impl TabId {
-    pub fn raw(self) -> u64 {
-        self.0
-    }
-
-    pub fn next(c: &mut u64) -> Self {
-        let id = *c;
-        *c += 1;
-        TabId(id)
-    }
-}
-
 pub enum TabView {
     Home,
     Workspace(WorkspaceState),
 }
 
 pub struct TabState {
-    pub id: TabId,
+    pub id: String,
     pub view: TabView,
     pub title: SharedString,
     pub closable: bool,
 }
 
 impl TabState {
-    fn home(id: TabId) -> Self {
+    fn home() -> Self {
         Self {
-            id,
+            id: "home".to_string(),
             view: TabView::Home,
             title: SharedString::from("首页"),
             closable: false,
         }
     }
 
-    fn data_source(
-        id: TabId,
+    fn is_workspace(
+        &self,
+        id: &str,
+    ) -> bool {
+        matches!(&self.view, TabView::Workspace(_)) && self.id == id
+    }
+
+    fn workspace(
         meta: DataSource,
         window: &mut Window,
         cx: &mut Context<SqlerApp>,
     ) -> Self {
+        let id = meta.id.clone();
         let title = SharedString::from(meta.name.clone());
         let workspace = WorkspaceState::new(meta, window, cx);
         Self {
@@ -74,19 +67,11 @@ impl TabState {
             closable: true,
         }
     }
-
-    fn is_data_source(
-        &self,
-        id: &str,
-    ) -> bool {
-        matches!(&self.view, TabView::Workspace(state) if state.id() == id)
-    }
 }
 
 pub struct SqlerApp {
     pub tabs: Vec<TabState>,
-    pub next_tab: u64,
-    pub active_tab: TabId,
+    pub active_tab: String,
     pub cache: CacheApp,
     pub create_window: Option<WindowHandle<Root>>,
 
@@ -105,17 +90,14 @@ impl SqlerApp {
             Err(e) => panic!("{}", e),
         };
 
-        let saved_sources = seed_sources();
-        let mut next_tab = 1;
-        let home_id = TabId::next(&mut next_tab);
+        let sources = seed_sources();
 
         Self {
-            tabs: vec![TabState::home(home_id)],
-            active_tab: home_id,
-            next_tab,
+            tabs: vec![TabState::home()],
+            active_tab: "home".to_string(),
 
             cache,
-            sources: saved_sources,
+            sources,
             create_window: None,
         }
     }
@@ -184,18 +166,18 @@ impl SqlerApp {
 
     pub fn active_workspace(
         &mut self,
-        tab_id: TabId,
+        tab_id: &str,
         cx: &mut Context<SqlerApp>,
     ) {
         if self.tabs.iter().any(|tab| tab.id == tab_id) {
-            self.active_tab = tab_id;
+            self.active_tab = tab_id.to_string();
             cx.notify();
         }
     }
 
     pub fn close_workspace(
         &mut self,
-        tab_id: TabId,
+        tab_id: &str,
         cx: &mut Context<SqlerApp>,
     ) {
         if let Some(index) = self.tabs.iter().position(|tab| tab.id == tab_id) {
@@ -209,7 +191,7 @@ impl SqlerApp {
 
             if self.active_tab == tab_id {
                 let fallback = if index == 0 { 0 } else { index - 1 };
-                self.active_tab = self.tabs[fallback].id;
+                self.active_tab = self.tabs[fallback].id.clone();
             }
             cx.notify();
         }
@@ -221,16 +203,15 @@ impl SqlerApp {
         window: &mut Window,
         cx: &mut Context<SqlerApp>,
     ) {
-        if let Some(existing) = self.tabs.iter().find(|tab| tab.is_data_source(id)) {
-            self.active_tab = existing.id;
+        if let Some(existing) = self.tabs.iter().find(|tab| tab.is_workspace(id)) {
+            self.active_tab = existing.id.clone();
             cx.notify();
             return;
         }
 
         if let Some(meta) = self.sources.iter().find(|meta| meta.id == id).cloned() {
-            let id = TabId::next(&mut self.next_tab);
-            self.tabs.push(TabState::data_source(id, meta, window, cx));
-            self.active_tab = id;
+            self.tabs.push(TabState::workspace(meta, window, cx));
+            self.active_tab = id.to_string();
             cx.notify();
         }
     }
@@ -243,7 +224,7 @@ impl Render for SqlerApp {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let theme = cx.theme();
-        let active = self.active_tab;
+        let active = &self.active_tab;
         div()
             .flex()
             .flex_col()
@@ -269,11 +250,14 @@ impl Render for SqlerApp {
                             .gap_2()
                             .min_w_0()
                             .children(self.tabs.iter().map(|tab| {
-                                let tab_id = tab.id;
-                                let tab_active = tab_id == active;
+                                let tab_id = tab.id.clone();
+                                let tab_active = &tab_id == active;
+
+                                let tab_id_for_click = tab_id.clone();
+                                let tab_id_for_close = tab_id.clone();
 
                                 let mut item = div()
-                                    .id(("main-tab-{}", tab_id.raw()))
+                                    .id(comp_id(["main-tab", &tab_id]))
                                     .flex()
                                     .flex_row()
                                     .items_center()
@@ -292,7 +276,7 @@ impl Render for SqlerApp {
                                         this.bg(theme.tab_bar).text_color(theme.muted_foreground)
                                     })
                                     .on_click(cx.listener(move |this, _, _, cx| {
-                                        this.active_workspace(tab_id, cx);
+                                        this.active_workspace(&tab_id_for_click, cx);
                                     }))
                                     .child(
                                         div()
@@ -305,14 +289,14 @@ impl Render for SqlerApp {
 
                                 if tab.closable {
                                     item = item.child(
-                                        Button::new(("close-tab", tab_id.raw()))
+                                        Button::new(comp_id(["close-tab", &tab_id]))
                                             .ghost()
                                             .xsmall()
                                             .compact()
                                             .tab_stop(false)
                                             .icon(Icon::default().path("icons/close.svg").with_size(Size::Small))
                                             .on_click(cx.listener(move |this, _, _, cx| {
-                                                this.close_workspace(tab_id, cx);
+                                                this.close_workspace(&tab_id_for_close, cx);
                                             })),
                                     );
                                 }

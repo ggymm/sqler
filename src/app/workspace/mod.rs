@@ -12,20 +12,13 @@ mod placeholder;
 use mysql::MySQLWorkspace;
 use placeholder::PlaceholderWorkspace;
 
-/// 从字符串中解析总数（用于 COUNT 查询结果）
 pub fn parse_count(value: &str) -> usize {
     value.parse::<usize>().unwrap_or(0)
 }
 
 pub enum WorkspaceState {
-    MySQL {
-        id: String,
-        view: Entity<MySQLWorkspace>,
-    },
-    Placeholder {
-        id: String,
-        view: Entity<PlaceholderWorkspace>,
-    },
+    MySQL { view: Entity<MySQLWorkspace> },
+    Placeholder { view: Entity<PlaceholderWorkspace> },
 }
 
 impl WorkspaceState {
@@ -36,33 +29,24 @@ impl WorkspaceState {
     ) -> Self {
         match meta.kind {
             DataSourceKind::MySQL => {
-                let id = meta.id.clone();
                 let view = cx.new(|cx| MySQLWorkspace::new(meta, cx));
-                WorkspaceState::MySQL { id, view }
+                WorkspaceState::MySQL { view }
             }
             other => {
                 let label = other.label();
-                let id = meta.id.clone();
                 let view = cx.new(|_| {
                     let message = format!("{} 工作区暂未实现", label);
                     PlaceholderWorkspace::new(meta, message)
                 });
-                WorkspaceState::Placeholder { id, view }
+                WorkspaceState::Placeholder { view }
             }
-        }
-    }
-
-    pub fn id(&self) -> &str {
-        match self {
-            WorkspaceState::MySQL { id, .. } => id,
-            WorkspaceState::Placeholder { id, .. } => id,
         }
     }
 
     pub fn render(&self) -> AnyElement {
         match self {
-            WorkspaceState::MySQL { view, .. } => view.clone().into_any_element(),
-            WorkspaceState::Placeholder { view, .. } => view.clone().into_any_element(),
+            WorkspaceState::MySQL { view } => view.clone().into_any_element(),
+            WorkspaceState::Placeholder { view } => view.clone().into_any_element(),
         }
     }
 }
