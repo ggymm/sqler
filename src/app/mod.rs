@@ -120,7 +120,21 @@ impl SqlerApp {
         }
     }
 
-    pub fn show_new_data_source_modal(
+    pub fn toggle_theme(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<SqlerApp>,
+    ) {
+        let next_mode = if cx.theme().is_dark() {
+            ThemeMode::Light
+        } else {
+            ThemeMode::Dark
+        };
+        Theme::change(next_mode, Some(window), cx);
+        cx.notify();
+    }
+
+    pub fn show_create_window(
         &mut self,
         window: &mut Window,
         cx: &mut Context<SqlerApp>,
@@ -164,45 +178,22 @@ impl SqlerApp {
         }
     }
 
-    pub fn clear_new_data_source_window(&mut self) {
+    pub fn close_create_window(&mut self) {
         self.create_window = None;
     }
 
-    pub fn toggle_theme(
+    pub fn active_workspace(
         &mut self,
-        window: &mut Window,
+        tab_id: TabId,
         cx: &mut Context<SqlerApp>,
     ) {
-        let next_mode = if cx.theme().is_dark() {
-            ThemeMode::Light
-        } else {
-            ThemeMode::Dark
-        };
-        Theme::change(next_mode, Some(window), cx);
-        cx.notify();
-    }
-
-    pub fn open_data_source_tab(
-        &mut self,
-        id: &str,
-        window: &mut Window,
-        cx: &mut Context<SqlerApp>,
-    ) {
-        if let Some(existing) = self.tabs.iter().find(|tab| tab.is_data_source(id)) {
-            self.active_tab = existing.id;
-            cx.notify();
-            return;
-        }
-
-        if let Some(meta) = self.sources.iter().find(|meta| meta.id == id).cloned() {
-            let id = TabId::next(&mut self.next_tab);
-            self.tabs.push(TabState::data_source(id, meta, window, cx));
-            self.active_tab = id;
+        if self.tabs.iter().any(|tab| tab.id == tab_id) {
+            self.active_tab = tab_id;
             cx.notify();
         }
     }
 
-    pub fn close_tab(
+    pub fn close_workspace(
         &mut self,
         tab_id: TabId,
         cx: &mut Context<SqlerApp>,
@@ -224,13 +215,22 @@ impl SqlerApp {
         }
     }
 
-    pub fn set_active_tab(
+    pub fn create_workspace(
         &mut self,
-        tab_id: TabId,
+        id: &str,
+        window: &mut Window,
         cx: &mut Context<SqlerApp>,
     ) {
-        if self.tabs.iter().any(|tab| tab.id == tab_id) {
-            self.active_tab = tab_id;
+        if let Some(existing) = self.tabs.iter().find(|tab| tab.is_data_source(id)) {
+            self.active_tab = existing.id;
+            cx.notify();
+            return;
+        }
+
+        if let Some(meta) = self.sources.iter().find(|meta| meta.id == id).cloned() {
+            let id = TabId::next(&mut self.next_tab);
+            self.tabs.push(TabState::data_source(id, meta, window, cx));
+            self.active_tab = id;
             cx.notify();
         }
     }
@@ -292,7 +292,7 @@ impl Render for SqlerApp {
                                         this.bg(theme.tab_bar).text_color(theme.muted_foreground)
                                     })
                                     .on_click(cx.listener(move |this, _, _, cx| {
-                                        this.set_active_tab(tab_id, cx);
+                                        this.active_workspace(tab_id, cx);
                                     }))
                                     .child(
                                         div()
@@ -312,7 +312,7 @@ impl Render for SqlerApp {
                                             .tab_stop(false)
                                             .icon(Icon::default().path("icons/close.svg").with_size(Size::Small))
                                             .on_click(cx.listener(move |this, _, _, cx| {
-                                                this.close_tab(tab_id, cx);
+                                                this.close_workspace(tab_id, cx);
                                             })),
                                     );
                                 }
@@ -335,7 +335,7 @@ impl Render for SqlerApp {
                             .gap_5()
                             .child(Button::new("header-new-source").outline().label("新建数据源").on_click(
                                 cx.listener(|this, _, window, cx| {
-                                    this.show_new_data_source_modal(window, cx);
+                                    this.show_create_window(window, cx);
                                 }),
                             ))
                             .child(

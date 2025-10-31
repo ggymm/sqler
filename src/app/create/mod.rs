@@ -59,7 +59,7 @@ impl CreateWindow {
         let _ = cx.on_release(move |_, app| {
             if let Some(parent) = parent_for_release.upgrade() {
                 let _ = parent.update(app, |app, cx| {
-                    app.clear_new_data_source_window();
+                    app.close_create_window();
                     cx.notify();
                 });
             }
@@ -104,7 +104,7 @@ impl CreateWindow {
     ) {
         if let Some(parent) = self.parent.upgrade() {
             let _ = parent.update(cx, |app, cx| {
-                app.clear_new_data_source_window();
+                app.close_create_window();
                 cx.notify();
             });
         }

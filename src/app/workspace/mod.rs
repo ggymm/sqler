@@ -115,7 +115,7 @@ pub fn render_home(
                 .id(SharedString::from(format!("source-card-{}", source.id)))
                 .hover(|this| this.bg(theme.secondary_hover))
                 .on_double_click(cx.listener(move |this, _, window, cx| {
-                    this.open_data_source_tab(&source.id, window, cx);
+                    this.create_workspace(&source.id, window, cx);
                 }))
                 .child(
                     div()
