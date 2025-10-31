@@ -4,16 +4,14 @@ use gpui_component::{
     dropdown::{Dropdown, DropdownState},
     input::{InputState, TextInput},
     resizable::{h_resizable, resizable_panel, ResizableState},
-    tab::{Tab, TabBar},
     table::Table,
-    ActiveTheme, Disableable, InteractiveElementExt, Selectable, Sizable, Size, StyledExt,
+    ActiveTheme, Disableable, Icon, InteractiveElementExt, Sizable, Size, StyledExt,
 };
 use uuid::Uuid;
 
 use crate::{
     app::comps::{
-        comp_id, icon_close, icon_export, icon_import, icon_relead, icon_search, icon_sheet, icon_trash, DataTable,
-        DivExt,
+        comp_id, icon_export, icon_import, icon_relead, icon_search, icon_sheet, icon_trash, DataTable, DivExt,
     },
     build::{create_builder, ConditionValue, DatabaseType, FilterCondition, Operator, QueryConditions, SortOrder},
     driver::{DatabaseDriver, DatabaseSession, DriverError, MySQLDriver, QueryReq, QueryResp},
@@ -756,7 +754,6 @@ impl MySQLWorkspace {
                     .flex()
                     .flex_row()
                     .items_center()
-                    .p_2()
                     .gap_2()
                     .child(filter_btn)
                     .child(column_btn)
@@ -869,6 +866,7 @@ impl Render for MySQLWorkspace {
     ) -> impl IntoElement {
         let id = &self.meta.id;
         let theme = cx.theme().clone();
+        let active = &self.active_tab;
 
         let sidebar = self.tables.iter().cloned().fold(
             div()
@@ -907,44 +905,78 @@ impl Render for MySQLWorkspace {
         let container = div()
             .col_full()
             .child(
-                TabBar::new(comp_id(["mysql-tabs", id]))
-                    .with_size(Size::Medium)
-                    .children(
-                        self.tabs
-                            .iter()
-                            .enumerate()
-                            .map(|(_, tab)| {
-                                let tab_id = tab.id.clone();
-                                let mut tab_item = Tab::new(tab.title.clone())
-                                    .id(comp_id(["mysql-tabs-item", id, &tab_id]))
-                                    .with_size(Size::Large)
-                                    .px_2()
-                                    .selected(tab.id == self.active_tab)
-                                    .on_click(cx.listener({
-                                        let tab_id = tab.id.clone();
-                                        let tab_title = tab.title.clone();
-                                        move |view: &mut Self, _, _, cx| {
-                                            view.active_tab(tab_id.clone(), tab_title.clone(), cx);
-                                        }
-                                    }));
+                div()
+                    .id(comp_id(["mysql-tabs", id]))
+                    .flex()
+                    .flex_row()
+                    .pt_2()
+                    .px_2()
+                    .gap_2()
+                    .min_w_0()
+                    .children(self.tabs.iter().map(|tab| {
+                        let tab_id = tab.id.clone();
+                        let tab_active = &tab_id == active;
 
-                                if tab.closable {
-                                    tab_item = tab_item.suffix(
-                                        Button::new(comp_id(["mysql-tabs-close", &tab_id]))
-                                            .ghost()
-                                            .xsmall()
-                                            .compact()
-                                            .tab_stop(false)
-                                            .icon(icon_close().with_size(Size::XSmall))
-                                            .on_click(cx.listener(move |view: &mut Self, _, _, cx| {
-                                                view.close_tab(&tab_id, cx);
-                                            })),
-                                    )
-                                }
-                                tab_item
+                        let mut item = div()
+                            .id(comp_id(["mysql-tabs-item", &tab_id]))
+                            .flex()
+                            .flex_row()
+                            .items_center()
+                            .justify_center()
+                            .px_2()
+                            .py_1()
+                            .gap_2()
+                            .border_1()
+                            .border_color(theme.border)
+                            .rounded_lg()
+                            .text_sm()
+                            .cursor_pointer()
+                            .when(tab_active, |this| {
+                                this.bg(theme.tab_active).text_color(theme.tab_active_foreground)
                             })
-                            .collect::<Vec<_>>(),
-                    ),
+                            .when(!tab_active, |this| {
+                                this.bg(theme.tab_bar).text_color(theme.muted_foreground)
+                            })
+                            .on_click(cx.listener({
+                                let tab_id = tab.id.clone();
+                                let tab_title = tab.title.clone();
+                                move |this, _, _, cx| {
+                                    this.active_tab(tab_id.clone(), tab_title.clone(), cx);
+                                }
+                            }))
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .overflow_hidden()
+                                    .whitespace_nowrap()
+                                    .child(tab.title.clone()),
+                            );
+
+                        if tab.closable {
+                            item = item.child(
+                                Button::new(comp_id(["mysql-tabs-close", &tab_id]))
+                                    .ghost()
+                                    .xsmall()
+                                    .compact()
+                                    .tab_stop(false)
+                                    .icon(Icon::default().path("icons/close.svg").with_size(Size::Small))
+                                    .on_click(cx.listener(move |this, _, _, cx| {
+                                        this.close_tab(&tab_id, cx);
+                                    })),
+                            );
+                        }
+
+                        {
+                            let style = item.style();
+                            style.flex_grow = Some(0.);
+                            style.flex_shrink = Some(1.);
+                            style.flex_basis = Some(Length::Definite(px(120.).into()));
+                            style.min_size.width = Some(Length::Definite(px(0.).into()));
+                        }
+
+                        item.into_any_element()
+                    })),
             )
             .child(
                 div()
