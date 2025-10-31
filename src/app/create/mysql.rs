@@ -1,13 +1,10 @@
-use gpui::*;
+use gpui::{prelude::*, *};
 use gpui_component::{
     form::{form_field, Form},
     input::{InputState, TextInput},
 };
 
-use crate::app::SqlerApp;
-
-#[derive(Clone)]
-pub struct MySQLState {
+pub struct MySQLCreate {
     pub name: Entity<InputState>,
     pub host: Entity<InputState>,
     pub port: Entity<InputState>,
@@ -16,10 +13,10 @@ pub struct MySQLState {
     pub database: Entity<InputState>,
 }
 
-impl MySQLState {
+impl MySQLCreate {
     pub fn new(
         window: &mut Window,
-        cx: &mut Context<SqlerApp>,
+        cx: &mut Context<Self>,
     ) -> Self {
         Self {
             name: cx.new(|cx| InputState::new(window, cx).default_value("MySQL数据源")),
@@ -32,40 +29,34 @@ impl MySQLState {
     }
 }
 
-pub fn render(state: &mut MySQLState) -> Div {
-    div().flex().flex_col().gap_4().child(
-        Form::vertical()
-            .layout(Axis::Horizontal)
-            .label_width(px(80.))
-            .child(
-                form_field()
-                    .label("名称")
-                    .child(TextInput::new(&state.name).cleanable()),
-            )
-            .child(
-                form_field()
-                    .label("主机")
-                    .child(TextInput::new(&state.host).cleanable()),
-            )
-            .child(
-                form_field()
-                    .label("端口")
-                    .child(TextInput::new(&state.port).cleanable()),
-            )
-            .child(
-                form_field()
-                    .label("账号")
-                    .child(TextInput::new(&state.username).cleanable()),
-            )
-            .child(
-                form_field()
-                    .label("密码")
-                    .child(TextInput::new(&state.password).mask_toggle().cleanable()),
-            )
-            .child(
-                form_field()
-                    .label("数据库")
-                    .child(TextInput::new(&state.database).cleanable()),
-            ),
-    )
+impl Render for MySQLCreate {
+    fn render(
+        &mut self,
+        _window: &mut Window,
+        _cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        div().flex().flex_col().gap_4().child(
+            Form::vertical()
+                .layout(Axis::Horizontal)
+                .label_width(px(80.))
+                .child(form_field().label("名称").child(TextInput::new(&self.name).cleanable()))
+                .child(form_field().label("主机").child(TextInput::new(&self.host).cleanable()))
+                .child(form_field().label("端口").child(TextInput::new(&self.port).cleanable()))
+                .child(
+                    form_field()
+                        .label("账号")
+                        .child(TextInput::new(&self.username).cleanable()),
+                )
+                .child(
+                    form_field()
+                        .label("密码")
+                        .child(TextInput::new(&self.password).mask_toggle().cleanable()),
+                )
+                .child(
+                    form_field()
+                        .label("数据库")
+                        .child(TextInput::new(&self.database).cleanable()),
+                ),
+        )
+    }
 }

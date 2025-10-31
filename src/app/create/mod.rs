@@ -14,48 +14,24 @@ pub mod redis;
 pub mod sqlite;
 pub mod sqlserver;
 
-#[derive(Clone)]
-pub struct CreateState {
-    pub selected: Option<DataSourceKind>,
-
-    pub mysql: mysql::MySQLState,
-    pub oracle: oracle::OracleState,
-    pub sqlite: sqlite::SqliteState,
-    pub sqlserver: sqlserver::SqlServerState,
-    pub postgres: postgres::PostgresState,
-    pub redis: redis::RedisState,
-    pub mongodb: mongodb::MongoDBState,
-}
-
-impl CreateState {
-    pub fn new(
-        window: &mut Window,
-        cx: &mut Context<SqlerApp>,
-    ) -> Self {
-        Self {
-            selected: None,
-
-            mysql: mysql::MySQLState::new(window, cx),
-            oracle: oracle::OracleState::new(window, cx),
-            sqlite: sqlite::SqliteState::new(window, cx),
-            sqlserver: sqlserver::SqlServerState::new(window, cx),
-            postgres: postgres::PostgresState::new(window, cx),
-            redis: redis::RedisState::new(window, cx),
-            mongodb: mongodb::MongoDBState::new(window, cx),
-        }
-    }
-}
-
 pub struct CreateWindow {
-    state: CreateState,
+    selected: Option<DataSourceKind>,
+
+    mysql: Entity<mysql::MySQLCreate>,
+    oracle: Entity<oracle::OracleCreate>,
+    sqlite: Entity<sqlite::SQLiteCreate>,
+    sqlserver: Entity<sqlserver::SQLServerCreate>,
+    postgres: Entity<postgres::PostgresCreate>,
+    redis: Entity<redis::RedisCreate>,
+    mongodb: Entity<mongodb::MongoDBCreate>,
+
     parent: WeakEntity<SqlerApp>,
 }
 
 impl CreateWindow {
     pub fn new(
-        state: CreateState,
         parent: WeakEntity<SqlerApp>,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
         let parent_for_release = parent.clone();
@@ -68,14 +44,26 @@ impl CreateWindow {
             }
         });
 
-        Self { state, parent }
+        Self {
+            selected: None,
+
+            mysql: cx.new(|cx| mysql::MySQLCreate::new(window, cx)),
+            oracle: cx.new(|cx| oracle::OracleCreate::new(window, cx)),
+            sqlite: cx.new(|cx| sqlite::SQLiteCreate::new(window, cx)),
+            sqlserver: cx.new(|cx| sqlserver::SQLServerCreate::new(window, cx)),
+            postgres: cx.new(|cx| postgres::PostgresCreate::new(window, cx)),
+            redis: cx.new(|cx| redis::RedisCreate::new(window, cx)),
+            mongodb: cx.new(|cx| mongodb::MongoDBCreate::new(window, cx)),
+
+            parent,
+        }
     }
 
     fn deselect(
         &mut self,
         cx: &mut Context<Self>,
     ) {
-        if self.state.selected.take().is_some() {
+        if self.selected.take().is_some() {
             cx.notify();
         }
     }
@@ -85,8 +73,8 @@ impl CreateWindow {
         kind: DataSourceKind,
         cx: &mut Context<Self>,
     ) {
-        if self.state.selected != Some(kind) {
-            self.state.selected = Some(kind);
+        if self.selected != Some(kind) {
+            self.selected = Some(kind);
             cx.notify();
         }
     }
@@ -95,7 +83,7 @@ impl CreateWindow {
         &mut self,
         _cx: &mut Context<Self>,
     ) -> bool {
-        if let Some(_selected) = self.state.selected.take() {}
+        if let Some(_selected) = self.selected.take() {}
 
         true
     }
@@ -122,7 +110,7 @@ impl Render for CreateWindow {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let theme = cx.theme();
-        let selected = self.state.selected;
+        let selected = self.selected;
 
         div()
             .col_full()
@@ -150,13 +138,13 @@ impl Render for CreateWindow {
                         .col_full()
                         .scrollable(Axis::Vertical)
                         .child(match kind {
-                            DataSourceKind::MySQL => mysql::render(&mut self.state.mysql),
-                            DataSourceKind::Oracle => oracle::render(&mut self.state.oracle, cx),
-                            DataSourceKind::SQLite => sqlite::render(&mut self.state.sqlite),
-                            DataSourceKind::SQLServer => sqlserver::render(&mut self.state.sqlserver, cx),
-                            DataSourceKind::PostgreSQL => postgres::render(&mut self.state.postgres, cx),
-                            DataSourceKind::Redis => redis::render(&mut self.state.redis),
-                            DataSourceKind::MongoDB => mongodb::render(&mut self.state.mongodb, cx),
+                            DataSourceKind::MySQL => self.mysql.clone().into_any_element(),
+                            DataSourceKind::Oracle => self.oracle.clone().into_any_element(),
+                            DataSourceKind::SQLite => self.sqlite.clone().into_any_element(),
+                            DataSourceKind::SQLServer => self.sqlserver.clone().into_any_element(),
+                            DataSourceKind::PostgreSQL => self.postgres.clone().into_any_element(),
+                            DataSourceKind::Redis => self.redis.clone().into_any_element(),
+                            DataSourceKind::MongoDB => self.mongodb.clone().into_any_element(),
                         }),
                     None => div().p_6().gap_5().col_full().scrollable(Axis::Vertical).children(
                         DataSourceKind::all()

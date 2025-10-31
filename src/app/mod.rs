@@ -10,11 +10,7 @@ use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
-    app::{
-        comps::comp_id,
-        create::{CreateState, CreateWindow},
-        workspace::WorkspaceState,
-    },
+    app::{comps::comp_id, create::CreateWindow, workspace::WorkspaceState},
     cache::CacheApp,
     option::{DataSource, DataSourceKind, DataSourceOptions, MySQLOptions},
 };
@@ -118,7 +114,7 @@ impl SqlerApp {
 
     pub fn show_create_window(
         &mut self,
-        window: &mut Window,
+        _window: &mut Window,
         cx: &mut Context<SqlerApp>,
     ) {
         if let Some(handle) = &self.create_window {
@@ -139,11 +135,10 @@ impl SqlerApp {
             ..Default::default()
         };
 
-        let state = CreateState::new(window, cx);
         let parent = cx.weak_entity();
         match cx.open_window(options, move |modal_window, app_cx| {
             let parent = parent.clone();
-            let view = app_cx.new(|cx| CreateWindow::new(state, parent.clone(), modal_window, cx));
+            let view = app_cx.new(|cx| CreateWindow::new(parent.clone(), modal_window, cx));
             app_cx.new(|cx| Root::new(view.into(), modal_window, cx))
         }) {
             Ok(handle) => {
