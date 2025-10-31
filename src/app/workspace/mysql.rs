@@ -179,7 +179,7 @@ impl MySQLWorkspace {
         // 重新查询表
         let result: Result<Vec<SharedString>, DriverError> = (|| {
             let session = self.active_session()?;
-            let stmt = format!("SHOW TABLES FROM `{}`", escape_mysql_identifier(&database));
+            let stmt = format!("SHOW TABLES FROM {}", &database);
             let rows = match session.query(QueryReq::Sql {
                 stmt,
                 params: Vec::new(),
@@ -399,7 +399,7 @@ impl MySQLWorkspace {
                     let builder = create_builder(DatabaseType::MySQL);
 
                     // 查询列名
-                    let stmt = format!("SHOW COLUMNS FROM `{}`", escape_mysql_identifier(&table));
+                    let stmt = format!("SHOW COLUMNS FROM {}", &table);
                     let resp = session.query(QueryReq::Sql {
                         stmt,
                         params: Vec::new(),
@@ -859,10 +859,6 @@ impl MySQLWorkspace {
             .child(detail_card)
             .into_any_element()
     }
-}
-
-fn escape_mysql_identifier(value: &str) -> String {
-    value.replace('`', "``")
 }
 
 impl Render for MySQLWorkspace {
