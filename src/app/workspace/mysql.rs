@@ -670,8 +670,8 @@ impl MySQLWorkspace {
                         .border_color(theme.border)
                         .child(div().flex().flex_col().children(tab.sort_rules.iter().map(|rule| {
                             let rule_id = rule.id.clone();
-                            let rule_field = Dropdown::new(&rule.field).small();
-                            let rule_order = Dropdown::new(&rule.order).small();
+                            let rule_field = Dropdown::new(&rule.field).small().placeholder("");
+                            let rule_order = Dropdown::new(&rule.order).small().placeholder("");
 
                             div()
                                 .flex()
@@ -699,8 +699,8 @@ impl MySQLWorkspace {
                         })))
                         .child(div().flex().flex_col().children(tab.query_rules.iter().map(|rule| {
                             let rule_id = rule.id.clone();
-                            let rule_field = Dropdown::new(&rule.field).small();
-                            let rule_operator = Dropdown::new(&rule.operator).small();
+                            let rule_field = Dropdown::new(&rule.field).small().placeholder("");
+                            let rule_operator = Dropdown::new(&rule.operator).small().placeholder("");
 
                             div()
                                 .flex()
