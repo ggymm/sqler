@@ -2,6 +2,7 @@ use gpui::{prelude::*, *};
 use gpui_component::{
     form::{form_field, Form},
     input::{InputState, TextInput},
+    Sizable, Size,
 };
 
 pub struct MySQLCreate {
@@ -38,6 +39,7 @@ impl Render for MySQLCreate {
         div().flex().flex_col().gap_4().child(
             Form::vertical()
                 .layout(Axis::Horizontal)
+                .with_size(Size::Large)
                 .label_width(px(80.))
                 .child(form_field().label("名称").child(TextInput::new(&self.name).cleanable()))
                 .child(form_field().label("主机").child(TextInput::new(&self.host).cleanable()))

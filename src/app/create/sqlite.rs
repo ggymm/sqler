@@ -3,6 +3,7 @@ use gpui_component::{
     button::Button,
     form::{form_field, Form},
     input::{InputState, TextInput},
+    Sizable, Size,
 };
 
 use crate::app::comps::DivExt;
@@ -19,7 +20,7 @@ impl SQLiteCreate {
         cx: &mut Context<Self>,
     ) -> Self {
         Self {
-            name: cx.new(|cx| InputState::new(window, cx)),
+            name: cx.new(|cx| InputState::new(window, cx).default_value("SQLite数据源")),
             filepath: cx.new(|cx| InputState::new(window, cx)),
             password: cx.new(|cx| InputState::new(window, cx).masked(true)),
         }
@@ -63,6 +64,7 @@ impl Render for SQLiteCreate {
         div().flex().flex_col().gap_4().child(
             Form::vertical()
                 .layout(Axis::Horizontal)
+                .with_size(Size::Large)
                 .label_width(px(80.))
                 .child(form_field().label("名称").child(TextInput::new(&self.name).cleanable()))
                 .child(

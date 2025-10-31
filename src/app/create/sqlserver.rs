@@ -1,8 +1,8 @@
 use gpui::{prelude::*, *};
 use gpui_component::{
-    form::{form_field, v_form},
+    form::{form_field, Form},
     input::{InputState, TextInput},
-    v_flex, ActiveTheme,
+    Sizable, Size,
 };
 
 pub struct SQLServerCreate {
@@ -21,21 +21,13 @@ impl SQLServerCreate {
         cx: &mut Context<Self>,
     ) -> Self {
         Self {
-            name: cx.new(|cx| InputState::new(window, cx).placeholder("数据源名称")),
-            host: cx.new(|cx| {
-                InputState::new(window, cx)
-                    .placeholder("主机地址，例如：127.0.0.1")
-                    .default_value("127.0.0.1")
-            }),
-            port: cx.new(|cx| {
-                InputState::new(window, cx)
-                    .placeholder("端口，例如：1433")
-                    .default_value("1433")
-            }),
-            username: cx.new(|cx| InputState::new(window, cx).placeholder("用户名")),
-            password: cx.new(|cx| InputState::new(window, cx).placeholder("密码").masked(true)),
-            instance: cx.new(|cx| InputState::new(window, cx).placeholder("实例名，可选")),
-            database: cx.new(|cx| InputState::new(window, cx).placeholder("数据库名称")),
+            name: cx.new(|cx| InputState::new(window, cx).default_value("SQLServer数据源")),
+            host: cx.new(|cx| InputState::new(window, cx)),
+            port: cx.new(|cx| InputState::new(window, cx)),
+            username: cx.new(|cx| InputState::new(window, cx)),
+            password: cx.new(|cx| InputState::new(window, cx).masked(true)),
+            instance: cx.new(|cx| InputState::new(window, cx)),
+            database: cx.new(|cx| InputState::new(window, cx)),
         }
     }
 }
@@ -44,30 +36,36 @@ impl Render for SQLServerCreate {
     fn render(
         &mut self,
         _window: &mut Window,
-        cx: &mut Context<Self>,
+        _cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        v_flex()
-            .gap(px(12.))
-            .child(
-                v_form()
-                    .gap(px(12.))
-                    .child(form_field().label("数据源名称").child(TextInput::new(&self.name)))
-                    .child(form_field().label("主机").child(TextInput::new(&self.host)))
-                    .child(form_field().label("端口").child(TextInput::new(&self.port)))
-                    .child(form_field().label("用户名").child(TextInput::new(&self.username)))
-                    .child(
-                        form_field()
-                            .label("密码")
-                            .child(TextInput::new(&self.password).mask_toggle()),
-                    )
-                    .child(form_field().label("实例名").child(TextInput::new(&self.instance)))
-                    .child(form_field().label("数据库").child(TextInput::new(&self.database))),
-            )
-            .child(
-                div()
-                    .text_sm()
-                    .text_color(cx.theme().muted_foreground)
-                    .child("提示：如启用 Windows 身份验证，请在用户名字段输入 `domain\\user`"),
-            )
+        div().flex().flex_col().gap_4().child(
+            Form::vertical()
+                .layout(Axis::Horizontal)
+                .with_size(Size::Large)
+                .label_width(px(80.))
+                .child(form_field().label("名称").child(TextInput::new(&self.name).cleanable()))
+                .child(form_field().label("主机").child(TextInput::new(&self.host).cleanable()))
+                .child(form_field().label("端口").child(TextInput::new(&self.port).cleanable()))
+                .child(
+                    form_field()
+                        .label("账号")
+                        .child(TextInput::new(&self.username).cleanable()),
+                )
+                .child(
+                    form_field()
+                        .label("密码")
+                        .child(TextInput::new(&self.password).mask_toggle().cleanable()),
+                )
+                .child(
+                    form_field()
+                        .label("实例名")
+                        .child(TextInput::new(&self.instance).cleanable()),
+                )
+                .child(
+                    form_field()
+                        .label("数据库")
+                        .child(TextInput::new(&self.database).cleanable()),
+                ),
+        )
     }
 }

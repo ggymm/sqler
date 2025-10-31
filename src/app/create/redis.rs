@@ -2,6 +2,7 @@ use gpui::{prelude::*, *};
 use gpui_component::{
     form::{form_field, Form},
     input::{InputState, TextInput},
+    Sizable, Size,
 };
 
 pub struct RedisCreate {
@@ -19,9 +20,9 @@ impl RedisCreate {
     ) -> Self {
         Self {
             name: cx.new(|cx| InputState::new(window, cx).default_value("Redis数据源")),
-            host: cx.new(|cx| InputState::new(window, cx).default_value("127.0.0.1")),
-            port: cx.new(|cx| InputState::new(window, cx).default_value("6379")),
-            username: cx.new(|cx| InputState::new(window, cx).default_value("default")),
+            host: cx.new(|cx| InputState::new(window, cx)),
+            port: cx.new(|cx| InputState::new(window, cx)),
+            username: cx.new(|cx| InputState::new(window, cx)),
             password: cx.new(|cx| InputState::new(window, cx).masked(true)),
         }
     }
@@ -36,6 +37,7 @@ impl Render for RedisCreate {
         div().flex().flex_col().gap_4().child(
             Form::vertical()
                 .layout(Axis::Horizontal)
+                .with_size(Size::Large)
                 .label_width(px(80.))
                 .child(form_field().label("名称").child(TextInput::new(&self.name).cleanable()))
                 .child(form_field().label("主机").child(TextInput::new(&self.host).cleanable()))
