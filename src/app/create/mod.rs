@@ -122,9 +122,7 @@ impl Render for CreateWindow {
         let selected = self.state.selected;
 
         div()
-            .flex()
-            .flex_col()
-            .size_full()
+            .col_full()
             .child(
                 div()
                     .flex()
@@ -142,12 +140,13 @@ impl Render for CreateWindow {
                     }),
             )
             .child(
-                div()
-                    .id("datasource-create")
-                    .col_full()
-                    .scrollable(Axis::Vertical)
-                    .child(match selected {
-                        Some(kind) => div().flex().flex_col().px_8().py_6().gap_5().child(match kind {
+                div().id("datasource-create").col_full().child(match selected {
+                    Some(kind) => div()
+                        .p_6()
+                        .gap_5()
+                        .col_full()
+                        .scrollable(Axis::Vertical)
+                        .child(match kind {
                             DataSourceKind::MySQL => mysql::render(&mut self.state.mysql),
                             DataSourceKind::Oracle => oracle::render(&mut self.state.oracle, cx),
                             DataSourceKind::SQLite => sqlite::render(&mut self.state.sqlite, cx),
@@ -156,53 +155,52 @@ impl Render for CreateWindow {
                             DataSourceKind::Redis => redis::render(&mut self.state.redis, cx),
                             DataSourceKind::MongoDB => mongodb::render(&mut self.state.mongodb, cx),
                         }),
-                        None => div().flex().flex_col().px_8().py_6().gap_5().children(
-                            DataSourceKind::all()
-                                .iter()
-                                .map(|kind| {
-                                    div()
-                                        .flex()
-                                        .flex_row()
-                                        .items_center()
-                                        .w_full()
-                                        .h_20()
-                                        .px_5()
-                                        .py_4()
-                                        .gap_4()
-                                        .bg(theme.secondary)
-                                        .border_1()
-                                        .border_color(theme.border)
-                                        .rounded_lg()
-                                        .cursor_pointer()
-                                        .id(("datasource-type-{}", *kind as u64))
-                                        .hover(|this| this.bg(theme.secondary_hover))
-                                        .child(div().w_12().h_12().child(img(kind.image()).size_full().rounded_lg()))
-                                        .child(
-                                            div()
-                                                .flex()
-                                                .flex_1()
-                                                .flex_col()
-                                                .items_start()
-                                                .justify_center()
-                                                .child(div().text_base().font_semibold().child(kind.label()))
-                                                .child(
-                                                    div()
-                                                        .text_sm()
-                                                        .text_color(theme.secondary_foreground)
-                                                        .child(kind.description()),
-                                                ),
-                                        )
-                                        .on_click(cx.listener({
-                                            let kind = *kind;
-                                            move |this: &mut CreateWindow, _ev, _window, cx| {
-                                                this.selected(kind, cx);
-                                            }
-                                        }))
-                                        .into_any_element()
-                                })
-                                .collect::<Vec<_>>(),
-                        ),
-                    }),
+                    None => div().p_6().gap_5().col_full().scrollable(Axis::Vertical).children(
+                        DataSourceKind::all()
+                            .iter()
+                            .map(|kind| {
+                                div()
+                                    .flex()
+                                    .flex_row()
+                                    .items_center()
+                                    .w_full()
+                                    .h_20()
+                                    .p_4()
+                                    .gap_4()
+                                    .bg(theme.secondary)
+                                    .border_1()
+                                    .border_color(theme.border)
+                                    .rounded_lg()
+                                    .cursor_pointer()
+                                    .id(("datasource-type-{}", *kind as u64))
+                                    .hover(|this| this.bg(theme.secondary_hover))
+                                    .child(div().w_12().h_12().child(img(kind.image()).size_full().rounded_lg()))
+                                    .child(
+                                        div()
+                                            .flex()
+                                            .flex_1()
+                                            .flex_col()
+                                            .items_start()
+                                            .justify_center()
+                                            .child(div().text_base().font_semibold().child(kind.label()))
+                                            .child(
+                                                div()
+                                                    .text_sm()
+                                                    .text_color(theme.secondary_foreground)
+                                                    .child(kind.description()),
+                                            ),
+                                    )
+                                    .on_click(cx.listener({
+                                        let kind = *kind;
+                                        move |this: &mut CreateWindow, _ev, _window, cx| {
+                                            this.selected(kind, cx);
+                                        }
+                                    }))
+                                    .into_any_element()
+                            })
+                            .collect::<Vec<_>>(),
+                    ),
+                }),
             )
             .child(
                 div()
