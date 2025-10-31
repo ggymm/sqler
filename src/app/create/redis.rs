@@ -37,7 +37,7 @@ pub fn render(state: &mut RedisState) -> Div {
             .label_width(px(80.))
             .child(
                 form_field()
-                    .label("数据源名称")
+                    .label("名称")
                     .child(TextInput::new(&state.name).cleanable()),
             )
             .child(
@@ -52,7 +52,7 @@ pub fn render(state: &mut RedisState) -> Div {
             )
             .child(
                 form_field()
-                    .label("用户名")
+                    .label("账号")
                     .child(TextInput::new(&state.username).cleanable()),
             )
             .child(

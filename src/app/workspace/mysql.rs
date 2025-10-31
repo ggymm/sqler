@@ -24,6 +24,55 @@ const PAGE_SIZE: usize = 25;
 const SORT_ORDER_ASC: &str = "升序";
 const SORT_ORDER_DESC: &str = "降序";
 
+struct TabItem {
+    id: SharedString,
+    title: SharedString,
+    content: TabContent,
+    closable: bool,
+}
+
+impl TabItem {
+    fn overview() -> Self {
+        Self {
+            id: SharedString::from("mysql-tab-overview"),
+            title: SharedString::from("概览"),
+            content: TabContent::Overview,
+            closable: false,
+        }
+    }
+}
+
+enum TabContent {
+    Table(TableContent),
+    Overview,
+}
+
+struct QueryRule {
+    id: SharedString,
+    value: Entity<InputState>,
+    field: Entity<DropdownState<Vec<SharedString>>>,
+    operator: Entity<DropdownState<Vec<SharedString>>>,
+}
+
+struct SortRule {
+    id: SharedString,
+    field: Entity<DropdownState<Vec<SharedString>>>,
+    order: Entity<DropdownState<Vec<SharedString>>>,
+}
+
+struct TableContent {
+    id: SharedString,
+    table: SharedString,
+    columns: Vec<SharedString>,
+    content: Entity<Table<DataTable>>,
+    page_no: usize,
+    page_size: usize,
+    total_rows: usize,
+    sort_rules: Vec<SortRule>,
+    query_rules: Vec<QueryRule>,
+    filter_enable: bool,
+}
+
 pub struct MySQLWorkspace {
     meta: DataSource,
     session: Option<Box<dyn DatabaseSession>>,
@@ -483,11 +532,9 @@ impl MySQLWorkspace {
         let end_row = ((current_page + 1) * tab.page_size).min(tab.total_rows);
 
         let column_btn = Button::new(comp_id(["table-choose-column", &tab_id]))
-            .small()
             .outline()
             .label("字段筛选");
         let filter_btn = Button::new(comp_id(["table-toggle-filter", &tab_id]))
-            .small()
             .outline()
             .label(if tab.filter_enable {
                 "隐藏筛选"
@@ -505,7 +552,6 @@ impl MySQLWorkspace {
             }));
 
         let page_prev_btn = Button::new(comp_id(["table-page-prev", &tab_id]))
-            .small()
             .outline()
             .label("上一页")
             .disabled(current_page == 0)
@@ -520,7 +566,6 @@ impl MySQLWorkspace {
                 }
             }));
         let page_next_btn = Button::new(comp_id(["table-page-next", &tab_id]))
-            .small()
             .outline()
             .label("下一页")
             .disabled(current_page + 1 >= total_pages)
@@ -627,19 +672,18 @@ impl MySQLWorkspace {
                         .border_color(theme.border)
                         .child(div().flex().flex_col().children(tab.sort_rules.iter().map(|rule| {
                             let rule_id = rule.id.clone();
-                            let field = Dropdown::new(&rule.field).small().placeholder("选择字段");
-                            let order = Dropdown::new(&rule.order).small().placeholder("选择顺序");
+                            let rule_field = Dropdown::new(&rule.field).small();
+                            let rule_order = Dropdown::new(&rule.order).small();
 
                             div()
                                 .flex()
-                                .flex_1()
                                 .flex_row()
                                 .items_center()
                                 .mb_2()
                                 .gap_2()
                                 .w_full()
-                                .child(div().w_48().child(field))
-                                .child(div().w_48().child(order))
+                                .child(div().w_48().child(rule_field))
+                                .child(div().w_48().child(rule_order))
                                 .child(
                                     Button::new(comp_id(["sort-remove", &rule_id]))
                                         .ghost()
@@ -657,11 +701,11 @@ impl MySQLWorkspace {
                         })))
                         .child(div().flex().flex_col().children(tab.query_rules.iter().map(|rule| {
                             let rule_id = rule.id.clone();
-                            let rule_field = Dropdown::new(&rule.field).small().placeholder("选择字段");
-                            let rule_operator = Dropdown::new(&rule.operator).small().placeholder("选择条件");
+                            let rule_field = Dropdown::new(&rule.field).small();
+                            let rule_operator = Dropdown::new(&rule.operator).small();
+
                             div()
                                 .flex()
-                                .flex_1()
                                 .flex_row()
                                 .items_center()
                                 .mb_2()
@@ -982,53 +1026,4 @@ impl Render for MySQLWorkspace {
                 ),
             )
     }
-}
-
-struct TabItem {
-    id: SharedString,
-    title: SharedString,
-    content: TabContent,
-    closable: bool,
-}
-
-impl TabItem {
-    fn overview() -> Self {
-        Self {
-            id: SharedString::from("mysql-tab-overview"),
-            title: SharedString::from("概览"),
-            content: TabContent::Overview,
-            closable: false,
-        }
-    }
-}
-
-enum TabContent {
-    Table(TableContent),
-    Overview,
-}
-
-struct TableContent {
-    id: SharedString,
-    table: SharedString,
-    columns: Vec<SharedString>,
-    content: Entity<Table<DataTable>>,
-    page_no: usize,
-    page_size: usize,
-    total_rows: usize,
-    sort_rules: Vec<SortRule>,
-    query_rules: Vec<QueryRule>,
-    filter_enable: bool,
-}
-
-struct QueryRule {
-    id: SharedString,
-    value: Entity<InputState>,
-    field: Entity<DropdownState<Vec<SharedString>>>,
-    operator: Entity<DropdownState<Vec<SharedString>>>,
-}
-
-struct SortRule {
-    id: SharedString,
-    field: Entity<DropdownState<Vec<SharedString>>>,
-    order: Entity<DropdownState<Vec<SharedString>>>,
 }

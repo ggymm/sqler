@@ -149,7 +149,7 @@ impl DatabaseDriver for SQLiteDriver {
 }
 
 fn open_connection(config: &SQLiteOptions) -> Result<Connection, DriverError> {
-    let path_str = config.file_path.trim();
+    let path_str = config.filepath.trim();
     if path_str.is_empty() {
         return Err(DriverError::MissingField("file_path".into()));
     }

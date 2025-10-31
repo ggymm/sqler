@@ -152,7 +152,7 @@ impl Render for CreateWindow {
                         .child(match kind {
                             DataSourceKind::MySQL => mysql::render(&mut self.state.mysql),
                             DataSourceKind::Oracle => oracle::render(&mut self.state.oracle, cx),
-                            DataSourceKind::SQLite => sqlite::render(&mut self.state.sqlite, cx),
+                            DataSourceKind::SQLite => sqlite::render(&mut self.state.sqlite),
                             DataSourceKind::SQLServer => sqlserver::render(&mut self.state.sqlserver, cx),
                             DataSourceKind::PostgreSQL => postgres::render(&mut self.state.postgres, cx),
                             DataSourceKind::Redis => redis::render(&mut self.state.redis),
@@ -166,17 +166,17 @@ impl Render for CreateWindow {
                                     .flex()
                                     .flex_row()
                                     .items_center()
-                                    .w_full()
-                                    .h_20()
                                     .p_4()
                                     .gap_4()
-                                    .bg(theme.secondary)
+                                    .h_20()
+                                    .w_full()
+                                    .bg(theme.list)
                                     .border_1()
                                     .border_color(theme.border)
                                     .rounded_lg()
                                     .cursor_pointer()
                                     .id(("datasource-type-{}", *kind as u64))
-                                    .hover(|this| this.bg(theme.secondary_hover))
+                                    .hover(|this| this.bg(theme.list_hover))
                                     .child(div().w_12().h_12().child(img(kind.image()).size_full().rounded_lg()))
                                     .child(
                                         div()
@@ -186,12 +186,7 @@ impl Render for CreateWindow {
                                             .items_start()
                                             .justify_center()
                                             .child(div().text_base().font_semibold().child(kind.label()))
-                                            .child(
-                                                div()
-                                                    .text_sm()
-                                                    .text_color(theme.secondary_foreground)
-                                                    .child(kind.description()),
-                                            ),
+                                            .child(div().text_sm().child(kind.description())),
                                     )
                                     .on_click(cx.listener({
                                         let kind = *kind;

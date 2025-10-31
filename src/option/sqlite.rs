@@ -4,7 +4,7 @@ use crate::option::{ConnectionOptions, DataSourceKind};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct SQLiteOptions {
-    pub file_path: String,
+    pub filepath: String,
     pub password: Option<String>,
     pub read_only: bool,
 }
@@ -12,7 +12,7 @@ pub struct SQLiteOptions {
 impl Default for SQLiteOptions {
     fn default() -> Self {
         Self {
-            file_path: String::new(),
+            filepath: String::new(),
             password: None,
             read_only: false,
         }
@@ -27,7 +27,7 @@ impl ConnectionOptions for SQLiteOptions {
 
 impl SQLiteOptions {
     pub fn display_endpoint(&self) -> String {
-        let path = self.file_path.trim();
+        let path = self.filepath.trim();
         if path.is_empty() {
             "sqlite://<未配置文件>".into()
         } else if self.read_only {

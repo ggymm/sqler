@@ -122,27 +122,25 @@ impl SqlerApp {
         cx: &mut Context<SqlerApp>,
     ) {
         if let Some(handle) = &self.create_window {
-            let _ = handle.update(cx, |_, modal_window, _| {
-                modal_window.activate_window();
+            let _ = handle.update(cx, |_, create_window, _| {
+                create_window.activate_window();
             });
             return;
         }
 
-        let state = CreateState::new(window, cx);
-        let parent = cx.weak_entity();
+        let wsize = size(px(640.), px(560.));
         let options = WindowOptions {
-            window_bounds: Some(WindowBounds::Windowed(Bounds::centered(
-                None,
-                size(px(640.), px(560.)),
-                cx,
-            ))),
-            kind: WindowKind::Floating,
-            is_resizable: true,
-            is_movable: true,
+            window_bounds: Some(WindowBounds::Windowed(Bounds::centered(None, wsize, cx))),
+            window_min_size: Some(gpui::Size {
+                width: wsize.width,
+                height: wsize.height,
+            }),
             is_minimizable: false,
             ..Default::default()
         };
 
+        let state = CreateState::new(window, cx);
+        let parent = cx.weak_entity();
         match cx.open_window(options, move |modal_window, app_cx| {
             let parent = parent.clone();
             let view = app_cx.new(|cx| CreateWindow::new(state, parent.clone(), modal_window, cx));

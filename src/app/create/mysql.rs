@@ -54,7 +54,7 @@ pub fn render(state: &mut MySQLState) -> Div {
             )
             .child(
                 form_field()
-                    .label("用户名")
+                    .label("账号")
                     .child(TextInput::new(&state.username).cleanable()),
             )
             .child(
