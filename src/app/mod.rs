@@ -126,11 +126,12 @@ impl SqlerApp {
 
         let wsize = size(px(640.), px(560.));
         let options = WindowOptions {
+            kind: WindowKind::Floating,
             window_bounds: Some(WindowBounds::Windowed(Bounds::centered(None, wsize, cx))),
-            window_min_size: Some(gpui::Size {
-                width: wsize.width,
-                height: wsize.height,
-            }),
+            // window_min_size: Some(gpui::Size {
+            //     width: wsize.width,
+            //     height: wsize.height,
+            // }),
             is_minimizable: false,
             ..Default::default()
         };

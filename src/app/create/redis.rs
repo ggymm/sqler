@@ -5,6 +5,8 @@ use gpui_component::{
     Sizable, Size,
 };
 
+use crate::option::RedisOptions;
+
 pub struct RedisCreate {
     pub name: Entity<InputState>,
     pub host: Entity<InputState>,
@@ -24,6 +26,24 @@ impl RedisCreate {
             port: cx.new(|cx| InputState::new(window, cx)),
             username: cx.new(|cx| InputState::new(window, cx)),
             password: cx.new(|cx| InputState::new(window, cx).masked(true)),
+        }
+    }
+
+    pub fn options(
+        &self,
+        cx: &App,
+    ) -> RedisOptions {
+        let host = self.host.read(cx).value().to_string();
+        let port = self.port.read(cx).value().to_string();
+        let username = self.username.read(cx).value().to_string();
+        let password = self.password.read(cx).value().to_string();
+
+        RedisOptions {
+            host,
+            port: port.parse().unwrap_or(6379),
+            username: if username.is_empty() { None } else { Some(username) },
+            password: if password.is_empty() { None } else { Some(password) },
+            use_tls: false,
         }
     }
 }

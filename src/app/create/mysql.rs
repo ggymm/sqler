@@ -5,6 +5,8 @@ use gpui_component::{
     Sizable, Size,
 };
 
+use crate::option::MySQLOptions;
+
 pub struct MySQLCreate {
     pub name: Entity<InputState>,
     pub host: Entity<InputState>,
@@ -26,6 +28,27 @@ impl MySQLCreate {
             username: cx.new(|cx| InputState::new(window, cx).default_value("root")),
             password: cx.new(|cx| InputState::new(window, cx).masked(true)),
             database: cx.new(|cx| InputState::new(window, cx)),
+        }
+    }
+
+    pub fn options(
+        &self,
+        cx: &App,
+    ) -> MySQLOptions {
+        let host = self.host.read(cx).value().to_string();
+        let port = self.port.read(cx).value().to_string();
+        let username = self.username.read(cx).value().to_string();
+        let password = self.password.read(cx).value().to_string();
+        let database = self.database.read(cx).value().to_string();
+
+        MySQLOptions {
+            host,
+            port: port.parse().unwrap_or(3306),
+            username,
+            password: if password.is_empty() { None } else { Some(password) },
+            database,
+            charset: Some("utf8mb4".to_string()),
+            use_tls: false,
         }
     }
 }

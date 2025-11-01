@@ -1045,8 +1045,8 @@ impl Render for MySQLWorkspace {
                     h_resizable(comp_id(["mysql-content", id]), self.sidebar_resize.clone())
                         .child(
                             resizable_panel()
-                                .size(px(180.0))
-                                .size_range(px(120.)..px(360.))
+                                .size(px(200.0))
+                                .size_range(px(100.)..px(400.))
                                 .child(sidebar),
                         )
                         .child(container),

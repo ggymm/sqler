@@ -5,6 +5,8 @@ use gpui_component::{
     Sizable, Size,
 };
 
+use crate::option::{MongoDBHost, MongoDBOptions};
+
 pub struct MongoDBCreate {
     pub name: Entity<InputState>,
     pub host: Entity<InputState>,
@@ -26,6 +28,29 @@ impl MongoDBCreate {
             username: cx.new(|cx| InputState::new(window, cx)),
             password: cx.new(|cx| InputState::new(window, cx).masked(true)),
             database: cx.new(|cx| InputState::new(window, cx)),
+        }
+    }
+
+    pub fn options(
+        &self,
+        cx: &App,
+    ) -> MongoDBOptions {
+        let host = self.host.read(cx).value().to_string();
+        let port = self.port.read(cx).value().to_string();
+        let username = self.username.read(cx).value().to_string();
+        let password = self.password.read(cx).value().to_string();
+
+        MongoDBOptions {
+            connection_string: None,
+            hosts: vec![MongoDBHost {
+                host,
+                port: port.parse().unwrap_or(27017),
+            }],
+            replica_set: None,
+            auth_source: None,
+            username: if username.is_empty() { None } else { Some(username) },
+            password: if password.is_empty() { None } else { Some(password) },
+            tls: false,
         }
     }
 }

@@ -1,9 +1,11 @@
-use gpui::*;
+use gpui::{prelude::*, *};
 use gpui_component::{button::Button, ActiveTheme, StyledExt};
 
 use crate::{
     app::{comps::DivExt, SqlerApp},
+    driver,
     option::DataSourceKind,
+    option::DataSourceOptions,
 };
 
 pub mod mongodb;
@@ -14,8 +16,18 @@ pub mod redis;
 pub mod sqlite;
 pub mod sqlserver;
 
+#[derive(Clone, Debug)]
+pub enum ConnectionStatus {
+    None,
+    Testing,
+    Success(String),
+    Error(String),
+}
+
 pub struct CreateWindow {
-    selected: Option<DataSourceKind>,
+    kind: Option<DataSourceKind>,
+    parent: WeakEntity<SqlerApp>,
+    status: ConnectionStatus,
 
     mysql: Entity<mysql::MySQLCreate>,
     oracle: Entity<oracle::OracleCreate>,
@@ -24,8 +36,6 @@ pub struct CreateWindow {
     postgres: Entity<postgres::PostgresCreate>,
     redis: Entity<redis::RedisCreate>,
     mongodb: Entity<mongodb::MongoDBCreate>,
-
-    parent: WeakEntity<SqlerApp>,
 }
 
 impl CreateWindow {
@@ -45,7 +55,9 @@ impl CreateWindow {
         });
 
         Self {
-            selected: None,
+            kind: None,
+            parent,
+            status: ConnectionStatus::None,
 
             mysql: cx.new(|cx| mysql::MySQLCreate::new(window, cx)),
             oracle: cx.new(|cx| oracle::OracleCreate::new(window, cx)),
@@ -54,8 +66,6 @@ impl CreateWindow {
             postgres: cx.new(|cx| postgres::PostgresCreate::new(window, cx)),
             redis: cx.new(|cx| redis::RedisCreate::new(window, cx)),
             mongodb: cx.new(|cx| mongodb::MongoDBCreate::new(window, cx)),
-
-            parent,
         }
     }
 
@@ -63,7 +73,7 @@ impl CreateWindow {
         &mut self,
         cx: &mut Context<Self>,
     ) {
-        if self.selected.take().is_some() {
+        if self.kind.take().is_some() {
             cx.notify();
         }
     }
@@ -73,19 +83,11 @@ impl CreateWindow {
         kind: DataSourceKind,
         cx: &mut Context<Self>,
     ) {
-        if self.selected != Some(kind) {
-            self.selected = Some(kind);
+        if self.kind != Some(kind) {
+            self.kind = Some(kind);
+            self.status = ConnectionStatus::None;
             cx.notify();
         }
-    }
-
-    fn check_conn(
-        &mut self,
-        _cx: &mut Context<Self>,
-    ) -> bool {
-        if let Some(_selected) = self.selected.take() {}
-
-        true
     }
 
     fn close_window(
@@ -101,6 +103,68 @@ impl CreateWindow {
         }
         window.remove_window();
     }
+
+    fn check_connection(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(kind) = self.kind else {
+            self.status = ConnectionStatus::Error("请先选择数据源类型".to_string());
+            cx.notify();
+            return;
+        };
+
+        let options = match kind {
+            DataSourceKind::MySQL => DataSourceOptions::MySQL(self.mysql.read(cx).options(cx)),
+            DataSourceKind::PostgreSQL => DataSourceOptions::PostgreSQL(self.postgres.read(cx).options(cx)),
+            DataSourceKind::SQLite => DataSourceOptions::SQLite(self.sqlite.read(cx).options(cx)),
+            DataSourceKind::Redis => DataSourceOptions::Redis(self.redis.read(cx).options(cx)),
+            DataSourceKind::MongoDB => DataSourceOptions::MongoDB(self.mongodb.read(cx).options(cx)),
+            DataSourceKind::Oracle => {
+                self.status = ConnectionStatus::Error("Oracle 驱动暂未实现".to_string());
+                cx.notify();
+                return;
+            }
+            DataSourceKind::SQLServer => {
+                self.status = ConnectionStatus::Error("SQL Server 驱动暂未实现".to_string());
+                cx.notify();
+                return;
+            }
+        };
+
+        self.status = ConnectionStatus::Testing;
+        cx.notify();
+
+        cx.spawn_in(window, async move |this, cx| {
+            let result = cx
+                .background_executor()
+                .spawn(async move { driver::check_connection(kind, &options) })
+                .await;
+
+            let _ = cx.update(|_, cx| {
+                let _ = this.update(cx, |this, cx| {
+                    match result {
+                        Ok(_) => {
+                            this.status = ConnectionStatus::Success("连接成功".to_string());
+                        }
+                        Err(e) => {
+                            this.status = ConnectionStatus::Error(format!("{}", e));
+                        }
+                    }
+                    cx.notify();
+                });
+            });
+        })
+        .detach();
+    }
+
+    fn create_connection(
+        &mut self,
+        cx: &mut Context<Self>,
+    ) {
+        // 保存方法
+    }
 }
 
 impl Render for CreateWindow {
@@ -110,7 +174,8 @@ impl Render for CreateWindow {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let theme = cx.theme();
-        let selected = self.selected;
+        let selected = self.kind;
+        let status = self.status.clone();
 
         div()
             .col_full()
@@ -190,6 +255,7 @@ impl Render for CreateWindow {
             )
             .child(
                 div()
+                    .relative()
                     .flex()
                     .flex_row()
                     .items_center()
@@ -204,8 +270,8 @@ impl Render for CreateWindow {
                         Button::new("datasource-check-connection")
                             .outline()
                             .label("测试连接")
-                            .on_click(cx.listener(|this: &mut CreateWindow, _ev, _window, cx| {
-                                this.check_conn(cx);
+                            .on_click(cx.listener(|this: &mut CreateWindow, _ev, window, cx| {
+                                this.check_connection(window, cx);
                             })),
                     )
                     .child(
@@ -238,7 +304,51 @@ impl Render for CreateWindow {
                                         this.close_window(window, cx);
                                     })),
                             ),
-                    ),
+                    )
+                    .when(!matches!(status, ConnectionStatus::None), |this| {
+                        this.child(
+                            div()
+                                .flex()
+                                .items_center()
+                                .p_2()
+                                .h(px(36.))
+                                .w_full()
+                                .top(px(-36.))
+                                .left_0()
+                                .absolute()
+                                .when(matches!(status, ConnectionStatus::Testing), |this| {
+                                    this.bg(rgb(0x3b82f6)).text_color(rgb(0xffffff)).child(
+                                        div()
+                                            .text_sm()
+                                            .overflow_hidden()
+                                            .whitespace_nowrap()
+                                            .child("正在测试连接..."),
+                                    )
+                                })
+                                .when(matches!(status, ConnectionStatus::Success(_)), |this| {
+                                    this.bg(rgb(0x10b981)).text_color(rgb(0xffffff)).child(
+                                        div().text_sm().overflow_hidden().whitespace_nowrap().child(
+                                            if let ConnectionStatus::Success(msg) = &status {
+                                                msg.clone()
+                                            } else {
+                                                "连接成功".to_string()
+                                            },
+                                        ),
+                                    )
+                                })
+                                .when(matches!(status, ConnectionStatus::Error(_)), |this| {
+                                    this.bg(rgb(0xef4444)).text_color(rgb(0xffffff)).child(
+                                        div().text_sm().overflow_hidden().whitespace_nowrap().child(
+                                            if let ConnectionStatus::Error(msg) = &status {
+                                                msg.clone()
+                                            } else {
+                                                "连接失败".to_string()
+                                            },
+                                        ),
+                                    )
+                                }),
+                        )
+                    }),
             )
             .into_any_element()
     }

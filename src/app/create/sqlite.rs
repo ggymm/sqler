@@ -6,7 +6,7 @@ use gpui_component::{
     Sizable, Size,
 };
 
-use crate::app::comps::DivExt;
+use crate::{app::comps::DivExt, option::SQLiteOptions};
 
 pub struct SQLiteCreate {
     pub name: Entity<InputState>,
@@ -53,6 +53,20 @@ impl SQLiteCreate {
         })
         .detach();
     }
+
+    pub fn options(
+        &self,
+        cx: &App,
+    ) -> SQLiteOptions {
+        let filepath = self.filepath.read(cx).value().to_string();
+        let password = self.password.read(cx).value().to_string();
+
+        SQLiteOptions {
+            filepath,
+            password: if password.is_empty() { None } else { Some(password) },
+            read_only: false,
+        }
+    }
 }
 
 impl Render for SQLiteCreate {
@@ -68,7 +82,7 @@ impl Render for SQLiteCreate {
                 .label_width(px(80.))
                 .child(form_field().label("名称").child(TextInput::new(&self.name).cleanable()))
                 .child(
-                    form_field().label("文件路径").child(
+                    form_field().label("文件").child(
                         div()
                             .gap_2()
                             .row_full()

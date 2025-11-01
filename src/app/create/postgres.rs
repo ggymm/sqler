@@ -5,6 +5,8 @@ use gpui_component::{
     Sizable, Size,
 };
 
+use crate::option::PostgreSQLOptions;
+
 pub struct PostgresCreate {
     pub name: Entity<InputState>,
     pub host: Entity<InputState>,
@@ -28,6 +30,28 @@ impl PostgresCreate {
             password: cx.new(|cx| InputState::new(window, cx).masked(true)),
             database: cx.new(|cx| InputState::new(window, cx)),
             schema: cx.new(|cx| InputState::new(window, cx)),
+        }
+    }
+
+    pub fn options(
+        &self,
+        cx: &App,
+    ) -> PostgreSQLOptions {
+        let host = self.host.read(cx).value().to_string();
+        let port = self.port.read(cx).value().to_string();
+        let username = self.username.read(cx).value().to_string();
+        let password = self.password.read(cx).value().to_string();
+        let database = self.database.read(cx).value().to_string();
+        let schema = self.schema.read(cx).value().to_string();
+
+        PostgreSQLOptions {
+            host,
+            port: port.parse().unwrap_or(5432),
+            username,
+            password: if password.is_empty() { None } else { Some(password) },
+            database,
+            schema: if schema.is_empty() { None } else { Some(schema) },
+            ssl_mode: None,
         }
     }
 }
