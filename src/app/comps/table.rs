@@ -94,6 +94,7 @@ impl TableDelegate for DataTable {
     ) -> impl IntoElement {
         div()
             .size_full()
+            .text_sm()
             .child(self.cols.get(col_ix).cloned().unwrap_or_default())
     }
 
@@ -110,7 +111,7 @@ impl TableDelegate for DataTable {
             .and_then(|row| row.get(col_ix))
             .cloned()
             .unwrap_or_default();
-        div().size_full().child(value)
+        div().size_full().text_sm().child(value)
     }
 
     fn loading(

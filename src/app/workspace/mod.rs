@@ -76,7 +76,7 @@ pub fn render_home(
         .grid()
         .grid_cols(4)
         .size_full()
-        .p_5()
+        .p_4()
         .gap_4()
         .min_w_0()
         .min_h_0()

@@ -18,7 +18,7 @@ use crate::{
     option::{DataSource, DataSourceOptions},
 };
 
-const PAGE_SIZE: usize = 25;
+const PAGE_SIZE: usize = 100;
 const SORT_ORDER_ASC: &str = "升序";
 const SORT_ORDER_DESC: &str = "降序";
 
@@ -903,14 +903,14 @@ impl Render for MySQLWorkspace {
         );
 
         let container = div()
+            .p_2()
+            .gap_2()
             .col_full()
             .child(
                 div()
                     .id(comp_id(["mysql-tabs", id]))
                     .flex()
                     .flex_row()
-                    .pt_2()
-                    .px_2()
                     .gap_2()
                     .min_w_0()
                     .children(self.tabs.iter().map(|tab| {
@@ -981,7 +981,6 @@ impl Render for MySQLWorkspace {
             .child(
                 div()
                     .id(comp_id(["mysql-main", id]))
-                    .p_2()
                     .col_full()
                     .child(
                         match self
@@ -1046,7 +1045,7 @@ impl Render for MySQLWorkspace {
                     h_resizable(comp_id(["mysql-content", id]), self.sidebar_resize.clone())
                         .child(
                             resizable_panel()
-                                .size(px(240.0))
+                                .size(px(180.0))
                                 .size_range(px(120.)..px(360.))
                                 .child(sidebar),
                         )
