@@ -317,7 +317,7 @@ impl Render for CreateWindow {
                                 .left_0()
                                 .absolute()
                                 .when(matches!(status, ConnectionStatus::Testing), |this| {
-                                    this.bg(rgb(0x3b82f6)).text_color(rgb(0xffffff)).child(
+                                    this.bg(theme.info).text_color(theme.info_foreground).child(
                                         div()
                                             .text_sm()
                                             .overflow_hidden()
@@ -326,7 +326,7 @@ impl Render for CreateWindow {
                                     )
                                 })
                                 .when(matches!(status, ConnectionStatus::Success(_)), |this| {
-                                    this.bg(rgb(0x10b981)).text_color(rgb(0xffffff)).child(
+                                    this.bg(theme.success).text_color(theme.success_foreground).child(
                                         div().text_sm().overflow_hidden().whitespace_nowrap().child(
                                             if let ConnectionStatus::Success(msg) = &status {
                                                 msg.clone()
@@ -337,7 +337,7 @@ impl Render for CreateWindow {
                                     )
                                 })
                                 .when(matches!(status, ConnectionStatus::Error(_)), |this| {
-                                    this.bg(rgb(0xef4444)).text_color(rgb(0xffffff)).child(
+                                    this.bg(theme.danger).text_color(theme.danger_foreground).child(
                                         div().text_sm().overflow_hidden().whitespace_nowrap().child(
                                             if let ConnectionStatus::Error(msg) = &status {
                                                 msg.clone()
