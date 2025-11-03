@@ -176,10 +176,7 @@ impl MySQLWorkspace {
         let result: Result<Vec<SharedString>, DriverError> = (|| {
             let session = self.active_session()?;
             let stmt = format!("SHOW TABLES FROM {}", &database);
-            let rows = match session.query(QueryReq::Sql {
-                stmt,
-                params: Vec::new(),
-            })? {
+            let rows = match session.query(QueryReq::Sql { stmt, args: Vec::new() })? {
                 QueryResp::Rows(rows) => rows,
                 _ => return Ok(vec![]),
             };
@@ -396,10 +393,7 @@ impl MySQLWorkspace {
 
                     // 查询列名
                     let stmt = format!("SHOW COLUMNS FROM {}", &table);
-                    let resp = session.query(QueryReq::Sql {
-                        stmt,
-                        params: Vec::new(),
-                    })?;
+                    let resp = session.query(QueryReq::Sql { stmt, args: Vec::new() })?;
                     let column_rows = match resp {
                         QueryResp::Rows(rows) => rows,
                         _ => vec![],
@@ -418,10 +412,10 @@ impl MySQLWorkspace {
                     }
 
                     // 查询总数
-                    let (count_sql, count_params) = builder.build_count_query(&table, &conditions);
+                    let (count_sql, count_args) = builder.build_count_query(&table, &conditions);
                     let count_resp = session.query(QueryReq::Sql {
                         stmt: count_sql,
-                        params: count_params,
+                        args: count_args,
                     })?;
                     let total_rows = match count_resp {
                         QueryResp::Rows(count_rows) => count_rows
@@ -433,10 +427,10 @@ impl MySQLWorkspace {
                     };
 
                     // 查询数据
-                    let (query_sql, query_params) = builder.build_select_query(&table, &[], &conditions);
+                    let (query_sql, query_args) = builder.build_select_query(&table, &[], &conditions);
                     let query_resp = session.query(QueryReq::Sql {
                         stmt: query_sql,
-                        params: query_params,
+                        args: query_args,
                     })?;
                     let rows = match query_resp {
                         QueryResp::Rows(rows) => rows,

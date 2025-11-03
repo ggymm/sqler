@@ -30,7 +30,7 @@ impl DatabaseSession for PostgresConnection {
         match request {
             QueryReq::Sql {
                 stmt: statement,
-                params,
+                args: params,
             } => {
                 validate_stmt(&statement)?;
 

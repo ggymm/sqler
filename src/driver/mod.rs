@@ -21,26 +21,19 @@ pub use sqlserver::SQLServerDriver;
 
 #[derive(Debug, thiserror::Error)]
 pub enum DriverError {
+    #[error("{0}")]
+    Other(String),
     #[error("配置字段缺失: {0}")]
     MissingField(String),
     #[error("配置字段非法: {0}")]
     InvalidField(String),
-    #[error("{0}")]
-    Other(String),
 }
 
 #[derive(Clone, Debug)]
 pub enum QueryReq {
-    Sql { stmt: String, params: Vec<String> },
+    Sql { stmt: String, args: Vec<String> },
     Command { name: String, args: Vec<Value> },
     Document { collection: String, filter: Value },
-}
-
-#[derive(Clone, Debug)]
-pub enum QueryResp {
-    Rows(Vec<HashMap<String, String>>),
-    Value(Value),
-    Documents(Vec<Value>),
 }
 
 #[derive(Clone, Debug)]
@@ -73,9 +66,30 @@ pub enum DeleteReq {
     Document { collection: String, filter: Value },
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Debug)]
+pub enum QueryResp {
+    Rows(Vec<HashMap<String, String>>),
+    Value(Value),
+    Documents(Vec<Value>),
+}
+
+#[derive(Clone, Debug)]
 pub struct WriteResp {
     pub affected: u64,
+}
+
+pub trait DatabaseDriver {
+    type Config;
+
+    fn check_connection(
+        &self,
+        config: &Self::Config,
+    ) -> Result<(), DriverError>;
+
+    fn create_connection(
+        &self,
+        config: &Self::Config,
+    ) -> Result<Box<dyn DatabaseSession>, DriverError>;
 }
 
 pub trait DatabaseSession: Send {
@@ -98,20 +112,6 @@ pub trait DatabaseSession: Send {
         &mut self,
         request: DeleteReq,
     ) -> Result<WriteResp, DriverError>;
-}
-
-pub trait DatabaseDriver {
-    type Config;
-
-    fn check_connection(
-        &self,
-        config: &Self::Config,
-    ) -> Result<(), DriverError>;
-
-    fn create_connection(
-        &self,
-        config: &Self::Config,
-    ) -> Result<Box<dyn DatabaseSession>, DriverError>;
 }
 
 pub fn check_connection(
@@ -224,16 +224,6 @@ impl Operator {
 }
 
 #[derive(Clone, Debug)]
-pub enum ConditionValue {
-    String(String),
-    Number(f64),
-    Bool(bool),
-    Null,
-    List(Vec<String>),
-    Range(String, String),
-}
-
-#[derive(Clone, Debug)]
 pub struct OrderCond {
     pub field: String,
     pub ascending: bool,
@@ -244,6 +234,16 @@ pub struct FilterCond {
     pub field: String,
     pub operator: Operator,
     pub value: ConditionValue,
+}
+
+#[derive(Clone, Debug)]
+pub enum ConditionValue {
+    Null,
+    Bool(bool),
+    String(String),
+    Number(f64),
+    List(Vec<String>),
+    Range(String, String),
 }
 
 #[derive(Clone, Debug, Default)]
@@ -298,13 +298,13 @@ pub trait QueryBuilder {
         };
 
         let mut sql = format!("SELECT {} FROM {}", cols, self.escape_identifier(table));
-        let mut params = Vec::new();
+        let mut args = Vec::new();
 
         // WHERE 子句
         if !conditions.filters.is_empty() {
             let (where_clause, where_params) = self.build_where_clause(&conditions.filters);
             sql.push_str(&format!(" WHERE {}", where_clause));
-            params.extend(where_params);
+            args.extend(where_params);
         }
 
         // ORDER BY 子句
@@ -321,7 +321,7 @@ pub trait QueryBuilder {
             sql.push_str(&format!(" {}", limit_clause));
         }
 
-        (sql, params)
+        (sql, args)
     }
 
     fn build_count_query(
@@ -330,16 +330,16 @@ pub trait QueryBuilder {
         conditions: &QueryConditions,
     ) -> (String, Vec<String>) {
         let mut sql = format!("SELECT COUNT(*) FROM {}", self.escape_identifier(table));
-        let mut params = Vec::new();
+        let mut args = Vec::new();
 
         // WHERE 子句
         if !conditions.filters.is_empty() {
             let (where_clause, where_params) = self.build_where_clause(&conditions.filters);
             sql.push_str(&format!(" WHERE {}", where_clause));
-            params.extend(where_params);
+            args.extend(where_params);
         }
 
-        (sql, params)
+        (sql, args)
     }
 }
 
