@@ -14,10 +14,10 @@ use crate::{
         comp_id, icon_export, icon_import, icon_relead, icon_search, icon_sheet, icon_trash, DataTable, DivExt,
     },
     driver::{
-        create_builder, create_connection, ConditionValue, DatabaseSession, DriverError, FilterCond, Operator,
-        OrderCond, QueryConditions, QueryReq, QueryResp,
+        create_connection, ConditionValue, DatabaseSession, DriverError, FilterCond, Operator, OrderCond, QueryReq,
+        QueryResp,
     },
-    option::{DataSource, DataSourceKind, DataSourceOptions},
+    option::{DataSource, DataSourceOptions},
 };
 
 const PAGE_SIZE: usize = 100;
@@ -175,8 +175,8 @@ impl MySQLWorkspace {
         // 重新查询表
         let result: Result<Vec<SharedString>, DriverError> = (|| {
             let session = self.active_session()?;
-            let stmt = format!("SHOW TABLES FROM {}", &database);
-            let rows = match session.query(QueryReq::Sql { stmt, args: Vec::new() })? {
+            let sql = format!("SHOW TABLES FROM {}", &database);
+            let rows = match session.query(QueryReq::Sql { sql, args: Vec::new() })? {
                 QueryResp::Rows(rows) => rows,
                 _ => return Ok(vec![]),
             };
@@ -281,7 +281,7 @@ impl MySQLWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let (table, mut page, size, total, mut conditions) = {
+        let (table, mut page, size, total, orders, filters) = {
             let Some(content) = self.table_content(tab_id) else {
                 return;
             };
@@ -292,10 +292,8 @@ impl MySQLWorkspace {
                 cx.notify();
             });
 
-            // 构建查询条件
-            let mut conditions = QueryConditions::default();
-
             // 转换排序规则
+            let mut orders = Vec::new();
             for rule in &content.order_rules {
                 // 读取字段名
                 let Some(field) = rule.field.read(cx).selected_value() else {
@@ -308,13 +306,14 @@ impl MySQLWorkspace {
                 };
                 let ascending = order.as_ref() == ORDER_ASC;
 
-                conditions.orders.push(OrderCond {
+                orders.push(OrderCond {
                     field: field.to_string(),
                     ascending,
                 });
             }
 
             // 转换筛选规则
+            let mut filters = Vec::new();
             for rule in &content.query_rules {
                 // 读取字段名
                 let Some(field) = rule.field.read(cx).selected_value() else {
@@ -339,7 +338,7 @@ impl MySQLWorkspace {
                     _ => ConditionValue::String(input),
                 };
 
-                conditions.filters.push(FilterCond {
+                filters.push(FilterCond {
                     field: field.to_string(),
                     operator,
                     value,
@@ -351,14 +350,12 @@ impl MySQLWorkspace {
                 content.page_no,
                 content.page_size,
                 content.total_rows,
-                conditions,
+                orders,
+                filters,
             )
         };
 
-        // 设置分页
-        conditions.limit = Some(size);
-        conditions.offset = Some(page * size);
-
+        // 确定页码
         let max_page = if total == 0 {
             0
         } else {
@@ -367,6 +364,10 @@ impl MySQLWorkspace {
         if page > max_page {
             page = max_page;
         }
+
+        // 设置分页
+        let limit = Some(size);
+        let offset = Some(page * size);
 
         let tab_id = tab_id.clone();
         let session = match self.active_session() {
@@ -388,13 +389,10 @@ impl MySQLWorkspace {
                     // 使用传递过来的连接
                     let mut session = session;
 
-                    // 执行查询
-                    let builder = create_builder(DataSourceKind::MySQL);
-
                     // 查询列名
-                    let stmt = format!("SHOW COLUMNS FROM {}", &table);
-                    let resp = session.query(QueryReq::Sql { stmt, args: Vec::new() })?;
-                    let column_rows = match resp {
+                    let sql = format!("SHOW COLUMNS FROM {}", &table);
+                    let column_resp = session.query(QueryReq::Sql { sql, args: Vec::new() })?;
+                    let column_rows = match column_resp {
                         QueryResp::Rows(rows) => rows,
                         _ => vec![],
                     };
@@ -412,12 +410,15 @@ impl MySQLWorkspace {
                     }
 
                     // 查询总数
-                    let (count_sql, count_args) = builder.build_count_query(&table, &conditions);
-                    let count_resp = session.query(QueryReq::Sql {
-                        stmt: count_sql,
-                        args: count_args,
+                    let count_resp = session.query(QueryReq::Builder {
+                        table: table.to_string(),
+                        columns: vec!["COUNT(*)".to_string()],
+                        limit: None,
+                        offset: None,
+                        orders: Vec::new(),
+                        filters: filters.clone(),
                     })?;
-                    let total_rows = match count_resp {
+                    let total_count = match count_resp {
                         QueryResp::Rows(count_rows) => count_rows
                             .first()
                             .and_then(|row| row.values().next())
@@ -427,10 +428,13 @@ impl MySQLWorkspace {
                     };
 
                     // 查询数据
-                    let (query_sql, query_args) = builder.build_select_query(&table, &[], &conditions);
-                    let query_resp = session.query(QueryReq::Sql {
-                        stmt: query_sql,
-                        args: query_args,
+                    let query_resp = session.query(QueryReq::Builder {
+                        table: table.to_string(),
+                        columns: Vec::new(),
+                        limit,
+                        offset,
+                        orders,
+                        filters,
                     })?;
                     let rows = match query_resp {
                         QueryResp::Rows(rows) => rows,
@@ -449,7 +453,7 @@ impl MySQLWorkspace {
                         table_rows.push(record);
                     }
 
-                    Ok::<_, DriverError>(((table_cols, table_rows, total_rows), session))
+                    Ok::<_, DriverError>(((table_cols, table_rows, total_count), session))
                 })
                 .await;
 

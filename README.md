@@ -28,5 +28,5 @@
 - [ ] Redis数据源工作区
 - [ ] 工作区中添加新建查询页面
 - [ ] 工作区结构重构（优先级最低）
-- [ ] 将build的内容移动到driver中，修改queryReq的结构
+- [x] 将build的内容移动到driver中，修改queryReq的结构
 - [ ] 添加git分支，使用worktree

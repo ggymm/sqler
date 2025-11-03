@@ -3,8 +3,8 @@ use std::{collections::HashMap, fs, path::Path};
 use rusqlite::{types::ValueRef, Connection, OpenFlags};
 
 use super::{
-    validate_stmt, ConditionValue, DatabaseDriver, DatabaseSession, DeleteReq, DriverError, FilterCond, InsertReq,
-    Operator, OrderCond, QueryBuilder, QueryReq, QueryResp, UpdateReq, WriteResp,
+    validate_sql, ConditionValue, DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, Operator,
+    QueryReq, QueryResp, UpdateReq, WriteResp,
 };
 use crate::option::SQLiteOptions;
 
@@ -26,48 +26,151 @@ impl DatabaseSession for SQLiteConnection {
         &mut self,
         request: QueryReq,
     ) -> Result<QueryResp, DriverError> {
-        match request {
-            QueryReq::Sql {
-                stmt: statement,
-                args: params,
+        let (sql, params) = match request {
+            QueryReq::Sql { sql, args } => {
+                validate_sql(&sql)?;
+                (sql, args)
+            }
+            QueryReq::Builder {
+                table,
+                columns,
+                filters,
+                orders,
+                limit,
+                offset,
             } => {
-                validate_stmt(&statement)?;
+                let cols = if columns.is_empty() {
+                    "*".to_string()
+                } else {
+                    columns
+                        .iter()
+                        .map(|c| format!("\"{}\"", c.replace('"', "\"\"")))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                };
+                let mut sql = format!("SELECT {} FROM \"{}\"", cols, table.replace('"', "\"\""));
+                let mut params = Vec::new();
 
-                let mut stmt = self
-                    .conn
-                    .prepare(&statement)
-                    .map_err(|err| DriverError::Other(format!("准备查询失败: {}", err)))?;
-                let names = stmt.column_names().iter().map(|s| s.to_string()).collect::<Vec<_>>();
-
-                // 字符串参数直接传递（SQLite 自动处理类型）
-                let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
-
-                let mut rows = stmt
-                    .query(&param_refs[..])
-                    .map_err(|err| DriverError::Other(format!("执行查询失败: {}", err)))?;
-
-                let mut records = Vec::new();
-                while let Some(row) = rows
-                    .next()
-                    .map_err(|err| DriverError::Other(format!("读取结果失败: {}", err)))?
-                {
-                    let mut record = HashMap::with_capacity(names.len());
-                    for (idx, name) in names.iter().enumerate() {
-                        let value = row
-                            .get_ref(idx)
-                            .map_err(|err| DriverError::Other(format!("读取列 {name} 失败: {}", err)))?;
-                        record.insert(name.clone(), sqlite_value_to_string(value));
+                if !filters.is_empty() {
+                    let mut clauses = Vec::new();
+                    for filter in &filters {
+                        let field = format!("\"{}\"", filter.field.replace('"', "\"\""));
+                        match filter.operator {
+                            Operator::IsNull => clauses.push(format!("{} IS NULL", field)),
+                            Operator::IsNotNull => clauses.push(format!("{} IS NOT NULL", field)),
+                            Operator::In => {
+                                if let ConditionValue::List(ref list) = filter.value {
+                                    if !list.is_empty() {
+                                        let placeholders = vec!["?"; list.len()].join(", ");
+                                        clauses.push(format!("{} IN ({})", field, placeholders));
+                                        params.extend(list.clone());
+                                    }
+                                }
+                            }
+                            Operator::NotIn => {
+                                if let ConditionValue::List(ref list) = filter.value {
+                                    if !list.is_empty() {
+                                        let placeholders = vec!["?"; list.len()].join(", ");
+                                        clauses.push(format!("{} NOT IN ({})", field, placeholders));
+                                        params.extend(list.clone());
+                                    }
+                                }
+                            }
+                            Operator::Between => {
+                                if let ConditionValue::Range(ref start, ref end) = filter.value {
+                                    clauses.push(format!("{} BETWEEN ? AND ?", field));
+                                    params.push(start.clone());
+                                    params.push(end.clone());
+                                }
+                            }
+                            _ => {
+                                let op_str = match filter.operator {
+                                    Operator::Equal => "=",
+                                    Operator::NotEqual => "!=",
+                                    Operator::GreaterThan => ">",
+                                    Operator::LessThan => "<",
+                                    Operator::GreaterOrEqual => ">=",
+                                    Operator::LessOrEqual => "<=",
+                                    Operator::Like => "LIKE",
+                                    Operator::NotLike => "NOT LIKE",
+                                    _ => "=",
+                                };
+                                clauses.push(format!("{} {} ?", field, op_str));
+                                match &filter.value {
+                                    ConditionValue::String(s) => params.push(s.clone()),
+                                    ConditionValue::Number(n) => params.push(n.to_string()),
+                                    ConditionValue::Bool(b) => {
+                                        params.push(if *b { "1".to_string() } else { "0".to_string() })
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
                     }
-                    records.push(record);
+                    if !clauses.is_empty() {
+                        sql.push_str(&format!(" WHERE {}", clauses.join(" AND ")));
+                    }
                 }
 
-                Ok(QueryResp::Rows(records))
+                if !orders.is_empty() {
+                    let order_clauses: Vec<_> = orders
+                        .iter()
+                        .map(|ord| {
+                            format!(
+                                "\"{}\" {}",
+                                ord.field.replace('"', "\"\""),
+                                if ord.ascending { "ASC" } else { "DESC" }
+                            )
+                        })
+                        .collect();
+                    sql.push_str(&format!(" ORDER BY {}", order_clauses.join(", ")));
+                }
+
+                match (limit, offset) {
+                    (Some(l), Some(o)) => sql.push_str(&format!(" LIMIT {} OFFSET {}", l, o)),
+                    (Some(l), None) => sql.push_str(&format!(" LIMIT {}", l)),
+                    (None, Some(o)) => sql.push_str(&format!(" LIMIT -1 OFFSET {}", o)),
+                    (None, None) => {}
+                }
+
+                (sql, params)
             }
-            other => Err(DriverError::InvalidField(format!(
-                "SQLite 查询仅支持 SQL，收到: {:?}",
-                other
-            ))),
+            other => {
+                return Err(DriverError::InvalidField(format!(
+                    "SQLite 查询仅支持 SQL 和 Builder，收到: {:?}",
+                    other
+                )))
+            }
+        };
+
+        let mut stmt = self
+            .conn
+            .prepare(&sql)
+            .map_err(|err| DriverError::Other(format!("准备查询失败: {}", err)))?;
+        let names = stmt.column_names().iter().map(|s| s.to_string()).collect::<Vec<_>>();
+
+        let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
+
+        let mut rows = stmt
+            .query(&param_refs[..])
+            .map_err(|err| DriverError::Other(format!("执行查询失败: {}", err)))?;
+
+        let mut records = Vec::new();
+        while let Some(row) = rows
+            .next()
+            .map_err(|err| DriverError::Other(format!("读取结果失败: {}", err)))?
+        {
+            let mut record = HashMap::with_capacity(names.len());
+            for (idx, name) in names.iter().enumerate() {
+                let value = row
+                    .get_ref(idx)
+                    .map_err(|err| DriverError::Other(format!("读取列 {name} 失败: {}", err)))?;
+                record.insert(name.clone(), sqlite_value_to_string(value));
+            }
+            records.push(record);
         }
+
+        Ok(QueryResp::Rows(records))
     }
 
     fn insert(
@@ -75,11 +178,11 @@ impl DatabaseSession for SQLiteConnection {
         request: InsertReq,
     ) -> Result<WriteResp, DriverError> {
         match request {
-            InsertReq::Sql { stmt: statement } => {
-                validate_stmt(&statement)?;
+            InsertReq::Sql { sql } => {
+                validate_sql(&sql)?;
                 let affected = self
                     .conn
-                    .execute(&statement, [])
+                    .execute(&sql, [])
                     .map_err(|err| DriverError::Other(format!("执行写入失败: {}", err)))?;
                 Ok(WriteResp {
                     affected: affected as u64,
@@ -97,11 +200,11 @@ impl DatabaseSession for SQLiteConnection {
         request: UpdateReq,
     ) -> Result<WriteResp, DriverError> {
         match request {
-            UpdateReq::Sql { stmt: statement } => {
-                validate_stmt(&statement)?;
+            UpdateReq::Sql { sql } => {
+                validate_sql(&sql)?;
                 let affected = self
                     .conn
-                    .execute(&statement, [])
+                    .execute(&sql, [])
                     .map_err(|err| DriverError::Other(format!("执行写入失败: {}", err)))?;
                 Ok(WriteResp {
                     affected: affected as u64,
@@ -119,11 +222,11 @@ impl DatabaseSession for SQLiteConnection {
         request: DeleteReq,
     ) -> Result<WriteResp, DriverError> {
         match request {
-            DeleteReq::Sql { stmt: statement } => {
-                validate_stmt(&statement)?;
+            DeleteReq::Sql { sql } => {
+                validate_sql(&sql)?;
                 let affected = self
                     .conn
-                    .execute(&statement, [])
+                    .execute(&sql, [])
                     .map_err(|err| DriverError::Other(format!("执行写入失败: {}", err)))?;
                 Ok(WriteResp {
                     affected: affected as u64,
@@ -197,157 +300,5 @@ fn sqlite_value_to_string(value: ValueRef<'_>) -> String {
             // Blob 显示为十六进制字符串
             blob.iter().map(|b| format!("{:02x}", b)).collect::<String>()
         }
-    }
-}
-
-// ==================== SQL 构建器实现 ====================
-
-/// SQLite 查询构建器
-pub struct SQLiteBuilder;
-
-impl QueryBuilder for SQLiteBuilder {
-    fn build_order_clause(
-        &self,
-        sorts: &[OrderCond],
-    ) -> String {
-        let orders: Vec<_> = sorts
-            .iter()
-            .map(|sort| {
-                format!(
-                    "{} {}",
-                    self.escape_identifier(&sort.field),
-                    if sort.ascending { "ASC" } else { "DESC" }
-                )
-            })
-            .collect();
-
-        if orders.is_empty() {
-            String::new()
-        } else {
-            format!("ORDER BY {}", orders.join(", "))
-        }
-    }
-
-    fn build_where_clause(
-        &self,
-        conditions: &[FilterCond],
-    ) -> (String, Vec<String>) {
-        let mut clauses = Vec::new();
-        let mut params = Vec::new();
-        let mut param_index = 0;
-
-        for condition in conditions.iter() {
-            let field = self.escape_identifier(&condition.field);
-
-            match condition.operator {
-                Operator::IsNull => {
-                    clauses.push(format!("{} IS NULL", field));
-                }
-                Operator::IsNotNull => {
-                    clauses.push(format!("{} IS NOT NULL", field));
-                }
-                Operator::In => {
-                    if let ConditionValue::List(ref list) = condition.value {
-                        if list.is_empty() {
-                            continue;
-                        }
-                        let placeholders: Vec<_> = (0..list.len())
-                            .map(|_| {
-                                let ph = self.placeholder(param_index);
-                                param_index += 1;
-                                ph
-                            })
-                            .collect();
-                        clauses.push(format!("{} IN ({})", field, placeholders.join(", ")));
-                        params.extend(list.clone());
-                    }
-                }
-                Operator::NotIn => {
-                    if let ConditionValue::List(ref list) = condition.value {
-                        if list.is_empty() {
-                            continue;
-                        }
-                        let placeholders: Vec<_> = (0..list.len())
-                            .map(|_| {
-                                let ph = self.placeholder(param_index);
-                                param_index += 1;
-                                ph
-                            })
-                            .collect();
-                        clauses.push(format!("{} NOT IN ({})", field, placeholders.join(", ")));
-                        params.extend(list.clone());
-                    }
-                }
-                Operator::Between => {
-                    if let ConditionValue::Range(ref start, ref end) = condition.value {
-                        let ph1 = self.placeholder(param_index);
-                        param_index += 1;
-                        let ph2 = self.placeholder(param_index);
-                        param_index += 1;
-                        clauses.push(format!("{} BETWEEN {} AND {}", field, ph1, ph2));
-                        params.push(start.clone());
-                        params.push(end.clone());
-                    }
-                }
-                _ => {
-                    let op_str = match condition.operator {
-                        Operator::Equal => "=",
-                        Operator::NotEqual => "!=",
-                        Operator::GreaterThan => ">",
-                        Operator::LessThan => "<",
-                        Operator::GreaterOrEqual => ">=",
-                        Operator::LessOrEqual => "<=",
-                        Operator::Like => "LIKE",
-                        Operator::NotLike => "NOT LIKE",
-                        _ => "=",
-                    };
-
-                    let ph = self.placeholder(param_index);
-                    param_index += 1;
-                    clauses.push(format!("{} {} {}", field, op_str, ph));
-
-                    match &condition.value {
-                        ConditionValue::String(s) => params.push(s.clone()),
-                        ConditionValue::Number(n) => params.push(n.to_string()),
-                        ConditionValue::Bool(b) => params.push(if *b { "1".to_string() } else { "0".to_string() }),
-                        _ => {}
-                    }
-                }
-            }
-        }
-
-        if clauses.is_empty() {
-            ("1=1".to_string(), params)
-        } else {
-            (clauses.join(" AND "), params)
-        }
-    }
-
-    fn build_limit_clause(
-        &self,
-        limit: Option<usize>,
-        offset: Option<usize>,
-    ) -> String {
-        match (limit, offset) {
-            (Some(l), Some(o)) => format!("LIMIT {} OFFSET {}", l, o),
-            (Some(l), None) => format!("LIMIT {}", l),
-            (None, Some(o)) => format!("LIMIT -1 OFFSET {}", o), // SQLite uses -1 for unlimited
-            (None, None) => String::new(),
-        }
-    }
-
-    fn escape_identifier(
-        &self,
-        identifier: &str,
-    ) -> String {
-        // SQLite supports both double quotes and square brackets
-        format!("\"{}\"", identifier.replace('"', "\"\""))
-    }
-
-    fn placeholder(
-        &self,
-        _index: usize,
-    ) -> String {
-        "?".to_string()
     }
 }
