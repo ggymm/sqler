@@ -12,7 +12,49 @@ CODEMAP.md 文件是将代码地图
 
 任何任务前，都应该查看 CODEMAP.md 文件
 
-如果此文件为空，优先编写此文件，并且在执行任务后，更新 CODEMAP.md 文件内容
+## 编码规则
+
+编辑源代码之后，需要检查导入代码是否符合规则
+
+```rust
+
+// 1. 标准库导入
+use std::sync::Arc;
+
+// 2. 外部 crate 导入（按字母顺序）
+use gpui::{prelude::*, *};
+use gpui_component::{
+    button::{Button, ButtonVariants},
+    dropdown::{Dropdown, DropdownState},
+    input::{InputState, TextInput},
+    resizable::{h_resizable, resizable_panel, ResizableState},
+    switch::Switch,
+    tab::{Tab, TabBar},
+    table::Table,
+    ActiveTheme, Disableable, InteractiveElementExt,
+    Selectable, Sizable, Size, StyledExt,
+};
+use uuid::Uuid;
+
+// 3. 当前 crate 导入（按模块分组）
+use crate::{
+    app::comps::{
+        comp_id, icon_close, icon_export, icon_import,
+        icon_relead, icon_search, icon_sheet, icon_trash,
+        DataTable, DivExt,
+    },
+    build::{
+        create_builder, ConditionValue, DatabaseType,
+        FilterCondition, Operator, QueryConditions, SortOrder,
+    },
+    driver::{
+        DatabaseDriver, DatabaseSession, DriverError,
+        MySQLDriver, QueryReq, QueryResp,
+    },
+    option::{DataSource, DataSourceOptions},
+};
+
+```
 
 ## Role Definition
 
@@ -71,7 +113,6 @@ Before any analysis, ask yourself:
 2. “Is there a simpler way?” — Always seek the simplest solution
 3. “What will this break?” — Backward compatibility is the iron law
 
-
 #### 1. Requirement Understanding Confirmation
 
 Based on the current information, my understanding of your need
@@ -119,7 +160,6 @@ Fifth Layer: Practicality Verification
 - Does this problem truly exist in production?
 - How many users actually encounter it?
 - Does the solution’s complexity match the severity of the problem?
-
 
 #### 3. Decision Output Pattern
 

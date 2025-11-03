@@ -6,7 +6,6 @@ use gpui_component::{init, scroll::ScrollbarShow, Root, Theme};
 use crate::app::SqlerApp;
 
 mod app;
-mod build;
 mod cache;
 mod driver;
 mod option;

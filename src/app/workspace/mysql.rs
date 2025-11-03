@@ -13,14 +13,16 @@ use crate::{
     app::comps::{
         comp_id, icon_export, icon_import, icon_relead, icon_search, icon_sheet, icon_trash, DataTable, DivExt,
     },
-    build::{create_builder, ConditionValue, DatabaseType, FilterCondition, Operator, QueryConditions, SortOrder},
-    driver::{DatabaseDriver, DatabaseSession, DriverError, MySQLDriver, QueryReq, QueryResp},
-    option::{DataSource, DataSourceOptions},
+    driver::{
+        create_builder, create_connection, ConditionValue, DatabaseSession, DriverError, FilterCond, Operator,
+        OrderCond, QueryConditions, QueryReq, QueryResp,
+    },
+    option::{DataSource, DataSourceKind, DataSourceOptions},
 };
 
 const PAGE_SIZE: usize = 100;
-const SORT_ORDER_ASC: &str = "升序";
-const SORT_ORDER_DESC: &str = "降序";
+const ORDER_ASC: &str = "升序";
+const ORDER_DESC: &str = "降序";
 
 struct TabItem {
     id: SharedString,
@@ -52,7 +54,7 @@ struct QueryRule {
     operator: Entity<DropdownState<Vec<SharedString>>>,
 }
 
-struct SortRule {
+struct OrderRule {
     id: SharedString,
     field: Entity<DropdownState<Vec<SharedString>>>,
     order: Entity<DropdownState<Vec<SharedString>>>,
@@ -66,7 +68,7 @@ struct TableContent {
     page_no: usize,
     page_size: usize,
     total_rows: usize,
-    sort_rules: Vec<SortRule>,
+    order_rules: Vec<OrderRule>,
     query_rules: Vec<QueryRule>,
     filter_enable: bool,
 }
@@ -149,11 +151,7 @@ impl MySQLWorkspace {
 
     fn active_session(&mut self) -> Result<&mut (dyn DatabaseSession + '_), DriverError> {
         if self.session.is_none() {
-            let DataSourceOptions::MySQL(opts) = &self.meta.options else {
-                return Err(DriverError::InvalidField("数据源类型不匹配".into()));
-            };
-
-            self.session = Some(MySQLDriver.create_connection(opts)?);
+            self.session = Some(create_connection(self.meta.kind, &self.meta.options)?);
         }
 
         match self.session.as_deref_mut() {
@@ -267,7 +265,7 @@ impl MySQLWorkspace {
                 total_rows: 0,
                 filter_enable: false,
                 query_rules: Vec::new(),
-                sort_rules: Vec::new(),
+                order_rules: Vec::new(),
             }),
             closable: true,
         });
@@ -301,7 +299,7 @@ impl MySQLWorkspace {
             let mut conditions = QueryConditions::default();
 
             // 转换排序规则
-            for rule in &content.sort_rules {
+            for rule in &content.order_rules {
                 // 读取字段名
                 let Some(field) = rule.field.read(cx).selected_value() else {
                     continue;
@@ -311,9 +309,9 @@ impl MySQLWorkspace {
                 let Some(order) = rule.order.read(cx).selected_value() else {
                     continue;
                 };
-                let ascending = order.as_ref() == SORT_ORDER_ASC;
+                let ascending = order.as_ref() == ORDER_ASC;
 
-                conditions.sorts.push(SortOrder {
+                conditions.orders.push(OrderCond {
                     field: field.to_string(),
                     ascending,
                 });
@@ -344,7 +342,7 @@ impl MySQLWorkspace {
                     _ => ConditionValue::String(input),
                 };
 
-                conditions.filters.push(FilterCondition {
+                conditions.filters.push(FilterCond {
                     field: field.to_string(),
                     operator,
                     value,
@@ -394,7 +392,7 @@ impl MySQLWorkspace {
                     let mut session = session;
 
                     // 执行查询
-                    let builder = create_builder(DatabaseType::MySQL);
+                    let builder = create_builder(DataSourceKind::MySQL);
 
                     // 查询列名
                     let stmt = format!("SHOW COLUMNS FROM {}", &table);
@@ -510,7 +508,7 @@ impl MySQLWorkspace {
         let theme = cx.theme().clone();
         let tab_id = tab.id.clone();
 
-        let sort_ops = vec![SharedString::from(SORT_ORDER_ASC), SharedString::from(SORT_ORDER_DESC)];
+        let order_ops = vec![SharedString::from(ORDER_ASC), SharedString::from(ORDER_DESC)];
         let filter_ops: Vec<SharedString> = Operator::all()
             .into_iter()
             .map(|op| SharedString::from(op.label().to_string()))
@@ -577,7 +575,7 @@ impl MySQLWorkspace {
                     view.reload_table_tab(&tab_id, window, cx);
                 }
             }));
-        let create_sort_btn = Button::new(comp_id(["filter-add-sort", &tab_id]))
+        let create_order_btn = Button::new(comp_id(["create-order", &tab_id]))
             .small()
             .outline()
             .label("新增排序")
@@ -586,7 +584,7 @@ impl MySQLWorkspace {
                 let headers = headers.clone();
                 move |view: &mut Self, _, window, cx| {
                     if let Some(content) = view.table_content(&tab_id) {
-                        content.sort_rules.push(SortRule {
+                        content.order_rules.push(OrderRule {
                             id: SharedString::from(Uuid::new_v4().to_string()),
                             field: cx.new(|cx| {
                                 // rustfmt::skip
@@ -594,14 +592,14 @@ impl MySQLWorkspace {
                             }),
                             order: cx.new(|cx| {
                                 // rustfmt::skip
-                                DropdownState::new(sort_ops.clone(), None, window, cx)
+                                DropdownState::new(order_ops.clone(), None, window, cx)
                             }),
                         });
                     }
                     cx.notify();
                 }
             }));
-        let create_query_btn = Button::new(comp_id(["filter-add-filter", &tab_id]))
+        let create_query_btn = Button::new(comp_id(["create-filter", &tab_id]))
             .small()
             .outline()
             .label("新增筛选")
@@ -647,7 +645,7 @@ impl MySQLWorkspace {
                 let tab_id = tab_id.clone();
                 move |view: &mut Self, _, _, cx| {
                     if let Some(content) = view.table_content(&tab_id) {
-                        content.sort_rules.clear();
+                        content.order_rules.clear();
                         content.query_rules.clear();
                     }
                     cx.notify();
@@ -668,7 +666,7 @@ impl MySQLWorkspace {
                         .border_1()
                         .rounded_lg()
                         .border_color(theme.border)
-                        .child(div().flex().flex_col().children(tab.sort_rules.iter().map(|rule| {
+                        .child(div().flex().flex_col().children(tab.order_rules.iter().map(|rule| {
                             let rule_id = rule.id.clone();
                             let rule_field = Dropdown::new(&rule.field).small().placeholder("");
                             let rule_order = Dropdown::new(&rule.order).small().placeholder("");
@@ -683,14 +681,14 @@ impl MySQLWorkspace {
                                 .child(div().w_48().child(rule_field))
                                 .child(div().w_48().child(rule_order))
                                 .child(
-                                    Button::new(comp_id(["sort-remove", &rule_id]))
+                                    Button::new(comp_id(["order-remove", &rule_id]))
                                         .ghost()
                                         .icon(icon_trash())
                                         .on_click(cx.listener({
                                             let tab_id = tab_id.clone();
                                             move |view: &mut Self, _, _, cx| {
                                                 if let Some(content) = view.table_content(&tab_id) {
-                                                    content.sort_rules.retain(|r| &r.id != &rule_id);
+                                                    content.order_rules.retain(|r| &r.id != &rule_id);
                                                 }
                                                 cx.notify();
                                             }
@@ -733,7 +731,7 @@ impl MySQLWorkspace {
                                 .flex_row()
                                 .items_center()
                                 .gap_2()
-                                .child(create_sort_btn)
+                                .child(create_order_btn)
                                 .child(create_query_btn)
                                 .child(div().flex_1())
                                 .child(clear_cond_btn)

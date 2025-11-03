@@ -30,57 +30,11 @@
 
 ---
 
-### 2. SQL 构建器 (`src/build/`)
-
-**职责**: 跨数据库的 SQL 查询构建抽象
-
-#### 2.1 核心抽象 (`mod.rs`)
-
-**类型定义**:
-
-- `Operator`: 查询操作符（等于、大于、小于、Like 等）
-- `ConditionValue`: 条件值类型
-- `FilterCondition`: 筛选条件
-- `SortOrder`: 排序规则（升序/降序）
-- `QueryConditions`: 查询条件集合
-
-**核心接口**:
-
-- `QueryBuilder` trait: 定义 SELECT/COUNT 查询构建方法
-- `create_builder()`: 根据数据库类型返回对应实现
-
-**实现策略**:
-
-- MySQL/PostgreSQL/SQLite 提供具体实现
-- 其他类型退回 MySQL 语法
-
-#### 2.2 数据库实现
-
-**MySQL 实现** (`mysql.rs`):
-
-- 标识符转义: 使用反引号 `` ` ``
-- 占位符格式: `?`
-- WHERE/ORDER BY/LIMIT 拼接
-
-**PostgreSQL 实现** (`postgres.rs`):
-
-- 标识符转义: 使用双引号 `"`
-- 占位符格式: `$1, $2, $3...`
-- WHERE/ORDER BY/LIMIT 拼接
-
-**SQLite 实现** (`sqlite.rs`):
-
-- 标识符转义: 使用双引号 `"`
-- 占位符格式: `?`
-- WHERE/ORDER BY/LIMIT 拼接
-
----
-
-### 3. 应用层 (`src/app/`)
+### 2. 应用层 (`src/app/`)
 
 **职责**: 核心 UI 逻辑和状态管理
 
-#### 3.1 应用状态 (`mod.rs`)
+#### 2.1 应用状态 (`mod.rs`)
 
 **核心结构**: `SqlerApp`
 
@@ -111,7 +65,7 @@
 
 ---
 
-#### 3.2 公共组件 (`comps/`)
+#### 2.2 公共组件 (`comps/`)
 
 ##### 组件工具 (`mod.rs`)
 
@@ -155,7 +109,7 @@
 
 ---
 
-#### 3.3 数据源创建 (`create/`)
+#### 2.3 数据源创建 (`create/`)
 
 ##### 创建窗口 (`mod.rs`)
 
@@ -191,7 +145,7 @@
 
 ---
 
-#### 3.4 工作区 (`workspace/`)
+#### 2.4 工作区 (`workspace/`)
 
 ##### 工作区路由 (`mod.rs`)
 
@@ -301,7 +255,7 @@
 
 **SQL 生成**:
 
-- 调用 `build::create_builder(DatabaseType::MySQL)` 获取构建器
+- 调用 `driver::create_builder(DataSourceKind::MySQL)` 获取构建器
 - 使用 `build_select_query()` 生成 SELECT 语句
 - 使用 `build_count_query()` 生成 COUNT 语句
 
@@ -329,7 +283,7 @@
 
 ---
 
-### 4. 缓存系统 (`src/cache/`)
+### 3. 缓存系统 (`src/cache/`)
 
 **核心结构**: `CacheApp` (`mod.rs`)
 
@@ -371,9 +325,9 @@
 
 ---
 
-### 5. 数据库驱动 (`src/driver/`)
+### 4. 数据库驱动 (`src/driver/`)
 
-**职责**: 统一数据库操作接口
+**职责**: 统一数据库操作接口和 SQL 查询构建
 
 #### 核心接口 (`mod.rs`)
 
@@ -381,6 +335,7 @@
 
 - `DatabaseDriver`: 驱动工厂（创建连接、检查连接）
 - `DatabaseSession`: 会话操作（查询、插入、更新、删除）
+- `QueryBuilder`: SQL 查询构建器接口
 
 **请求/响应类型**:
 
@@ -391,10 +346,19 @@
 - `DeleteReq`: 删除请求
 - `WriteResp`: 写入响应
 
+**SQL 构建器类型**:
+
+- `Operator`: 查询操作符（等于、大于、小于、Like 等）
+- `ConditionValue`: 条件值类型
+- `FilterCondition`: 筛选条件
+- `SortOrder`: 排序规则（升序/降序）
+- `QueryConditions`: 查询条件集合
+
 **路由函数**:
 
 - `check_connection()`: 按类型分发连接检查
 - `create_connection()`: 按类型分发连接创建
+- `create_builder(kind: DataSourceKind)`: 根据数据库类型创建对应的查询构建器
 
 ---
 
@@ -409,6 +373,12 @@
 3. 写操作: INSERT/UPDATE/DELETE
 4. 类型转换: `mysql::Value` → `serde_json::Value`
 5. 参数转换: `serde_json::Value` → `mysql::Value`
+
+**SQL 构建器** (`MySQLBuilder`):
+
+- 标识符转义: 使用反引号 `` ` ``
+- 占位符格式: `?`
+- WHERE/ORDER BY/LIMIT 拼接
 
 **特性**:
 
@@ -429,6 +399,12 @@
 4. 类型转换: PostgreSQL 原生类型 → JSON
 5. 参数转换: `serde_json::Value` → `Box<dyn ToSql + Sync>`
 
+**SQL 构建器** (`PostgreSQLBuilder`):
+
+- 标识符转义: 使用双引号 `"`
+- 占位符格式: `$1, $2, $3...`
+- WHERE/ORDER BY/LIMIT 拼接
+
 **特性**:
 
 - 支持常见类型映射
@@ -447,6 +423,12 @@
 3. 写操作: INSERT/UPDATE/DELETE
 4. 类型转换: SQLite 类型 → JSON
 5. 参数转换: `serde_json::Value` → SQLite 值
+
+**SQL 构建器** (`SQLiteBuilder`):
+
+- 标识符转义: 使用双引号 `"`
+- 占位符格式: `?`
+- WHERE/ORDER BY/LIMIT 拼接
 
 **特性**:
 
@@ -504,7 +486,7 @@
 
 ---
 
-### 6. 数据源配置 (`src/option/`)
+### 5. 数据源配置 (`src/option/`)
 
 **职责**: 定义数据源类型和连接参数
 
@@ -544,7 +526,7 @@
 
 ---
 
-### 7. 静态资源 (`assets/`)
+### 6. 静态资源 (`assets/`)
 
 **内容**: 数据库图标等静态文件
 
@@ -554,7 +536,7 @@
 
 ---
 
-### 8. 项目配置 (`Cargo.toml`)
+### 7. 项目配置 (`Cargo.toml`)
 
 **核心依赖**:
 
@@ -563,6 +545,18 @@
 - **序列化**: serde, serde_json
 - **数据库驱动**: mysql, postgres, rusqlite, mongodb, redis
 - **工具**: dirs, uuid, thiserror
+
+### 8. 测试数据脚本 (`scripts/test/`)
+
+**职责**: 为常见数据库批量生成演示数据，统一 10 张电商业务表模型，每表≥1000 行
+
+- `mysql_init.sql`: MySQL 版本，使用递归 CTE 批量插入 10 表（含触发器、自引用分类）
+- `oracle_init.sql`: Oracle 版本，PL/SQL 循环生成 1000 行，覆盖枚举校验与更新时间触发器
+- `sqlite_init.sql`: SQLite 版本，递归 CTE 驱动数据插入，保持外键与约束一致
+- `sqlserver_init.sql`: SQL Server 版本，CTE + 系统表构造序列，批量填充 10 张表
+- `postgres_init.sql`: PostgreSQL 版本，使用多枚举类型 + `generate_series` 插入数据
+- `redis_init.redis`: Redis 脚本，Lua 批量写入 10 类 key（哈希结构模拟关系型行）
+- `mongodb_init.js`: MongoDB 脚本，批量插入 10 个集合并建立关键索引（邮件、SKU、运单号）
 
 ---
 
@@ -591,11 +585,12 @@
 5. ✅ 筛选/排序 UI（添加/删除规则）
 6. ✅ 连接复用机制
 
-#### SQL 构建器
+#### 数据库驱动
 
-1. ✅ MySQL/PostgreSQL/SQLite 支持
-2. ✅ SELECT/COUNT 语句生成
-3. ✅ 参数化查询
+1. ✅ MySQL/PostgreSQL/SQLite 驱动实现
+2. ✅ SQL 构建器（MySQL/PostgreSQL/SQLite）
+3. ✅ SELECT/COUNT 语句生成
+4. ✅ 参数化查询
 
 #### 新建数据源窗口
 
