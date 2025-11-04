@@ -1,7 +1,65 @@
+use serde::{Deserialize, Serialize};
+
 use super::{
-    DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp, UpdateReq, WriteResp,
+    ConnectionOptions, DataSourceKind, DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError, InsertReq,
+    QueryReq, QueryResp, UpdateReq, WriteResp,
 };
-use crate::option::SQLServerOptions;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SQLServerAuth {
+    SqlPassword,
+    Integrated,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct SQLServerOptions {
+    pub host: String,
+    pub port: u16,
+    pub database: String,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub auth: SQLServerAuth,
+    pub instance: Option<String>,
+}
+
+impl Default for SQLServerOptions {
+    fn default() -> Self {
+        Self {
+            host: "127.0.0.1".into(),
+            port: 1433,
+            database: String::new(),
+            username: None,
+            password: None,
+            auth: SQLServerAuth::SqlPassword,
+            instance: None,
+        }
+    }
+}
+
+impl ConnectionOptions for SQLServerOptions {
+    fn kind(&self) -> DataSourceKind {
+        DataSourceKind::SQLServer
+    }
+}
+
+impl SQLServerOptions {
+    pub fn display_endpoint(&self) -> String {
+        let mut authority = format!("{}:{}", self.host, self.port);
+        if let Some(instance) = &self.instance {
+            let trimmed = instance.trim();
+            if !trimmed.is_empty() {
+                authority = format!("{}\\{}", authority, trimmed);
+            }
+        }
+
+        let db = self.database.trim();
+        if db.is_empty() {
+            format!("sqlserver://{}", authority)
+        } else {
+            format!("sqlserver://{}/{}", authority, db)
+        }
+    }
+}
 
 /// SQL Server 驱动占位实现。
 #[derive(Debug, Clone, Copy)]
@@ -41,6 +99,29 @@ impl DatabaseSession for SqlServerConnection {
 
 impl DatabaseDriver for SQLServerDriver {
     type Config = SQLServerOptions;
+
+    fn data_types(&self) -> Vec<Datatype> {
+        vec![
+            Datatype::TinyInt,
+            Datatype::SmallInt,
+            Datatype::Int,
+            Datatype::BigInt,
+            Datatype::Float,
+            Datatype::Double,
+            Datatype::Decimal,
+            Datatype::Char,
+            Datatype::VarChar,
+            Datatype::Text,
+            Datatype::Binary,
+            Datatype::VarBinary,
+            Datatype::Date,
+            Datatype::Time,
+            Datatype::DateTime,
+            Datatype::Timestamp,
+            Datatype::Boolean,
+            Datatype::Uuid,
+        ]
+    }
 
     fn check_connection(
         &self,

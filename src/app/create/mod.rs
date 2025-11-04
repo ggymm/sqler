@@ -1,11 +1,11 @@
 use gpui::{prelude::*, *};
 use gpui_component::{button::Button, ActiveTheme, StyledExt};
 
+use crate::driver::check_connection;
 use crate::{
     app::{comps::DivExt, SqlerApp},
-    driver,
-    option::DataSourceKind,
-    option::DataSourceOptions,
+    driver::DataSourceKind,
+    driver::DataSourceOptions,
 };
 
 pub mod mongodb;
@@ -139,7 +139,7 @@ impl CreateWindow {
         cx.spawn_in(window, async move |this, cx| {
             let result = cx
                 .background_executor()
-                .spawn(async move { driver::check_connection(kind, &options) })
+                .spawn(async move { check_connection(kind, &options) })
                 .await;
 
             let _ = cx.update(|_, cx| {

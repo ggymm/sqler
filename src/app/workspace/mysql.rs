@@ -14,10 +14,9 @@ use crate::{
         comp_id, icon_close, icon_relead, icon_search, icon_sheet, icon_transfer, icon_trash, DataTable, DivExt,
     },
     driver::{
-        create_connection, ConditionValue, DatabaseSession, DriverError, FilterCond, Operator, OrderCond, QueryReq,
-        QueryResp,
+        create_connection, DataSource, DataSourceOptions, DatabaseSession, DriverError, FilterCond, Operator,
+        OrderCond, QueryReq, QueryResp, ValueCond,
     },
-    option::{DataSource, DataSourceOptions},
 };
 
 const PAGE_SIZE: usize = 100;
@@ -337,8 +336,8 @@ impl MySQLWorkspace {
 
                 // 构建条件值
                 let value = match operator {
-                    Operator::IsNull | Operator::IsNotNull => ConditionValue::Null,
-                    _ => ConditionValue::String(input),
+                    Operator::IsNull | Operator::IsNotNull => ValueCond::Null,
+                    _ => ValueCond::String(input),
                 };
 
                 filters.push(FilterCond {

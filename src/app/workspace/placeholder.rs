@@ -1,7 +1,7 @@
 use gpui::{prelude::*, *};
 use gpui_component::{v_flex, ActiveTheme as _, StyledExt};
 
-use crate::option::DataSource;
+use crate::driver::DataSource;
 
 pub struct PlaceholderWorkspace {
     meta: DataSource,

@@ -1,8 +1,16 @@
 use std::collections::HashMap;
 
+use gpui::SharedString;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::option::{ConnectionOptions, DataSourceKind, DataSourceOptions};
+pub use mongodb::{MongoDBDriver, MongoDBHost, MongoDBOptions};
+pub use mysql::{MySQLDriver, MySQLOptions};
+pub use oracle::{OracleAddress, OracleOptions};
+pub use postgres::{PostgreSQLDriver, PostgreSQLOptions};
+pub use redis::{RedisDriver, RedisOptions};
+pub use sqlite::{SQLiteDriver, SQLiteOptions};
+pub use sqlserver::{SQLServerAuth, SQLServerDriver, SQLServerOptions};
 
 pub mod mongodb;
 pub mod mysql;
@@ -12,12 +20,212 @@ pub mod redis;
 pub mod sqlite;
 pub mod sqlserver;
 
-pub use mongodb::MongoDBDriver;
-pub use mysql::MySQLDriver;
-pub use postgres::PostgreSQLDriver;
-pub use redis::RedisDriver;
-pub use sqlite::SQLiteDriver;
-pub use sqlserver::SQLServerDriver;
+#[derive(Clone, Serialize, Deserialize)]
+pub struct DataSource {
+    pub id: String,
+    pub name: String,
+    pub desc: String,
+    pub kind: DataSourceKind,
+    pub options: DataSourceOptions,
+    pub extras: Option<HashMap<String, Value>>,
+}
+
+impl DataSource {
+    pub fn tables(&self) -> Vec<SharedString> {
+        if let Some(extras) = &self.extras {
+            if let Some(Value::Array(tables)) = extras.get("tables") {
+                return tables
+                    .iter()
+                    .filter_map(|v| v.as_str().map(|s| SharedString::from(s.to_string())))
+                    .collect();
+            }
+        }
+        vec![]
+    }
+
+    pub fn display(&self) -> String {
+        match &self.options {
+            DataSourceOptions::MySQL(opts) => opts.display_endpoint(),
+            DataSourceOptions::Oracle(opts) => opts.display_endpoint(),
+            DataSourceOptions::SQLite(opts) => opts.display_endpoint(),
+            DataSourceOptions::SQLServer(opts) => opts.display_endpoint(),
+            DataSourceOptions::PostgreSQL(opts) => opts.display_endpoint(),
+            DataSourceOptions::Redis(opts) => opts.display_endpoint(),
+            DataSourceOptions::MongoDB(opts) => opts.display_endpoint(),
+        }
+    }
+}
+
+#[repr(u8)]
+#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DataSourceKind {
+    MySQL,
+    Oracle,
+    SQLite,
+    SQLServer,
+    PostgreSQL,
+    Redis,
+    MongoDB,
+}
+
+impl DataSourceKind {
+    pub fn all() -> &'static [DataSourceKind] {
+        &[
+            DataSourceKind::MySQL,
+            DataSourceKind::Oracle,
+            DataSourceKind::SQLite,
+            DataSourceKind::SQLServer,
+            DataSourceKind::PostgreSQL,
+            DataSourceKind::Redis,
+            DataSourceKind::MongoDB,
+        ]
+    }
+
+    pub fn image(&self) -> &'static str {
+        match self {
+            DataSourceKind::MySQL => "icons/mysql.svg",
+            DataSourceKind::Oracle => "icons/oracle.svg",
+            DataSourceKind::SQLite => "icons/sqlite.svg",
+            DataSourceKind::SQLServer => "icons/sqlserver.svg",
+            DataSourceKind::PostgreSQL => "icons/postgresql.svg",
+            DataSourceKind::Redis => "icons/redis.svg",
+            DataSourceKind::MongoDB => "icons/mongodb.svg",
+        }
+    }
+
+    pub fn label(&self) -> &'static str {
+        match self {
+            DataSourceKind::MySQL => "MySQL",
+            DataSourceKind::Oracle => "Oracle",
+            DataSourceKind::SQLite => "SQLite",
+            DataSourceKind::SQLServer => "SQLServer",
+            DataSourceKind::PostgreSQL => "PostgreSQL",
+            DataSourceKind::Redis => "Redis",
+            DataSourceKind::MongoDB => "MongoDB",
+        }
+    }
+
+    pub fn description(&self) -> &'static str {
+        match self {
+            DataSourceKind::MySQL => "开源关系型数据库,读写性能稳定、生态成熟",
+            DataSourceKind::Oracle => "商业级事务数据库,强调安全性与可扩展性",
+            DataSourceKind::SQLite => "嵌入式文件数据库,零配置、单文件存储",
+            DataSourceKind::SQLServer => "微软企业数据库,原生集成 Windows 与 AD",
+            DataSourceKind::PostgreSQL => "开源对象关系数据库,扩展能力与标准兼容性强",
+            DataSourceKind::Redis => "内存键值数据库,适合缓存、队列与实时计数场景",
+            DataSourceKind::MongoDB => "文档型数据库,支持灵活的 JSON 模式与水平扩展",
+        }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub enum DataSourceOptions {
+    MySQL(MySQLOptions),
+    Oracle(OracleOptions),
+    SQLite(SQLiteOptions),
+    SQLServer(SQLServerOptions),
+    PostgreSQL(PostgreSQLOptions),
+    Redis(RedisOptions),
+    MongoDB(MongoDBOptions),
+}
+
+pub trait ConnectionOptions {
+    fn kind(&self) -> DataSourceKind;
+}
+
+impl ConnectionOptions for DataSourceOptions {
+    fn kind(&self) -> DataSourceKind {
+        match self {
+            DataSourceOptions::MySQL(_) => DataSourceKind::MySQL,
+            DataSourceOptions::Oracle(_) => DataSourceKind::Oracle,
+            DataSourceOptions::SQLite(_) => DataSourceKind::SQLite,
+            DataSourceOptions::SQLServer(_) => DataSourceKind::SQLServer,
+            DataSourceOptions::PostgreSQL(_) => DataSourceKind::PostgreSQL,
+            DataSourceOptions::Redis(_) => DataSourceKind::Redis,
+            DataSourceOptions::MongoDB(_) => DataSourceKind::MongoDB,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Datatype {
+    // 整数类型
+    TinyInt,
+    SmallInt,
+    Int,
+    BigInt,
+    // 浮点类型
+    Float,
+    Double,
+    Decimal,
+    // 字符串类型
+    Char,
+    VarChar,
+    Text,
+    // 二进制类型
+    Binary,
+    VarBinary,
+    Blob,
+    // 日期时间类型
+    Date,
+    Time,
+    DateTime,
+    Timestamp,
+    // 布尔类型
+    Boolean,
+    // JSON 类型
+    Json,
+    // 特殊类型
+    Uuid,
+    Enum,
+    Set,
+    // NoSQL 特殊类型
+    Document,
+    Array,
+    // Redis 特殊类型
+    String,
+    List,
+    Hash,
+    ZSet,
+    // 其他
+    Unknown,
+}
+
+impl Datatype {
+    pub fn label(&self) -> &'static str {
+        match self {
+            Datatype::TinyInt => "TINYINT",
+            Datatype::SmallInt => "SMALLINT",
+            Datatype::Int => "INT",
+            Datatype::BigInt => "BIGINT",
+            Datatype::Float => "FLOAT",
+            Datatype::Double => "DOUBLE",
+            Datatype::Decimal => "DECIMAL",
+            Datatype::Char => "CHAR",
+            Datatype::VarChar => "VARCHAR",
+            Datatype::Text => "TEXT",
+            Datatype::Binary => "BINARY",
+            Datatype::VarBinary => "VARBINARY",
+            Datatype::Blob => "BLOB",
+            Datatype::Date => "DATE",
+            Datatype::Time => "TIME",
+            Datatype::DateTime => "DATETIME",
+            Datatype::Timestamp => "TIMESTAMP",
+            Datatype::Boolean => "BOOLEAN",
+            Datatype::Json => "JSON",
+            Datatype::Uuid => "UUID",
+            Datatype::Enum => "ENUM",
+            Datatype::Set => "SET",
+            Datatype::Document => "DOCUMENT",
+            Datatype::Array => "ARRAY",
+            Datatype::String => "STRING",
+            Datatype::List => "LIST",
+            Datatype::Hash => "HASH",
+            Datatype::ZSet => "ZSET",
+            Datatype::Unknown => "UNKNOWN",
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Operator {
@@ -97,20 +305,20 @@ pub struct OrderCond {
 }
 
 #[derive(Clone, Debug)]
-pub struct FilterCond {
-    pub field: String,
-    pub operator: Operator,
-    pub value: ConditionValue,
-}
-
-#[derive(Clone, Debug)]
-pub enum ConditionValue {
+pub enum ValueCond {
     Null,
     Bool(bool),
     String(String),
     Number(f64),
     List(Vec<String>),
     Range(String, String),
+}
+
+#[derive(Clone, Debug)]
+pub struct FilterCond {
+    pub field: String,
+    pub operator: Operator,
+    pub value: ValueCond,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -192,6 +400,8 @@ pub struct WriteResp {
 pub trait DatabaseDriver {
     type Config;
 
+    fn data_types(&self) -> Vec<Datatype>;
+
     fn check_connection(
         &self,
         config: &Self::Config,
@@ -268,6 +478,18 @@ pub fn validate_sql(sql: &str) -> Result<(), DriverError> {
         return Err(DriverError::InvalidField("sql".into()));
     }
     Ok(())
+}
+
+pub fn get_data_types(kind: DataSourceKind) -> Vec<Datatype> {
+    match kind {
+        DataSourceKind::MySQL => MySQLDriver.data_types(),
+        DataSourceKind::PostgreSQL => PostgreSQLDriver.data_types(),
+        DataSourceKind::SQLite => SQLiteDriver.data_types(),
+        DataSourceKind::SQLServer => SQLServerDriver.data_types(),
+        DataSourceKind::MongoDB => MongoDBDriver.data_types(),
+        DataSourceKind::Redis => RedisDriver.data_types(),
+        DataSourceKind::Oracle => vec![],
+    }
 }
 
 #[cfg(test)]

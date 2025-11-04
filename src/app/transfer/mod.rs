@@ -3,7 +3,7 @@ use gpui_component::{button::Button, ActiveTheme, StyledExt};
 
 use crate::{
     app::{comps::DivExt, SqlerApp},
-    option::DataSource,
+    driver::DataSource,
 };
 
 mod import;

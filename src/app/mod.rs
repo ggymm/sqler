@@ -13,7 +13,7 @@ use crate::{
     app::comps::{comp_id, icon_close},
     app::{create::CreateWindow, transfer::TransferWindow, workspace::WorkspaceState},
     cache::CacheApp,
-    option::{DataSource, DataSourceKind, DataSourceOptions, MySQLOptions},
+    driver::{DataSource, DataSourceKind, DataSourceOptions, MySQLOptions},
 };
 
 mod comps;

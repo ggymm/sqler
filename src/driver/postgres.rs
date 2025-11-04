@@ -1,12 +1,53 @@
 use std::collections::HashMap;
 
 use postgres::{types::Type, Client, Config, Error as PostgresError, NoTls};
+use serde::{Deserialize, Serialize};
 
 use super::{
-    validate_sql, ConditionValue, DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, Operator,
-    QueryReq, QueryResp, UpdateReq, WriteResp,
+    validate_sql, ConnectionOptions, DataSourceKind, DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError,
+    InsertReq, Operator, QueryReq, QueryResp, UpdateReq, ValueCond, WriteResp,
 };
-use crate::option::PostgreSQLOptions;
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct PostgreSQLOptions {
+    pub host: String,
+    pub port: u16,
+    pub database: String,
+    pub username: String,
+    pub password: Option<String>,
+    pub use_tls: bool,
+}
+
+impl Default for PostgreSQLOptions {
+    fn default() -> Self {
+        Self {
+            host: "127.0.0.1".into(),
+            port: 5432,
+            database: String::new(),
+            username: "postgres".into(),
+            password: None,
+            use_tls: false,
+        }
+    }
+}
+
+impl ConnectionOptions for PostgreSQLOptions {
+    fn kind(&self) -> DataSourceKind {
+        DataSourceKind::PostgreSQL
+    }
+}
+
+impl PostgreSQLOptions {
+    pub fn display_endpoint(&self) -> String {
+        let db = self.database.trim();
+        let suffix = if db.is_empty() {
+            String::new()
+        } else {
+            format!("/{}", db)
+        };
+        format!("postgres://{}:{}{}", self.host, self.port, suffix)
+    }
+}
 
 /// Postgres 驱动实现。
 #[derive(Debug, Clone, Copy)]
@@ -61,7 +102,7 @@ impl DatabaseSession for PostgresConnection {
                             Operator::IsNull => clauses.push(format!("{} IS NULL", field)),
                             Operator::IsNotNull => clauses.push(format!("{} IS NOT NULL", field)),
                             Operator::In => {
-                                if let ConditionValue::List(ref list) = filter.value {
+                                if let ValueCond::List(ref list) = filter.value {
                                     if !list.is_empty() {
                                         let placeholders: Vec<_> = (0..list.len())
                                             .map(|_| {
@@ -76,7 +117,7 @@ impl DatabaseSession for PostgresConnection {
                                 }
                             }
                             Operator::NotIn => {
-                                if let ConditionValue::List(ref list) = filter.value {
+                                if let ValueCond::List(ref list) = filter.value {
                                     if !list.is_empty() {
                                         let placeholders: Vec<_> = (0..list.len())
                                             .map(|_| {
@@ -91,7 +132,7 @@ impl DatabaseSession for PostgresConnection {
                                 }
                             }
                             Operator::Between => {
-                                if let ConditionValue::Range(ref start, ref end) = filter.value {
+                                if let ValueCond::Range(ref start, ref end) = filter.value {
                                     clauses.push(format!(
                                         "{} BETWEEN ${} AND ${}",
                                         field,
@@ -118,9 +159,9 @@ impl DatabaseSession for PostgresConnection {
                                 clauses.push(format!("{} {} ${}", field, op_str, param_index));
                                 param_index += 1;
                                 match &filter.value {
-                                    ConditionValue::String(s) => params.push(s.clone()),
-                                    ConditionValue::Number(n) => params.push(n.to_string()),
-                                    ConditionValue::Bool(b) => {
+                                    ValueCond::String(s) => params.push(s.clone()),
+                                    ValueCond::Number(n) => params.push(n.to_string()),
+                                    ValueCond::Bool(b) => {
                                         params.push(if *b { "true".to_string() } else { "false".to_string() })
                                     }
                                     _ => {}
@@ -250,6 +291,28 @@ impl DatabaseSession for PostgresConnection {
 
 impl DatabaseDriver for PostgreSQLDriver {
     type Config = PostgreSQLOptions;
+
+    fn data_types(&self) -> Vec<Datatype> {
+        vec![
+            Datatype::SmallInt,
+            Datatype::Int,
+            Datatype::BigInt,
+            Datatype::Float,
+            Datatype::Double,
+            Datatype::Decimal,
+            Datatype::Char,
+            Datatype::VarChar,
+            Datatype::Text,
+            Datatype::Binary,
+            Datatype::Date,
+            Datatype::Time,
+            Datatype::Timestamp,
+            Datatype::Boolean,
+            Datatype::Json,
+            Datatype::Uuid,
+            Datatype::Array,
+        ]
+    }
 
     fn check_connection(
         &self,

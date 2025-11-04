@@ -5,7 +5,7 @@ use gpui_component::{
     Sizable, Size,
 };
 
-use crate::option::PostgreSQLOptions;
+use crate::driver::PostgreSQLOptions;
 
 pub struct PostgresCreate {
     pub name: Entity<InputState>,

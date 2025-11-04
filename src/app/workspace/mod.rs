@@ -3,7 +3,7 @@ use gpui_component::{ActiveTheme, InteractiveElementExt, StyledExt};
 
 use crate::{
     app::{SqlerApp, TabView},
-    option::{DataSource, DataSourceKind},
+    driver::{DataSource, DataSourceKind},
 };
 use mysql::MySQLWorkspace;
 use placeholder::PlaceholderWorkspace;

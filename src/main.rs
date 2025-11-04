@@ -8,7 +8,6 @@ use crate::app::SqlerApp;
 mod app;
 mod cache;
 mod driver;
-mod option;
 
 struct FsAssets;
 

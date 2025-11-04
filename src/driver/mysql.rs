@@ -1,18 +1,86 @@
 use std::collections::HashMap;
 
 use mysql::{prelude::Queryable, Conn, Opts, OptsBuilder, SslOpts, Value};
+use serde::{Deserialize, Serialize};
 
 use super::{
-    validate_sql, ConditionValue, DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, Operator,
-    QueryReq, QueryResp, UpdateReq, WriteResp,
+    validate_sql, ConnectionOptions, DataSourceKind, DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError,
+    InsertReq, Operator, QueryReq, QueryResp, UpdateReq, ValueCond, WriteResp,
 };
-use crate::option::MySQLOptions;
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct MySQLOptions {
+    pub host: String,
+    pub port: u16,
+    pub username: String,
+    pub password: Option<String>,
+    pub database: String,
+    pub charset: Option<String>,
+    pub use_tls: bool,
+}
+
+impl Default for MySQLOptions {
+    fn default() -> Self {
+        Self {
+            host: "127.0.0.1".into(),
+            port: 3306,
+            username: "root".into(),
+            password: None,
+            database: String::new(),
+            charset: Some("utf8mb4".into()),
+            use_tls: false,
+        }
+    }
+}
+
+impl ConnectionOptions for MySQLOptions {
+    fn kind(&self) -> DataSourceKind {
+        DataSourceKind::MySQL
+    }
+}
+
+impl MySQLOptions {
+    pub fn display_endpoint(&self) -> String {
+        let scheme = if self.use_tls { "mysqls" } else { "mysql" };
+        let db = self.database.trim();
+        if db.is_empty() {
+            format!("{}://{}:{}", scheme, self.host, self.port)
+        } else {
+            format!("{}://{}:{}/{}", scheme, self.host, self.port, db)
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy)]
 pub struct MySQLDriver;
 
 impl DatabaseDriver for MySQLDriver {
     type Config = MySQLOptions;
+
+    fn data_types(&self) -> Vec<Datatype> {
+        vec![
+            Datatype::TinyInt,
+            Datatype::SmallInt,
+            Datatype::Int,
+            Datatype::BigInt,
+            Datatype::Float,
+            Datatype::Double,
+            Datatype::Decimal,
+            Datatype::Char,
+            Datatype::VarChar,
+            Datatype::Text,
+            Datatype::Binary,
+            Datatype::VarBinary,
+            Datatype::Blob,
+            Datatype::Date,
+            Datatype::Time,
+            Datatype::DateTime,
+            Datatype::Timestamp,
+            Datatype::Json,
+            Datatype::Enum,
+            Datatype::Set,
+        ]
+    }
 
     fn check_connection(
         &self,
@@ -90,7 +158,7 @@ impl DatabaseSession for MySQLSession {
                             Operator::IsNull => clauses.push(format!("{} IS NULL", field)),
                             Operator::IsNotNull => clauses.push(format!("{} IS NOT NULL", field)),
                             Operator::In => {
-                                if let ConditionValue::List(ref list) = filter.value {
+                                if let ValueCond::List(ref list) = filter.value {
                                     if !list.is_empty() {
                                         let placeholders = vec!["?"; list.len()].join(", ");
                                         clauses.push(format!("{} IN ({})", field, placeholders));
@@ -99,7 +167,7 @@ impl DatabaseSession for MySQLSession {
                                 }
                             }
                             Operator::NotIn => {
-                                if let ConditionValue::List(ref list) = filter.value {
+                                if let ValueCond::List(ref list) = filter.value {
                                     if !list.is_empty() {
                                         let placeholders = vec!["?"; list.len()].join(", ");
                                         clauses.push(format!("{} NOT IN ({})", field, placeholders));
@@ -108,7 +176,7 @@ impl DatabaseSession for MySQLSession {
                                 }
                             }
                             Operator::Between => {
-                                if let ConditionValue::Range(ref start, ref end) = filter.value {
+                                if let ValueCond::Range(ref start, ref end) = filter.value {
                                     clauses.push(format!("{} BETWEEN ? AND ?", field));
                                     params.push(start.clone());
                                     params.push(end.clone());
@@ -128,9 +196,9 @@ impl DatabaseSession for MySQLSession {
                                 };
                                 clauses.push(format!("{} {} ?", field, op_str));
                                 match &filter.value {
-                                    ConditionValue::String(s) => params.push(s.clone()),
-                                    ConditionValue::Number(n) => params.push(n.to_string()),
-                                    ConditionValue::Bool(b) => {
+                                    ValueCond::String(s) => params.push(s.clone()),
+                                    ValueCond::Number(n) => params.push(n.to_string()),
+                                    ValueCond::Bool(b) => {
                                         params.push(if *b { "1".to_string() } else { "0".to_string() })
                                     }
                                     _ => {}

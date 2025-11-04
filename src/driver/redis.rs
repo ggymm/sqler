@@ -1,10 +1,45 @@
 use redis::{Client, Connection, Value};
+use serde::{Deserialize, Serialize};
 use serde_json::{Map as JsonMap, Number, Value as JsonValue};
 
 use super::{
-    DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp, UpdateReq, WriteResp,
+    ConnectionOptions, DataSourceKind, DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError, InsertReq,
+    QueryReq, QueryResp, UpdateReq, WriteResp,
 };
-use crate::option::RedisOptions;
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct RedisOptions {
+    pub host: String,
+    pub port: u16,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub use_tls: bool,
+}
+
+impl Default for RedisOptions {
+    fn default() -> Self {
+        Self {
+            host: "127.0.0.1".into(),
+            port: 6379,
+            username: None,
+            password: None,
+            use_tls: false,
+        }
+    }
+}
+
+impl ConnectionOptions for RedisOptions {
+    fn kind(&self) -> DataSourceKind {
+        DataSourceKind::Redis
+    }
+}
+
+impl RedisOptions {
+    pub fn display_endpoint(&self) -> String {
+        let scheme = if self.use_tls { "rediss" } else { "redis" };
+        format!("{}://{}:{}", scheme, self.host, self.port)
+    }
+}
 
 #[derive(Debug, Clone, Copy)]
 pub struct RedisDriver;
@@ -93,6 +128,10 @@ impl DatabaseSession for RedisConnection {
 
 impl DatabaseDriver for RedisDriver {
     type Config = RedisOptions;
+
+    fn data_types(&self) -> Vec<Datatype> {
+        vec![Datatype::String, Datatype::List, Datatype::Hash, Datatype::ZSet]
+    }
 
     fn check_connection(
         &self,

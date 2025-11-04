@@ -1,12 +1,48 @@
 use std::{collections::HashMap, fs, path::Path};
 
 use rusqlite::{types::ValueRef, Connection, OpenFlags};
+use serde::{Deserialize, Serialize};
 
 use super::{
-    validate_sql, ConditionValue, DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, Operator,
-    QueryReq, QueryResp, UpdateReq, WriteResp,
+    validate_sql, ConnectionOptions, DataSourceKind, DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError,
+    InsertReq, Operator, QueryReq, QueryResp, UpdateReq, ValueCond, WriteResp,
 };
-use crate::option::SQLiteOptions;
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct SQLiteOptions {
+    pub filepath: String,
+    pub password: Option<String>,
+    pub read_only: bool,
+}
+
+impl Default for SQLiteOptions {
+    fn default() -> Self {
+        Self {
+            filepath: String::new(),
+            password: None,
+            read_only: false,
+        }
+    }
+}
+
+impl ConnectionOptions for SQLiteOptions {
+    fn kind(&self) -> DataSourceKind {
+        DataSourceKind::SQLite
+    }
+}
+
+impl SQLiteOptions {
+    pub fn display_endpoint(&self) -> String {
+        let path = self.filepath.trim();
+        if path.is_empty() {
+            "sqlite://<未配置文件>".into()
+        } else if self.read_only {
+            format!("sqlite://{}?mode=ro", path)
+        } else {
+            format!("sqlite://{}", path)
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy)]
 pub struct SQLiteDriver;
@@ -59,7 +95,7 @@ impl DatabaseSession for SQLiteConnection {
                             Operator::IsNull => clauses.push(format!("{} IS NULL", field)),
                             Operator::IsNotNull => clauses.push(format!("{} IS NOT NULL", field)),
                             Operator::In => {
-                                if let ConditionValue::List(ref list) = filter.value {
+                                if let ValueCond::List(ref list) = filter.value {
                                     if !list.is_empty() {
                                         let placeholders = vec!["?"; list.len()].join(", ");
                                         clauses.push(format!("{} IN ({})", field, placeholders));
@@ -68,7 +104,7 @@ impl DatabaseSession for SQLiteConnection {
                                 }
                             }
                             Operator::NotIn => {
-                                if let ConditionValue::List(ref list) = filter.value {
+                                if let ValueCond::List(ref list) = filter.value {
                                     if !list.is_empty() {
                                         let placeholders = vec!["?"; list.len()].join(", ");
                                         clauses.push(format!("{} NOT IN ({})", field, placeholders));
@@ -77,7 +113,7 @@ impl DatabaseSession for SQLiteConnection {
                                 }
                             }
                             Operator::Between => {
-                                if let ConditionValue::Range(ref start, ref end) = filter.value {
+                                if let ValueCond::Range(ref start, ref end) = filter.value {
                                     clauses.push(format!("{} BETWEEN ? AND ?", field));
                                     params.push(start.clone());
                                     params.push(end.clone());
@@ -97,9 +133,9 @@ impl DatabaseSession for SQLiteConnection {
                                 };
                                 clauses.push(format!("{} {} ?", field, op_str));
                                 match &filter.value {
-                                    ConditionValue::String(s) => params.push(s.clone()),
-                                    ConditionValue::Number(n) => params.push(n.to_string()),
-                                    ConditionValue::Bool(b) => {
+                                    ValueCond::String(s) => params.push(s.clone()),
+                                    ValueCond::Number(n) => params.push(n.to_string()),
+                                    ValueCond::Bool(b) => {
                                         params.push(if *b { "1".to_string() } else { "0".to_string() })
                                     }
                                     _ => {}
@@ -242,6 +278,22 @@ impl DatabaseSession for SQLiteConnection {
 
 impl DatabaseDriver for SQLiteDriver {
     type Config = SQLiteOptions;
+
+    fn data_types(&self) -> Vec<Datatype> {
+        vec![
+            Datatype::Int,
+            Datatype::BigInt,
+            Datatype::Float,
+            Datatype::Double,
+            Datatype::Char,
+            Datatype::VarChar,
+            Datatype::Text,
+            Datatype::Blob,
+            Datatype::Date,
+            Datatype::DateTime,
+            Datatype::Boolean,
+        ]
+    }
 
     fn check_connection(
         &self,

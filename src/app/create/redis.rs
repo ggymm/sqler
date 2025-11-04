@@ -5,7 +5,7 @@ use gpui_component::{
     Sizable, Size,
 };
 
-use crate::option::RedisOptions;
+use crate::driver::RedisOptions;
 
 pub struct RedisCreate {
     pub name: Entity<InputState>,

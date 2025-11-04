@@ -5,7 +5,7 @@ use gpui_component::{
     Sizable, Size,
 };
 
-use crate::option::MySQLOptions;
+use crate::driver::MySQLOptions;
 
 pub struct MySQLCreate {
     pub name: Entity<InputState>,

@@ -4,11 +4,11 @@ use gpui_component::{
     dropdown::{Dropdown, DropdownState},
     form::{form_field, Form},
     input::{InputState, TextInput},
-    ActiveTheme, Disableable, Sizable, Size, StyledExt,
+    ActiveTheme, Sizable, Size, StyledExt,
 };
 
 use super::TransferFormat;
-use crate::{app::comps::DivExt, option::DataSource};
+use crate::{app::comps::DivExt, driver::DataSource};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum TableOption {
