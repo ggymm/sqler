@@ -557,6 +557,8 @@
 - `postgres_init.sql`: PostgreSQL 版本，使用多枚举类型 + `generate_series` 插入数据
 - `redis_init.redis`: Redis 脚本，Lua 批量写入 10 类 key（哈希结构模拟关系型行）
 - `mongodb_init.js`: MongoDB 脚本，批量插入 10 个集合并建立关键索引（邮件、SKU、运单号）
+- `csv/`: 预生成 10 张电商相关 CSV（每表≥1000 行），由 `generate_csv_data.py` 脚本生成
+- `generate_csv_data.py`: Python 数据生成器，统一输出 customers、orders、products 等 CSV，覆盖多语言字段
 
 ---
 

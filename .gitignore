@@ -1,3 +1,9 @@
+#project
 .idea
+.vacode
 
+#rust output
 target
+
+# tempdata
+*csv
