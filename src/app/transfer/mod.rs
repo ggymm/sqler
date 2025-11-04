@@ -3,6 +3,9 @@ use gpui_component::{button::Button, ActiveTheme, Disableable, StyledExt};
 
 use crate::app::{comps::DivExt, SqlerApp};
 
+mod import;
+mod output;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TransferType {
     Import,
@@ -62,12 +65,15 @@ pub struct TransferWindow {
     transfer_type: Option<TransferType>,
     format: Option<TransferFormat>,
     parent: WeakEntity<SqlerApp>,
+
+    import_config: Entity<import::ImportConfig>,
+    output_config: Entity<output::OutputConfig>,
 }
 
 impl TransferWindow {
     pub fn new(
         parent: WeakEntity<SqlerApp>,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
         let parent_for_release = parent.clone();
@@ -84,6 +90,8 @@ impl TransferWindow {
             transfer_type: None,
             format: None,
             parent,
+            import_config: cx.new(|cx| import::ImportConfig::new(TransferFormat::Csv, window, cx)),
+            output_config: cx.new(|cx| output::OutputConfig::new(TransferFormat::Csv, window, cx)),
         }
     }
 
@@ -124,10 +132,13 @@ impl TransferWindow {
     fn select_format(
         &mut self,
         format: TransferFormat,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         if self.format != Some(format) {
             self.format = Some(format);
+            self.import_config = cx.new(|cx| import::ImportConfig::new(format, window, cx));
+            self.output_config = cx.new(|cx| output::OutputConfig::new(format, window, cx));
             cx.notify();
         }
     }
@@ -184,144 +195,170 @@ impl Render for TransferWindow {
                     .relative()
                     .overflow_hidden()
                     .child(match (transfer_type, format) {
-                        (None, _) => div().p_6().gap_5().col_full().scrollable(Axis::Vertical).children(
-                            TransferType::all()
-                                .iter()
-                                .map(|typ| {
-                                    div()
-                                        .flex()
-                                        .flex_row()
-                                        .items_center()
-                                        .p_4()
-                                        .gap_4()
-                                        .h_20()
-                                        .w_full()
-                                        .bg(theme.list)
-                                        .border_1()
-                                        .border_color(theme.border)
-                                        .rounded_lg()
-                                        .cursor_pointer()
-                                        .id(("transfer-type-{}", *typ as u64))
-                                        .hover(|this| this.bg(theme.list_hover))
-                                        .child(
-                                            div()
-                                                .flex()
-                                                .flex_1()
-                                                .flex_col()
-                                                .items_start()
-                                                .justify_center()
-                                                .child(div().text_base().font_semibold().child(typ.label()))
-                                                .child(div().text_sm().child(typ.description())),
-                                        )
-                                        .on_click(cx.listener({
-                                            let typ = *typ;
-                                            move |this: &mut TransferWindow, _ev, _window, cx| {
-                                                this.select_type(typ, cx);
-                                            }
-                                        }))
-                                        .into_any_element()
-                                })
-                                .collect::<Vec<_>>(),
-                        ),
-                        (Some(_), None) => div().p_6().gap_5().col_full().scrollable(Axis::Vertical).children(
-                            TransferFormat::all()
-                                .iter()
-                                .map(|fmt| {
-                                    div()
-                                        .flex()
-                                        .flex_row()
-                                        .items_center()
-                                        .p_4()
-                                        .gap_4()
-                                        .h_20()
-                                        .w_full()
-                                        .bg(theme.list)
-                                        .border_1()
-                                        .border_color(theme.border)
-                                        .rounded_lg()
-                                        .cursor_pointer()
-                                        .id(("transfer-format-{}", *fmt as u64))
-                                        .hover(|this| this.bg(theme.list_hover))
-                                        .child(
-                                            div()
-                                                .flex()
-                                                .flex_1()
-                                                .flex_col()
-                                                .items_start()
-                                                .justify_center()
-                                                .child(div().text_base().font_semibold().child(fmt.label()))
-                                                .child(div().text_sm().child(fmt.description())),
-                                        )
-                                        .on_click(cx.listener({
-                                            let fmt = *fmt;
-                                            move |this: &mut TransferWindow, _ev, _window, cx| {
-                                                this.select_format(fmt, cx);
-                                            }
-                                        }))
-                                        .into_any_element()
-                                })
-                                .collect::<Vec<_>>(),
-                        ),
-                        (Some(typ), Some(fmt)) => div().p_6().gap_5().col_full().scrollable(Axis::Vertical).child(
-                            div()
-                                .flex()
-                                .flex_col()
-                                .gap_4()
-                                .child(div().text_base().child(format!("传输类型: {}", typ.label())))
-                                .child(div().text_base().child(format!("文件格式: {}", fmt.label())))
-                                .child(
-                                    div()
-                                        .text_sm()
-                                        .text_color(theme.muted_foreground)
-                                        .child("配置选项将在后续版本中添加"),
-                                ),
-                        ),
+                        (None, _) => self.render_type_selection(&theme, cx).into_any_element(),
+                        (Some(_), None) => self.render_format_selection(&theme, cx).into_any_element(),
+                        (Some(TransferType::Import), Some(_)) => div()
+                            .p_6()
+                            .gap_5()
+                            .col_full()
+                            .scrollable(Axis::Vertical)
+                            .child(self.import_config.clone())
+                            .into_any_element(),
+                        (Some(TransferType::Export), Some(_)) => div()
+                            .p_6()
+                            .gap_5()
+                            .col_full()
+                            .scrollable(Axis::Vertical)
+                            .child(self.output_config.clone())
+                            .into_any_element(),
                     }),
             )
-            .child(
-                div()
-                    .relative()
-                    .flex()
-                    .flex_row()
-                    .items_center()
-                    .justify_end()
-                    .px_8()
-                    .py_5()
-                    .gap_4()
-                    .bg(theme.secondary)
-                    .border_t_1()
-                    .border_color(theme.border)
-                    .when(transfer_type.is_some(), |this| {
-                        this.child(
-                            Button::new("transfer-back")
-                                .outline()
-                                .label("上一步")
-                                .on_click(cx.listener(|this: &mut TransferWindow, _ev, _window, cx| {
-                                    if this.format.is_some() {
-                                        this.deselect_format(cx);
-                                    } else {
-                                        this.deselect_type(cx);
-                                    }
-                                })),
+            .child(self.render_footer(&theme, transfer_type, format, cx))
+    }
+}
+
+impl TransferWindow {
+    fn render_type_selection(
+        &self,
+        theme: &gpui_component::theme::Theme,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        div().p_6().gap_5().col_full().scrollable(Axis::Vertical).children(
+            TransferType::all()
+                .iter()
+                .map(|typ| {
+                    div()
+                        .flex()
+                        .flex_row()
+                        .items_center()
+                        .p_4()
+                        .gap_4()
+                        .h_20()
+                        .w_full()
+                        .bg(theme.list)
+                        .border_1()
+                        .border_color(theme.border)
+                        .rounded_lg()
+                        .cursor_pointer()
+                        .id(("transfer-type-{}", *typ as u64))
+                        .hover(|this| this.bg(theme.list_hover))
+                        .child(
+                            div()
+                                .flex()
+                                .flex_1()
+                                .flex_col()
+                                .items_start()
+                                .justify_center()
+                                .child(div().text_base().font_semibold().child(typ.label()))
+                                .child(div().text_sm().child(typ.description())),
                         )
-                    })
-                    .child(
-                        Button::new("transfer-cancel")
-                            .outline()
-                            .label("取消")
-                            .on_click(cx.listener(|this: &mut TransferWindow, _ev, window, cx| {
-                                this.close_window(window, cx);
-                            })),
-                    )
-                    .child(
-                        Button::new("transfer-confirm")
-                            .outline()
-                            .label("确认")
-                            .disabled(transfer_type.is_none() || format.is_none())
-                            .on_click(cx.listener(|this: &mut TransferWindow, _ev, window, cx| {
-                                this.confirm(window, cx);
-                            })),
-                    ),
+                        .on_click(cx.listener({
+                            let typ = *typ;
+                            move |this: &mut TransferWindow, _ev, _window, cx| {
+                                this.select_type(typ, cx);
+                            }
+                        }))
+                        .into_any_element()
+                })
+                .collect::<Vec<_>>(),
+        )
+    }
+
+    fn render_format_selection(
+        &self,
+        theme: &gpui_component::theme::Theme,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        div().p_6().gap_5().col_full().scrollable(Axis::Vertical).children(
+            TransferFormat::all()
+                .iter()
+                .map(|fmt| {
+                    div()
+                        .flex()
+                        .flex_row()
+                        .items_center()
+                        .p_4()
+                        .gap_4()
+                        .h_20()
+                        .w_full()
+                        .bg(theme.list)
+                        .border_1()
+                        .border_color(theme.border)
+                        .rounded_lg()
+                        .cursor_pointer()
+                        .id(("transfer-format-{}", *fmt as u64))
+                        .hover(|this| this.bg(theme.list_hover))
+                        .child(
+                            div()
+                                .flex()
+                                .flex_1()
+                                .flex_col()
+                                .items_start()
+                                .justify_center()
+                                .child(div().text_base().font_semibold().child(fmt.label()))
+                                .child(div().text_sm().child(fmt.description())),
+                        )
+                        .on_click(cx.listener({
+                            let fmt = *fmt;
+                            move |this: &mut TransferWindow, _ev, window, cx| {
+                                this.select_format(fmt, window, cx);
+                            }
+                        }))
+                        .into_any_element()
+                })
+                .collect::<Vec<_>>(),
+        )
+    }
+
+    fn render_footer(
+        &self,
+        theme: &gpui_component::theme::Theme,
+        transfer_type: Option<TransferType>,
+        format: Option<TransferFormat>,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        div()
+            .relative()
+            .flex()
+            .flex_row()
+            .items_center()
+            .justify_end()
+            .px_8()
+            .py_5()
+            .gap_4()
+            .bg(theme.secondary)
+            .border_t_1()
+            .border_color(theme.border)
+            .when(transfer_type.is_some(), |this| {
+                this.child(
+                    Button::new("transfer-back")
+                        .outline()
+                        .label("上一步")
+                        .on_click(cx.listener(|this: &mut TransferWindow, _ev, _window, cx| {
+                            if this.format.is_some() {
+                                this.deselect_format(cx);
+                            } else {
+                                this.deselect_type(cx);
+                            }
+                        })),
+                )
+            })
+            .child(
+                Button::new("transfer-cancel")
+                    .outline()
+                    .label("取消")
+                    .on_click(cx.listener(|this: &mut TransferWindow, _ev, window, cx| {
+                        this.close_window(window, cx);
+                    })),
+            )
+            .child(
+                Button::new("transfer-confirm")
+                    .outline()
+                    .label("确认")
+                    .disabled(transfer_type.is_none() || format.is_none())
+                    .on_click(cx.listener(|this: &mut TransferWindow, _ev, window, cx| {
+                        this.confirm(window, cx);
+                    })),
             )
     }
 }
