@@ -25,7 +25,7 @@ pub struct MongoDBOptions {
     pub auth_source: Option<String>,
     pub username: Option<String>,
     pub password: Option<String>,
-    pub tls: bool,
+    pub use_tls: bool,
 }
 
 impl Default for MongoDBOptions {
@@ -37,7 +37,7 @@ impl Default for MongoDBOptions {
             auth_source: None,
             username: None,
             password: None,
-            tls: false,
+            use_tls: false,
         }
     }
 }

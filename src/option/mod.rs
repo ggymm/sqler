@@ -15,7 +15,7 @@ pub mod sqlserver;
 pub use mongodb::{MongoDBHost, MongoDBOptions};
 pub use mysql::MySQLOptions;
 pub use oracle::OracleOptions;
-pub use postgres::{PostgreSQLOptions, SslMode};
+pub use postgres::PostgreSQLOptions;
 pub use redis::RedisOptions;
 pub use sqlite::SQLiteOptions;
 pub use sqlserver::SQLServerOptions;

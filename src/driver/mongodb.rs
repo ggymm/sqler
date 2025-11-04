@@ -261,7 +261,7 @@ fn build_uri(config: &MongoDBOptions) -> Result<String, DriverError> {
     if let Some(rs) = &config.replica_set.as_deref().filter(|s| !s.is_empty()) {
         params.push(format!("replicaSet={}", rs));
     }
-    if config.tls {
+    if config.use_tls {
         params.push("tls=true".to_string());
     }
 

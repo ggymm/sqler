@@ -6,7 +6,7 @@ use super::{
     validate_sql, ConditionValue, DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, Operator,
     QueryReq, QueryResp, UpdateReq, WriteResp,
 };
-use crate::option::{PostgreSQLOptions, SslMode};
+use crate::option::PostgreSQLOptions;
 
 /// Postgres 驱动实现。
 #[derive(Debug, Clone, Copy)]
@@ -281,8 +281,8 @@ fn connect(config: &PostgreSQLOptions) -> Result<Client, DriverError> {
     if config.username.trim().is_empty() {
         return Err(DriverError::MissingField("username".into()));
     }
-    if matches!(config.ssl_mode, Some(SslMode::Require | SslMode::Prefer)) {
-        return Err(DriverError::Other("PostgreSQL 暂未支持 SSL 模式连接".into()));
+    if config.use_tls {
+        return Err(DriverError::Other("PostgreSQL 暂未支持 TLS 连接".into()));
     }
 
     let mut pg_config = Config::new();
@@ -296,18 +296,9 @@ fn connect(config: &PostgreSQLOptions) -> Result<Client, DriverError> {
         pg_config.dbname(config.database.trim());
     }
 
-    let mut client = pg_config
+    let client = pg_config
         .connect(NoTls)
         .map_err(|err| DriverError::Other(format!("连接失败: {}", err)))?;
-
-    if let Some(schema) = &config.schema {
-        let trimmed = schema.trim();
-        if !trimmed.is_empty() {
-            client
-                .batch_execute(format!("SET search_path TO {}", trimmed).as_str())
-                .map_err(|err| DriverError::Other(format!("设置 search_path 失败: {}", err)))?;
-        }
-    }
 
     Ok(client)
 }

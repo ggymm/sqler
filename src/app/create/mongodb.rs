@@ -50,7 +50,7 @@ impl MongoDBCreate {
             auth_source: None,
             username: if username.is_empty() { None } else { Some(username) },
             password: if password.is_empty() { None } else { Some(password) },
-            tls: false,
+            use_tls: false,
         }
     }
 }

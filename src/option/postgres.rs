@@ -2,13 +2,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::option::{ConnectionOptions, DataSourceKind};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum SslMode {
-    Disable,
-    Prefer,
-    Require,
-}
-
 #[derive(Clone, Serialize, Deserialize)]
 pub struct PostgreSQLOptions {
     pub host: String,
@@ -16,8 +9,7 @@ pub struct PostgreSQLOptions {
     pub database: String,
     pub username: String,
     pub password: Option<String>,
-    pub schema: Option<String>,
-    pub ssl_mode: Option<SslMode>,
+    pub use_tls: bool,
 }
 
 impl Default for PostgreSQLOptions {
@@ -28,8 +20,7 @@ impl Default for PostgreSQLOptions {
             database: String::new(),
             username: "postgres".into(),
             password: None,
-            schema: None,
-            ssl_mode: None,
+            use_tls: false,
         }
     }
 }

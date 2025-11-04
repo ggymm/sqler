@@ -14,7 +14,6 @@ pub struct PostgresCreate {
     pub username: Entity<InputState>,
     pub password: Entity<InputState>,
     pub database: Entity<InputState>,
-    pub schema: Entity<InputState>,
 }
 
 impl PostgresCreate {
@@ -29,7 +28,6 @@ impl PostgresCreate {
             username: cx.new(|cx| InputState::new(window, cx)),
             password: cx.new(|cx| InputState::new(window, cx).masked(true)),
             database: cx.new(|cx| InputState::new(window, cx)),
-            schema: cx.new(|cx| InputState::new(window, cx)),
         }
     }
 
@@ -42,7 +40,6 @@ impl PostgresCreate {
         let username = self.username.read(cx).value().to_string();
         let password = self.password.read(cx).value().to_string();
         let database = self.database.read(cx).value().to_string();
-        let schema = self.schema.read(cx).value().to_string();
 
         PostgreSQLOptions {
             host,
@@ -50,8 +47,7 @@ impl PostgresCreate {
             username,
             password: if password.is_empty() { None } else { Some(password) },
             database,
-            schema: if schema.is_empty() { None } else { Some(schema) },
-            ssl_mode: None,
+            use_tls: false,
         }
     }
 }
@@ -84,11 +80,6 @@ impl Render for PostgresCreate {
                     form_field()
                         .label("数据库")
                         .child(TextInput::new(&self.database).cleanable()),
-                )
-                .child(
-                    form_field()
-                        .label("Schema")
-                        .child(TextInput::new(&self.schema).cleanable()),
                 ),
         )
     }
