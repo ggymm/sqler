@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-use super::{ConnectionOptions, DataSourceKind};
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum OracleAddress {
     ServiceName(String),
@@ -43,12 +41,6 @@ impl Default for OracleOptions {
             password: None,
             wallet_path: None,
         }
-    }
-}
-
-impl ConnectionOptions for OracleOptions {
-    fn kind(&self) -> DataSourceKind {
-        DataSourceKind::Oracle
     }
 }
 

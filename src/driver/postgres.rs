@@ -4,8 +4,8 @@ use postgres::{types::Type, Client, Config, Error as PostgresError, NoTls};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    validate_sql, ConnectionOptions, DataSourceKind, DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError,
-    InsertReq, Operator, QueryReq, QueryResp, UpdateReq, ValueCond, WriteResp,
+    validate_sql, DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError, InsertReq, Operator, QueryReq,
+    QueryResp, UpdateReq, ValueCond, WriteResp,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -312,12 +312,6 @@ impl Default for PostgreSQLOptions {
             password: None,
             use_tls: false,
         }
-    }
-}
-
-impl ConnectionOptions for PostgreSQLOptions {
-    fn kind(&self) -> DataSourceKind {
-        DataSourceKind::PostgreSQL
     }
 }
 

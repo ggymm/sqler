@@ -4,8 +4,8 @@ use rusqlite::{types::ValueRef, Connection, OpenFlags};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    validate_sql, ConnectionOptions, DataSourceKind, DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError,
-    InsertReq, Operator, QueryReq, QueryResp, UpdateReq, ValueCond, WriteResp,
+    validate_sql, DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError, InsertReq, Operator, QueryReq,
+    QueryResp, UpdateReq, ValueCond, WriteResp,
 };
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -24,13 +24,6 @@ impl Default for SQLiteOptions {
         }
     }
 }
-
-impl ConnectionOptions for SQLiteOptions {
-    fn kind(&self) -> DataSourceKind {
-        DataSourceKind::SQLite
-    }
-}
-
 impl SQLiteOptions {
     pub fn display_endpoint(&self) -> String {
         let path = self.filepath.trim();

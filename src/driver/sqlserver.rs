@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use super::{
-    ConnectionOptions, DataSourceKind, DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError, InsertReq,
-    QueryReq, QueryResp, UpdateReq, WriteResp,
+    DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp, UpdateReq,
+    WriteResp,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -33,12 +33,6 @@ impl Default for SQLServerOptions {
             auth: SQLServerAuth::SqlPassword,
             instance: None,
         }
-    }
-}
-
-impl ConnectionOptions for SQLServerOptions {
-    fn kind(&self) -> DataSourceKind {
-        DataSourceKind::SQLServer
     }
 }
 

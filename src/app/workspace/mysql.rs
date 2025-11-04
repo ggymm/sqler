@@ -153,7 +153,7 @@ impl MySQLWorkspace {
 
     fn active_session(&mut self) -> Result<&mut (dyn DatabaseSession + '_), DriverError> {
         if self.session.is_none() {
-            self.session = Some(create_connection(self.meta.kind, &self.meta.options)?);
+            self.session = Some(create_connection(&self.meta.options)?);
         }
 
         match self.session.as_deref_mut() {

@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map as JsonMap, Number, Value as JsonValue};
 
 use super::{
-    ConnectionOptions, DataSourceKind, DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError, InsertReq,
-    QueryReq, QueryResp, UpdateReq, WriteResp,
+    DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp, UpdateReq,
+    WriteResp,
 };
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -25,12 +25,6 @@ impl Default for RedisOptions {
             password: None,
             use_tls: false,
         }
-    }
-}
-
-impl ConnectionOptions for RedisOptions {
-    fn kind(&self) -> DataSourceKind {
-        DataSourceKind::Redis
     }
 }
 

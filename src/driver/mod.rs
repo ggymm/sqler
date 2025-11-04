@@ -6,11 +6,11 @@ use serde_json::Value;
 
 pub use mongodb::{MongoDBDriver, MongoDBHost, MongoDBOptions};
 pub use mysql::{MySQLDriver, MySQLOptions};
-pub use oracle::{OracleAddress, OracleOptions};
+pub use oracle::OracleOptions;
 pub use postgres::{PostgreSQLDriver, PostgreSQLOptions};
 pub use redis::{RedisDriver, RedisOptions};
 pub use sqlite::{SQLiteDriver, SQLiteOptions};
-pub use sqlserver::{SQLServerAuth, SQLServerDriver, SQLServerOptions};
+pub use sqlserver::{SQLServerDriver, SQLServerOptions};
 
 pub mod mongodb;
 pub mod mysql;
@@ -320,14 +320,7 @@ pub fn data_types(kind: DataSourceKind) -> Vec<Datatype> {
     }
 }
 
-pub fn check_connection(
-    kind: DataSourceKind,
-    opts: &DataSourceOptions,
-) -> Result<(), DriverError> {
-    if opts.kind() != kind {
-        return Err(DriverError::InvalidField(format!("数据源类型不匹配: {}", kind.label())));
-    }
-
+pub fn check_connection(opts: &DataSourceOptions) -> Result<(), DriverError> {
     match opts {
         DataSourceOptions::MySQL(config) => MySQLDriver.check_connection(config),
         DataSourceOptions::PostgreSQL(config) => PostgreSQLDriver.check_connection(config),
@@ -339,14 +332,7 @@ pub fn check_connection(
     }
 }
 
-pub fn create_connection(
-    kind: DataSourceKind,
-    opts: &DataSourceOptions,
-) -> Result<Box<dyn DatabaseSession>, DriverError> {
-    if opts.kind() != kind {
-        return Err(DriverError::InvalidField(format!("数据源类型不匹配: {}", kind.label())));
-    }
-
+pub fn create_connection(opts: &DataSourceOptions) -> Result<Box<dyn DatabaseSession>, DriverError> {
     match opts {
         DataSourceOptions::MySQL(config) => MySQLDriver.create_connection(config),
         DataSourceOptions::PostgreSQL(config) => PostgreSQLDriver.create_connection(config),
@@ -472,24 +458,6 @@ pub enum DataSourceOptions {
     PostgreSQL(PostgreSQLOptions),
     Redis(RedisOptions),
     MongoDB(MongoDBOptions),
-}
-
-pub trait ConnectionOptions {
-    fn kind(&self) -> DataSourceKind;
-}
-
-impl ConnectionOptions for DataSourceOptions {
-    fn kind(&self) -> DataSourceKind {
-        match self {
-            DataSourceOptions::MySQL(_) => DataSourceKind::MySQL,
-            DataSourceOptions::Oracle(_) => DataSourceKind::Oracle,
-            DataSourceOptions::SQLite(_) => DataSourceKind::SQLite,
-            DataSourceOptions::SQLServer(_) => DataSourceKind::SQLServer,
-            DataSourceOptions::PostgreSQL(_) => DataSourceKind::PostgreSQL,
-            DataSourceOptions::Redis(_) => DataSourceKind::Redis,
-            DataSourceOptions::MongoDB(_) => DataSourceKind::MongoDB,
-        }
-    }
 }
 
 #[cfg(test)]

@@ -10,8 +10,12 @@ use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
-    app::comps::{comp_id, icon_close},
-    app::{create::CreateWindow, transfer::TransferWindow, workspace::WorkspaceState},
+    app::{
+        comps::{comp_id, icon_close},
+        create::CreateWindow,
+        transfer::TransferWindow,
+        workspace::WorkspaceState,
+    },
     cache::CacheApp,
     driver::{DataSource, DataSourceKind, DataSourceOptions, MySQLOptions},
 };

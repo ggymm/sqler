@@ -4,8 +4,8 @@ use mysql::{prelude::Queryable, Conn, Opts, OptsBuilder, SslOpts, Value};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    validate_sql, ConnectionOptions, DataSourceKind, DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError,
-    InsertReq, Operator, QueryReq, QueryResp, UpdateReq, ValueCond, WriteResp,
+    validate_sql, DataSourceKind, DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError, InsertReq,
+    Operator, QueryReq, QueryResp, UpdateReq, ValueCond, WriteResp,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -319,12 +319,6 @@ impl Default for MySQLOptions {
             charset: Some("utf8mb4".into()),
             use_tls: false,
         }
-    }
-}
-
-impl ConnectionOptions for MySQLOptions {
-    fn kind(&self) -> DataSourceKind {
-        DataSourceKind::MySQL
     }
 }
 

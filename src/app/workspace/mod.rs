@@ -5,11 +5,12 @@ use crate::{
     app::{SqlerApp, TabView},
     driver::{DataSource, DataSourceKind},
 };
-use mysql::MySQLWorkspace;
-use placeholder::PlaceholderWorkspace;
 
 mod mysql;
 mod placeholder;
+
+use mysql::MySQLWorkspace;
+use placeholder::PlaceholderWorkspace;
 
 pub fn parse_count(value: &str) -> usize {
     value.parse::<usize>().unwrap_or(0)

@@ -5,8 +5,8 @@ use mongodb::{
 use serde::{Deserialize, Serialize};
 
 use super::{
-    ConnectionOptions, DataSourceKind, DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError, InsertReq,
-    QueryReq, QueryResp, UpdateReq, WriteResp,
+    DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp, UpdateReq,
+    WriteResp,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -245,12 +245,6 @@ impl Default for MongoDBOptions {
             password: None,
             use_tls: false,
         }
-    }
-}
-
-impl ConnectionOptions for MongoDBOptions {
-    fn kind(&self) -> DataSourceKind {
-        DataSourceKind::MongoDB
     }
 }
 

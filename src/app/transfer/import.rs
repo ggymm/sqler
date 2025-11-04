@@ -7,8 +7,9 @@ use gpui_component::{
     ActiveTheme, Sizable, Size, StyledExt,
 };
 
-use super::TransferFormat;
 use crate::{app::comps::DivExt, driver::DataSource};
+
+use super::TransferFormat;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum TableOption {
