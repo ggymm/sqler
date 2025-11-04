@@ -1,7 +1,10 @@
 use gpui::{prelude::*, *};
-use gpui_component::{button::Button, ActiveTheme, Disableable, StyledExt};
+use gpui_component::{button::Button, ActiveTheme, StyledExt};
 
-use crate::app::{comps::DivExt, SqlerApp};
+use crate::{
+    app::{comps::DivExt, SqlerApp},
+    option::DataSource,
+};
 
 mod import;
 mod output;
@@ -63,7 +66,6 @@ impl TransferFormat {
 
 pub struct TransferWindow {
     transfer_type: Option<TransferType>,
-    format: Option<TransferFormat>,
     parent: WeakEntity<SqlerApp>,
 
     import_config: Entity<import::ImportConfig>,
@@ -72,6 +74,8 @@ pub struct TransferWindow {
 
 impl TransferWindow {
     pub fn new(
+        datasource: DataSource,
+        tables: Vec<SharedString>,
         parent: WeakEntity<SqlerApp>,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -88,10 +92,9 @@ impl TransferWindow {
 
         Self {
             transfer_type: None,
-            format: None,
             parent,
-            import_config: cx.new(|cx| import::ImportConfig::new(TransferFormat::Csv, window, cx)),
-            output_config: cx.new(|cx| output::OutputConfig::new(TransferFormat::Csv, window, cx)),
+            import_config: cx.new(|cx| import::ImportConfig::new(datasource, tables, window, cx)),
+            output_config: cx.new(|cx| output::OutputConfig::new(window, cx)),
         }
     }
 
@@ -124,40 +127,8 @@ impl TransferWindow {
         cx: &mut Context<Self>,
     ) {
         if self.transfer_type.take().is_some() {
-            self.format = None;
             cx.notify();
         }
-    }
-
-    fn select_format(
-        &mut self,
-        format: TransferFormat,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if self.format != Some(format) {
-            self.format = Some(format);
-            self.import_config = cx.new(|cx| import::ImportConfig::new(format, window, cx));
-            self.output_config = cx.new(|cx| output::OutputConfig::new(format, window, cx));
-            cx.notify();
-        }
-    }
-
-    fn deselect_format(
-        &mut self,
-        cx: &mut Context<Self>,
-    ) {
-        if self.format.take().is_some() {
-            cx.notify();
-        }
-    }
-
-    fn confirm(
-        &self,
-        _window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.close_window(_window, cx);
     }
 }
 
@@ -169,7 +140,6 @@ impl Render for TransferWindow {
     ) -> impl IntoElement {
         let theme = cx.theme().clone();
         let transfer_type = self.transfer_type;
-        let format = self.format;
 
         div()
             .size_full()
@@ -189,31 +159,12 @@ impl Render for TransferWindow {
                     .border_color(theme.border)
                     .child(div().text_lg().font_semibold().child("数据传输")),
             )
-            .child(
-                div()
-                    .flex_1()
-                    .relative()
-                    .overflow_hidden()
-                    .child(match (transfer_type, format) {
-                        (None, _) => self.render_type_selection(&theme, cx).into_any_element(),
-                        (Some(_), None) => self.render_format_selection(&theme, cx).into_any_element(),
-                        (Some(TransferType::Import), Some(_)) => div()
-                            .p_6()
-                            .gap_5()
-                            .col_full()
-                            .scrollable(Axis::Vertical)
-                            .child(self.import_config.clone())
-                            .into_any_element(),
-                        (Some(TransferType::Export), Some(_)) => div()
-                            .p_6()
-                            .gap_5()
-                            .col_full()
-                            .scrollable(Axis::Vertical)
-                            .child(self.output_config.clone())
-                            .into_any_element(),
-                    }),
-            )
-            .child(self.render_footer(&theme, transfer_type, format, cx))
+            .child(div().flex_1().relative().overflow_hidden().child(match transfer_type {
+                None => self.render_type_selection(&theme, cx).into_any_element(),
+                Some(TransferType::Import) => self.import_config.clone().into_any_element(),
+                Some(TransferType::Export) => self.output_config.clone().into_any_element(),
+            }))
+            .child(self.render_footer(&theme, transfer_type, cx))
     }
 }
 
@@ -264,57 +215,10 @@ impl TransferWindow {
         )
     }
 
-    fn render_format_selection(
-        &self,
-        theme: &gpui_component::theme::Theme,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        div().p_6().gap_5().col_full().scrollable(Axis::Vertical).children(
-            TransferFormat::all()
-                .iter()
-                .map(|fmt| {
-                    div()
-                        .flex()
-                        .flex_row()
-                        .items_center()
-                        .p_4()
-                        .gap_4()
-                        .h_20()
-                        .w_full()
-                        .bg(theme.list)
-                        .border_1()
-                        .border_color(theme.border)
-                        .rounded_lg()
-                        .cursor_pointer()
-                        .id(("transfer-format-{}", *fmt as u64))
-                        .hover(|this| this.bg(theme.list_hover))
-                        .child(
-                            div()
-                                .flex()
-                                .flex_1()
-                                .flex_col()
-                                .items_start()
-                                .justify_center()
-                                .child(div().text_base().font_semibold().child(fmt.label()))
-                                .child(div().text_sm().child(fmt.description())),
-                        )
-                        .on_click(cx.listener({
-                            let fmt = *fmt;
-                            move |this: &mut TransferWindow, _ev, window, cx| {
-                                this.select_format(fmt, window, cx);
-                            }
-                        }))
-                        .into_any_element()
-                })
-                .collect::<Vec<_>>(),
-        )
-    }
-
     fn render_footer(
         &self,
         theme: &gpui_component::theme::Theme,
         transfer_type: Option<TransferType>,
-        format: Option<TransferFormat>,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         div()
@@ -335,11 +239,7 @@ impl TransferWindow {
                         .outline()
                         .label("上一步")
                         .on_click(cx.listener(|this: &mut TransferWindow, _ev, _window, cx| {
-                            if this.format.is_some() {
-                                this.deselect_format(cx);
-                            } else {
-                                this.deselect_type(cx);
-                            }
+                            this.deselect_type(cx);
                         })),
                 )
             })
@@ -349,15 +249,6 @@ impl TransferWindow {
                     .label("取消")
                     .on_click(cx.listener(|this: &mut TransferWindow, _ev, window, cx| {
                         this.close_window(window, cx);
-                    })),
-            )
-            .child(
-                Button::new("transfer-confirm")
-                    .outline()
-                    .label("确认")
-                    .disabled(transfer_type.is_none() || format.is_none())
-                    .on_click(cx.listener(|this: &mut TransferWindow, _ev, window, cx| {
-                        this.confirm(window, cx);
                     })),
             )
     }

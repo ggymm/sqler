@@ -4,13 +4,14 @@ use gpui::{prelude::*, *};
 use gpui_component::{
     button::{Button, ButtonVariants},
     theme::{Theme, ThemeMode},
-    ActiveTheme, Icon, Root, Sizable, Size,
+    ActiveTheme, Root, Sizable, Size,
 };
 use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
-    app::{comps::comp_id, create::CreateWindow, transfer::TransferWindow, workspace::WorkspaceState},
+    app::comps::{comp_id, icon_close},
+    app::{create::CreateWindow, transfer::TransferWindow, workspace::WorkspaceState},
     cache::CacheApp,
     option::{DataSource, DataSourceKind, DataSourceOptions, MySQLOptions},
 };
@@ -221,6 +222,8 @@ impl SqlerApp {
 
     pub fn display_transfer_window(
         &mut self,
+        datasource: DataSource,
+        tables: Vec<SharedString>,
         _window: &mut Window,
         cx: &mut Context<SqlerApp>,
     ) {
@@ -242,7 +245,7 @@ impl SqlerApp {
         let parent = cx.weak_entity();
         match cx.open_window(options, move |modal_window, app_cx| {
             let parent = parent.clone();
-            let view = app_cx.new(|cx| TransferWindow::new(parent.clone(), modal_window, cx));
+            let view = app_cx.new(|cx| TransferWindow::new(datasource, tables, parent.clone(), modal_window, cx));
             app_cx.new(|cx| Root::new(view.into(), modal_window, cx))
         }) {
             Ok(handle) => {
@@ -335,7 +338,7 @@ impl Render for SqlerApp {
                                             .xsmall()
                                             .compact()
                                             .tab_stop(false)
-                                            .icon(Icon::default().path("icons/close.svg").with_size(Size::Small))
+                                            .icon(icon_close().with_size(Size::Small))
                                             .on_click(cx.listener(move |this, _, _, cx| {
                                                 this.close_tab(&tab_id_for_close, cx);
                                             })),

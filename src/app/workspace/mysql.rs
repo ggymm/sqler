@@ -5,13 +5,13 @@ use gpui_component::{
     input::{InputState, TextInput},
     resizable::{h_resizable, resizable_panel, ResizableState},
     table::Table,
-    ActiveTheme, Disableable, Icon, InteractiveElementExt, Sizable, Size, StyledExt,
+    ActiveTheme, Disableable, InteractiveElementExt, Sizable, Size, StyledExt,
 };
 use uuid::Uuid;
 
 use crate::{
     app::comps::{
-        comp_id, icon_export, icon_import, icon_relead, icon_search, icon_sheet, icon_trash, DataTable, DivExt,
+        comp_id, icon_close, icon_relead, icon_search, icon_sheet, icon_transfer, icon_trash, DataTable, DivExt,
     },
     driver::{
         create_connection, ConditionValue, DatabaseSession, DriverError, FilterCond, Operator, OrderCond, QueryReq,
@@ -959,7 +959,7 @@ impl Render for MySQLWorkspace {
                                     .xsmall()
                                     .compact()
                                     .tab_stop(false)
-                                    .icon(Icon::default().path("icons/close.svg").with_size(Size::Small))
+                                    .icon(icon_close().with_size(Size::Small))
                                     .on_click(cx.listener(move |this, _, _, cx| {
                                         this.close_tab(&tab_id, cx);
                                     })),
@@ -1027,27 +1027,16 @@ impl Render for MySQLWorkspace {
                             })),
                     )
                     .child(
-                        Button::new(comp_id(["mysql-header-import", id]))
+                        Button::new(comp_id(["mysql-header-transfer", id]))
                             .outline()
-                            .icon(icon_import().with_size(Size::Small))
-                            .label("数据导入")
+                            .icon(icon_transfer().with_size(Size::Small))
+                            .label("数据传输")
                             .on_click(cx.listener(|view: &mut Self, _, window, cx| {
                                 if let Some(parent) = view.parent.upgrade() {
+                                    let datasource = view.meta.clone();
+                                    let tables = view.tables.clone();
                                     let _ = parent.update(cx, |app, cx| {
-                                        app.display_transfer_window(window, cx);
-                                    });
-                                }
-                            })),
-                    )
-                    .child(
-                        Button::new(comp_id(["mysql-header-export", id]))
-                            .outline()
-                            .icon(icon_export().with_size(Size::Small))
-                            .label("数据导出")
-                            .on_click(cx.listener(|view: &mut Self, _, window, cx| {
-                                if let Some(parent) = view.parent.upgrade() {
-                                    let _ = parent.update(cx, |app, cx| {
-                                        app.display_transfer_window(window, cx);
+                                        app.display_transfer_window(datasource, tables, window, cx);
                                     });
                                 }
                             })),
