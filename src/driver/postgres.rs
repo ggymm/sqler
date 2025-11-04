@@ -8,62 +8,65 @@ use super::{
     InsertReq, Operator, QueryReq, QueryResp, UpdateReq, ValueCond, WriteResp,
 };
 
-#[derive(Clone, Serialize, Deserialize)]
-pub struct PostgreSQLOptions {
-    pub host: String,
-    pub port: u16,
-    pub database: String,
-    pub username: String,
-    pub password: Option<String>,
-    pub use_tls: bool,
-}
-
-impl Default for PostgreSQLOptions {
-    fn default() -> Self {
-        Self {
-            host: "127.0.0.1".into(),
-            port: 5432,
-            database: String::new(),
-            username: "postgres".into(),
-            password: None,
-            use_tls: false,
-        }
-    }
-}
-
-impl ConnectionOptions for PostgreSQLOptions {
-    fn kind(&self) -> DataSourceKind {
-        DataSourceKind::PostgreSQL
-    }
-}
-
-impl PostgreSQLOptions {
-    pub fn display_endpoint(&self) -> String {
-        let db = self.database.trim();
-        let suffix = if db.is_empty() {
-            String::new()
-        } else {
-            format!("/{}", db)
-        };
-        format!("postgres://{}:{}{}", self.host, self.port, suffix)
-    }
-}
-
-/// Postgres 驱动实现。
 #[derive(Debug, Clone, Copy)]
 pub struct PostgreSQLDriver;
 
-struct PostgresConnection {
+impl DatabaseDriver for PostgreSQLDriver {
+    type Config = PostgreSQLOptions;
+
+    fn data_types(&self) -> Vec<Datatype> {
+        vec![
+            Datatype::SmallInt,
+            Datatype::Int,
+            Datatype::BigInt,
+            Datatype::Float,
+            Datatype::Double,
+            Datatype::Decimal,
+            Datatype::Char,
+            Datatype::VarChar,
+            Datatype::Text,
+            Datatype::Binary,
+            Datatype::Date,
+            Datatype::Time,
+            Datatype::Timestamp,
+            Datatype::Boolean,
+            Datatype::Json,
+            Datatype::Uuid,
+            Datatype::Array,
+        ]
+    }
+
+    fn check_connection(
+        &self,
+        config: &Self::Config,
+    ) -> Result<(), DriverError> {
+        let mut client = connect(config)?;
+        client
+            .simple_query("SELECT 1")
+            .map_err(|err| DriverError::Other(format!("校验查询失败: {}", err)))?;
+        Ok(())
+    }
+
+    fn create_connection(
+        &self,
+        config: &Self::Config,
+    ) -> Result<Box<dyn DatabaseSession>, DriverError> {
+        let client = connect(config)?;
+        Ok(Box::new(PostgresSession::new(client)))
+    }
+}
+
+struct PostgresSession {
     client: Client,
 }
 
-impl PostgresConnection {
+impl PostgresSession {
     fn new(client: Client) -> Self {
         Self { client }
     }
 }
 
-impl DatabaseSession for PostgresConnection {
+impl DatabaseSession for PostgresSession {
     fn query(
         &mut self,
         request: QueryReq,
@@ -289,48 +292,44 @@ impl DatabaseSession for PostgresConnection {
     }
 }
 
-impl DatabaseDriver for PostgreSQLDriver {
-    type Config = PostgreSQLOptions;
+#[derive(Clone, Serialize, Deserialize)]
+pub struct PostgreSQLOptions {
+    pub host: String,
+    pub port: u16,
+    pub database: String,
+    pub username: String,
+    pub password: Option<String>,
+    pub use_tls: bool,
+}
 
-    fn data_types(&self) -> Vec<Datatype> {
-        vec![
-            Datatype::SmallInt,
-            Datatype::Int,
-            Datatype::BigInt,
-            Datatype::Float,
-            Datatype::Double,
-            Datatype::Decimal,
-            Datatype::Char,
-            Datatype::VarChar,
-            Datatype::Text,
-            Datatype::Binary,
-            Datatype::Date,
-            Datatype::Time,
-            Datatype::Timestamp,
-            Datatype::Boolean,
-            Datatype::Json,
-            Datatype::Uuid,
-            Datatype::Array,
-        ]
+impl Default for PostgreSQLOptions {
+    fn default() -> Self {
+        Self {
+            host: "127.0.0.1".into(),
+            port: 5432,
+            database: String::new(),
+            username: "postgres".into(),
+            password: None,
+            use_tls: false,
+        }
     }
+}
 
-    fn check_connection(
-        &self,
-        config: &Self::Config,
-    ) -> Result<(), DriverError> {
-        let mut client = connect(config)?;
-        client
-            .simple_query("SELECT 1")
-            .map_err(|err| DriverError::Other(format!("校验查询失败: {}", err)))?;
-        Ok(())
+impl ConnectionOptions for PostgreSQLOptions {
+    fn kind(&self) -> DataSourceKind {
+        DataSourceKind::PostgreSQL
     }
+}
 
-    fn create_connection(
-        &self,
-        config: &Self::Config,
-    ) -> Result<Box<dyn DatabaseSession>, DriverError> {
-        let client = connect(config)?;
-        Ok(Box::new(PostgresConnection::new(client)))
+impl PostgreSQLOptions {
+    pub fn display_endpoint(&self) -> String {
+        let db = self.database.trim();
+        let suffix = if db.is_empty() {
+            String::new()
+        } else {
+            format!("/{}", db)
+        };
+        format!("postgres://{}:{}{}", self.host, self.port, suffix)
     }
 }
 
