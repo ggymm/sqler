@@ -308,49 +308,6 @@ pub trait DatabaseSession: Send {
     ) -> Result<WriteResp, DriverError>;
 }
 
-pub fn data_types(kind: DataSourceKind) -> Vec<Datatype> {
-    match kind {
-        DataSourceKind::MySQL => MySQLDriver.data_types(),
-        DataSourceKind::PostgreSQL => PostgreSQLDriver.data_types(),
-        DataSourceKind::SQLite => SQLiteDriver.data_types(),
-        DataSourceKind::SQLServer => SQLServerDriver.data_types(),
-        DataSourceKind::MongoDB => MongoDBDriver.data_types(),
-        DataSourceKind::Redis => RedisDriver.data_types(),
-        DataSourceKind::Oracle => vec![],
-    }
-}
-
-pub fn check_connection(opts: &DataSourceOptions) -> Result<(), DriverError> {
-    match opts {
-        DataSourceOptions::MySQL(config) => MySQLDriver.check_connection(config),
-        DataSourceOptions::PostgreSQL(config) => PostgreSQLDriver.check_connection(config),
-        DataSourceOptions::SQLite(config) => SQLiteDriver.check_connection(config),
-        DataSourceOptions::SQLServer(config) => SQLServerDriver.check_connection(config),
-        DataSourceOptions::MongoDB(config) => MongoDBDriver.check_connection(config),
-        DataSourceOptions::Redis(config) => RedisDriver.check_connection(config),
-        DataSourceOptions::Oracle(_) => Err(DriverError::Other("Oracle 驱动暂未实现".into())),
-    }
-}
-
-pub fn create_connection(opts: &DataSourceOptions) -> Result<Box<dyn DatabaseSession>, DriverError> {
-    match opts {
-        DataSourceOptions::MySQL(config) => MySQLDriver.create_connection(config),
-        DataSourceOptions::PostgreSQL(config) => PostgreSQLDriver.create_connection(config),
-        DataSourceOptions::SQLite(config) => SQLiteDriver.create_connection(config),
-        DataSourceOptions::SQLServer(config) => SQLServerDriver.create_connection(config),
-        DataSourceOptions::MongoDB(config) => MongoDBDriver.create_connection(config),
-        DataSourceOptions::Redis(config) => RedisDriver.create_connection(config),
-        DataSourceOptions::Oracle(_) => Err(DriverError::Other("Oracle 驱动暂未实现".into())),
-    }
-}
-
-pub fn validate_sql(sql: &str) -> Result<(), DriverError> {
-    if sql.trim().is_empty() {
-        return Err(DriverError::InvalidField("sql".into()));
-    }
-    Ok(())
-}
-
 #[derive(Clone, Serialize, Deserialize)]
 pub struct DataSource {
     pub id: String,
@@ -458,6 +415,49 @@ pub enum DataSourceOptions {
     PostgreSQL(PostgreSQLOptions),
     Redis(RedisOptions),
     MongoDB(MongoDBOptions),
+}
+
+pub fn data_types(kind: DataSourceKind) -> Vec<Datatype> {
+    match kind {
+        DataSourceKind::MySQL => MySQLDriver.data_types(),
+        DataSourceKind::PostgreSQL => PostgreSQLDriver.data_types(),
+        DataSourceKind::SQLite => SQLiteDriver.data_types(),
+        DataSourceKind::SQLServer => SQLServerDriver.data_types(),
+        DataSourceKind::MongoDB => MongoDBDriver.data_types(),
+        DataSourceKind::Redis => RedisDriver.data_types(),
+        DataSourceKind::Oracle => vec![],
+    }
+}
+
+pub fn check_connection(opts: &DataSourceOptions) -> Result<(), DriverError> {
+    match opts {
+        DataSourceOptions::MySQL(config) => MySQLDriver.check_connection(config),
+        DataSourceOptions::PostgreSQL(config) => PostgreSQLDriver.check_connection(config),
+        DataSourceOptions::SQLite(config) => SQLiteDriver.check_connection(config),
+        DataSourceOptions::SQLServer(config) => SQLServerDriver.check_connection(config),
+        DataSourceOptions::MongoDB(config) => MongoDBDriver.check_connection(config),
+        DataSourceOptions::Redis(config) => RedisDriver.check_connection(config),
+        DataSourceOptions::Oracle(_) => Err(DriverError::Other("Oracle 驱动暂未实现".into())),
+    }
+}
+
+pub fn create_connection(opts: &DataSourceOptions) -> Result<Box<dyn DatabaseSession>, DriverError> {
+    match opts {
+        DataSourceOptions::MySQL(config) => MySQLDriver.create_connection(config),
+        DataSourceOptions::PostgreSQL(config) => PostgreSQLDriver.create_connection(config),
+        DataSourceOptions::SQLite(config) => SQLiteDriver.create_connection(config),
+        DataSourceOptions::SQLServer(config) => SQLServerDriver.create_connection(config),
+        DataSourceOptions::MongoDB(config) => MongoDBDriver.create_connection(config),
+        DataSourceOptions::Redis(config) => RedisDriver.create_connection(config),
+        DataSourceOptions::Oracle(_) => Err(DriverError::Other("Oracle 驱动暂未实现".into())),
+    }
+}
+
+pub fn validate_sql(sql: &str) -> Result<(), DriverError> {
+    if sql.trim().is_empty() {
+        return Err(DriverError::InvalidField("sql".into()));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
