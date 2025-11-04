@@ -5,12 +5,11 @@ use crate::{
     app::{SqlerApp, TabView},
     option::{DataSource, DataSourceKind},
 };
+use mysql::MySQLWorkspace;
+use placeholder::PlaceholderWorkspace;
 
 mod mysql;
 mod placeholder;
-
-use mysql::MySQLWorkspace;
-use placeholder::PlaceholderWorkspace;
 
 pub fn parse_count(value: &str) -> usize {
     value.parse::<usize>().unwrap_or(0)
@@ -27,9 +26,10 @@ impl WorkspaceState {
         _window: &mut Window,
         cx: &mut Context<SqlerApp>,
     ) -> Self {
+        let parent = cx.weak_entity();
         match meta.kind {
             DataSourceKind::MySQL => {
-                let view = cx.new(|cx| MySQLWorkspace::new(meta, cx));
+                let view = cx.new(|cx| MySQLWorkspace::new(meta, parent.clone(), cx));
                 WorkspaceState::MySQL { view }
             }
             other => {
@@ -99,7 +99,7 @@ pub fn render_home(
                 .id(SharedString::from(format!("source-card-{}", source.id)))
                 .hover(|this| this.bg(theme.secondary_hover))
                 .on_double_click(cx.listener(move |this, _, window, cx| {
-                    this.create_workspace(&source.id, window, cx);
+                    this.create_tab(&source.id, window, cx);
                 }))
                 .child(
                     div()

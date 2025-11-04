@@ -75,6 +75,7 @@ struct TableContent {
 
 pub struct MySQLWorkspace {
     meta: DataSource,
+    parent: WeakEntity<crate::app::SqlerApp>,
     session: Option<Box<dyn DatabaseSession>>,
     database: Option<String>,
 
@@ -88,6 +89,7 @@ pub struct MySQLWorkspace {
 impl MySQLWorkspace {
     pub fn new(
         meta: DataSource,
+        parent: WeakEntity<crate::app::SqlerApp>,
         cx: &mut Context<Self>,
     ) -> Self {
         let overview = TabItem::overview();
@@ -107,6 +109,7 @@ impl MySQLWorkspace {
 
         Self {
             meta,
+            parent,
             session: None,
             database,
 
@@ -1027,13 +1030,27 @@ impl Render for MySQLWorkspace {
                         Button::new(comp_id(["mysql-header-import", id]))
                             .outline()
                             .icon(icon_import().with_size(Size::Small))
-                            .label("数据导入"),
+                            .label("数据导入")
+                            .on_click(cx.listener(|view: &mut Self, _, window, cx| {
+                                if let Some(parent) = view.parent.upgrade() {
+                                    let _ = parent.update(cx, |app, cx| {
+                                        app.display_transfer_window(window, cx);
+                                    });
+                                }
+                            })),
                     )
                     .child(
                         Button::new(comp_id(["mysql-header-export", id]))
                             .outline()
                             .icon(icon_export().with_size(Size::Small))
-                            .label("数据导出"),
+                            .label("数据导出")
+                            .on_click(cx.listener(|view: &mut Self, _, window, cx| {
+                                if let Some(parent) = view.parent.upgrade() {
+                                    let _ = parent.update(cx, |app, cx| {
+                                        app.display_transfer_window(window, cx);
+                                    });
+                                }
+                            })),
                     ),
             )
             .child(

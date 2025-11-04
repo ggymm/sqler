@@ -10,13 +10,14 @@ use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
-    app::{comps::comp_id, create::CreateWindow, workspace::WorkspaceState},
+    app::{comps::comp_id, create::CreateWindow, transfer::TransferWindow, workspace::WorkspaceState},
     cache::CacheApp,
     option::{DataSource, DataSourceKind, DataSourceOptions, MySQLOptions},
 };
 
 mod comps;
 mod create;
+mod transfer;
 mod workspace;
 
 pub enum TabView {
@@ -68,10 +69,12 @@ impl TabState {
 pub struct SqlerApp {
     pub tabs: Vec<TabState>,
     pub active_tab: String,
-    pub cache: CacheApp,
-    pub create_window: Option<WindowHandle<Root>>,
 
+    pub cache: CacheApp,
     pub sources: Vec<DataSource>,
+
+    pub create_window: Option<WindowHandle<Root>>,
+    pub transfer_window: Option<WindowHandle<Root>>,
 }
 
 impl SqlerApp {
@@ -94,7 +97,61 @@ impl SqlerApp {
 
             cache,
             sources,
+
             create_window: None,
+            transfer_window: None,
+        }
+    }
+
+    pub fn close_tab(
+        &mut self,
+        tab_id: &str,
+        cx: &mut Context<SqlerApp>,
+    ) {
+        if let Some(index) = self.tabs.iter().position(|tab| tab.id == tab_id) {
+            if !self.tabs[index].closable {
+                return;
+            }
+            self.tabs.remove(index);
+            if self.tabs.is_empty() {
+                return;
+            }
+
+            if self.active_tab == tab_id {
+                let fallback = if index == 0 { 0 } else { index - 1 };
+                self.active_tab = self.tabs[fallback].id.clone();
+            }
+            cx.notify();
+        }
+    }
+
+    pub fn active_tab(
+        &mut self,
+        tab_id: &str,
+        cx: &mut Context<SqlerApp>,
+    ) {
+        if self.tabs.iter().any(|tab| tab.id == tab_id) {
+            self.active_tab = tab_id.to_string();
+            cx.notify();
+        }
+    }
+
+    pub fn create_tab(
+        &mut self,
+        tab_id: &str,
+        window: &mut Window,
+        cx: &mut Context<SqlerApp>,
+    ) {
+        if let Some(existing) = self.tabs.iter().find(|tab| tab.is_workspace(tab_id)) {
+            self.active_tab = existing.id.clone();
+            cx.notify();
+            return;
+        }
+
+        if let Some(meta) = self.sources.iter().find(|meta| meta.id == tab_id).cloned() {
+            self.tabs.push(TabState::workspace(meta, window, cx));
+            self.active_tab = tab_id.to_string();
+            cx.notify();
         }
     }
 
@@ -112,7 +169,11 @@ impl SqlerApp {
         cx.notify();
     }
 
-    pub fn show_create_window(
+    pub fn close_create_window(&mut self) {
+        self.create_window = None;
+    }
+
+    pub fn display_create_window(
         &mut self,
         _window: &mut Window,
         cx: &mut Context<SqlerApp>,
@@ -154,59 +215,45 @@ impl SqlerApp {
         }
     }
 
-    pub fn close_create_window(&mut self) {
-        self.create_window = None;
+    pub fn close_transfer_window(&mut self) {
+        self.transfer_window = None;
     }
 
-    pub fn active_workspace(
+    pub fn display_transfer_window(
         &mut self,
-        tab_id: &str,
+        _window: &mut Window,
         cx: &mut Context<SqlerApp>,
     ) {
-        if self.tabs.iter().any(|tab| tab.id == tab_id) {
-            self.active_tab = tab_id.to_string();
-            cx.notify();
-        }
-    }
-
-    pub fn close_workspace(
-        &mut self,
-        tab_id: &str,
-        cx: &mut Context<SqlerApp>,
-    ) {
-        if let Some(index) = self.tabs.iter().position(|tab| tab.id == tab_id) {
-            if !self.tabs[index].closable {
-                return;
-            }
-            self.tabs.remove(index);
-            if self.tabs.is_empty() {
-                return;
-            }
-
-            if self.active_tab == tab_id {
-                let fallback = if index == 0 { 0 } else { index - 1 };
-                self.active_tab = self.tabs[fallback].id.clone();
-            }
-            cx.notify();
-        }
-    }
-
-    pub fn create_workspace(
-        &mut self,
-        id: &str,
-        window: &mut Window,
-        cx: &mut Context<SqlerApp>,
-    ) {
-        if let Some(existing) = self.tabs.iter().find(|tab| tab.is_workspace(id)) {
-            self.active_tab = existing.id.clone();
-            cx.notify();
+        if let Some(handle) = &self.transfer_window {
+            let _ = handle.update(cx, |_, transfer_window, _| {
+                transfer_window.activate_window();
+            });
             return;
         }
 
-        if let Some(meta) = self.sources.iter().find(|meta| meta.id == id).cloned() {
-            self.tabs.push(TabState::workspace(meta, window, cx));
-            self.active_tab = id.to_string();
-            cx.notify();
+        let wsize = size(px(640.), px(480.));
+        let options = WindowOptions {
+            kind: WindowKind::Floating,
+            window_bounds: Some(WindowBounds::Windowed(Bounds::centered(None, wsize, cx))),
+            is_minimizable: false,
+            ..Default::default()
+        };
+
+        let parent = cx.weak_entity();
+        match cx.open_window(options, move |modal_window, app_cx| {
+            let parent = parent.clone();
+            let view = app_cx.new(|cx| TransferWindow::new(parent.clone(), modal_window, cx));
+            app_cx.new(|cx| Root::new(view.into(), modal_window, cx))
+        }) {
+            Ok(handle) => {
+                let _ = handle.update(cx, |_, modal_window, _| {
+                    modal_window.set_window_title("数据传输");
+                });
+                self.transfer_window = Some(handle);
+            }
+            Err(err) => {
+                eprintln!("failed to open transfer window: {err:?}");
+            }
         }
     }
 }
@@ -270,7 +317,7 @@ impl Render for SqlerApp {
                                         this.bg(theme.tab_bar).text_color(theme.muted_foreground)
                                     })
                                     .on_click(cx.listener(move |this, _, _, cx| {
-                                        this.active_workspace(&tab_id_for_click, cx);
+                                        this.active_tab(&tab_id_for_click, cx);
                                     }))
                                     .child(
                                         div()
@@ -290,7 +337,7 @@ impl Render for SqlerApp {
                                             .tab_stop(false)
                                             .icon(Icon::default().path("icons/close.svg").with_size(Size::Small))
                                             .on_click(cx.listener(move |this, _, _, cx| {
-                                                this.close_workspace(&tab_id_for_close, cx);
+                                                this.close_tab(&tab_id_for_close, cx);
                                             })),
                                     );
                                 }
@@ -313,7 +360,7 @@ impl Render for SqlerApp {
                             .gap_5()
                             .child(Button::new("header-new-source").outline().label("新建数据源").on_click(
                                 cx.listener(|this, _, window, cx| {
-                                    this.show_create_window(window, cx);
+                                    this.display_create_window(window, cx);
                                 }),
                             ))
                             .child(
