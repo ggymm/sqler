@@ -94,7 +94,8 @@ impl FieldMapping {
 pub struct ImportConfig {
     datasource: DataSource,
 
-    format: Option<TransferFormat>,
+    format: Entity<DropdownState<Vec<SharedString>>>,
+    selected_format: TransferFormat,
     file_path: Entity<InputState>,
 
     row_delimiter: Entity<InputState>,
@@ -118,6 +119,11 @@ impl ImportConfig {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
+        let formats: Vec<SharedString> = TransferFormat::all()
+            .iter()
+            .map(|f| format!("{} - {}", f.label(), f.description()).into())
+            .collect();
+
         let import_modes: Vec<SharedString> = ImportMode::all()
             .iter()
             .map(|m| format!("{} - {}", m.label(), m.description()).into())
@@ -125,7 +131,8 @@ impl ImportConfig {
 
         Self {
             datasource,
-            format: Some(TransferFormat::Csv),
+            format: cx.new(|cx| DropdownState::new(formats, None, window, cx)),
+            selected_format: TransferFormat::Csv,
             file_path: cx.new(|cx| InputState::new(window, cx)),
             row_delimiter: cx.new(|cx| InputState::new(window, cx).default_value("\\n")),
             column_delimiter: cx.new(|cx| InputState::new(window, cx).default_value(",")),
@@ -147,13 +154,6 @@ impl ImportConfig {
         self.table_option = Some(option);
         // 选择表选项后，加载字段映射（模拟CSV解析）
         self.load_csv_fields(cx);
-    }
-
-    fn can_import(
-        &self,
-        cx: &Context<Self>,
-    ) -> bool {
-        self.format.is_some() && self.import_mode.read(cx).selected_index(cx).is_some() && self.table_option.is_some()
     }
 
     fn load_csv_fields(
@@ -223,48 +223,47 @@ impl ImportConfig {
                             .child(TextInput::new(&self.file_path).cleanable()),
                     )
                     .child(
-                        form_field().label("文件格式").child(
-                            div()
-                                .text_sm()
-                                .text_color(theme.muted_foreground)
-                                .child("CSV (逗号分隔值)"),
+                        form_field()
+                            .label("文件格式")
+                            .child(Dropdown::new(&self.format).with_size(Size::Large)),
+                    ),
+            )
+            .when(true, |this| {
+                this.child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .gap_2()
+                        .mt_4()
+                        .child(div().text_base().font_semibold().child("CSV 格式配置"))
+                        .child(
+                            Form::vertical()
+                                .layout(Axis::Horizontal)
+                                .with_size(Size::Large)
+                                .label_width(px(100.))
+                                .child(
+                                    form_field()
+                                        .label("行分隔符")
+                                        .child(TextInput::new(&self.row_delimiter).cleanable()),
+                                )
+                                .child(
+                                    form_field()
+                                        .label("列分隔符")
+                                        .child(TextInput::new(&self.column_delimiter).cleanable()),
+                                )
+                                .child(
+                                    form_field()
+                                        .label("字段行")
+                                        .child(TextInput::new(&self.header_row).cleanable()),
+                                )
+                                .child(
+                                    form_field()
+                                        .label("数据起始行")
+                                        .child(TextInput::new(&self.data_start_row).cleanable()),
+                                ),
                         ),
-                    ),
-            )
-            .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap_2()
-                    .mt_4()
-                    .child(div().text_base().font_semibold().child("CSV 格式配置"))
-                    .child(
-                        Form::vertical()
-                            .layout(Axis::Horizontal)
-                            .with_size(Size::Large)
-                            .label_width(px(100.))
-                            .child(
-                                form_field()
-                                    .label("行分隔符")
-                                    .child(TextInput::new(&self.row_delimiter).cleanable()),
-                            )
-                            .child(
-                                form_field()
-                                    .label("列分隔符")
-                                    .child(TextInput::new(&self.column_delimiter).cleanable()),
-                            )
-                            .child(
-                                form_field()
-                                    .label("字段行")
-                                    .child(TextInput::new(&self.header_row).cleanable()),
-                            )
-                            .child(
-                                form_field()
-                                    .label("数据起始行")
-                                    .child(TextInput::new(&self.data_start_row).cleanable()),
-                            ),
-                    ),
-            )
+                )
+            })
             .child(
                 div()
                     .flex()
@@ -449,7 +448,6 @@ impl ImportConfig {
                 Button::new("import-execute")
                     .outline()
                     .label("开始导入")
-                    .disabled(!self.can_import(cx))
                     .on_click(cx.listener(|_this: &mut ImportConfig, _ev, _window, _cx| {
                         // 导入逻辑将在后续实现
                     })),
