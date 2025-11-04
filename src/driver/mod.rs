@@ -100,6 +100,72 @@ impl Datatype {
     }
 }
 
+#[derive(Clone, Debug)]
+pub enum QueryReq {
+    Sql {
+        sql: String,
+        args: Vec<String>,
+    },
+    Builder {
+        table: String,
+        columns: Vec<String>,
+        limit: Option<usize>,
+        offset: Option<usize>,
+        orders: Vec<OrderCond>,
+        filters: Vec<FilterCond>,
+    },
+    Command {
+        name: String,
+        args: Vec<Value>,
+    },
+    Document {
+        collection: String,
+        filter: Value,
+    },
+}
+
+#[derive(Clone, Debug)]
+pub enum InsertReq {
+    Sql { sql: String },
+    Command { name: String, args: Vec<Value> },
+    Document { collection: String, document: Value },
+}
+
+#[derive(Clone, Debug)]
+pub enum UpdateReq {
+    Sql {
+        sql: String,
+    },
+    Command {
+        name: String,
+        args: Vec<Value>,
+    },
+    Document {
+        collection: String,
+        filter: Value,
+        update: Value,
+    },
+}
+
+#[derive(Clone, Debug)]
+pub enum DeleteReq {
+    Sql { sql: String },
+    Command { name: String, args: Vec<Value> },
+    Document { collection: String, filter: Value },
+}
+
+#[derive(Clone, Debug)]
+pub enum QueryResp {
+    Rows(Vec<HashMap<String, String>>),
+    Value(Value),
+    Documents(Vec<Value>),
+}
+
+#[derive(Clone, Debug)]
+pub struct WriteResp {
+    pub affected: u64,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Operator {
     Equal,
@@ -202,72 +268,6 @@ pub enum DriverError {
     MissingField(String),
     #[error("配置字段非法: {0}")]
     InvalidField(String),
-}
-
-#[derive(Clone, Debug)]
-pub enum QueryReq {
-    Sql {
-        sql: String,
-        args: Vec<String>,
-    },
-    Builder {
-        table: String,
-        columns: Vec<String>,
-        limit: Option<usize>,
-        offset: Option<usize>,
-        orders: Vec<OrderCond>,
-        filters: Vec<FilterCond>,
-    },
-    Command {
-        name: String,
-        args: Vec<Value>,
-    },
-    Document {
-        collection: String,
-        filter: Value,
-    },
-}
-
-#[derive(Clone, Debug)]
-pub enum InsertReq {
-    Sql { sql: String },
-    Command { name: String, args: Vec<Value> },
-    Document { collection: String, document: Value },
-}
-
-#[derive(Clone, Debug)]
-pub enum UpdateReq {
-    Sql {
-        sql: String,
-    },
-    Command {
-        name: String,
-        args: Vec<Value>,
-    },
-    Document {
-        collection: String,
-        filter: Value,
-        update: Value,
-    },
-}
-
-#[derive(Clone, Debug)]
-pub enum DeleteReq {
-    Sql { sql: String },
-    Command { name: String, args: Vec<Value> },
-    Document { collection: String, filter: Value },
-}
-
-#[derive(Clone, Debug)]
-pub enum QueryResp {
-    Rows(Vec<HashMap<String, String>>),
-    Value(Value),
-    Documents(Vec<Value>),
-}
-
-#[derive(Clone, Debug)]
-pub struct WriteResp {
-    pub affected: u64,
 }
 
 pub trait DatabaseDriver {
