@@ -17,8 +17,8 @@ use crate::{
         SqlerApp,
     },
     driver::{
-        create_connection, DataSource, DataSourceOptions, DatabaseSession, DriverError, FilterCond, Operator,
-        OrderCond, QueryReq, QueryResp, ValueCond,
+        create_connection, DataSource, DatabaseSession, DriverError, FilterCond, Operator, OrderCond, QueryReq,
+        QueryResp, ValueCond,
     },
 };
 
@@ -36,7 +36,7 @@ struct TabItem {
 impl TabItem {
     fn overview() -> Self {
         Self {
-            id: SharedString::from("mysql-tab-overview"),
+            id: SharedString::from("relational-overview-tab"),
             title: SharedString::from("概览"),
             content: TabContent::Overview,
             closable: false,
@@ -201,7 +201,7 @@ impl MySQLWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let id = SharedString::from(format!("mysql-tab-table-data-{}-{}", self.meta.id, table));
+        let id = SharedString::from(format!("relational-table-tab-{}-{}", self.meta.id, table));
 
         // 检查标签页是否已存在
         if let Some(existing) = self.tabs.iter().find(|tab| {
@@ -747,38 +747,7 @@ impl MySQLWorkspace {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let theme = cx.theme();
-        let options = match &self.meta.options {
-            DataSourceOptions::MySQL(opts) => opts,
-            _ => panic!("MySQL workspace expects MySQL options"),
-        };
-
-        let host = if options.host.trim().is_empty() {
-            "未配置"
-        } else {
-            options.host.as_str()
-        };
-        let database = if options.database.trim().is_empty() {
-            "未配置"
-        } else {
-            options.database.as_str()
-        };
-        let charset = options
-            .charset
-            .as_deref()
-            .filter(|v| !v.trim().is_empty())
-            .unwrap_or("默认字符集");
-        let tls = if options.use_tls {
-            "TLS 已启用"
-        } else {
-            "未启用 TLS"
-        };
-
-        let connection_rows = [
-            ("连接地址", format!("{}:{}", host, options.port)),
-            ("数据库", database.to_string()),
-            ("字符集", charset.to_string()),
-            ("安全性", tls.to_string()),
-        ];
+        let overview_fields = self.meta.display_overview();
 
         let detail_card = div()
             .flex()
@@ -790,7 +759,7 @@ impl MySQLWorkspace {
             .bg(theme.secondary)
             .px(px(14.))
             .py(px(12.))
-            .children(connection_rows.into_iter().map(|(label, value)| {
+            .children(overview_fields.into_iter().map(|(label, value)| {
                 div()
                     .flex()
                     .flex_row()
@@ -835,7 +804,7 @@ impl Render for MySQLWorkspace {
 
         let sidebar = self.tables.iter().cloned().fold(
             div()
-                .id(comp_id(["mysql-sidebar", id]))
+                .id(comp_id(["relational-sidebar", id]))
                 .p_2()
                 .gap_2()
                 .col_full()
@@ -845,7 +814,7 @@ impl Render for MySQLWorkspace {
                 let active_table = table.clone();
                 acc.child(
                     div()
-                        .id(comp_id(["mysql-sidebar-item", &self.meta.id, &table]))
+                        .id(comp_id(["relational-sidebar-item", &self.meta.id, &table]))
                         .px_4()
                         .py_2()
                         .gap_2()
@@ -873,7 +842,7 @@ impl Render for MySQLWorkspace {
             .col_full()
             .child(
                 div()
-                    .id(comp_id(["mysql-tabs", id]))
+                    .id(comp_id(["relational-tabs", id]))
                     .flex()
                     .flex_row()
                     .gap_2()
@@ -883,7 +852,7 @@ impl Render for MySQLWorkspace {
                         let tab_active = &tab_id == active;
 
                         let mut item = div()
-                            .id(comp_id(["mysql-tabs-item", &tab_id]))
+                            .id(comp_id(["relational-tabs-item", &tab_id]))
                             .flex()
                             .flex_row()
                             .items_center()
@@ -920,7 +889,7 @@ impl Render for MySQLWorkspace {
 
                         if tab.closable {
                             item = item.child(
-                                Button::new(comp_id(["mysql-tabs-close", &tab_id]))
+                                Button::new(comp_id(["relational-tabs-close", &tab_id]))
                                     .ghost()
                                     .xsmall()
                                     .compact()
@@ -945,7 +914,7 @@ impl Render for MySQLWorkspace {
             )
             .child(
                 div()
-                    .id(comp_id(["mysql-main", id]))
+                    .id(comp_id(["relational-main", id]))
                     .col_full()
                     .child(
                         match self
@@ -963,11 +932,11 @@ impl Render for MySQLWorkspace {
             .into_any_element();
 
         div()
-            .id(comp_id(["mysql", id]))
+            .id(comp_id(["relational", id]))
             .col_full()
             .child(
                 div()
-                    .id(comp_id(["mysql-header", id]))
+                    .id(comp_id(["relational-header", id]))
                     .flex()
                     .flex_row()
                     .p_4()
@@ -975,7 +944,7 @@ impl Render for MySQLWorkspace {
                     .border_b_1()
                     .border_color(theme.border)
                     .child(
-                        Button::new(comp_id(["mysql-header-refresh", id]))
+                        Button::new(comp_id(["relational-header-refresh", id]))
                             .outline()
                             .icon(icon_relead().with_size(Size::Small))
                             .on_click(cx.listener(|view: &mut Self, _, _, cx| {
@@ -984,7 +953,7 @@ impl Render for MySQLWorkspace {
                             .label("刷新表"),
                     )
                     .child(
-                        Button::new(comp_id(["mysql-header-query", id]))
+                        Button::new(comp_id(["relational-header-query", id]))
                             .outline()
                             .icon(icon_search().with_size(Size::Small))
                             .label("新建查询")
@@ -993,7 +962,7 @@ impl Render for MySQLWorkspace {
                             })),
                     )
                     .child(
-                        Button::new(comp_id(["mysql-header-transfer", id]))
+                        Button::new(comp_id(["relational-header-transfer", id]))
                             .outline()
                             .icon(icon_transfer().with_size(Size::Small))
                             .label("数据传输")
@@ -1009,8 +978,8 @@ impl Render for MySQLWorkspace {
                     ),
             )
             .child(
-                div().id(comp_id(["mysql-content", id])).col_full().child(
-                    h_resizable(comp_id(["mysql-content", id]), self.sidebar_resize.clone())
+                div().col_full().child(
+                    h_resizable(comp_id(["relational-content", id]), self.sidebar_resize.clone())
                         .child(
                             resizable_panel()
                                 .size(px(200.0))

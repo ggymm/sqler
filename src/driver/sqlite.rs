@@ -35,6 +35,27 @@ impl SQLiteOptions {
             format!("sqlite://{}", path)
         }
     }
+
+    pub fn overview(&self) -> Vec<(&'static str, String)> {
+        vec![
+            (
+                "文件路径",
+                if self.filepath.is_empty() {
+                    "未配置".into()
+                } else {
+                    self.filepath.clone()
+                },
+            ),
+            (
+                "访问模式",
+                if self.read_only {
+                    "只读".into()
+                } else {
+                    "读写".into()
+                },
+            ),
+        ]
+    }
 }
 
 #[derive(Debug, Clone, Copy)]

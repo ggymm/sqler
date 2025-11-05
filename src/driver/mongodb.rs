@@ -285,6 +285,40 @@ impl MongoDBOptions {
         format!("mongodb://{}{}", hosts, suffix)
     }
 
+    pub fn overview(&self) -> Vec<(&'static str, String)> {
+        let mut fields = vec![];
+
+        if let Some(uri) = &self.connection_string {
+            fields.push(("连接字符串", Self::sanitize_uri(uri)));
+        } else if !self.hosts.is_empty() {
+            let hosts = self
+                .hosts
+                .iter()
+                .map(|h| format!("{}:{}", h.host, h.port))
+                .collect::<Vec<_>>()
+                .join(", ");
+            fields.push(("主机列表", hosts));
+        } else {
+            fields.push(("主机列表", "未配置".into()));
+        }
+
+        if let Some(db) = &self.auth_source {
+            if !db.is_empty() {
+                fields.push(("认证数据库", db.clone()));
+            }
+        }
+
+        fields.push((
+            "安全性",
+            if self.use_tls {
+                "TLS 已启用".into()
+            } else {
+                "未启用 TLS".into()
+            },
+        ));
+        fields
+    }
+
     fn sanitize_uri(raw: &str) -> String {
         let trimmed = raw.trim();
         if trimmed.is_empty() {

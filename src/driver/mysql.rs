@@ -350,8 +350,27 @@ impl MySQLOptions {
         }
     }
 
-    pub fn display_overview(&self) -> String {
-        "".to_string()
+    pub fn overview(&self) -> Vec<(&'static str, String)> {
+        vec![
+            ("连接地址", format!("{}:{}", self.host, self.port)),
+            (
+                "数据库",
+                if self.database.is_empty() {
+                    "未配置".into()
+                } else {
+                    self.database.clone()
+                },
+            ),
+            ("字符集", self.charset.as_deref().unwrap_or("默认字符集").to_string()),
+            (
+                "安全性",
+                if self.use_tls {
+                    "TLS 已启用".into()
+                } else {
+                    "未启用 TLS".into()
+                },
+            ),
+        ]
     }
 }
 

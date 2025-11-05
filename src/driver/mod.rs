@@ -344,6 +344,18 @@ impl DataSource {
             DataSourceOptions::MongoDB(opts) => opts.endpoint(),
         }
     }
+
+    pub fn display_overview(&self) -> Vec<(&'static str, String)> {
+        match &self.options {
+            DataSourceOptions::MySQL(opts) => opts.overview(),
+            DataSourceOptions::Oracle(opts) => opts.overview(),
+            DataSourceOptions::SQLite(opts) => opts.overview(),
+            DataSourceOptions::SQLServer(opts) => opts.overview(),
+            DataSourceOptions::PostgreSQL(opts) => opts.overview(),
+            DataSourceOptions::Redis(opts) => opts.overview(),
+            DataSourceOptions::MongoDB(opts) => opts.overview(),
+        }
+    }
 }
 
 #[repr(u8)]

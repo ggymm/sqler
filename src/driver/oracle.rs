@@ -52,4 +52,21 @@ impl OracleOptions {
         };
         format!("oracle://{}:{}?{}", self.host, self.port, hint)
     }
+
+    pub fn overview(&self) -> Vec<(&'static str, String)> {
+        let mut fields = vec![("连接地址", format!("{}:{}", self.host, self.port))];
+
+        match &self.address {
+            OracleAddress::ServiceName(name) => fields.push(("服务名", name.clone())),
+            OracleAddress::Sid(sid) => fields.push(("SID", sid.clone())),
+        }
+
+        if let Some(wallet) = &self.wallet_path {
+            if !wallet.is_empty() {
+                fields.push(("Wallet 路径", wallet.clone()));
+            }
+        }
+
+        fields
+    }
 }

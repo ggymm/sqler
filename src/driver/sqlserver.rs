@@ -53,6 +53,26 @@ impl SQLServerOptions {
             format!("sqlserver://{}/{}", authority, db)
         }
     }
+
+    pub fn overview(&self) -> Vec<(&'static str, String)> {
+        let mut fields = vec![("连接地址", format!("{}:{}", self.host, self.port))];
+
+        if let Some(instance) = &self.instance {
+            if !instance.is_empty() {
+                fields.push(("实例名", instance.clone()));
+            }
+        }
+
+        fields.push((
+            "数据库",
+            if self.database.is_empty() {
+                "未配置".into()
+            } else {
+                self.database.clone()
+            },
+        ));
+        fields
+    }
 }
 
 /// SQL Server 驱动占位实现。

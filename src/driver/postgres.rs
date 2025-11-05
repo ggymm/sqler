@@ -340,6 +340,28 @@ impl PostgreSQLOptions {
         };
         format!("postgres://{}:{}{}", self.host, self.port, suffix)
     }
+
+    pub fn overview(&self) -> Vec<(&'static str, String)> {
+        vec![
+            ("连接地址", format!("{}:{}", self.host, self.port)),
+            (
+                "数据库",
+                if self.database.is_empty() {
+                    "未配置".into()
+                } else {
+                    self.database.clone()
+                },
+            ),
+            (
+                "安全性",
+                if self.use_tls {
+                    "TLS 已启用".into()
+                } else {
+                    "未启用 TLS".into()
+                },
+            ),
+        ]
+    }
 }
 
 fn connect(config: &PostgreSQLOptions) -> Result<Client, DriverError> {
