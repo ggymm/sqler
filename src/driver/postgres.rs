@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     validate_sql, DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError, InsertReq, Operator, QueryReq,
-    QueryResp, UpdateReq, ValueCond, WriteResp,
+    QueryResp, UpdateReq, UpdateResp, ValueCond,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -79,10 +79,10 @@ impl DatabaseSession for PostgresSession {
             QueryReq::Builder {
                 table,
                 columns,
-                filters,
-                orders,
                 limit,
                 offset,
+                orders,
+                filters,
             } => {
                 let cols = if columns.is_empty() {
                     "*".to_string()
@@ -234,7 +234,7 @@ impl DatabaseSession for PostgresSession {
     fn insert(
         &mut self,
         request: InsertReq,
-    ) -> Result<WriteResp, DriverError> {
+    ) -> Result<UpdateResp, DriverError> {
         match request {
             InsertReq::Sql { sql } => {
                 validate_sql(&sql)?;
@@ -242,7 +242,7 @@ impl DatabaseSession for PostgresSession {
                     .client
                     .execute(&sql, &[])
                     .map_err(|err| DriverError::Other(format!("执行写入失败: {}", err)))?;
-                Ok(WriteResp { affected })
+                Ok(UpdateResp { affected })
             }
             other => Err(DriverError::InvalidField(format!(
                 "PostgreSQL 插入仅支持 SQL，收到: {:?}",
@@ -254,7 +254,7 @@ impl DatabaseSession for PostgresSession {
     fn update(
         &mut self,
         request: UpdateReq,
-    ) -> Result<WriteResp, DriverError> {
+    ) -> Result<UpdateResp, DriverError> {
         match request {
             UpdateReq::Sql { sql } => {
                 validate_sql(&sql)?;
@@ -262,7 +262,7 @@ impl DatabaseSession for PostgresSession {
                     .client
                     .execute(&sql, &[])
                     .map_err(|err| DriverError::Other(format!("执行写入失败: {}", err)))?;
-                Ok(WriteResp { affected })
+                Ok(UpdateResp { affected })
             }
             other => Err(DriverError::InvalidField(format!(
                 "PostgreSQL 更新仅支持 SQL，收到: {:?}",
@@ -274,7 +274,7 @@ impl DatabaseSession for PostgresSession {
     fn delete(
         &mut self,
         request: DeleteReq,
-    ) -> Result<WriteResp, DriverError> {
+    ) -> Result<UpdateResp, DriverError> {
         match request {
             DeleteReq::Sql { sql } => {
                 validate_sql(&sql)?;
@@ -282,7 +282,7 @@ impl DatabaseSession for PostgresSession {
                     .client
                     .execute(&sql, &[])
                     .map_err(|err| DriverError::Other(format!("执行写入失败: {}", err)))?;
-                Ok(WriteResp { affected })
+                Ok(UpdateResp { affected })
             }
             other => Err(DriverError::InvalidField(format!(
                 "PostgreSQL 删除仅支持 SQL，收到: {:?}",

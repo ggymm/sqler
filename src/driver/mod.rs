@@ -100,72 +100,6 @@ impl Datatype {
     }
 }
 
-#[derive(Clone, Debug)]
-pub enum QueryReq {
-    Sql {
-        sql: String,
-        args: Vec<String>,
-    },
-    Builder {
-        table: String,
-        columns: Vec<String>,
-        limit: Option<usize>,
-        offset: Option<usize>,
-        orders: Vec<OrderCond>,
-        filters: Vec<FilterCond>,
-    },
-    Command {
-        name: String,
-        args: Vec<Value>,
-    },
-    Document {
-        collection: String,
-        filter: Value,
-    },
-}
-
-#[derive(Clone, Debug)]
-pub enum InsertReq {
-    Sql { sql: String },
-    Command { name: String, args: Vec<Value> },
-    Document { collection: String, document: Value },
-}
-
-#[derive(Clone, Debug)]
-pub enum UpdateReq {
-    Sql {
-        sql: String,
-    },
-    Command {
-        name: String,
-        args: Vec<Value>,
-    },
-    Document {
-        collection: String,
-        filter: Value,
-        update: Value,
-    },
-}
-
-#[derive(Clone, Debug)]
-pub enum DeleteReq {
-    Sql { sql: String },
-    Command { name: String, args: Vec<Value> },
-    Document { collection: String, filter: Value },
-}
-
-#[derive(Clone, Debug)]
-pub enum QueryResp {
-    Rows(Vec<HashMap<String, String>>),
-    Value(Value),
-    Documents(Vec<Value>),
-}
-
-#[derive(Clone, Debug)]
-pub struct WriteResp {
-    pub affected: u64,
-}
-
 #[derive(Clone, Debug, PartialEq)]
 pub enum Operator {
     Equal,
@@ -238,6 +172,72 @@ impl Operator {
 }
 
 #[derive(Clone, Debug)]
+pub enum QueryReq {
+    Sql {
+        sql: String,
+        args: Vec<String>,
+    },
+    Builder {
+        table: String,
+        columns: Vec<String>,
+        limit: Option<usize>,
+        offset: Option<usize>,
+        orders: Vec<OrderCond>,
+        filters: Vec<FilterCond>,
+    },
+    Command {
+        name: String,
+        args: Vec<Value>,
+    },
+    Document {
+        collection: String,
+        filter: Value,
+    },
+}
+
+#[derive(Clone, Debug)]
+pub enum InsertReq {
+    Sql { sql: String },
+    Command { name: String, args: Vec<Value> },
+    Document { collection: String, document: Value },
+}
+
+#[derive(Clone, Debug)]
+pub enum UpdateReq {
+    Sql {
+        sql: String,
+    },
+    Command {
+        name: String,
+        args: Vec<Value>,
+    },
+    Document {
+        collection: String,
+        filter: Value,
+        update: Value,
+    },
+}
+
+#[derive(Clone, Debug)]
+pub enum DeleteReq {
+    Sql { sql: String },
+    Command { name: String, args: Vec<Value> },
+    Document { collection: String, filter: Value },
+}
+
+#[derive(Clone, Debug)]
+pub enum QueryResp {
+    Rows(Vec<HashMap<String, String>>),
+    Value(Value),
+    Documents(Vec<Value>),
+}
+
+#[derive(Clone, Debug)]
+pub struct UpdateResp {
+    pub affected: u64,
+}
+
+#[derive(Clone, Debug)]
 pub struct OrderCond {
     pub field: String,
     pub ascending: bool,
@@ -295,17 +295,17 @@ pub trait DatabaseSession: Send {
     fn insert(
         &mut self,
         request: InsertReq,
-    ) -> Result<WriteResp, DriverError>;
+    ) -> Result<UpdateResp, DriverError>;
 
     fn update(
         &mut self,
         request: UpdateReq,
-    ) -> Result<WriteResp, DriverError>;
+    ) -> Result<UpdateResp, DriverError>;
 
     fn delete(
         &mut self,
         request: DeleteReq,
-    ) -> Result<WriteResp, DriverError>;
+    ) -> Result<UpdateResp, DriverError>;
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -345,7 +345,7 @@ impl DataSource {
 }
 
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DataSourceKind {
     MySQL,
     Oracle,

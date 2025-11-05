@@ -4,7 +4,7 @@ use serde_json::{Map as JsonMap, Number, Value as JsonValue};
 
 use super::{
     DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp, UpdateReq,
-    WriteResp,
+    UpdateResp,
 };
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -68,11 +68,11 @@ impl DatabaseSession for RedisConnection {
     fn insert(
         &mut self,
         request: InsertReq,
-    ) -> Result<WriteResp, DriverError> {
+    ) -> Result<UpdateResp, DriverError> {
         match request {
             InsertReq::Command { name, args } => {
                 let value = execute(&mut self.conn, &name, &args)?;
-                Ok(WriteResp {
+                Ok(UpdateResp {
                     affected: redis_value_to_affected(&value),
                 })
             }
@@ -86,11 +86,11 @@ impl DatabaseSession for RedisConnection {
     fn update(
         &mut self,
         request: UpdateReq,
-    ) -> Result<WriteResp, DriverError> {
+    ) -> Result<UpdateResp, DriverError> {
         match request {
             UpdateReq::Command { name, args } => {
                 let value = execute(&mut self.conn, &name, &args)?;
-                Ok(WriteResp {
+                Ok(UpdateResp {
                     affected: redis_value_to_affected(&value),
                 })
             }
@@ -104,11 +104,11 @@ impl DatabaseSession for RedisConnection {
     fn delete(
         &mut self,
         request: DeleteReq,
-    ) -> Result<WriteResp, DriverError> {
+    ) -> Result<UpdateResp, DriverError> {
         match request {
             DeleteReq::Command { name, args } => {
                 let value = execute(&mut self.conn, &name, &args)?;
-                Ok(WriteResp {
+                Ok(UpdateResp {
                     affected: redis_value_to_affected(&value),
                 })
             }

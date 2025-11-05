@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp, UpdateReq,
-    WriteResp,
+    UpdateResp,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -126,7 +126,7 @@ impl DatabaseSession for MongoSession {
     fn insert(
         &mut self,
         request: InsertReq,
-    ) -> Result<WriteResp, DriverError> {
+    ) -> Result<UpdateResp, DriverError> {
         match request {
             InsertReq::Document { collection, document } => {
                 let (db, coll) = self.resolve_collection(&collection)?;
@@ -137,7 +137,7 @@ impl DatabaseSession for MongoSession {
                     .insert_one(doc)
                     .run()
                     .map_err(|err| DriverError::Other(format!("插入失败: {}", err)))?;
-                Ok(WriteResp { affected: 1 })
+                Ok(UpdateResp { affected: 1 })
             }
             other => Err(DriverError::InvalidField(format!(
                 "MongoDB 插入仅支持文档操作，收到: {:?}",
@@ -149,7 +149,7 @@ impl DatabaseSession for MongoSession {
     fn update(
         &mut self,
         request: UpdateReq,
-    ) -> Result<WriteResp, DriverError> {
+    ) -> Result<UpdateResp, DriverError> {
         match request {
             UpdateReq::Document {
                 collection,
@@ -169,7 +169,7 @@ impl DatabaseSession for MongoSession {
                     .update_many(filter_doc, update_doc)
                     .run()
                     .map_err(|err| DriverError::Other(format!("更新失败: {}", err)))?;
-                Ok(WriteResp {
+                Ok(UpdateResp {
                     affected: result.modified_count,
                 })
             }
@@ -183,7 +183,7 @@ impl DatabaseSession for MongoSession {
     fn delete(
         &mut self,
         request: DeleteReq,
-    ) -> Result<WriteResp, DriverError> {
+    ) -> Result<UpdateResp, DriverError> {
         match request {
             DeleteReq::Document { collection, filter } => {
                 let (db, coll) = self.resolve_collection(&collection)?;
@@ -196,7 +196,7 @@ impl DatabaseSession for MongoSession {
                     .delete_many(filter_doc)
                     .run()
                     .map_err(|err| DriverError::Other(format!("删除失败: {}", err)))?;
-                Ok(WriteResp {
+                Ok(UpdateResp {
                     affected: result.deleted_count,
                 })
             }

@@ -10,12 +10,15 @@ use gpui_component::{
 use uuid::Uuid;
 
 use crate::{
-    app::comps::{
-        comp_id, icon_close, icon_relead, icon_search, icon_sheet, icon_transfer, icon_trash, DataTable, DivExt,
+    app::{
+        comps::{
+            comp_id, icon_close, icon_relead, icon_search, icon_sheet, icon_transfer, icon_trash, DataTable, DivExt,
+        },
+        SqlerApp,
     },
     driver::{
-        create_connection, DataSource, DataSourceOptions, DatabaseSession, DriverError, FilterCond, Operator,
-        OrderCond, QueryReq, QueryResp, ValueCond,
+        create_connection, DatabaseSession, DataSource, DataSourceKind, DataSourceOptions,
+        DriverError, FilterCond, Operator, OrderCond, QueryReq, QueryResp, ValueCond,
     },
 };
 
@@ -74,7 +77,7 @@ struct TableContent {
 
 pub struct MySQLWorkspace {
     meta: DataSource,
-    parent: WeakEntity<crate::app::SqlerApp>,
+    parent: WeakEntity<SqlerApp>,
     session: Option<Box<dyn DatabaseSession>>,
     database: Option<String>,
 
@@ -88,22 +91,55 @@ pub struct MySQLWorkspace {
 impl MySQLWorkspace {
     pub fn new(
         meta: DataSource,
-        parent: WeakEntity<crate::app::SqlerApp>,
+        parent: WeakEntity<SqlerApp>,
         cx: &mut Context<Self>,
     ) -> Self {
         let overview = TabItem::overview();
         let active_tab = overview.id.clone();
 
         let tables = meta.tables();
-        let database = if let DataSourceOptions::MySQL(opts) = &meta.options {
-            let db = opts.database.trim();
-            if db.is_empty() {
-                None
-            } else {
-                Some(db.to_string())
+        let database = match &meta.kind {
+            DataSourceKind::MySQL => {
+                if let DataSourceOptions::MySQL(opts) = &meta.options {
+                    let db = opts.database.trim();
+                    if db.is_empty() {
+                        None
+                    } else {
+                        Some(db.to_string())
+                    }
+                } else {
+                    panic!("数据源类型与选项不匹配: kind={:?}, options 不是 MySQL", meta.kind);
+                }
             }
-        } else {
-            None
+            DataSourceKind::PostgreSQL => {
+                if let DataSourceOptions::PostgreSQL(opts) = &meta.options {
+                    let db = opts.database.trim();
+                    if db.is_empty() {
+                        None
+                    } else {
+                        Some(db.to_string())
+                    }
+                } else {
+                    panic!("数据源类型与选项不匹配: kind={:?}, options 不是 PostgreSQL", meta.kind);
+                }
+            }
+            DataSourceKind::SQLite => {
+                if let DataSourceOptions::SQLite(_opts) = &meta.options {
+                    None
+                } else {
+                    panic!("数据源类型与选项不匹配: kind={:?}, options 不是 SQLite", meta.kind);
+                }
+            }
+            DataSourceKind::MongoDB => {
+                if let DataSourceOptions::MongoDB(_opts) = &meta.options {
+                    None
+                } else {
+                    panic!("数据源类型与选项不匹配: kind={:?}, options 不是 MongoDB", meta.kind);
+                }
+            }
+            _ => {
+                panic!("MySQLWorkspace 不支持 {:?} 类型的数据源", meta.kind);
+            }
         };
 
         Self {
@@ -158,7 +194,7 @@ impl MySQLWorkspace {
 
         match self.session.as_deref_mut() {
             Some(session) => Ok(session),
-            None => Err(DriverError::Other("MySQL 连接不可用".into())),
+            None => Err(DriverError::Other("数据库连接不可用".into())),
         }
     }
 

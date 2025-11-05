@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     validate_sql, DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError, InsertReq, Operator, QueryReq,
-    QueryResp, UpdateReq, ValueCond, WriteResp,
+    QueryResp, UpdateReq, UpdateResp, ValueCond,
 };
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -63,10 +63,10 @@ impl DatabaseSession for SQLiteConnection {
             QueryReq::Builder {
                 table,
                 columns,
-                filters,
-                orders,
                 limit,
                 offset,
+                orders,
+                filters,
             } => {
                 let cols = if columns.is_empty() {
                     "*".to_string()
@@ -205,7 +205,7 @@ impl DatabaseSession for SQLiteConnection {
     fn insert(
         &mut self,
         request: InsertReq,
-    ) -> Result<WriteResp, DriverError> {
+    ) -> Result<UpdateResp, DriverError> {
         match request {
             InsertReq::Sql { sql } => {
                 validate_sql(&sql)?;
@@ -213,7 +213,7 @@ impl DatabaseSession for SQLiteConnection {
                     .conn
                     .execute(&sql, [])
                     .map_err(|err| DriverError::Other(format!("执行写入失败: {}", err)))?;
-                Ok(WriteResp {
+                Ok(UpdateResp {
                     affected: affected as u64,
                 })
             }
@@ -227,7 +227,7 @@ impl DatabaseSession for SQLiteConnection {
     fn update(
         &mut self,
         request: UpdateReq,
-    ) -> Result<WriteResp, DriverError> {
+    ) -> Result<UpdateResp, DriverError> {
         match request {
             UpdateReq::Sql { sql } => {
                 validate_sql(&sql)?;
@@ -235,7 +235,7 @@ impl DatabaseSession for SQLiteConnection {
                     .conn
                     .execute(&sql, [])
                     .map_err(|err| DriverError::Other(format!("执行写入失败: {}", err)))?;
-                Ok(WriteResp {
+                Ok(UpdateResp {
                     affected: affected as u64,
                 })
             }
@@ -249,7 +249,7 @@ impl DatabaseSession for SQLiteConnection {
     fn delete(
         &mut self,
         request: DeleteReq,
-    ) -> Result<WriteResp, DriverError> {
+    ) -> Result<UpdateResp, DriverError> {
         match request {
             DeleteReq::Sql { sql } => {
                 validate_sql(&sql)?;
@@ -257,7 +257,7 @@ impl DatabaseSession for SQLiteConnection {
                     .conn
                     .execute(&sql, [])
                     .map_err(|err| DriverError::Other(format!("执行写入失败: {}", err)))?;
-                Ok(WriteResp {
+                Ok(UpdateResp {
                     affected: affected as u64,
                 })
             }

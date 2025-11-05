@@ -4,8 +4,8 @@ use mysql::{prelude::Queryable, Conn, Opts, OptsBuilder, SslOpts, Value};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    validate_sql, DataSourceKind, DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError, InsertReq,
-    Operator, QueryReq, QueryResp, UpdateReq, ValueCond, WriteResp,
+    validate_sql, DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError, InsertReq, Operator, QueryReq,
+    QueryResp, UpdateReq, UpdateResp, ValueCond,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -88,10 +88,10 @@ impl DatabaseSession for MySQLSession {
             QueryReq::Builder {
                 table,
                 columns,
-                filters,
-                orders,
                 limit,
                 offset,
+                orders,
+                filters,
             } => {
                 // 构建 SELECT SQL
                 let cols = if columns.is_empty() {
@@ -236,14 +236,14 @@ impl DatabaseSession for MySQLSession {
     fn insert(
         &mut self,
         request: InsertReq,
-    ) -> Result<WriteResp, DriverError> {
+    ) -> Result<UpdateResp, DriverError> {
         match request {
             InsertReq::Sql { sql } => {
                 validate_sql(&sql)?;
                 self.conn
                     .query_drop(&sql)
                     .map_err(|err| DriverError::Other(format!("执行写入失败: {}", err)))?;
-                Ok(WriteResp {
+                Ok(UpdateResp {
                     affected: self.conn.affected_rows(),
                 })
             }
@@ -257,14 +257,14 @@ impl DatabaseSession for MySQLSession {
     fn update(
         &mut self,
         request: UpdateReq,
-    ) -> Result<WriteResp, DriverError> {
+    ) -> Result<UpdateResp, DriverError> {
         match request {
             UpdateReq::Sql { sql } => {
                 validate_sql(&sql)?;
                 self.conn
                     .query_drop(&sql)
                     .map_err(|err| DriverError::Other(format!("执行写入失败: {}", err)))?;
-                Ok(WriteResp {
+                Ok(UpdateResp {
                     affected: self.conn.affected_rows(),
                 })
             }
@@ -278,14 +278,14 @@ impl DatabaseSession for MySQLSession {
     fn delete(
         &mut self,
         request: DeleteReq,
-    ) -> Result<WriteResp, DriverError> {
+    ) -> Result<UpdateResp, DriverError> {
         match request {
             DeleteReq::Sql { sql } => {
                 validate_sql(&sql)?;
                 self.conn
                     .query_drop(&sql)
                     .map_err(|err| DriverError::Other(format!("执行写入失败: {}", err)))?;
-                Ok(WriteResp {
+                Ok(UpdateResp {
                     affected: self.conn.affected_rows(),
                 })
             }

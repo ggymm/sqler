@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp, UpdateReq,
-    WriteResp,
+    UpdateResp,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -72,21 +72,21 @@ impl DatabaseSession for SqlServerConnection {
     fn insert(
         &mut self,
         _request: InsertReq,
-    ) -> Result<WriteResp, DriverError> {
+    ) -> Result<UpdateResp, DriverError> {
         Err(DriverError::Other("SQL Server 插入暂未实现".into()))
     }
 
     fn update(
         &mut self,
         _request: UpdateReq,
-    ) -> Result<WriteResp, DriverError> {
+    ) -> Result<UpdateResp, DriverError> {
         Err(DriverError::Other("SQL Server 更新暂未实现".into()))
     }
 
     fn delete(
         &mut self,
         _request: DeleteReq,
-    ) -> Result<WriteResp, DriverError> {
+    ) -> Result<UpdateResp, DriverError> {
         Err(DriverError::Other("SQL Server 删除暂未实现".into()))
     }
 }
