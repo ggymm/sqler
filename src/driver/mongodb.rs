@@ -215,6 +215,13 @@ impl DatabaseSession for MongoSession {
             .map_err(|err| DriverError::Other(format!("查询集合列表失败: {}", err)))?;
         Ok(collection_names)
     }
+
+    fn columns(
+        &mut self,
+        _table: &str,
+    ) -> Result<Vec<String>, DriverError> {
+        Err(DriverError::Other("MongoDB 作为文档数据库不支持固定列结构查询".into()))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

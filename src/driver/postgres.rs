@@ -305,6 +305,24 @@ impl DatabaseSession for PostgresSession {
         }
         Ok(tables)
     }
+
+    fn columns(
+        &mut self,
+        table: &str,
+    ) -> Result<Vec<String>, DriverError> {
+        let sql = "SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1 ORDER BY ordinal_position";
+        let rows = self
+            .client
+            .query(sql, &[&table])
+            .map_err(|err| DriverError::Other(format!("查询列信息失败: {}", err)))?;
+
+        let mut columns = Vec::new();
+        for row in rows {
+            let column_name: String = row.get(0);
+            columns.push(column_name);
+        }
+        Ok(columns)
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]

@@ -136,6 +136,13 @@ impl DatabaseSession for RedisConnection {
     fn tables(&mut self) -> Result<Vec<String>, DriverError> {
         Err(DriverError::Other("Redis 不支持表列表查询".into()))
     }
+
+    fn columns(
+        &mut self,
+        _table: &str,
+    ) -> Result<Vec<String>, DriverError> {
+        Err(DriverError::Other("Redis 作为键值数据库不支持列结构查询".into()))
+    }
 }
 
 impl DatabaseDriver for RedisDriver {

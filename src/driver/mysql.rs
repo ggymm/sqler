@@ -312,6 +312,26 @@ impl DatabaseSession for MySQLSession {
         }
         Ok(tables)
     }
+
+    fn columns(
+        &mut self,
+        table: &str,
+    ) -> Result<Vec<String>, DriverError> {
+        let sql = format!("SHOW COLUMNS FROM `{}`", table.replace('`', "``"));
+        let rows: Vec<mysql::Row> = self
+            .conn
+            .query(&sql)
+            .map_err(|err| DriverError::Other(format!("查询列信息失败: {}", err)))?;
+
+        let mut columns = Vec::new();
+        for row in rows {
+            let raw_values = row.unwrap();
+            if let Some(value) = raw_values.get(0) {
+                columns.push(mysql_value_to_string(value.clone()));
+            }
+        }
+        Ok(columns)
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]

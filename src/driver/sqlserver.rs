@@ -113,6 +113,13 @@ impl DatabaseSession for SqlServerConnection {
     fn tables(&mut self) -> Result<Vec<String>, DriverError> {
         Err(DriverError::Other("SQL Server 查询表列表暂未实现".into()))
     }
+
+    fn columns(
+        &mut self,
+        _table: &str,
+    ) -> Result<Vec<String>, DriverError> {
+        Err(DriverError::Other("SQL Server 查询列信息暂未实现".into()))
+    }
 }
 
 impl DatabaseDriver for SQLServerDriver {

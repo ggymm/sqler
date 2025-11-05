@@ -306,6 +306,27 @@ impl DatabaseSession for SQLiteConnection {
         }
         Ok(tables)
     }
+
+    fn columns(
+        &mut self,
+        table: &str,
+    ) -> Result<Vec<String>, DriverError> {
+        let sql = format!("PRAGMA table_info(\"{}\")", table.replace('"', "\"\""));
+        let mut stmt = self
+            .conn
+            .prepare(&sql)
+            .map_err(|err| DriverError::Other(format!("查询列信息失败: {}", err)))?;
+
+        let mut columns = Vec::new();
+        let rows = stmt
+            .query_map([], |row| row.get::<_, String>(1))
+            .map_err(|err| DriverError::Other(format!("查询列信息失败: {}", err)))?;
+
+        for row in rows {
+            columns.push(row.map_err(|err| DriverError::Other(format!("读取列名失败: {}", err)))?);
+        }
+        Ok(columns)
+    }
 }
 
 impl DatabaseDriver for SQLiteDriver {

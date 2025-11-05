@@ -75,7 +75,7 @@ struct TableContent {
     filter_enable: bool,
 }
 
-pub struct MySQLWorkspace {
+pub struct CommonWorkspace {
     meta: DataSource,
     parent: WeakEntity<SqlerApp>,
     session: Option<Box<dyn DatabaseSession>>,
@@ -87,15 +87,15 @@ pub struct MySQLWorkspace {
     sidebar_resize: Entity<ResizableState>,
 }
 
-impl MySQLWorkspace {
+impl CommonWorkspace {
     pub fn new(
         meta: DataSource,
         parent: WeakEntity<SqlerApp>,
         cx: &mut Context<Self>,
     ) -> Self {
+        let tables = meta.tables();
         let overview = TabItem::overview();
         let active_tab = overview.id.clone();
-        let tables = meta.tables();
 
         Self {
             meta,
@@ -359,24 +359,7 @@ impl MySQLWorkspace {
                     let mut session = session;
 
                     // 查询列名
-                    let sql = format!("SHOW COLUMNS FROM {}", &table);
-                    let column_resp = session.query(QueryReq::Sql { sql, args: Vec::new() })?;
-                    let column_rows = match column_resp {
-                        QueryResp::Rows(rows) => rows,
-                        _ => vec![],
-                    };
-
-                    let mut columns = Vec::new();
-                    for row in column_rows {
-                        if let Some(field) = row.get("Field") {
-                            columns.push(field.to_string());
-                            continue;
-                        }
-
-                        if let Some((_, value)) = row.into_iter().next() {
-                            columns.push(value);
-                        }
-                    }
+                    let cols = session.columns(&table)?;
 
                     // 查询总数
                     let count_resp = session.query(QueryReq::Builder {
@@ -411,11 +394,11 @@ impl MySQLWorkspace {
                     };
 
                     // 构建渲染数据
-                    let table_cols: Vec<SharedString> = columns.iter().map(|s| SharedString::from(s.clone())).collect();
+                    let table_cols: Vec<SharedString> = cols.iter().map(|s| SharedString::from(s.clone())).collect();
                     let mut table_rows = Vec::with_capacity(rows.len());
                     for row in rows {
-                        let mut record = Vec::with_capacity(columns.len());
-                        for name in &columns {
+                        let mut record = Vec::with_capacity(cols.len());
+                        for name in &cols {
                             let value = row.get(name).cloned().unwrap_or_default();
                             record.push(SharedString::from(value));
                         }
@@ -792,7 +775,7 @@ impl MySQLWorkspace {
     }
 }
 
-impl Render for MySQLWorkspace {
+impl Render for CommonWorkspace {
     fn render(
         &mut self,
         _window: &mut Window,

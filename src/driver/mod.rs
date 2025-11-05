@@ -308,6 +308,11 @@ pub trait DatabaseSession: Send {
     ) -> Result<UpdateResp, DriverError>;
 
     fn tables(&mut self) -> Result<Vec<String>, DriverError>;
+
+    fn columns(
+        &mut self,
+        table: &str,
+    ) -> Result<Vec<String>, DriverError>;
 }
 
 #[derive(Clone, Serialize, Deserialize)]

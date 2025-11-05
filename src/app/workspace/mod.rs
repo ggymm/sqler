@@ -6,21 +6,18 @@ use crate::{
     driver::{DataSource, DataSourceKind},
 };
 
-mod columnar;
-mod document;
-mod mysql;
-mod placeholder;
-mod relational;
-
-use mysql::MySQLWorkspace;
+use common::CommonWorkspace;
 use placeholder::PlaceholderWorkspace;
+
+mod common;
+mod placeholder;
 
 pub fn parse_count(value: &str) -> usize {
     value.parse::<usize>().unwrap_or(0)
 }
 
 pub enum WorkspaceState {
-    MySQL { view: Entity<MySQLWorkspace> },
+    MySQL { view: Entity<CommonWorkspace> },
     Placeholder { view: Entity<PlaceholderWorkspace> },
 }
 
@@ -33,7 +30,7 @@ impl WorkspaceState {
         let parent = cx.weak_entity();
         match meta.kind {
             DataSourceKind::MySQL => {
-                let view = cx.new(|cx| MySQLWorkspace::new(meta, parent.clone(), cx));
+                let view = cx.new(|cx| CommonWorkspace::new(meta, parent.clone(), cx));
                 WorkspaceState::MySQL { view }
             }
             other => {
