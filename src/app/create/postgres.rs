@@ -5,7 +5,7 @@ use gpui_component::{
     Sizable, Size,
 };
 
-use crate::driver::PostgreSQLOptions;
+use crate::driver::PostgresOptions;
 
 pub struct PostgresCreate {
     pub name: Entity<InputState>,
@@ -23,9 +23,9 @@ impl PostgresCreate {
     ) -> Self {
         Self {
             name: cx.new(|cx| InputState::new(window, cx).default_value("PostgreSQL数据源")),
-            host: cx.new(|cx| InputState::new(window, cx)),
-            port: cx.new(|cx| InputState::new(window, cx)),
-            username: cx.new(|cx| InputState::new(window, cx)),
+            host: cx.new(|cx| InputState::new(window, cx).default_value("127.0.0.1")),
+            port: cx.new(|cx| InputState::new(window, cx).default_value("5432")),
+            username: cx.new(|cx| InputState::new(window, cx).default_value("postgres")),
             password: cx.new(|cx| InputState::new(window, cx).masked(true)),
             database: cx.new(|cx| InputState::new(window, cx)),
         }
@@ -34,14 +34,14 @@ impl PostgresCreate {
     pub fn options(
         &self,
         cx: &App,
-    ) -> PostgreSQLOptions {
+    ) -> PostgresOptions {
         let host = self.host.read(cx).value().to_string();
         let port = self.port.read(cx).value().to_string();
         let username = self.username.read(cx).value().to_string();
         let password = self.password.read(cx).value().to_string();
         let database = self.database.read(cx).value().to_string();
 
-        PostgreSQLOptions {
+        PostgresOptions {
             host,
             port: port.parse().unwrap_or(5432),
             username,

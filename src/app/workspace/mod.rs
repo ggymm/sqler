@@ -7,18 +7,21 @@ use crate::{
 };
 
 use common::CommonWorkspace;
-use placeholder::PlaceholderWorkspace;
+use mongodb::MongoDBWorkspace;
+use redis::RedisWorkspace;
 
 mod common;
-mod placeholder;
+mod mongodb;
+mod redis;
 
 pub fn parse_count(value: &str) -> usize {
     value.parse::<usize>().unwrap_or(0)
 }
 
 pub enum WorkspaceState {
-    MySQL { view: Entity<CommonWorkspace> },
-    Placeholder { view: Entity<PlaceholderWorkspace> },
+    Common { view: Entity<CommonWorkspace> },
+    Redis { view: Entity<RedisWorkspace> },
+    MongoDB { view: Entity<MongoDBWorkspace> },
 }
 
 impl WorkspaceState {
@@ -29,25 +32,30 @@ impl WorkspaceState {
     ) -> Self {
         let parent = cx.weak_entity();
         match meta.kind {
-            DataSourceKind::MySQL => {
+            DataSourceKind::MySQL
+            | DataSourceKind::Postgres
+            | DataSourceKind::SQLite
+            | DataSourceKind::Oracle
+            | DataSourceKind::SQLServer => {
                 let view = cx.new(|cx| CommonWorkspace::new(meta, parent.clone(), cx));
-                WorkspaceState::MySQL { view }
+                WorkspaceState::Common { view }
             }
-            other => {
-                let label = other.label();
-                let view = cx.new(|_| {
-                    let message = format!("{} 工作区暂未实现", label);
-                    PlaceholderWorkspace::new(meta, message)
-                });
-                WorkspaceState::Placeholder { view }
+            DataSourceKind::Redis => {
+                let view = cx.new(|cx| RedisWorkspace::new(meta, parent.clone(), cx));
+                WorkspaceState::Redis { view }
+            }
+            DataSourceKind::MongoDB => {
+                let view = cx.new(|cx| MongoDBWorkspace::new(meta, parent.clone(), cx));
+                WorkspaceState::MongoDB { view }
             }
         }
     }
 
     pub fn render(&self) -> AnyElement {
         match self {
-            WorkspaceState::MySQL { view } => view.clone().into_any_element(),
-            WorkspaceState::Placeholder { view } => view.clone().into_any_element(),
+            WorkspaceState::Common { view } => view.clone().into_any_element(),
+            WorkspaceState::Redis { view } => view.clone().into_any_element(),
+            WorkspaceState::MongoDB { view } => view.clone().into_any_element(),
         }
     }
 }

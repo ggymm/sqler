@@ -115,7 +115,7 @@ impl CreateWindow {
 
         let options = match kind {
             DataSourceKind::MySQL => DataSourceOptions::MySQL(self.mysql.read(cx).options(cx)),
-            DataSourceKind::PostgreSQL => DataSourceOptions::PostgreSQL(self.postgres.read(cx).options(cx)),
+            DataSourceKind::Postgres => DataSourceOptions::Postgres(self.postgres.read(cx).options(cx)),
             DataSourceKind::SQLite => DataSourceOptions::SQLite(self.sqlite.read(cx).options(cx)),
             DataSourceKind::Redis => DataSourceOptions::Redis(self.redis.read(cx).options(cx)),
             DataSourceKind::MongoDB => DataSourceOptions::MongoDB(self.mongodb.read(cx).options(cx)),
@@ -205,7 +205,7 @@ impl Render for CreateWindow {
                             DataSourceKind::Oracle => self.oracle.clone().into_any_element(),
                             DataSourceKind::SQLite => self.sqlite.clone().into_any_element(),
                             DataSourceKind::SQLServer => self.sqlserver.clone().into_any_element(),
-                            DataSourceKind::PostgreSQL => self.postgres.clone().into_any_element(),
+                            DataSourceKind::Postgres => self.postgres.clone().into_any_element(),
                             DataSourceKind::Redis => self.redis.clone().into_any_element(),
                             DataSourceKind::MongoDB => self.mongodb.clone().into_any_element(),
                         }),

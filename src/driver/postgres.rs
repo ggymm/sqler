@@ -12,7 +12,7 @@ use super::{
 pub struct PostgreSQLDriver;
 
 impl DatabaseDriver for PostgreSQLDriver {
-    type Config = PostgreSQLOptions;
+    type Config = PostgresOptions;
 
     fn data_types(&self) -> Vec<Datatype> {
         vec![
@@ -326,7 +326,7 @@ impl DatabaseSession for PostgresSession {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct PostgreSQLOptions {
+pub struct PostgresOptions {
     pub host: String,
     pub port: u16,
     pub database: String,
@@ -335,7 +335,7 @@ pub struct PostgreSQLOptions {
     pub use_tls: bool,
 }
 
-impl Default for PostgreSQLOptions {
+impl Default for PostgresOptions {
     fn default() -> Self {
         Self {
             host: "127.0.0.1".into(),
@@ -348,7 +348,7 @@ impl Default for PostgreSQLOptions {
     }
 }
 
-impl PostgreSQLOptions {
+impl PostgresOptions {
     pub fn endpoint(&self) -> String {
         let db = self.database.trim();
         let suffix = if db.is_empty() {
@@ -382,7 +382,7 @@ impl PostgreSQLOptions {
     }
 }
 
-fn connect(config: &PostgreSQLOptions) -> Result<Client, DriverError> {
+fn connect(config: &PostgresOptions) -> Result<Client, DriverError> {
     if config.host.trim().is_empty() {
         return Err(DriverError::MissingField("host".into()));
     }
