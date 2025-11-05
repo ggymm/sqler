@@ -306,6 +306,8 @@ pub trait DatabaseSession: Send {
         &mut self,
         request: DeleteReq,
     ) -> Result<UpdateResp, DriverError>;
+
+    fn tables(&mut self) -> Result<Vec<String>, DriverError>;
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -331,15 +333,15 @@ impl DataSource {
         vec![]
     }
 
-    pub fn display(&self) -> String {
+    pub fn display_endpoint(&self) -> String {
         match &self.options {
-            DataSourceOptions::MySQL(opts) => opts.display_endpoint(),
-            DataSourceOptions::Oracle(opts) => opts.display_endpoint(),
-            DataSourceOptions::SQLite(opts) => opts.display_endpoint(),
-            DataSourceOptions::SQLServer(opts) => opts.display_endpoint(),
-            DataSourceOptions::PostgreSQL(opts) => opts.display_endpoint(),
-            DataSourceOptions::Redis(opts) => opts.display_endpoint(),
-            DataSourceOptions::MongoDB(opts) => opts.display_endpoint(),
+            DataSourceOptions::MySQL(opts) => opts.endpoint(),
+            DataSourceOptions::Oracle(opts) => opts.endpoint(),
+            DataSourceOptions::SQLite(opts) => opts.endpoint(),
+            DataSourceOptions::SQLServer(opts) => opts.endpoint(),
+            DataSourceOptions::PostgreSQL(opts) => opts.endpoint(),
+            DataSourceOptions::Redis(opts) => opts.endpoint(),
+            DataSourceOptions::MongoDB(opts) => opts.endpoint(),
         }
     }
 }
@@ -417,7 +419,7 @@ pub enum DataSourceOptions {
     MongoDB(MongoDBOptions),
 }
 
-pub fn data_types(kind: DataSourceKind) -> Vec<Datatype> {
+pub fn get_datatypes(kind: DataSourceKind) -> Vec<Datatype> {
     match kind {
         DataSourceKind::MySQL => MySQLDriver.data_types(),
         DataSourceKind::PostgreSQL => PostgreSQLDriver.data_types(),

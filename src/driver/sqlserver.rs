@@ -37,7 +37,7 @@ impl Default for SQLServerOptions {
 }
 
 impl SQLServerOptions {
-    pub fn display_endpoint(&self) -> String {
+    pub fn endpoint(&self) -> String {
         let mut authority = format!("{}:{}", self.host, self.port);
         if let Some(instance) = &self.instance {
             let trimmed = instance.trim();
@@ -88,6 +88,10 @@ impl DatabaseSession for SqlServerConnection {
         _request: DeleteReq,
     ) -> Result<UpdateResp, DriverError> {
         Err(DriverError::Other("SQL Server 删除暂未实现".into()))
+    }
+
+    fn tables(&mut self) -> Result<Vec<String>, DriverError> {
+        Err(DriverError::Other("SQL Server 查询表列表暂未实现".into()))
     }
 }
 

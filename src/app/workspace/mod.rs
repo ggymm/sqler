@@ -6,8 +6,11 @@ use crate::{
     driver::{DataSource, DataSourceKind},
 };
 
+mod columnar;
+mod document;
 mod mysql;
 mod placeholder;
+mod relational;
 
 use mysql::MySQLWorkspace;
 use placeholder::PlaceholderWorkspace;
@@ -83,7 +86,7 @@ pub fn render_home(
         .min_h_0()
         .scrollable(Axis::Vertical)
         .children(app.sources.iter().cloned().map(|source| {
-            let display = source.display();
+            let display = source.display_endpoint();
 
             div()
                 .flex()

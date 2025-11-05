@@ -25,7 +25,7 @@ impl Default for SQLiteOptions {
     }
 }
 impl SQLiteOptions {
-    pub fn display_endpoint(&self) -> String {
+    pub fn endpoint(&self) -> String {
         let path = self.filepath.trim();
         if path.is_empty() {
             "sqlite://<未配置文件>".into()
@@ -266,6 +266,24 @@ impl DatabaseSession for SQLiteConnection {
                 other
             ))),
         }
+    }
+
+    fn tables(&mut self) -> Result<Vec<String>, DriverError> {
+        let sql = "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name";
+        let mut stmt = self
+            .conn
+            .prepare(sql)
+            .map_err(|err| DriverError::Other(format!("查询表列表失败: {}", err)))?;
+
+        let mut tables = Vec::new();
+        let rows = stmt
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(|err| DriverError::Other(format!("查询表列表失败: {}", err)))?;
+
+        for row in rows {
+            tables.push(row.map_err(|err| DriverError::Other(format!("读取表名失败: {}", err)))?);
+        }
+        Ok(tables)
     }
 }
 

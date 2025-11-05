@@ -295,6 +295,23 @@ impl DatabaseSession for MySQLSession {
             ))),
         }
     }
+
+    fn tables(&mut self) -> Result<Vec<String>, DriverError> {
+        let sql = "SHOW TABLES";
+        let rows: Vec<mysql::Row> = self
+            .conn
+            .query(sql)
+            .map_err(|err| DriverError::Other(format!("查询表列表失败: {}", err)))?;
+
+        let mut tables = Vec::new();
+        for row in rows {
+            let raw_values = row.unwrap();
+            if let Some(value) = raw_values.get(0) {
+                tables.push(mysql_value_to_string(value.clone()));
+            }
+        }
+        Ok(tables)
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -323,7 +340,7 @@ impl Default for MySQLOptions {
 }
 
 impl MySQLOptions {
-    pub fn display_endpoint(&self) -> String {
+    pub fn endpoint(&self) -> String {
         let scheme = if self.use_tls { "mysqls" } else { "mysql" };
         let db = self.database.trim();
         if db.is_empty() {
@@ -331,6 +348,10 @@ impl MySQLOptions {
         } else {
             format!("{}://{}:{}/{}", scheme, self.host, self.port, db)
         }
+    }
+
+    pub fn display_overview(&self) -> String {
+        "".to_string()
     }
 }
 

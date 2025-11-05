@@ -290,6 +290,21 @@ impl DatabaseSession for PostgresSession {
             ))),
         }
     }
+
+    fn tables(&mut self) -> Result<Vec<String>, DriverError> {
+        let sql = "SELECT tablename FROM pg_tables WHERE schemaname = 'public'";
+        let rows = self
+            .client
+            .query(sql, &[])
+            .map_err(|err| DriverError::Other(format!("查询表列表失败: {}", err)))?;
+
+        let mut tables = Vec::new();
+        for row in rows {
+            let table_name: String = row.get(0);
+            tables.push(table_name);
+        }
+        Ok(tables)
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -316,7 +331,7 @@ impl Default for PostgreSQLOptions {
 }
 
 impl PostgreSQLOptions {
-    pub fn display_endpoint(&self) -> String {
+    pub fn endpoint(&self) -> String {
         let db = self.database.trim();
         let suffix = if db.is_empty() {
             String::new()

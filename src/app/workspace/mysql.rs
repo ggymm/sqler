@@ -17,8 +17,8 @@ use crate::{
         SqlerApp,
     },
     driver::{
-        create_connection, DatabaseSession, DataSource, DataSourceKind, DataSourceOptions,
-        DriverError, FilterCond, Operator, OrderCond, QueryReq, QueryResp, ValueCond,
+        create_connection, DataSource, DataSourceOptions, DatabaseSession, DriverError, FilterCond, Operator,
+        OrderCond, QueryReq, QueryResp, ValueCond,
     },
 };
 
@@ -79,7 +79,6 @@ pub struct MySQLWorkspace {
     meta: DataSource,
     parent: WeakEntity<SqlerApp>,
     session: Option<Box<dyn DatabaseSession>>,
-    database: Option<String>,
 
     tabs: Vec<TabItem>,
     active_tab: SharedString,
@@ -96,57 +95,12 @@ impl MySQLWorkspace {
     ) -> Self {
         let overview = TabItem::overview();
         let active_tab = overview.id.clone();
-
         let tables = meta.tables();
-        let database = match &meta.kind {
-            DataSourceKind::MySQL => {
-                if let DataSourceOptions::MySQL(opts) = &meta.options {
-                    let db = opts.database.trim();
-                    if db.is_empty() {
-                        None
-                    } else {
-                        Some(db.to_string())
-                    }
-                } else {
-                    panic!("数据源类型与选项不匹配: kind={:?}, options 不是 MySQL", meta.kind);
-                }
-            }
-            DataSourceKind::PostgreSQL => {
-                if let DataSourceOptions::PostgreSQL(opts) = &meta.options {
-                    let db = opts.database.trim();
-                    if db.is_empty() {
-                        None
-                    } else {
-                        Some(db.to_string())
-                    }
-                } else {
-                    panic!("数据源类型与选项不匹配: kind={:?}, options 不是 PostgreSQL", meta.kind);
-                }
-            }
-            DataSourceKind::SQLite => {
-                if let DataSourceOptions::SQLite(_opts) = &meta.options {
-                    None
-                } else {
-                    panic!("数据源类型与选项不匹配: kind={:?}, options 不是 SQLite", meta.kind);
-                }
-            }
-            DataSourceKind::MongoDB => {
-                if let DataSourceOptions::MongoDB(_opts) = &meta.options {
-                    None
-                } else {
-                    panic!("数据源类型与选项不匹配: kind={:?}, options 不是 MongoDB", meta.kind);
-                }
-            }
-            _ => {
-                panic!("MySQLWorkspace 不支持 {:?} 类型的数据源", meta.kind);
-            }
-        };
 
         Self {
             meta,
             parent,
             session: None,
-            database,
 
             tabs: vec![overview],
             active_tab,
@@ -202,37 +156,14 @@ impl MySQLWorkspace {
         &mut self,
         cx: &mut Context<Self>,
     ) {
-        let Some(database) = self.database.clone() else {
-            self.tables = self.meta.tables();
-            self.active_tab = TabItem::overview().id;
-            self.active_table = None;
-            cx.notify();
-            return;
-        };
-
-        // 重新查询表
-        let result: Result<Vec<SharedString>, DriverError> = (|| {
-            let session = self.active_session()?;
-            let sql = format!("SHOW TABLES FROM {}", &database);
-            let rows = match session.query(QueryReq::Sql { sql, args: Vec::new() })? {
-                QueryResp::Rows(rows) => rows,
-                _ => return Ok(vec![]),
-            };
-
-            let mut tables = Vec::new();
-            for row in rows {
-                if let Some(value) = row.values().next() {
-                    tables.push(SharedString::from(value.clone()));
-                }
-            }
-            Ok(tables)
-        })();
+        // 尝试从会话获取表列表
+        let result = self.active_session().and_then(|session| session.tables());
 
         // 更新本地数据
         self.tables = match result {
-            Ok(tables) => tables,
+            Ok(tables) => tables.into_iter().map(SharedString::from).collect(),
             Err(err) => {
-                eprintln!("刷新 MySQL 表列表失败: {}", err);
+                eprintln!("刷新表列表失败: {}", err);
                 if !self.tables.is_empty() {
                     return;
                 }

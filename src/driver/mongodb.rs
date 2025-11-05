@@ -206,6 +206,15 @@ impl DatabaseSession for MongoSession {
             ))),
         }
     }
+
+    fn tables(&mut self) -> Result<Vec<String>, DriverError> {
+        let db = self.client.database(&self.default_db);
+        let collection_names = db
+            .list_collection_names()
+            .run()
+            .map_err(|err| DriverError::Other(format!("查询集合列表失败: {}", err)))?;
+        Ok(collection_names)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -249,7 +258,7 @@ impl Default for MongoDBOptions {
 }
 
 impl MongoDBOptions {
-    pub fn display_endpoint(&self) -> String {
+    pub fn endpoint(&self) -> String {
         if let Some(uri) = &self.connection_string {
             return Self::sanitize_uri(uri);
         }

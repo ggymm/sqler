@@ -29,7 +29,7 @@ impl Default for RedisOptions {
 }
 
 impl RedisOptions {
-    pub fn display_endpoint(&self) -> String {
+    pub fn endpoint(&self) -> String {
         let scheme = if self.use_tls { "rediss" } else { "redis" };
         format!("{}://{}:{}", scheme, self.host, self.port)
     }
@@ -117,6 +117,10 @@ impl DatabaseSession for RedisConnection {
                 other
             ))),
         }
+    }
+
+    fn tables(&mut self) -> Result<Vec<String>, DriverError> {
+        Err(DriverError::Other("Redis 不支持表列表查询".into()))
     }
 }
 
