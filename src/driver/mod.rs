@@ -7,7 +7,7 @@ use serde_json::Value;
 pub use mongodb::{MongoDBDriver, MongoDBHost, MongoDBOptions};
 pub use mysql::{MySQLDriver, MySQLOptions};
 pub use oracle::OracleOptions;
-pub use postgres::{PostgreSQLDriver, PostgresOptions};
+pub use postgres::{PostgresDriver, PostgresOptions};
 pub use redis::{RedisDriver, RedisOptions};
 pub use sqlite::{SQLiteDriver, SQLiteOptions};
 pub use sqlserver::{SQLServerDriver, SQLServerOptions};
@@ -440,7 +440,7 @@ pub fn get_datatypes(kind: DataSourceKind) -> Vec<Datatype> {
     match kind {
         DataSourceKind::MySQL => MySQLDriver.data_types(),
         DataSourceKind::SQLite => SQLiteDriver.data_types(),
-        DataSourceKind::Postgres => PostgreSQLDriver.data_types(),
+        DataSourceKind::Postgres => PostgresDriver.data_types(),
         DataSourceKind::Oracle => vec![],
         DataSourceKind::SQLServer => SQLServerDriver.data_types(),
         DataSourceKind::MongoDB => MongoDBDriver.data_types(),
@@ -452,7 +452,7 @@ pub fn check_connection(opts: &DataSourceOptions) -> Result<(), DriverError> {
     match opts {
         DataSourceOptions::MySQL(config) => MySQLDriver.check_connection(config),
         DataSourceOptions::SQLite(config) => SQLiteDriver.check_connection(config),
-        DataSourceOptions::Postgres(config) => PostgreSQLDriver.check_connection(config),
+        DataSourceOptions::Postgres(config) => PostgresDriver.check_connection(config),
         DataSourceOptions::Oracle(_) => Err(DriverError::Other("Oracle 驱动暂未实现".into())),
         DataSourceOptions::SQLServer(config) => SQLServerDriver.check_connection(config),
         DataSourceOptions::MongoDB(config) => MongoDBDriver.check_connection(config),
@@ -464,7 +464,7 @@ pub fn create_connection(opts: &DataSourceOptions) -> Result<Box<dyn DatabaseSes
     match opts {
         DataSourceOptions::MySQL(config) => MySQLDriver.create_connection(config),
         DataSourceOptions::SQLite(config) => SQLiteDriver.create_connection(config),
-        DataSourceOptions::Postgres(config) => PostgreSQLDriver.create_connection(config),
+        DataSourceOptions::Postgres(config) => PostgresDriver.create_connection(config),
         DataSourceOptions::Oracle(_) => Err(DriverError::Other("Oracle 驱动暂未实现".into())),
         DataSourceOptions::SQLServer(config) => SQLServerDriver.create_connection(config),
         DataSourceOptions::MongoDB(config) => MongoDBDriver.create_connection(config),

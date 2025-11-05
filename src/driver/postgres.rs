@@ -9,9 +9,9 @@ use super::{
 };
 
 #[derive(Debug, Clone, Copy)]
-pub struct PostgreSQLDriver;
+pub struct PostgresDriver;
 
-impl DatabaseDriver for PostgreSQLDriver {
+impl DatabaseDriver for PostgresDriver {
     type Config = PostgresOptions;
 
     fn data_types(&self) -> Vec<Datatype> {
@@ -414,7 +414,6 @@ fn connect(config: &PostgresOptions) -> Result<Client, DriverError> {
     Ok(client)
 }
 
-/// 将 PostgreSQL 值转换为字符串（用于 UI 显示）
 fn postgres_value_to_string(
     row: &postgres::Row,
     idx: usize,
