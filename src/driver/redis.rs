@@ -193,21 +193,33 @@ fn build_connection_url(config: &RedisOptions) -> Result<String, DriverError> {
     let scheme = if config.use_tls { "rediss://" } else { "redis://" };
     let mut url = String::from(scheme);
 
-    if let Some(username) = &config.username {
-        let username = username.trim();
-        if username.is_empty() {
-            return Err(DriverError::InvalidField("username".into()));
-        }
-        url.push_str(username);
-        if let Some(password) = &config.password {
+    // 根据 username 和 password 的存在性判断认证模式
+    match (&config.username, &config.password) {
+        (Some(username), Some(password)) => {
+            // 账号密码认证
+            if username.trim().is_empty() {
+                return Err(DriverError::InvalidField("username".into()));
+            }
+            if password.trim().is_empty() {
+                return Err(DriverError::InvalidField("password".into()));
+            }
+            url.push_str(username.trim());
             url.push(':');
             url.push_str(password);
+            url.push('@');
         }
-        url.push('@');
-    } else if let Some(password) = &config.password {
-        url.push(':');
-        url.push_str(password);
-        url.push('@');
+        (None, Some(password)) => {
+            // 仅密码认证
+            if password.trim().is_empty() {
+                return Err(DriverError::InvalidField("password".into()));
+            }
+            url.push(':');
+            url.push_str(password);
+            url.push('@');
+        }
+        _ => {
+            // 无认证
+        }
     }
 
     url.push_str(config.host.trim());
