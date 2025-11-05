@@ -341,10 +341,10 @@ impl DataSource {
     pub fn display_endpoint(&self) -> String {
         match &self.options {
             DataSourceOptions::MySQL(opts) => opts.endpoint(),
-            DataSourceOptions::Oracle(opts) => opts.endpoint(),
             DataSourceOptions::SQLite(opts) => opts.endpoint(),
-            DataSourceOptions::SQLServer(opts) => opts.endpoint(),
             DataSourceOptions::Postgres(opts) => opts.endpoint(),
+            DataSourceOptions::Oracle(opts) => opts.endpoint(),
+            DataSourceOptions::SQLServer(opts) => opts.endpoint(),
             DataSourceOptions::Redis(opts) => opts.endpoint(),
             DataSourceOptions::MongoDB(opts) => opts.endpoint(),
         }
@@ -353,10 +353,10 @@ impl DataSource {
     pub fn display_overview(&self) -> Vec<(&'static str, String)> {
         match &self.options {
             DataSourceOptions::MySQL(opts) => opts.overview(),
-            DataSourceOptions::Oracle(opts) => opts.overview(),
             DataSourceOptions::SQLite(opts) => opts.overview(),
-            DataSourceOptions::SQLServer(opts) => opts.overview(),
             DataSourceOptions::Postgres(opts) => opts.overview(),
+            DataSourceOptions::Oracle(opts) => opts.overview(),
+            DataSourceOptions::SQLServer(opts) => opts.overview(),
             DataSourceOptions::Redis(opts) => opts.overview(),
             DataSourceOptions::MongoDB(opts) => opts.overview(),
         }

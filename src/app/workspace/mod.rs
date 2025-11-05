@@ -33,8 +33,8 @@ impl WorkspaceState {
         let parent = cx.weak_entity();
         match meta.kind {
             DataSourceKind::MySQL
-            | DataSourceKind::Postgres
             | DataSourceKind::SQLite
+            | DataSourceKind::Postgres
             | DataSourceKind::Oracle
             | DataSourceKind::SQLServer => {
                 let view = cx.new(|cx| CommonWorkspace::new(meta, parent.clone(), cx));
