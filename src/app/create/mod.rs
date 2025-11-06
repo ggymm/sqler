@@ -304,7 +304,7 @@ impl Render for CreateWindow {
                     )
                     .children(status.as_ref().map(|s| {
                         let (bg, fg, message) = match s {
-                            ConnectionStatus::Testing => (theme.info, theme.info_foreground, "正在测试连接...".to_string()),
+                            ConnectionStatus::Testing => (theme.info, theme.info_foreground, "测试连接...".to_string()),
                             ConnectionStatus::Success(msg) => (theme.success, theme.success_foreground, msg.clone()),
                             ConnectionStatus::Error(msg) => (theme.danger, theme.danger_foreground, msg.clone()),
                         };
