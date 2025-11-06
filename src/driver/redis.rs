@@ -7,48 +7,6 @@ use super::{
     UpdateResp,
 };
 
-#[derive(Clone, Serialize, Deserialize)]
-pub struct RedisOptions {
-    pub host: String,
-    pub port: u16,
-    pub username: Option<String>,
-    pub password: Option<String>,
-    pub use_tls: bool,
-}
-
-impl Default for RedisOptions {
-    fn default() -> Self {
-        Self {
-            host: "127.0.0.1".into(),
-            port: 6379,
-            username: None,
-            password: None,
-            use_tls: false,
-        }
-    }
-}
-
-impl RedisOptions {
-    pub fn endpoint(&self) -> String {
-        let scheme = if self.use_tls { "rediss" } else { "redis" };
-        format!("{}://{}:{}", scheme, self.host, self.port)
-    }
-
-    pub fn overview(&self) -> Vec<(&'static str, String)> {
-        vec![
-            ("连接地址", format!("{}:{}", self.host, self.port)),
-            (
-                "安全性",
-                if self.use_tls {
-                    "TLS 已启用".into()
-                } else {
-                    "未启用 TLS".into()
-                },
-            ),
-        ]
-    }
-}
-
 #[derive(Debug, Clone, Copy)]
 pub struct RedisDriver;
 
@@ -70,7 +28,7 @@ impl DatabaseSession for RedisConnection {
         match request {
             QueryReq::Command { name, args } => {
                 let value = execute(&mut self.conn, &name, &args)?;
-                Ok(QueryResp::Value(redis_value_to_json(value)))
+                Ok(QueryResp::Value(parse_value(value)))
             }
             other => Err(DriverError::InvalidField(format!(
                 "Redis 查询仅支持命令，收到: {:?}",
@@ -156,7 +114,7 @@ impl DatabaseDriver for RedisDriver {
         &self,
         config: &Self::Config,
     ) -> Result<(), DriverError> {
-        let mut conn = open_connection(config)?;
+        let mut conn = open_conn(config)?;
 
         redis::cmd("PING")
             .query::<String>(&mut conn)
@@ -169,12 +127,54 @@ impl DatabaseDriver for RedisDriver {
         &self,
         config: &Self::Config,
     ) -> Result<Box<dyn DatabaseSession>, DriverError> {
-        let conn = open_connection(config)?;
+        let conn = open_conn(config)?;
         Ok(Box::new(RedisConnection::new(conn)))
     }
 }
 
-fn open_connection(config: &RedisOptions) -> Result<Connection, DriverError> {
+#[derive(Clone, Serialize, Deserialize)]
+pub struct RedisOptions {
+    pub host: String,
+    pub port: u16,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub use_tls: bool,
+}
+
+impl Default for RedisOptions {
+    fn default() -> Self {
+        Self {
+            host: "127.0.0.1".into(),
+            port: 6379,
+            username: None,
+            password: None,
+            use_tls: false,
+        }
+    }
+}
+
+impl RedisOptions {
+    pub fn endpoint(&self) -> String {
+        let scheme = if self.use_tls { "rediss" } else { "redis" };
+        format!("{}://{}:{}", scheme, self.host, self.port)
+    }
+
+    pub fn overview(&self) -> Vec<(&'static str, String)> {
+        vec![
+            ("连接地址", format!("{}:{}", self.host, self.port)),
+            (
+                "安全性",
+                if self.use_tls {
+                    "TLS 已启用".into()
+                } else {
+                    "未启用 TLS".into()
+                },
+            ),
+        ]
+    }
+}
+
+fn open_conn(config: &RedisOptions) -> Result<Connection, DriverError> {
     if config.host.trim().is_empty() {
         return Err(DriverError::MissingField("host".into()));
     }
@@ -257,32 +257,32 @@ fn value_to_arg(value: &JsonValue) -> String {
     }
 }
 
-fn redis_value_to_json(value: Value) -> JsonValue {
+fn parse_value(value: Value) -> JsonValue {
     match value {
         Value::Nil => JsonValue::Null,
         Value::Int(v) => JsonValue::Number(Number::from(v)),
         Value::BulkString(bytes) => JsonValue::String(String::from_utf8_lossy(&bytes).into_owned()),
-        Value::Array(values) => JsonValue::Array(values.into_iter().map(redis_value_to_json).collect()),
+        Value::Array(values) => JsonValue::Array(values.into_iter().map(parse_value).collect()),
         Value::SimpleString(text) => JsonValue::String(text),
         Value::Okay => JsonValue::String("OK".into()),
         Value::Map(pairs) => {
             let mut map = JsonMap::new();
             for (key, value) in pairs {
-                map.insert(redis_value_key(&key), redis_value_to_json(value));
+                map.insert(redis_value_key(&key), parse_value(value));
             }
             JsonValue::Object(map)
         }
         Value::Attribute { data, attributes } => {
             let mut map = JsonMap::new();
-            map.insert("data".into(), redis_value_to_json(*data));
+            map.insert("data".into(), parse_value(*data));
             let mut attrs = JsonMap::new();
             for (key, value) in attributes {
-                attrs.insert(redis_value_key(&key), redis_value_to_json(value));
+                attrs.insert(redis_value_key(&key), parse_value(value));
             }
             map.insert("attributes".into(), JsonValue::Object(attrs));
             JsonValue::Object(map)
         }
-        Value::Set(values) => JsonValue::Array(values.into_iter().map(redis_value_to_json).collect()),
+        Value::Set(values) => JsonValue::Array(values.into_iter().map(parse_value).collect()),
         Value::Double(v) => Number::from_f64(v)
             .map(serde_json::Value::Number)
             .unwrap_or_else(|| serde_json::Value::String(v.to_string())),
@@ -294,7 +294,7 @@ fn redis_value_to_json(value: Value) -> JsonValue {
             map.insert("kind".into(), JsonValue::String(format!("{:?}", kind)));
             map.insert(
                 "data".into(),
-                JsonValue::Array(data.into_iter().map(redis_value_to_json).collect()),
+                JsonValue::Array(data.into_iter().map(parse_value).collect()),
             );
             JsonValue::Object(map)
         }

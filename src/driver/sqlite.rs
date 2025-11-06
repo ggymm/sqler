@@ -8,56 +8,6 @@ use super::{
     QueryResp, UpdateReq, UpdateResp, ValueCond,
 };
 
-#[derive(Clone, Serialize, Deserialize)]
-pub struct SQLiteOptions {
-    pub filepath: String,
-    pub password: Option<String>,
-    pub read_only: bool,
-}
-
-impl Default for SQLiteOptions {
-    fn default() -> Self {
-        Self {
-            filepath: String::new(),
-            password: None,
-            read_only: false,
-        }
-    }
-}
-impl SQLiteOptions {
-    pub fn endpoint(&self) -> String {
-        let path = self.filepath.trim();
-        if path.is_empty() {
-            "sqlite://<未配置文件>".into()
-        } else if self.read_only {
-            format!("sqlite://{}?mode=ro", path)
-        } else {
-            format!("sqlite://{}", path)
-        }
-    }
-
-    pub fn overview(&self) -> Vec<(&'static str, String)> {
-        vec![
-            (
-                "文件路径",
-                if self.filepath.is_empty() {
-                    "未配置".into()
-                } else {
-                    self.filepath.clone()
-                },
-            ),
-            (
-                "访问模式",
-                if self.read_only {
-                    "只读".into()
-                } else {
-                    "读写".into()
-                },
-            ),
-        ]
-    }
-}
-
 #[derive(Debug, Clone, Copy)]
 pub struct SQLiteDriver;
 
@@ -215,7 +165,7 @@ impl DatabaseSession for SQLiteConnection {
                 let value = row
                     .get_ref(idx)
                     .map_err(|err| DriverError::Other(format!("读取列 {name} 失败: {}", err)))?;
-                record.insert(name.clone(), sqlite_value_to_string(value));
+                record.insert(name.clone(), parse_value(value));
             }
             records.push(record);
         }
@@ -352,7 +302,7 @@ impl DatabaseDriver for SQLiteDriver {
         &self,
         config: &Self::Config,
     ) -> Result<(), DriverError> {
-        let conn = open_connection(config)?;
+        let conn = open_conn(config)?;
         conn.query_row("SELECT 1", [], |_| Ok::<_, rusqlite::Error>(()))
             .map_err(|err| DriverError::Other(format!("校验查询失败: {}", err)))?;
         Ok(())
@@ -362,12 +312,62 @@ impl DatabaseDriver for SQLiteDriver {
         &self,
         config: &Self::Config,
     ) -> Result<Box<dyn DatabaseSession>, DriverError> {
-        let conn = open_connection(config)?;
+        let conn = open_conn(config)?;
         Ok(Box::new(SQLiteConnection::new(conn)))
     }
 }
 
-fn open_connection(config: &SQLiteOptions) -> Result<Connection, DriverError> {
+#[derive(Clone, Serialize, Deserialize)]
+pub struct SQLiteOptions {
+    pub filepath: String,
+    pub password: Option<String>,
+    pub read_only: bool,
+}
+
+impl Default for SQLiteOptions {
+    fn default() -> Self {
+        Self {
+            filepath: String::new(),
+            password: None,
+            read_only: false,
+        }
+    }
+}
+impl SQLiteOptions {
+    pub fn endpoint(&self) -> String {
+        let path = self.filepath.trim();
+        if path.is_empty() {
+            "sqlite://<未配置文件>".into()
+        } else if self.read_only {
+            format!("sqlite://{}?mode=ro", path)
+        } else {
+            format!("sqlite://{}", path)
+        }
+    }
+
+    pub fn overview(&self) -> Vec<(&'static str, String)> {
+        vec![
+            (
+                "文件路径",
+                if self.filepath.is_empty() {
+                    "未配置".into()
+                } else {
+                    self.filepath.clone()
+                },
+            ),
+            (
+                "访问模式",
+                if self.read_only {
+                    "只读".into()
+                } else {
+                    "读写".into()
+                },
+            ),
+        ]
+    }
+}
+
+fn open_conn(config: &SQLiteOptions) -> Result<Connection, DriverError> {
     let path_str = config.filepath.trim();
     if path_str.is_empty() {
         return Err(DriverError::MissingField("file_path".into()));
@@ -394,8 +394,7 @@ fn open_connection(config: &SQLiteOptions) -> Result<Connection, DriverError> {
     Connection::open_with_flags(path, flags).map_err(|err| DriverError::Other(format!("打开 SQLite 失败: {}", err)))
 }
 
-/// 将 SQLite 值转换为字符串（用于 UI 显示）
-fn sqlite_value_to_string(value: ValueRef<'_>) -> String {
+fn parse_value(value: ValueRef<'_>) -> String {
     match value {
         ValueRef::Null => String::new(),
         ValueRef::Integer(int) => int.to_string(),

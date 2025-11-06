@@ -406,9 +406,8 @@ fn seed_sources() -> Vec<DataSource> {
             host: "127.0.0.1".into(),
             port: 3306,
             username: "root".into(),
-            password: Some("root".into()),
+            password: "root".into(),
             database: "qnt_robot_prod".into(),
-            charset: Some("utf8mb4".into()),
             use_tls: false,
         }),
         extras: Some(HashMap::from([(

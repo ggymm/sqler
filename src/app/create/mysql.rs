@@ -45,9 +45,8 @@ impl MySQLCreate {
             host,
             port: port.parse().unwrap_or(3306),
             username,
-            password: if password.is_empty() { None } else { Some(password) },
+            password,
             database,
-            charset: Some("utf8mb4".to_string()),
             use_tls: false,
         }
     }

@@ -40,7 +40,7 @@ impl DatabaseDriver for PostgresDriver {
         &self,
         config: &Self::Config,
     ) -> Result<(), DriverError> {
-        let mut client = connect(config)?;
+        let mut client = open_conn(config)?;
         client
             .simple_query("SELECT 1")
             .map_err(|err| DriverError::Other(format!("校验查询失败: {}", err)))?;
@@ -51,7 +51,7 @@ impl DatabaseDriver for PostgresDriver {
         &self,
         config: &Self::Config,
     ) -> Result<Box<dyn DatabaseSession>, DriverError> {
-        let client = connect(config)?;
+        let client = open_conn(config)?;
         Ok(Box::new(PostgresSession::new(client)))
     }
 }
@@ -222,7 +222,7 @@ impl DatabaseSession for PostgresSession {
         for row in rows {
             let mut record = HashMap::with_capacity(row.len());
             for (idx, column) in row.columns().iter().enumerate() {
-                let value = postgres_value_to_string(&row, idx)?;
+                let value = parse_value(&row, idx)?;
                 record.insert(column.name().to_string(), value);
             }
             records.push(record);
@@ -331,7 +331,7 @@ pub struct PostgresOptions {
     pub port: u16,
     pub database: String,
     pub username: String,
-    pub password: Option<String>,
+    pub password: String,
     pub use_tls: bool,
 }
 
@@ -342,7 +342,7 @@ impl Default for PostgresOptions {
             port: 5432,
             database: String::new(),
             username: "postgres".into(),
-            password: None,
+            password: "".into(),
             use_tls: false,
         }
     }
@@ -382,7 +382,7 @@ impl PostgresOptions {
     }
 }
 
-fn connect(config: &PostgresOptions) -> Result<Client, DriverError> {
+fn open_conn(config: &PostgresOptions) -> Result<Client, DriverError> {
     if config.host.trim().is_empty() {
         return Err(DriverError::MissingField("host".into()));
     }
@@ -392,6 +392,12 @@ fn connect(config: &PostgresOptions) -> Result<Client, DriverError> {
     if config.username.trim().is_empty() {
         return Err(DriverError::MissingField("username".into()));
     }
+    if config.password.trim().is_empty() {
+        return Err(DriverError::MissingField("password".into()));
+    }
+    if config.database.trim().is_empty() {
+        return Err(DriverError::MissingField("database".into()));
+    }
     if config.use_tls {
         return Err(DriverError::Other("PostgreSQL 暂未支持 TLS 连接".into()));
     }
@@ -400,21 +406,16 @@ fn connect(config: &PostgresOptions) -> Result<Client, DriverError> {
     pg_config.host(config.host.trim());
     pg_config.port(config.port);
     pg_config.user(config.username.trim());
-    if let Some(password) = &config.password {
-        pg_config.password(password.as_str());
-    }
-    if !config.database.trim().is_empty() {
-        pg_config.dbname(config.database.trim());
-    }
+    pg_config.password(config.password.as_str());
+    pg_config.dbname(config.database.trim());
 
     let client = pg_config
         .connect(NoTls)
         .map_err(|err| DriverError::Other(format!("连接失败: {}", err)))?;
-
     Ok(client)
 }
 
-fn postgres_value_to_string(
+fn parse_value(
     row: &postgres::Row,
     idx: usize,
 ) -> Result<String, DriverError> {

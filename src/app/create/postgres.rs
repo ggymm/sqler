@@ -45,7 +45,7 @@ impl PostgresCreate {
             host,
             port: port.parse().unwrap_or(5432),
             username,
-            password: if password.is_empty() { None } else { Some(password) },
+            password,
             database,
             use_tls: false,
         }

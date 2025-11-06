@@ -43,10 +43,7 @@ impl DatabaseDriver for MySQLDriver {
         &self,
         config: &Self::Config,
     ) -> Result<(), DriverError> {
-        let mut conn = connect(config)?;
-        if let Some(charset) = &config.charset {
-            apply_charset(charset, &mut conn)?;
-        }
+        let mut conn = open_conn(config)?;
         conn.ping()
             .map_err(|err| DriverError::Other(format!("ping 失败: {}", err)))?;
         Ok(())
@@ -56,10 +53,7 @@ impl DatabaseDriver for MySQLDriver {
         &self,
         config: &Self::Config,
     ) -> Result<Box<dyn DatabaseSession>, DriverError> {
-        let mut conn = connect(config)?;
-        if let Some(charset) = &config.charset {
-            apply_charset(charset, &mut conn)?;
-        }
+        let conn = open_conn(config)?;
         Ok(Box::new(MySQLSession::new(conn)))
     }
 }
@@ -225,7 +219,7 @@ impl DatabaseSession for MySQLSession {
             let mut map = HashMap::with_capacity(column_names.len());
             for (idx, name) in column_names.iter().enumerate() {
                 let value = raw_values.get(idx).cloned().unwrap_or(Value::NULL);
-                map.insert(name.clone(), mysql_value_to_string(value));
+                map.insert(name.clone(), parse_value(value));
             }
             records.push(map);
         }
@@ -307,7 +301,7 @@ impl DatabaseSession for MySQLSession {
         for row in rows {
             let raw_values = row.unwrap();
             if let Some(value) = raw_values.get(0) {
-                tables.push(mysql_value_to_string(value.clone()));
+                tables.push(parse_value(value.clone()));
             }
         }
         Ok(tables)
@@ -327,7 +321,7 @@ impl DatabaseSession for MySQLSession {
         for row in rows {
             let raw_values = row.unwrap();
             if let Some(value) = raw_values.get(0) {
-                columns.push(mysql_value_to_string(value.clone()));
+                columns.push(parse_value(value.clone()));
             }
         }
         Ok(columns)
@@ -339,9 +333,8 @@ pub struct MySQLOptions {
     pub host: String,
     pub port: u16,
     pub username: String,
-    pub password: Option<String>,
+    pub password: String,
     pub database: String,
-    pub charset: Option<String>,
     pub use_tls: bool,
 }
 
@@ -351,9 +344,8 @@ impl Default for MySQLOptions {
             host: "127.0.0.1".into(),
             port: 3306,
             username: "root".into(),
-            password: None,
+            password: "".into(),
             database: String::new(),
-            charset: Some("utf8mb4".into()),
             use_tls: false,
         }
     }
@@ -381,7 +373,6 @@ impl MySQLOptions {
                     self.database.clone()
                 },
             ),
-            ("字符集", self.charset.as_deref().unwrap_or("默认字符集").to_string()),
             (
                 "安全性",
                 if self.use_tls {
@@ -394,7 +385,7 @@ impl MySQLOptions {
     }
 }
 
-fn connect(config: &MySQLOptions) -> Result<Conn, DriverError> {
+fn open_conn(config: &MySQLOptions) -> Result<Conn, DriverError> {
     if config.host.trim().is_empty() {
         return Err(DriverError::MissingField("host".into()));
     }
@@ -404,50 +395,29 @@ fn connect(config: &MySQLOptions) -> Result<Conn, DriverError> {
     if config.username.trim().is_empty() {
         return Err(DriverError::MissingField("username".into()));
     }
+    if config.password.trim().is_empty() {
+        return Err(DriverError::MissingField("password".into()));
+    }
+    if config.database.trim().is_empty() {
+        return Err(DriverError::MissingField("database".into()));
+    }
 
     let mut builder = OptsBuilder::new();
     builder = builder.ip_or_hostname(Some(config.host.clone()));
     builder = builder.tcp_port(config.port);
     builder = builder.user(Some(config.username.clone()));
-
-    if let Some(password) = &config.password {
-        builder = builder.pass(Some(password.clone()));
-    }
-
-    if !config.database.is_empty() {
-        builder = builder.db_name(Some(config.database.clone()));
-    }
+    builder = builder.pass(Some(config.password.clone()));
+    builder = builder.db_name(Some(config.database.clone()));
 
     if config.use_tls {
         builder = builder.ssl_opts(Some(SslOpts::default()));
     }
 
     let opts = Opts::from(builder);
-
     Conn::new(opts).map_err(|err| DriverError::Other(format!("连接失败: {}", err)))
 }
 
-fn apply_charset(
-    charset: &str,
-    conn: &mut Conn,
-) -> Result<(), DriverError> {
-    let trimmed = charset.trim();
-    if trimmed.is_empty() {
-        return Ok(());
-    }
-
-    let is_valid = trimmed
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
-    if !is_valid {
-        return Err(DriverError::InvalidField("charset".into()));
-    }
-
-    conn.query_drop(format!("SET NAMES {}", trimmed))
-        .map_err(|err| DriverError::Other(format!("设置字符集失败: {}", err)))
-}
-
-fn mysql_value_to_string(value: Value) -> String {
+fn parse_value(value: Value) -> String {
     match value {
         Value::NULL => String::new(),
         Value::Bytes(bytes) => String::from_utf8_lossy(&bytes).into_owned(),

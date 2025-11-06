@@ -34,7 +34,7 @@ impl DatabaseDriver for MongoDBDriver {
         &self,
         config: &Self::Config,
     ) -> Result<(), DriverError> {
-        let client = build_client(config)?;
+        let client = open_conn(config)?;
         let database_name = default_database(config);
         client
             .database(&database_name)
@@ -48,7 +48,7 @@ impl DatabaseDriver for MongoDBDriver {
         &self,
         config: &Self::Config,
     ) -> Result<Box<dyn DatabaseSession>, DriverError> {
-        let client = build_client(config)?;
+        let client = open_conn(config)?;
         let database_name = default_database(config);
         Ok(Box::new(MongoSession::new(client, database_name)))
     }
@@ -345,7 +345,7 @@ impl MongoDBOptions {
     }
 }
 
-fn build_client(config: &MongoDBOptions) -> Result<Client, DriverError> {
+fn open_conn(config: &MongoDBOptions) -> Result<Client, DriverError> {
     let uri = build_uri(config)?;
     Client::with_uri_str(&uri).map_err(|err| DriverError::Other(format!("连接失败: {}", err)))
 }
