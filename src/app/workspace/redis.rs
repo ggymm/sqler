@@ -6,6 +6,7 @@ use gpui_component::{
     table::Table,
     ActiveTheme, Sizable, Size, StyledExt,
 };
+use uuid::Uuid;
 
 use crate::{
     app::{
@@ -116,7 +117,7 @@ impl RedisWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let tab_id = SharedString::from(format!("redis-tab-command-{}", uuid::Uuid::new_v4()));
+        let tab_id = SharedString::from(format!("redis-tab-command-{}", Uuid::new_v4()));
         let command_input = cx.new(|cx| InputState::new(window, cx));
         let result_table = DataTable::new(vec![], Vec::new()).build(window, cx);
 
@@ -173,12 +174,6 @@ impl RedisWorkspace {
                     .text_base()
                     .font_semibold()
                     .child(format!("名称：{}", self.meta.name)),
-            )
-            .child(
-                div()
-                    .text_base()
-                    .text_color(theme.muted_foreground)
-                    .child(format!("描述：{}", self.meta.desc)),
             )
             .child(detail_card)
             .into_any_element()

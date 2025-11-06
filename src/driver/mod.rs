@@ -319,7 +319,6 @@ pub trait DatabaseSession: Send {
 pub struct DataSource {
     pub id: String,
     pub name: String,
-    pub desc: String,
     pub kind: DataSourceKind,
     pub options: DataSourceOptions,
     pub extras: Option<HashMap<String, Value>>,

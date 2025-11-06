@@ -1,9 +1,10 @@
 use gpui::{prelude::*, *};
 use gpui_component::{button::Button, ActiveTheme, StyledExt};
+use uuid::Uuid;
 
 use crate::{
     app::{comps::DivExt, SqlerApp},
-    driver::{check_connection, DataSourceKind, DataSourceOptions},
+    driver::{check_connection, DataSource, DataSourceKind, DataSourceOptions},
 };
 
 pub mod mongodb;
@@ -66,28 +67,7 @@ impl CreateWindow {
         }
     }
 
-    fn deselect(
-        &mut self,
-        cx: &mut Context<Self>,
-    ) {
-        if self.kind.take().is_some() {
-            cx.notify();
-        }
-    }
-
-    fn selected(
-        &mut self,
-        kind: DataSourceKind,
-        cx: &mut Context<Self>,
-    ) {
-        if self.kind != Some(kind) {
-            self.kind = Some(kind);
-            self.status = None;
-            cx.notify();
-        }
-    }
-
-    fn close_window(
+    fn cancel(
         &self,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -101,7 +81,7 @@ impl CreateWindow {
         window.remove_window();
     }
 
-    fn check_connection(
+    fn check_conn(
         &mut self,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -156,11 +136,90 @@ impl CreateWindow {
         .detach();
     }
 
-    fn create_connection(
+    fn create_conn(
         &mut self,
-        _cx: &mut Context<Self>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
     ) {
-        // 保存方法
+        let Some(kind) = self.kind else {
+            self.status = Some(ConnectionStatus::Error("请先选择数据源类型".to_string()));
+            cx.notify();
+            return;
+        };
+
+        // 收集表单数据
+        let name = match kind {
+            DataSourceKind::MySQL => self.mysql.read(cx).name.read(cx).value().to_string(),
+            DataSourceKind::SQLite => self.sqlite.read(cx).name.read(cx).value().to_string(),
+            DataSourceKind::Postgres => self.postgres.read(cx).name.read(cx).value().to_string(),
+            DataSourceKind::Oracle => self.oracle.read(cx).name.read(cx).value().to_string(),
+            DataSourceKind::SQLServer => self.sqlserver.read(cx).name.read(cx).value().to_string(),
+            DataSourceKind::Redis => self.redis.read(cx).name.read(cx).value().to_string(),
+            DataSourceKind::MongoDB => self.mongodb.read(cx).name.read(cx).value().to_string(),
+        };
+
+        if name.trim().is_empty() {
+            self.status = Some(ConnectionStatus::Error("数据源名称不能为空".to_string()));
+            cx.notify();
+            return;
+        }
+
+        let options = match kind {
+            DataSourceKind::MySQL => DataSourceOptions::MySQL(self.mysql.read(cx).options(cx)),
+            DataSourceKind::SQLite => DataSourceOptions::SQLite(self.sqlite.read(cx).options(cx)),
+            DataSourceKind::Postgres => DataSourceOptions::Postgres(self.postgres.read(cx).options(cx)),
+            DataSourceKind::Oracle => {
+                self.status = Some(ConnectionStatus::Error("Oracle 驱动暂未实现".to_string()));
+                cx.notify();
+                return;
+            }
+            DataSourceKind::SQLServer => {
+                self.status = Some(ConnectionStatus::Error("SQL Server 驱动暂未实现".to_string()));
+                cx.notify();
+                return;
+            }
+            DataSourceKind::Redis => DataSourceOptions::Redis(self.redis.read(cx).options(cx)),
+            DataSourceKind::MongoDB => DataSourceOptions::MongoDB(self.mongodb.read(cx).options(cx)),
+        };
+
+        // 构建 DataSource
+        let source = DataSource {
+            id: Uuid::new_v4().to_string(),
+            name: name.clone(),
+            kind,
+            options,
+            extras: None,
+        };
+
+        // 保存到 cache
+        let save_result = if let Some(parent) = self.parent.upgrade() {
+            parent.update(cx, |app, cx| {
+                app.cache.sources_mut().push(source);
+                let result = app.cache.sources_update();
+
+                if result.is_ok() {
+                    // 同步到 app.sources
+                    app.sources = app.cache.sources().to_vec();
+                    cx.notify();
+                }
+
+                result
+            })
+        } else {
+            return;
+        };
+
+        // 检查保存结果
+        match save_result {
+            Ok(()) => {
+                // 保存成功,关闭窗口
+                self.cancel(window, cx);
+            }
+            Err(e) => {
+                self.status = Some(ConnectionStatus::Error(format!("保存失败: {}", e)));
+                cx.notify();
+            }
+        }
     }
 }
 
@@ -170,10 +229,10 @@ impl Render for CreateWindow {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let theme = cx.theme();
-        let selected = self.kind;
+        let kind = self.kind;
         let status = self.status.clone();
 
+        let theme = cx.theme();
         div()
             .col_full()
             .child(
@@ -187,13 +246,13 @@ impl Render for CreateWindow {
                     .bg(theme.secondary)
                     .border_b_1()
                     .border_color(theme.border)
-                    .child(match selected {
+                    .child(match kind {
                         Some(kind) => div().text_xl().font_semibold().child(format!("配置 {}", kind.label())),
                         None => div().text_xl().font_semibold().child("新建数据源"),
                     }),
             )
             .child(
-                div().id("datasource-create").col_full().child(match selected {
+                div().id("datasource-create").col_full().child(match kind {
                     Some(kind) => div()
                         .p_6()
                         .gap_5()
@@ -239,9 +298,12 @@ impl Render for CreateWindow {
                                             .child(div().text_sm().child(kind.description())),
                                     )
                                     .on_click(cx.listener({
-                                        let kind = *kind;
                                         move |this: &mut CreateWindow, _ev, _window, cx| {
-                                            this.selected(kind, cx);
+                                            if this.kind != Some(*kind) {
+                                                this.kind = Some(*kind);
+                                                this.status = None;
+                                                cx.notify();
+                                            }
                                         }
                                     }))
                                     .into_any_element()
@@ -268,7 +330,7 @@ impl Render for CreateWindow {
                             .outline()
                             .label("测试连接")
                             .on_click(cx.listener(|this: &mut CreateWindow, _ev, window, cx| {
-                                this.check_connection(window, cx);
+                                this.check_conn(window, cx);
                             })),
                     )
                     .child(
@@ -282,7 +344,9 @@ impl Render for CreateWindow {
                                     .outline()
                                     .label("上一步")
                                     .on_click(cx.listener(|this: &mut CreateWindow, _ev, _window, cx| {
-                                        this.deselect(cx);
+                                        if this.kind.take().is_some() {
+                                            cx.notify();
+                                        }
                                     })),
                             )
                             .child(
@@ -290,15 +354,15 @@ impl Render for CreateWindow {
                                     .outline()
                                     .label("取消")
                                     .on_click(cx.listener(|this: &mut CreateWindow, _ev, window, cx| {
-                                        this.close_window(window, cx);
+                                        this.cancel(window, cx);
                                     })),
                             )
                             .child(
                                 Button::new("datasource-create-confirm")
                                     .outline()
-                                    .label("确认")
+                                    .label("保存")
                                     .on_click(cx.listener(|this: &mut CreateWindow, _ev, window, cx| {
-                                        this.close_window(window, cx);
+                                        this.create_conn(window, cx);
                                     })),
                             ),
                     )

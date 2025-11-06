@@ -16,7 +16,7 @@ const ENCRYPTION_KEY: [u8; 32] = [
 const NONCE: [u8; 12] = [0xa1, 0xb2, 0xc3, 0xd4, 0xe5, 0xf6, 0x07, 0x18, 0x29, 0x3a, 0x4b, 0x5c];
 
 const CACHE_DIR: &str = ".sqler";
-const CACHE_FILE: &str = "sources.enc";
+const CACHE_FILE: &str = "sources.conf";
 
 #[derive(Error, Debug)]
 pub enum CacheError {

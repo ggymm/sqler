@@ -400,7 +400,6 @@ fn seed_sources() -> Vec<DataSource> {
     vec![DataSource {
         id: Uuid::new_v4().to_string(),
         name: "测试数据库".to_string(),
-        desc: "用于测试应用功能的测试数据库".to_string(),
         kind: DataSourceKind::MySQL,
         options: DataSourceOptions::MySQL(MySQLOptions {
             host: "127.0.0.1".into(),

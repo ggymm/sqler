@@ -236,12 +236,6 @@ impl MongoDBWorkspace {
                     .font_semibold()
                     .child(format!("名称：{}", self.meta.name)),
             )
-            .child(
-                div()
-                    .text_base()
-                    .text_color(theme.muted_foreground)
-                    .child(format!("描述：{}", self.meta.desc)),
-            )
             .child(detail_card)
             .into_any_element()
     }
