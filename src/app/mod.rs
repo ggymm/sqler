@@ -1,12 +1,9 @@
-use std::collections::HashMap;
-
 use gpui::{prelude::*, *};
 use gpui_component::{
     button::{Button, ButtonVariants},
     theme::{Theme, ThemeMode},
     ActiveTheme, Root, Sizable, Size,
 };
-use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
@@ -17,7 +14,7 @@ use crate::{
         workspace::WorkspaceState,
     },
     cache::CacheApp,
-    driver::{DataSource, DataSourceKind, DataSourceOptions, MySQLOptions},
+    driver::{DataSource, DataSourceExtras, DataSourceKind, DataSourceOptions, MySQLOptions},
 };
 
 mod comps;
@@ -409,9 +406,6 @@ fn seed_sources() -> Vec<DataSource> {
             database: "qnt_robot_prod".into(),
             use_tls: false,
         }),
-        extras: Some(HashMap::from([(
-            "tables".to_string(),
-            json!(["orders", "order_items", "users", "regions"]),
-        )])),
+        extras: DataSourceExtras::default(),
     }]
 }
