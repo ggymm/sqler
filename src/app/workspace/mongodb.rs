@@ -70,7 +70,6 @@ impl MongoDBWorkspace {
     ) -> Self {
         let overview = TabItem::overview();
         let active_tab = overview.id.clone();
-        let collections = meta.tables();
 
         Self {
             meta,
@@ -79,7 +78,7 @@ impl MongoDBWorkspace {
 
             tabs: vec![overview],
             active_tab,
-            collections,
+            collections: vec![],
             active_collection: None,
             sidebar_resize: ResizableState::new(cx),
         }
@@ -140,7 +139,7 @@ impl MongoDBWorkspace {
                 if !self.collections.is_empty() {
                     return;
                 }
-                self.meta.tables()
+                vec![]
             }
         };
         self.active_tab = TabItem::overview().id;

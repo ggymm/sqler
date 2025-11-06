@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use gpui::SharedString;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -320,15 +319,10 @@ pub struct DataSource {
     pub id: String,
     pub name: String,
     pub kind: DataSourceKind,
-    pub extras: DataSourceExtras,
     pub options: DataSourceOptions,
 }
 
 impl DataSource {
-    pub fn tables(&self) -> Vec<SharedString> {
-        self.extras.tables.iter().map(SharedString::from).collect()
-    }
-
     pub fn display_endpoint(&self) -> String {
         match &self.options {
             DataSourceOptions::MySQL(opts) => opts.endpoint(),
@@ -412,21 +406,6 @@ impl DataSourceKind {
             DataSourceKind::SQLServer => "微软企业数据库,原生集成 Windows 与 AD",
             DataSourceKind::Redis => "内存键值数据库,适合缓存、队列与实时计数场景",
             DataSourceKind::MongoDB => "文档型数据库,支持灵活的 JSON 模式与水平扩展",
-        }
-    }
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct DataSourceExtras {
-    tables: Vec<String>,
-    columns: HashMap<String, Vec<String>>,
-}
-
-impl Default for DataSourceExtras {
-    fn default() -> Self {
-        Self {
-            tables: vec![],
-            columns: HashMap::new(),
         }
     }
 }

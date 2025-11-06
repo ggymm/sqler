@@ -93,7 +93,6 @@ impl CommonWorkspace {
         parent: WeakEntity<SqlerApp>,
         cx: &mut Context<Self>,
     ) -> Self {
-        let tables = meta.tables();
         let overview = TabItem::overview();
         let active_tab = overview.id.clone();
 
@@ -104,7 +103,7 @@ impl CommonWorkspace {
 
             tabs: vec![overview],
             active_tab,
-            tables,
+            tables: vec![],
             active_table: None,
             sidebar_resize: ResizableState::new(cx),
         }
@@ -167,7 +166,7 @@ impl CommonWorkspace {
                 if !self.tables.is_empty() {
                     return;
                 }
-                self.meta.tables()
+                vec![]
             }
         };
         self.active_tab = TabItem::overview().id;

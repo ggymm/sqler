@@ -14,7 +14,7 @@ use crate::{
         workspace::WorkspaceState,
     },
     cache::CacheApp,
-    driver::{DataSource, DataSourceExtras, DataSourceKind, DataSourceOptions, MySQLOptions},
+    driver::{DataSource, DataSourceKind, DataSourceOptions, MySQLOptions},
 };
 
 mod comps;
@@ -406,6 +406,5 @@ fn seed_sources() -> Vec<DataSource> {
             database: "qnt_robot_prod".into(),
             use_tls: false,
         }),
-        extras: DataSourceExtras::default(),
     }]
 }

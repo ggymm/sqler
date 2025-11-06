@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::{
     app::{comps::DivExt, SqlerApp},
-    driver::{check_connection, DataSource, DataSourceExtras, DataSourceKind, DataSourceOptions},
+    driver::{check_connection, DataSource, DataSourceKind, DataSourceOptions},
 };
 
 pub mod mongodb;
@@ -187,7 +187,6 @@ impl CreateWindow {
             id: Uuid::new_v4().to_string(),
             name: name.clone(),
             kind,
-            extras: DataSourceExtras::default(),
             options,
         };
 
