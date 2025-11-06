@@ -1,7 +1,8 @@
 use std::{collections::HashMap, fs, path::Path};
 
 use rusqlite::{types::ValueRef, Connection, OpenFlags};
-use serde::{Deserialize, Serialize};
+
+use crate::model::SQLiteOptions;
 
 use super::{
     validate_sql, DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError, InsertReq, Operator, QueryReq,
@@ -314,56 +315,6 @@ impl DatabaseDriver for SQLiteDriver {
     ) -> Result<Box<dyn DatabaseSession>, DriverError> {
         let conn = open_conn(config)?;
         Ok(Box::new(SQLiteConnection::new(conn)))
-    }
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct SQLiteOptions {
-    pub filepath: String,
-    pub password: Option<String>,
-    pub read_only: bool,
-}
-
-impl Default for SQLiteOptions {
-    fn default() -> Self {
-        Self {
-            filepath: String::new(),
-            password: None,
-            read_only: false,
-        }
-    }
-}
-impl SQLiteOptions {
-    pub fn endpoint(&self) -> String {
-        let path = self.filepath.trim();
-        if path.is_empty() {
-            "sqlite://<未配置文件>".into()
-        } else if self.read_only {
-            format!("sqlite://{}?mode=ro", path)
-        } else {
-            format!("sqlite://{}", path)
-        }
-    }
-
-    pub fn overview(&self) -> Vec<(&'static str, String)> {
-        vec![
-            (
-                "文件路径",
-                if self.filepath.is_empty() {
-                    "未配置".into()
-                } else {
-                    self.filepath.clone()
-                },
-            ),
-            (
-                "访问模式",
-                if self.read_only {
-                    "只读".into()
-                } else {
-                    "读写".into()
-                },
-            ),
-        ]
     }
 }
 

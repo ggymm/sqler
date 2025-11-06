@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
 use mysql::{prelude::Queryable, Conn, Opts, OptsBuilder, SslOpts, Value};
-use serde::{Deserialize, Serialize};
 
 use super::{
     validate_sql, DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError, InsertReq, Operator, QueryReq,
     QueryResp, UpdateReq, UpdateResp, ValueCond,
 };
+use crate::model::MySQLOptions;
 
 #[derive(Debug, Clone, Copy)]
 pub struct MySQLDriver;
@@ -325,63 +325,6 @@ impl DatabaseSession for MySQLSession {
             }
         }
         Ok(columns)
-    }
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct MySQLOptions {
-    pub host: String,
-    pub port: u16,
-    pub username: String,
-    pub password: String,
-    pub database: String,
-    pub use_tls: bool,
-}
-
-impl Default for MySQLOptions {
-    fn default() -> Self {
-        Self {
-            host: "127.0.0.1".into(),
-            port: 3306,
-            username: "root".into(),
-            password: "".into(),
-            database: String::new(),
-            use_tls: false,
-        }
-    }
-}
-
-impl MySQLOptions {
-    pub fn endpoint(&self) -> String {
-        let scheme = if self.use_tls { "mysqls" } else { "mysql" };
-        let db = self.database.trim();
-        if db.is_empty() {
-            format!("{}://{}:{}", scheme, self.host, self.port)
-        } else {
-            format!("{}://{}:{}/{}", scheme, self.host, self.port, db)
-        }
-    }
-
-    pub fn overview(&self) -> Vec<(&'static str, String)> {
-        vec![
-            ("连接地址", format!("{}:{}", self.host, self.port)),
-            (
-                "数据库",
-                if self.database.is_empty() {
-                    "未配置".into()
-                } else {
-                    self.database.clone()
-                },
-            ),
-            (
-                "安全性",
-                if self.use_tls {
-                    "TLS 已启用".into()
-                } else {
-                    "未启用 TLS".into()
-                },
-            ),
-        ]
     }
 }
 

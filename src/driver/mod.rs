@@ -1,15 +1,17 @@
 use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-pub use mongodb::{MongoDBDriver, MongoDBHost, MongoDBOptions};
-pub use mysql::{MySQLDriver, MySQLOptions};
-pub use oracle::OracleOptions;
-pub use postgres::{PostgresDriver, PostgresOptions};
-pub use redis::{RedisDriver, RedisOptions};
-pub use sqlite::{SQLiteDriver, SQLiteOptions};
-pub use sqlserver::{SQLServerDriver, SQLServerOptions};
+pub use mongodb::MongoDBDriver;
+pub use mysql::MySQLDriver;
+pub use postgres::PostgresDriver;
+pub use redis::RedisDriver;
+pub use sqlite::SQLiteDriver;
+pub use sqlserver::SQLServerDriver;
+
+use crate::model::{DataSourceKind, DataSourceOptions};
+
+pub use crate::model::{MongoDBHost, MongoDBOptions, MySQLOptions, PostgresOptions, RedisOptions, SQLiteOptions};
 
 pub mod mongodb;
 pub mod mysql;
@@ -312,113 +314,6 @@ pub trait DatabaseSession: Send {
         &mut self,
         table: &str,
     ) -> Result<Vec<String>, DriverError>;
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct DataSource {
-    pub id: String,
-    pub name: String,
-    pub kind: DataSourceKind,
-    pub options: DataSourceOptions,
-}
-
-impl DataSource {
-    pub fn display_endpoint(&self) -> String {
-        match &self.options {
-            DataSourceOptions::MySQL(opts) => opts.endpoint(),
-            DataSourceOptions::SQLite(opts) => opts.endpoint(),
-            DataSourceOptions::Postgres(opts) => opts.endpoint(),
-            DataSourceOptions::Oracle(opts) => opts.endpoint(),
-            DataSourceOptions::SQLServer(opts) => opts.endpoint(),
-            DataSourceOptions::Redis(opts) => opts.endpoint(),
-            DataSourceOptions::MongoDB(opts) => opts.endpoint(),
-        }
-    }
-
-    pub fn display_overview(&self) -> Vec<(&'static str, String)> {
-        match &self.options {
-            DataSourceOptions::MySQL(opts) => opts.overview(),
-            DataSourceOptions::SQLite(opts) => opts.overview(),
-            DataSourceOptions::Postgres(opts) => opts.overview(),
-            DataSourceOptions::Oracle(opts) => opts.overview(),
-            DataSourceOptions::SQLServer(opts) => opts.overview(),
-            DataSourceOptions::Redis(opts) => opts.overview(),
-            DataSourceOptions::MongoDB(opts) => opts.overview(),
-        }
-    }
-}
-
-#[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum DataSourceKind {
-    MySQL,
-    SQLite,
-    Postgres,
-    Oracle,
-    SQLServer,
-    Redis,
-    MongoDB,
-}
-
-impl DataSourceKind {
-    pub fn all() -> &'static [DataSourceKind] {
-        &[
-            DataSourceKind::MySQL,
-            DataSourceKind::SQLite,
-            DataSourceKind::Postgres,
-            DataSourceKind::Oracle,
-            DataSourceKind::SQLServer,
-            DataSourceKind::Redis,
-            DataSourceKind::MongoDB,
-        ]
-    }
-
-    pub fn image(&self) -> &'static str {
-        match self {
-            DataSourceKind::MySQL => "icons/mysql.svg",
-            DataSourceKind::SQLite => "icons/sqlite.svg",
-            DataSourceKind::Postgres => "icons/postgresql.svg",
-            DataSourceKind::Oracle => "icons/oracle.svg",
-            DataSourceKind::SQLServer => "icons/sqlserver.svg",
-            DataSourceKind::Redis => "icons/redis.svg",
-            DataSourceKind::MongoDB => "icons/mongodb.svg",
-        }
-    }
-
-    pub fn label(&self) -> &'static str {
-        match self {
-            DataSourceKind::MySQL => "MySQL",
-            DataSourceKind::SQLite => "SQLite",
-            DataSourceKind::Postgres => "PostgreSQL",
-            DataSourceKind::Oracle => "Oracle",
-            DataSourceKind::SQLServer => "SQLServer",
-            DataSourceKind::Redis => "Redis",
-            DataSourceKind::MongoDB => "MongoDB",
-        }
-    }
-
-    pub fn description(&self) -> &'static str {
-        match self {
-            DataSourceKind::MySQL => "开源关系型数据库,读写性能稳定、生态成熟",
-            DataSourceKind::SQLite => "嵌入式文件数据库,零配置、单文件存储",
-            DataSourceKind::Postgres => "开源对象关系数据库,扩展能力与标准兼容性强",
-            DataSourceKind::Oracle => "商业级事务数据库,强调安全性与可扩展性",
-            DataSourceKind::SQLServer => "微软企业数据库,原生集成 Windows 与 AD",
-            DataSourceKind::Redis => "内存键值数据库,适合缓存、队列与实时计数场景",
-            DataSourceKind::MongoDB => "文档型数据库,支持灵活的 JSON 模式与水平扩展",
-        }
-    }
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub enum DataSourceOptions {
-    MySQL(MySQLOptions),
-    SQLite(SQLiteOptions),
-    Postgres(PostgresOptions),
-    Oracle(OracleOptions),
-    SQLServer(SQLServerOptions),
-    Redis(RedisOptions),
-    MongoDB(MongoDBOptions),
 }
 
 pub fn get_datatypes(kind: DataSourceKind) -> Vec<Datatype> {

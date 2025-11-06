@@ -1,11 +1,11 @@
 use redis::{Client, Connection, Value};
-use serde::{Deserialize, Serialize};
 use serde_json::{Map as JsonMap, Number, Value as JsonValue};
 
 use super::{
     DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp, UpdateReq,
     UpdateResp,
 };
+use crate::model::RedisOptions;
 
 #[derive(Debug, Clone, Copy)]
 pub struct RedisDriver;
@@ -129,48 +129,6 @@ impl DatabaseDriver for RedisDriver {
     ) -> Result<Box<dyn DatabaseSession>, DriverError> {
         let conn = open_conn(config)?;
         Ok(Box::new(RedisConnection::new(conn)))
-    }
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct RedisOptions {
-    pub host: String,
-    pub port: u16,
-    pub username: Option<String>,
-    pub password: Option<String>,
-    pub use_tls: bool,
-}
-
-impl Default for RedisOptions {
-    fn default() -> Self {
-        Self {
-            host: "127.0.0.1".into(),
-            port: 6379,
-            username: None,
-            password: None,
-            use_tls: false,
-        }
-    }
-}
-
-impl RedisOptions {
-    pub fn endpoint(&self) -> String {
-        let scheme = if self.use_tls { "rediss" } else { "redis" };
-        format!("{}://{}:{}", scheme, self.host, self.port)
-    }
-
-    pub fn overview(&self) -> Vec<(&'static str, String)> {
-        vec![
-            ("连接地址", format!("{}:{}", self.host, self.port)),
-            (
-                "安全性",
-                if self.use_tls {
-                    "TLS 已启用".into()
-                } else {
-                    "未启用 TLS".into()
-                },
-            ),
-        ]
     }
 }
 

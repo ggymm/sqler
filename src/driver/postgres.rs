@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use postgres::{types::Type, Client, Config, Error as PostgresError, NoTls};
-use serde::{Deserialize, Serialize};
+
+use crate::model::PostgresOptions;
 
 use super::{
     validate_sql, DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError, InsertReq, Operator, QueryReq,
@@ -322,63 +323,6 @@ impl DatabaseSession for PostgresSession {
             columns.push(column_name);
         }
         Ok(columns)
-    }
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct PostgresOptions {
-    pub host: String,
-    pub port: u16,
-    pub database: String,
-    pub username: String,
-    pub password: String,
-    pub use_tls: bool,
-}
-
-impl Default for PostgresOptions {
-    fn default() -> Self {
-        Self {
-            host: "127.0.0.1".into(),
-            port: 5432,
-            database: String::new(),
-            username: "postgres".into(),
-            password: "".into(),
-            use_tls: false,
-        }
-    }
-}
-
-impl PostgresOptions {
-    pub fn endpoint(&self) -> String {
-        let db = self.database.trim();
-        let suffix = if db.is_empty() {
-            String::new()
-        } else {
-            format!("/{}", db)
-        };
-        format!("postgres://{}:{}{}", self.host, self.port, suffix)
-    }
-
-    pub fn overview(&self) -> Vec<(&'static str, String)> {
-        vec![
-            ("连接地址", format!("{}:{}", self.host, self.port)),
-            (
-                "数据库",
-                if self.database.is_empty() {
-                    "未配置".into()
-                } else {
-                    self.database.clone()
-                },
-            ),
-            (
-                "安全性",
-                if self.use_tls {
-                    "TLS 已启用".into()
-                } else {
-                    "未启用 TLS".into()
-                },
-            ),
-        ]
     }
 }
 

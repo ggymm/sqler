@@ -17,9 +17,10 @@ use crate::{
         SqlerApp,
     },
     driver::{
-        create_connection, DataSource, DatabaseSession, DriverError, FilterCond, Operator, OrderCond, QueryReq,
-        QueryResp, ValueCond,
+        create_connection, DatabaseSession, DriverError, FilterCond, Operator, OrderCond, QueryReq, QueryResp,
+        ValueCond,
     },
+    model::DataSource,
 };
 
 const PAGE_SIZE: usize = 100;

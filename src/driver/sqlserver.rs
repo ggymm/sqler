@@ -1,79 +1,8 @@
-use serde::{Deserialize, Serialize};
-
 use super::{
     DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp, UpdateReq,
     UpdateResp,
 };
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum SQLServerAuth {
-    SqlPassword,
-    Integrated,
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct SQLServerOptions {
-    pub host: String,
-    pub port: u16,
-    pub database: String,
-    pub username: Option<String>,
-    pub password: Option<String>,
-    pub auth: SQLServerAuth,
-    pub instance: Option<String>,
-}
-
-impl Default for SQLServerOptions {
-    fn default() -> Self {
-        Self {
-            host: "127.0.0.1".into(),
-            port: 1433,
-            database: String::new(),
-            username: None,
-            password: None,
-            auth: SQLServerAuth::SqlPassword,
-            instance: None,
-        }
-    }
-}
-
-impl SQLServerOptions {
-    pub fn endpoint(&self) -> String {
-        let mut authority = format!("{}:{}", self.host, self.port);
-        if let Some(instance) = &self.instance {
-            let trimmed = instance.trim();
-            if !trimmed.is_empty() {
-                authority = format!("{}\\{}", authority, trimmed);
-            }
-        }
-
-        let db = self.database.trim();
-        if db.is_empty() {
-            format!("sqlserver://{}", authority)
-        } else {
-            format!("sqlserver://{}/{}", authority, db)
-        }
-    }
-
-    pub fn overview(&self) -> Vec<(&'static str, String)> {
-        let mut fields = vec![("连接地址", format!("{}:{}", self.host, self.port))];
-
-        if let Some(instance) = &self.instance {
-            if !instance.is_empty() {
-                fields.push(("实例名", instance.clone()));
-            }
-        }
-
-        fields.push((
-            "数据库",
-            if self.database.is_empty() {
-                "未配置".into()
-            } else {
-                self.database.clone()
-            },
-        ));
-        fields
-    }
-}
+use crate::model::SQLServerOptions;
 
 /// SQL Server 驱动占位实现。
 #[derive(Debug, Clone, Copy)]

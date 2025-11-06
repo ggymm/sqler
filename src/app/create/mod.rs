@@ -4,7 +4,8 @@ use uuid::Uuid;
 
 use crate::{
     app::{comps::DivExt, SqlerApp},
-    driver::{check_connection, DataSource, DataSourceKind, DataSourceOptions},
+    driver::check_connection,
+    model::{DataSource, DataSourceKind, DataSourceOptions},
 };
 
 pub mod mongodb;
@@ -183,12 +184,7 @@ impl CreateWindow {
         };
 
         // 构建 DataSource
-        let source = DataSource {
-            id: Uuid::new_v4().to_string(),
-            name: name.clone(),
-            kind,
-            options,
-        };
+        let source = DataSource::new(Uuid::new_v4().to_string(), name.clone(), kind, options);
 
         // 保存到 cache
         let save_result = if let Some(parent) = self.parent.upgrade() {

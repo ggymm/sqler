@@ -12,7 +12,8 @@ use crate::{
         comps::{comp_id, icon_close, icon_relead, icon_search, icon_sheet, DataTable, DivExt},
         SqlerApp,
     },
-    driver::{create_connection, DataSource, DatabaseSession, DriverError},
+    driver::{create_connection, DatabaseSession, DriverError},
+    model::DataSource,
 };
 
 const PAGE_SIZE: usize = 100;

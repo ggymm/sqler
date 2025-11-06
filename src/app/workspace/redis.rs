@@ -13,7 +13,8 @@ use crate::{
         comps::{comp_id, icon_relead, icon_search, DataTable, DivExt},
         SqlerApp,
     },
-    driver::{create_connection, DataSource, DatabaseSession, DriverError},
+    driver::{create_connection, DatabaseSession, DriverError},
+    model::DataSource,
 };
 
 struct TabItem {

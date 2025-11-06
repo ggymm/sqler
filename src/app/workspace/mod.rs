@@ -3,7 +3,7 @@ use gpui_component::{ActiveTheme, InteractiveElementExt, StyledExt};
 
 use crate::{
     app::{SqlerApp, TabView},
-    driver::{DataSource, DataSourceKind},
+    model::{DataSource, DataSourceKind},
 };
 
 use common::CommonWorkspace;

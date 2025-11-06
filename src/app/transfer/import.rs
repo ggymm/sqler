@@ -7,7 +7,7 @@ use gpui_component::{
     ActiveTheme, Sizable, Size, StyledExt,
 };
 
-use crate::{app::comps::DivExt, driver::DataSource};
+use crate::{app::comps::DivExt, model::DataSource};
 
 use super::TransferFormat;
 
