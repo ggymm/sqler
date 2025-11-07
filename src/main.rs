@@ -1,7 +1,19 @@
-use std::{borrow::Cow, fs::read, path::PathBuf};
+use std::{
+    borrow::Cow,
+    fs::{self, create_dir_all},
+    io::stdout,
+    mem::forget,
+    path::PathBuf,
+};
 
+use dirs::home_dir;
 use gpui::*;
 use gpui_component::{init, scroll::ScrollbarShow, Root, Theme};
+use tracing_appender::{
+    non_blocking,
+    rolling::{RollingFileAppender, Rotation},
+};
+use tracing_subscriber::{fmt::layer, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 use crate::app::SqlerApp;
 
@@ -25,7 +37,7 @@ impl AssetSource for FsAssets {
         let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         let full = manifest_dir.join("assets").join(path);
 
-        match read(full) {
+        match fs::read(full) {
             Ok(data) => Ok(Some(Cow::Owned(data))),
             Err(_) => Ok(None),
         }
@@ -39,13 +51,38 @@ impl AssetSource for FsAssets {
     }
 }
 
-fn init_runtime(_cx: &mut App) {}
+fn init_runtime(_cx: &mut App) {
+    let log_dir = home_dir()
+        .map(|home| home.join(".sqler").join("logs"))
+        .expect("Failed to find log dir");
+    if !log_dir.exists() {
+        create_dir_all(&log_dir).expect("Failed to create log dir");
+    }
+
+    let file_appender = RollingFileAppender::builder()
+        .rotation(Rotation::DAILY) // rotate log files once every hour
+        .filename_prefix("sqler") // log file names will be prefixed with `myapp.`
+        .filename_suffix("log") // log file names will be suffixed with `.log`
+        .build(&log_dir)
+        .expect("Failed to create log file appender");
+    let (non_blocking, _guard) = non_blocking(file_appender);
+
+    tracing_subscriber::registry()
+        .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
+        .with(layer().with_writer(stdout))
+        .with(layer().with_writer(non_blocking).with_ansi(false))
+        .init();
+    forget(_guard);
+}
 
 fn main() {
     let app = Application::new().with_assets(FsAssets);
     app.run(|cx: &mut App| {
         init(cx);
         init_runtime(cx);
+
+        tracing::info!("Sqler 应用启动成功");
+        tracing::info!("版本: {}", env!("CARGO_PKG_VERSION"));
 
         cx.activate(true);
         cx.on_window_closed(|cx| {
