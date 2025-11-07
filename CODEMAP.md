@@ -39,7 +39,7 @@
 
 **职责**: 核心 UI 逻辑、状态管理和用户交互
 
-#### 2.1 应用状态 (`mod.rs`, ~400 行)
+#### 2.1 应用状态 (`mod.rs`, ~390 行)
 
 **核心结构**: `SqlerApp`
 
@@ -47,10 +47,9 @@
 
 ```rust
 pub struct SqlerApp {
-    pub tabs: Vec<TabState>,              // 所有打开的标签页
-    pub active_tab: String,               // 当前活动标签 ID
-    pub cache: CacheApp,                  // 缓存管理器
-    pub sources: Vec<DataSource>,         // 数据源列表
+    pub tabs: Vec<TabState>,                           // 所有打开的标签页
+    pub active_tab: String,                            // 当前活动标签 ID
+    pub cache: CacheApp,                               // 缓存管理器(唯一数据源)
     pub create_window: Option<WindowHandle<Root>>,    // 新建数据源窗口句柄
     pub transfer_window: Option<WindowHandle<Root>>,  // 数据传输窗口句柄
 }
@@ -83,15 +82,19 @@ pub enum TabView {
 1. `new()`: 初始化应用，加载主题和缓存
 2. `close_tab()`: 关闭标签，自动切换到前一个标签
 3. `active_tab()`: 切换活动标签
-4. `create_tab()`: 创建工作区标签（避免重复）
+4. `create_tab()`: 创建工作区标签（避免重复，使用 `cache.sources()` 查找数据源）
 5. `toggle_theme()`: 切换亮色/暗色主题
 6. `display_create_window()`: 打开新建数据源窗口
 7. `display_transfer_window()`: 打开数据传输窗口
+8. `close_create_window()`: 关闭新建数据源窗口
+9. `close_transfer_window()`: 关闭数据传输窗口
 
-**数据源来源**:
+**数据源管理**:
 
-- 当前使用 `seed_sources()` 生成演示 MySQL 数据库
-- TODO: 接入缓存系统的真实数据源
+- ✅ 通过 `cache.sources()` 获取数据源列表（零成本借用）
+- ✅ 首页渲染使用 `app.cache.sources()` (src/app/workspace/mod.rs:93)
+- ✅ 创建标签使用 `app.cache.sources()` (src/app/mod.rs:147)
+- ✅ 单一数据源原则，无数据重复
 
 **UI 渲染**:
 
@@ -170,15 +173,15 @@ pub struct DataTable {
 
 #### 2.3 数据源创建 (`create/`)
 
-##### 创建窗口 (`mod.rs`, ~250 行)
+##### 创建窗口 (`mod.rs`, ~375 行)
 
 **核心结构**: `CreateWindow`
 
-```
+```rust
 pub struct CreateWindow {
     kind: Option<DataSourceKind>,  // 当前选中的数据库类型
     parent: WeakEntity<SqlerApp>,
-    status: ConnectionStatus,      // 连接测试状态
+    status: Option<CreateStatus>,  // 连接测试状态
 
     // 各类型的创建表单实体
     mysql: Entity<MySQLCreate>,
@@ -190,28 +193,44 @@ pub struct CreateWindow {
     mongodb: Entity<MongoDBCreate>,
 }
 
-pub enum ConnectionStatus {
-    None,
+pub enum CreateStatus {
     Testing,
     Success(String),
     Error(String),
 }
 ```
 
+**核心方法**:
+
+1. `new()`: 初始化窗口，注册 `on_release` 回调关闭父窗口引用
+2. `cancel()`: 取消创建，关闭窗口
+3. `check_conn()`: 异步测试连接，调用 `check_connection(&options)`
+4. `create_conn()`: 保存数据源到缓存
+
 **功能流程**:
 
 1. **类型选择页**: 展示所有支持的数据库类型（带图标和描述）
 2. **表单页**: 根据选中类型动态切换对应的创建表单
 3. **底部操作**:
-    - 测试连接按钮
-    - 保存按钮
+    - 测试连接按钮：异步调用 `check_connection()`
+    - 上一步按钮：返回类型选择页
+    - 取消按钮：关闭窗口
+    - 保存按钮：保存到 `cache.sources_mut()` 并加密写入
+
+**保存流程** (src/app/create/mod.rs:178-202):
+
+1. 构建 `DataSource::new(name, kind, options)`
+2. `app.cache.sources_mut().push(source)`
+3. `app.cache.sources_update()` 加密写入 `sources.db`
+4. 成功后关闭窗口，失败显示错误
 
 **当前状态**:
 
 - ✅ UI 完整实现
 - ✅ 表单字段收集
-- ❌ 测试连接逻辑（已实现，会调用 `check_connection()`）
-- ❌ 保存到缓存逻辑（未实现）
+- ✅ 测试连接逻辑（后台线程调用 `check_connection()`）
+- ✅ 保存到缓存逻辑（已实现并接入）
+- ❌ Oracle / SQL Server 驱动未实现（保存时返回错误提示）
 
 ---
 
@@ -551,57 +570,85 @@ struct CollectionContent {
 
 ---
 
-### 3. 缓存系统 (`src/cache/mod.rs`, 94 行)
+### 3. 缓存系统 (`src/cache/mod.rs`, 165 行)
 
-**职责**: 本地加密存储数据源配置
+**职责**: 本地存储数据源配置和缓存数据
 
 **核心结构**:
 
 ```rust
 pub struct CacheApp {
-    sources: Vec<DataSource>,
-    sources_path: PathBuf,  // ~/.sqler/sources.enc
+    root: PathBuf,              // ~/.sqler
+    sources: Vec<DataSource>,   // 数据源列表
 }
 ```
 
 #### 存储机制
 
-**加密算法**: AES-256-GCM
+**目录结构**:
+
+```
+~/.sqler/
+  sources.db          # 加密的数据源列表
+  cache/
+    {uuid}/
+      tables.json   # 表信息缓存
+      queries.json  # 保存的查询
+```
+
+**加密算法**: AES-256-GCM (仅加密 sources.db)
 
 - 密钥: 256位（当前硬编码）
 - Nonce: 12字节（当前硬编码）
 
-**存储路径**: `~/.sqler/sources.enc`
-
 **初始化流程**:
 
-1. 确保 `~/.sqler/` 目录存在
-2. 尝试解密加载现有配置
-3. 解密失败则使用空列表
+1. 创建 `~/.sqler/cache/` 目录（自动创建父目录）
+2. 尝试解密加载 `sources.db`
+3. 解密失败或文件不存在则使用空列表
 
 #### 核心 API
 
-**读取**:
+**数据源管理**:
 
-- `sources()`: 获取数据源列表引用
-- `sources_mut()`: 获取可变引用
+- `sources()`: 获取数据源列表引用 `&[DataSource]` (零成本借用)
+- `sources_mut()`: 获取可变引用 `&mut Vec<DataSource>`
+- `sources_update()`: 加密并写入 `sources.db`
 
-**写入**:
+**表信息缓存**:
 
-- `sources_update()`: 加密并写入文件
+- `tables(uuid)`: 读取 `cache/{uuid}/tables.json`
+- `tables_update(uuid, &[TableInfo])`: 写入表信息
+
+**查询缓存**:
+
+- `queries(uuid)`: 读取 `cache/{uuid}/queries.json`
+- `queries_update(uuid, &[SavedQuery])`: 写入查询列表
 
 **错误处理**:
 
-- `CacheError` 枚举描述错误类型
+- `CacheError` 枚举: Io, Serialization, Encryption, Decryption, DirectoryNotFound
+
+#### 设计亮点
+
+1. **单一数据源**: `SqlerApp` 直接使用 `cache.sources()`,无数据重复
+2. **懒加载**: 按需创建 `cache/{uuid}/` 目录
+3. **零成本抽象**: 返回引用避免克隆开销
+4. **分离存储**: 加密数据源配置 + 明文 JSON 缓存
 
 #### 当前状态
 
-**未被完全使用**:
+**已接入**:
 
-- `SqlerApp.cache` 已初始化
-- UI 展示的仍是 `seed_sources()` 的演示数据
-- 新建数据源窗口的保存逻辑未实现
-- TODO: 接入缓存的真实数据源加载和保存
+- ✅ `SqlerApp.cache` 初始化并作为唯一数据源
+- ✅ 新建数据源窗口保存逻辑已实现 (src/app/create/mod.rs:182-192)
+- ✅ 首页展示真实数据源 (src/app/workspace/mod.rs:93)
+- ✅ 创建工作区标签使用缓存数据 (src/app/mod.rs:147)
+
+**待使用**:
+
+- ❌ `tables()` / `tables_update()` 暂未被调用
+- ❌ `queries()` / `queries_update()` 暂未被调用
 
 ---
 
@@ -1050,15 +1097,21 @@ pub enum DataSourceOptions {
 
 1. ✅ 数据库类型选择
 2. ✅ 7 种数据库的表单实现
-3. ✅ 测试连接功能（调用 `check_connection()`）
-4. ❌ 保存到缓存（逻辑未实现）
+3. ✅ 测试连接功能（异步调用 `check_connection()`）
+4. ✅ 保存到缓存（已实现并接入）
+5. ✅ 状态提示（测试中/成功/失败）
 
 #### 缓存系统
 
-1. ✅ AES-256-GCM 加密
-2. ✅ 本地文件读写
-3. ✅ 初始化和加载
-4. ❌ 未被完全接入 UI
+1. ✅ AES-256-GCM 加密（sources.db）
+2. ✅ JSON 存储（tables.json, queries.json）
+3. ✅ 目录结构：`~/.sqler/cache/{uuid}/`
+4. ✅ 单一数据源原则（消除数据重复）
+5. ✅ 零成本抽象（返回引用避免克隆）
+6. ✅ 懒加载（按需创建目录）
+7. ✅ 数据源管理已接入 UI
+8. ❌ 表信息缓存暂未使用
+9. ❌ 查询缓存暂未使用
 
 ---
 
@@ -1071,22 +1124,27 @@ pub enum DataSourceOptions {
     - 构建实际的 `QueryConditions`
     - 将条件注入 SQL 查询
 
-2. **缓存系统完全接入**
-    - `SqlerApp` 从缓存加载真实数据源
-    - 新建数据源保存到缓存
-    - 数据源编辑和删除功能
+2. **表信息和查询缓存使用**
+    - 工作区加载表列表时读取/更新 `tables.json`
+    - 实现保存查询功能，使用 `queries.json`
+    - 避免重复查询表元信息
 
-3. **Redis/MongoDB 工作区功能实现**
+3. **数据源编辑和删除功能**
+    - 首页右键菜单（编辑/删除）
+    - 编辑窗口（复用 CreateWindow）
+    - 删除确认对话框
+
+4. **Redis/MongoDB 工作区功能实现**
     - Redis 命令执行逻辑
     - MongoDB 文档查询和筛选
     - 结果解析和展示
 
-4. **SQL Server 驱动完整实现**
+5. **SQL Server 驱动完整实现**
     - 连接管理
     - 查询执行
     - tables() 和 columns() 实现
 
-5. **Oracle 驱动完整实现**
+6. **Oracle 驱动完整实现**
     - 基于 `oracle` crate 实现
     - 连接管理和查询
 
@@ -1160,10 +1218,25 @@ pub enum DataSourceOptions {
 - 避免 TabId 包装类型
 - 简化查找和路由逻辑
 
-### 6. 加密存储
+### 6. 缓存系统设计
 
-- AES-256-GCM 加密本地数据源配置
-- 保护敏感信息（密码等）
+**单一数据源原则**:
+- `SqlerApp` 直接使用 `cache.sources()` 获取数据源
+- 消除数据重复，无需手动同步
+- 编译器保证数据一致性
+
+**零成本抽象**:
+- `sources()` 返回 `&[DataSource]` 避免克隆
+- 只读访问零开销
+- 需要修改时使用 `sources_mut()`
+
+**分离存储**:
+- `sources.db`: AES-256-GCM 加密（保护敏感信息）
+- `tables.json` / `queries.json`: 明文 JSON（缓存数据）
+
+**懒加载**:
+- 按需创建 `cache/{uuid}/` 目录
+- 文件不存在返回空列表，不阻塞系统
 
 ### 7. 动态列支持
 
@@ -1184,9 +1257,10 @@ pub enum DataSourceOptions {
 |---------|--------|-----------|
 | app/    | 28     | ~3500     |
 | driver/ | 8      | ~2800     |
-| cache/  | 1      | ~100      |
+| cache/  | 1      | ~165      |
+| model/  | 3      | ~150      |
 | main.rs | 1      | ~90       |
-| **总计**  | **38** | **~6500** |
+| **总计**  | **41** | **~6700** |
 
 ---
 
@@ -1201,15 +1275,18 @@ pub enum DataSourceOptions {
 - ✅ 分页导航
 - ✅ 连接复用
 - ✅ 统一的列查询接口
+- ✅ 新建数据源窗口（测试连接+保存）
+- ✅ 缓存系统（单一数据源原则）
 
 **开发中**:
 
 - 🚧 筛选/排序逻辑
 - 🚧 Redis/MongoDB 工作区功能
-- 🚧 缓存系统完全接入
+- 🚧 表信息和查询缓存使用
 
 **待开发**:
 
+- 📋 数据源编辑和删除
 - 📋 SQL Server/Oracle 驱动
 - 📋 查询编辑器
 - 📋 数据编辑
@@ -1255,4 +1332,4 @@ pub enum DataSourceOptions {
 
 ---
 
-**最后更新**: 2025-01-05
+**最后更新**: 2025-01-07 (完善缓存系统,消除数据重复)

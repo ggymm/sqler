@@ -147,7 +147,7 @@ impl CreateWindow {
             return;
         };
 
-        // 收集表单数据
+        // 构建
         let name = match kind {
             DataSourceKind::MySQL => self.mysql.read(cx).name.read(cx).value().to_string(),
             DataSourceKind::SQLite => self.sqlite.read(cx).name.read(cx).value().to_string(),
@@ -157,13 +157,6 @@ impl CreateWindow {
             DataSourceKind::Redis => self.redis.read(cx).name.read(cx).value().to_string(),
             DataSourceKind::MongoDB => self.mongodb.read(cx).name.read(cx).value().to_string(),
         };
-
-        if name.trim().is_empty() {
-            self.status = Some(CreateStatus::Error("数据源名称不能为空".to_string()));
-            cx.notify();
-            return;
-        }
-
         let options = match kind {
             DataSourceKind::MySQL => DataSourceOptions::MySQL(self.mysql.read(cx).options(cx)),
             DataSourceKind::SQLite => DataSourceOptions::SQLite(self.sqlite.read(cx).options(cx)),
@@ -182,11 +175,9 @@ impl CreateWindow {
             DataSourceKind::MongoDB => DataSourceOptions::MongoDB(self.mongodb.read(cx).options(cx)),
         };
 
-        // 构建 DataSource
+        // 保存
         let source = DataSource::new(name.clone(), kind, options);
-
-        // 保存到 cache
-        let save_result = if let Some(parent) = self.parent.upgrade() {
+        let result = if let Some(parent) = self.parent.upgrade() {
             parent.update(cx, |app, cx| {
                 app.cache.sources_mut().push(source);
                 let result = app.cache.sources_update();
@@ -200,11 +191,8 @@ impl CreateWindow {
         } else {
             return;
         };
-
-        // 检查保存结果
-        match save_result {
+        match result {
             Ok(()) => {
-                // 保存成功,关闭窗口
                 self.cancel(window, cx);
             }
             Err(e) => {
