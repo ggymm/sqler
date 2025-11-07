@@ -192,7 +192,7 @@ pub enum DriverError {
 pub trait DatabaseDriver {
     type Config;
 
-    fn col_kinds(&self) -> Vec<ColumnKind>;
+    fn supp_kinds(&self) -> Vec<ColumnKind>;
 
     fn check_connection(
         &self,
@@ -236,13 +236,13 @@ pub trait DatabaseSession: Send {
 
 pub fn get_datatypes(kind: DataSourceKind) -> Vec<ColumnKind> {
     match kind {
-        DataSourceKind::MySQL => MySQLDriver.col_kinds(),
-        DataSourceKind::SQLite => SQLiteDriver.col_kinds(),
-        DataSourceKind::Postgres => PostgresDriver.col_kinds(),
+        DataSourceKind::MySQL => MySQLDriver.supp_kinds(),
+        DataSourceKind::SQLite => SQLiteDriver.supp_kinds(),
+        DataSourceKind::Postgres => PostgresDriver.supp_kinds(),
         DataSourceKind::Oracle => vec![],
-        DataSourceKind::SQLServer => SQLServerDriver.col_kinds(),
-        DataSourceKind::MongoDB => MongoDBDriver.col_kinds(),
-        DataSourceKind::Redis => RedisDriver.col_kinds(),
+        DataSourceKind::SQLServer => SQLServerDriver.supp_kinds(),
+        DataSourceKind::MongoDB => MongoDBDriver.supp_kinds(),
+        DataSourceKind::Redis => RedisDriver.supp_kinds(),
     }
 }
 

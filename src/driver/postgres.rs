@@ -15,7 +15,7 @@ pub struct PostgresDriver;
 impl DatabaseDriver for PostgresDriver {
     type Config = PostgresOptions;
 
-    fn col_kinds(&self) -> Vec<ColumnKind> {
+    fn supp_kinds(&self) -> Vec<ColumnKind> {
         vec![
             ColumnKind::SmallInt,
             ColumnKind::Int,

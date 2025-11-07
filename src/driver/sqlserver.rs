@@ -54,7 +54,7 @@ impl DatabaseSession for SqlServerConnection {
 impl DatabaseDriver for SQLServerDriver {
     type Config = SQLServerOptions;
 
-    fn col_kinds(&self) -> Vec<ColumnKind> {
+    fn supp_kinds(&self) -> Vec<ColumnKind> {
         vec![
             ColumnKind::TinyInt,
             ColumnKind::SmallInt,

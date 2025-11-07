@@ -15,7 +15,7 @@ pub struct MongoDBDriver;
 impl DatabaseDriver for MongoDBDriver {
     type Config = MongoDBOptions;
 
-    fn col_kinds(&self) -> Vec<ColumnKind> {
+    fn supp_kinds(&self) -> Vec<ColumnKind> {
         vec![
             ColumnKind::Int,
             ColumnKind::BigInt,

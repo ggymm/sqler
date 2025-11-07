@@ -15,7 +15,7 @@ pub struct MySQLDriver;
 impl DatabaseDriver for MySQLDriver {
     type Config = MySQLOptions;
 
-    fn col_kinds(&self) -> Vec<ColumnKind> {
+    fn supp_kinds(&self) -> Vec<ColumnKind> {
         vec![
             ColumnKind::TinyInt,
             ColumnKind::SmallInt,

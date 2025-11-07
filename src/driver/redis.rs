@@ -106,7 +106,7 @@ impl DatabaseSession for RedisConnection {
 impl DatabaseDriver for RedisDriver {
     type Config = RedisOptions;
 
-    fn col_kinds(&self) -> Vec<ColumnKind> {
+    fn supp_kinds(&self) -> Vec<ColumnKind> {
         vec![ColumnKind::String, ColumnKind::List, ColumnKind::Hash, ColumnKind::ZSet]
     }
 

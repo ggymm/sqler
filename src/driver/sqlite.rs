@@ -283,7 +283,7 @@ impl DatabaseSession for SQLiteConnection {
 impl DatabaseDriver for SQLiteDriver {
     type Config = SQLiteOptions;
 
-    fn col_kinds(&self) -> Vec<ColumnKind> {
+    fn supp_kinds(&self) -> Vec<ColumnKind> {
         vec![
             ColumnKind::Int,
             ColumnKind::BigInt,

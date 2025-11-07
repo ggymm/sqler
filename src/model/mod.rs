@@ -58,45 +58,26 @@ impl DataSource {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct QueryRecord {
-    pub id: String,
-    pub datasource_id: String,
-    pub sql: String,
-    pub executed_at: i64,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct CommandRecord {
-    pub id: String,
-    pub datasource_id: String,
-    pub command: String,
-    pub executed_at: i64,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TableInfo {
     pub name: String,
     pub row_count: Option<u64>,
     pub size_bytes: Option<u64>,
+    pub last_accessed: Option<u64>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ColumnInfo {
     pub name: String,
-    pub data_type: ColumnKind,
+    pub table: String,
+    pub kind: ColumnKind,
     pub nullable: bool,
+    pub primary_key: bool,
     pub default_value: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct TableSchema {
-    pub table_name: String,
-    pub columns: Vec<ColumnInfo>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct RecentItems {
-    pub datasource_id: String,
-    pub tables: Vec<String>,
-    pub updated_at: i64,
+pub struct SavedQuery {
+    pub id: String,
+    pub name: String,
+    pub content: String,
 }
