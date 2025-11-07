@@ -66,18 +66,7 @@ pub struct TableInfo {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ColumnInfo {
-    pub name: String,
-    pub table: String,
-    pub kind: ColumnKind,
-    pub nullable: bool,
-    pub primary_key: bool,
-    pub default_value: Option<String>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SavedQuery {
-    pub id: String,
     pub name: String,
     pub content: String,
 }

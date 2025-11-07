@@ -10,7 +10,6 @@ gpui-component = "0.3"
 dirs = "6"
 uuid = "1"
 aes-gcm = "0.10"
-sea-query = "1.0.0-rc.16"
 thiserror = "2"
 
 serde = { version = "1", features = ["derive"] }

@@ -32,3 +32,9 @@
 - [ ] 添加git分支，使用worktree
 - [ ] 工作区展示，保存的命令或者查询语句
 
+~/.sqler
+sources.db
+cache
+{uuid}
+tables.json
+queries.json
