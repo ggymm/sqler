@@ -7,42 +7,22 @@ edition = "2021"
 gpui = "0.2"
 gpui-component = "0.3"
 
-aes-gcm = "0.10"
 dirs = "6"
-thiserror = "2"
 uuid = "1"
+aes-gcm = "0.10"
+sea-query = "1.0.0-rc.16"
+thiserror = "2"
 
-[dependencies.serde]
-version = "1"
-features = ["derive"]
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1" }
 
-[dependencies.serde_json]
-version = "1"
+tracing = "0.1"
+tracing-subscriber = "0.3.0"
 
-# MongoDB 数据源驱动
-[dependencies.mongodb]
-version = "3"
-features = ["sync"]
-
-# MySQL 数据源驱动
-[dependencies.mysql]
-version = "26"
-
-# Oracle 数据源驱动
-[dependencies.oracle]
-version = "0.6"
-
-# PostgreSQL 数据源驱动
-[dependencies.postgres]
-version = "0.19"
-
-# Redis 数据源驱动
-[dependencies.redis]
-version = "1.0.0-rc.2"
-
-# SQLite 数据源驱动
-[dependencies.rusqlite]
-version = "0.37"
-features = ["bundled"]
-
+mongodb = { version = "3", features = ["sync"] }
+mysql = { version = "26" }
+oracle = { version = "0.6" }
+postgres = { version = "0.19" }
+redis = { version = "1.0.0-rc.3" }
+rusqlite = { version = "0.37", features = ["bundled"] }
 

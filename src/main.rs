@@ -9,6 +9,7 @@ mod app;
 mod cache;
 mod driver;
 mod model;
+mod plugin;
 
 struct FsAssets;
 
