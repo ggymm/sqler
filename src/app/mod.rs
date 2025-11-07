@@ -4,7 +4,6 @@ use gpui_component::{
     theme::{Theme, ThemeMode},
     ActiveTheme, Root, Sizable, Size,
 };
-use uuid::Uuid;
 
 use crate::{
     app::{
@@ -14,7 +13,7 @@ use crate::{
         workspace::WorkspaceState,
     },
     cache::CacheApp,
-    model::{DataSource, DataSourceKind, DataSourceOptions, MySQLOptions},
+    model::DataSource,
 };
 
 mod comps;
@@ -73,8 +72,6 @@ pub struct SqlerApp {
     pub active_tab: String,
 
     pub cache: CacheApp,
-    pub sources: Vec<DataSource>,
-
     pub create_window: Option<WindowHandle<Root>>,
     pub transfer_window: Option<WindowHandle<Root>>,
 }
@@ -91,14 +88,11 @@ impl SqlerApp {
             Err(e) => panic!("{}", e),
         };
 
-        let sources = seed_sources();
-
         Self {
             tabs: vec![TabState::home()],
             active_tab: "home".to_string(),
 
             cache,
-            sources,
 
             create_window: None,
             transfer_window: None,
@@ -150,7 +144,7 @@ impl SqlerApp {
             return;
         }
 
-        if let Some(meta) = self.sources.iter().find(|meta| meta.id == tab_id).cloned() {
+        if let Some(meta) = self.cache.sources().iter().find(|meta| meta.id == tab_id).cloned() {
             self.tabs.push(TabState::workspace(meta, window, cx));
             self.active_tab = tab_id.to_string();
             cx.notify();
@@ -391,20 +385,4 @@ impl Render for SqlerApp {
             )
             .into_any_element()
     }
-}
-
-fn seed_sources() -> Vec<DataSource> {
-    vec![DataSource {
-        id: Uuid::new_v4().to_string(),
-        name: "测试数据库".to_string(),
-        kind: DataSourceKind::MySQL,
-        options: DataSourceOptions::MySQL(MySQLOptions {
-            host: "127.0.0.1".into(),
-            port: 3306,
-            username: "root".into(),
-            password: "root".into(),
-            database: "qnt_robot_prod".into(),
-            use_tls: false,
-        }),
-    }]
 }

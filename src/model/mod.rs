@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 pub use kind::{ColumnKind, DataSourceKind};
 pub use options::{
-    DataSourceOptions, MongoDBHost, MongoDBOptions, MySQLOptions, OracleOptions, PostgresOptions, RedisOptions,
-    SQLServerOptions, SQLiteOptions,
+    DataSourceOptions, MongoDBHost, MongoDBOptions, MySQLOptions, PostgresOptions, RedisOptions, SQLServerOptions,
+    SQLiteOptions,
 };
 
 mod kind;
@@ -19,13 +20,12 @@ pub struct DataSource {
 
 impl DataSource {
     pub fn new(
-        id: String,
         name: String,
         kind: DataSourceKind,
         options: DataSourceOptions,
     ) -> Self {
         Self {
-            id,
+            id: Uuid::new_v4().to_string(),
             name,
             kind,
             options,

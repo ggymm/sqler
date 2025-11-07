@@ -1,6 +1,5 @@
 use gpui::{prelude::*, *};
 use gpui_component::{button::Button, ActiveTheme, StyledExt};
-use uuid::Uuid;
 
 use crate::{
     app::{comps::DivExt, SqlerApp},
@@ -17,16 +16,16 @@ mod sqlite;
 mod sqlserver;
 
 #[derive(Clone, Debug)]
-pub enum ConnectionStatus {
+pub enum CreateStatus {
     Testing,
-    Success(String),
     Error(String),
+    Success(String),
 }
 
 pub struct CreateWindow {
     kind: Option<DataSourceKind>,
     parent: WeakEntity<SqlerApp>,
-    status: Option<ConnectionStatus>,
+    status: Option<CreateStatus>,
 
     mysql: Entity<mysql::MySQLCreate>,
     oracle: Entity<oracle::OracleCreate>,
@@ -88,7 +87,7 @@ impl CreateWindow {
         cx: &mut Context<Self>,
     ) {
         let Some(kind) = self.kind else {
-            self.status = Some(ConnectionStatus::Error("请先选择数据源类型".to_string()));
+            self.status = Some(CreateStatus::Error("请先选择数据源类型".to_string()));
             cx.notify();
             return;
         };
@@ -98,12 +97,12 @@ impl CreateWindow {
             DataSourceKind::SQLite => DataSourceOptions::SQLite(self.sqlite.read(cx).options(cx)),
             DataSourceKind::Postgres => DataSourceOptions::Postgres(self.postgres.read(cx).options(cx)),
             DataSourceKind::Oracle => {
-                self.status = Some(ConnectionStatus::Error("Oracle 驱动暂未实现".to_string()));
+                self.status = Some(CreateStatus::Error("Oracle 驱动暂未实现".to_string()));
                 cx.notify();
                 return;
             }
             DataSourceKind::SQLServer => {
-                self.status = Some(ConnectionStatus::Error("SQL Server 驱动暂未实现".to_string()));
+                self.status = Some(CreateStatus::Error("SQL Server 驱动暂未实现".to_string()));
                 cx.notify();
                 return;
             }
@@ -111,7 +110,7 @@ impl CreateWindow {
             DataSourceKind::MongoDB => DataSourceOptions::MongoDB(self.mongodb.read(cx).options(cx)),
         };
 
-        self.status = Some(ConnectionStatus::Testing);
+        self.status = Some(CreateStatus::Testing);
         cx.notify();
 
         cx.spawn_in(window, async move |this, cx| {
@@ -124,10 +123,10 @@ impl CreateWindow {
                 let _ = this.update(cx, |this, cx| {
                     match result {
                         Ok(_) => {
-                            this.status = Some(ConnectionStatus::Success("连接成功".to_string()));
+                            this.status = Some(CreateStatus::Success("连接成功".to_string()));
                         }
                         Err(e) => {
-                            this.status = Some(ConnectionStatus::Error(format!("{}", e)));
+                            this.status = Some(CreateStatus::Error(format!("{}", e)));
                         }
                     }
                     cx.notify();
@@ -143,7 +142,7 @@ impl CreateWindow {
         cx: &mut Context<Self>,
     ) {
         let Some(kind) = self.kind else {
-            self.status = Some(ConnectionStatus::Error("请先选择数据源类型".to_string()));
+            self.status = Some(CreateStatus::Error("请先选择数据源类型".to_string()));
             cx.notify();
             return;
         };
@@ -160,7 +159,7 @@ impl CreateWindow {
         };
 
         if name.trim().is_empty() {
-            self.status = Some(ConnectionStatus::Error("数据源名称不能为空".to_string()));
+            self.status = Some(CreateStatus::Error("数据源名称不能为空".to_string()));
             cx.notify();
             return;
         }
@@ -170,12 +169,12 @@ impl CreateWindow {
             DataSourceKind::SQLite => DataSourceOptions::SQLite(self.sqlite.read(cx).options(cx)),
             DataSourceKind::Postgres => DataSourceOptions::Postgres(self.postgres.read(cx).options(cx)),
             DataSourceKind::Oracle => {
-                self.status = Some(ConnectionStatus::Error("Oracle 驱动暂未实现".to_string()));
+                self.status = Some(CreateStatus::Error("Oracle 驱动暂未实现".to_string()));
                 cx.notify();
                 return;
             }
             DataSourceKind::SQLServer => {
-                self.status = Some(ConnectionStatus::Error("SQL Server 驱动暂未实现".to_string()));
+                self.status = Some(CreateStatus::Error("SQL Server 驱动暂未实现".to_string()));
                 cx.notify();
                 return;
             }
@@ -184,7 +183,7 @@ impl CreateWindow {
         };
 
         // 构建 DataSource
-        let source = DataSource::new(Uuid::new_v4().to_string(), name.clone(), kind, options);
+        let source = DataSource::new(name.clone(), kind, options);
 
         // 保存到 cache
         let save_result = if let Some(parent) = self.parent.upgrade() {
@@ -193,8 +192,6 @@ impl CreateWindow {
                 let result = app.cache.sources_update();
 
                 if result.is_ok() {
-                    // 同步到 app.sources
-                    app.sources = app.cache.sources().to_vec();
                     cx.notify();
                 }
 
@@ -211,7 +208,7 @@ impl CreateWindow {
                 self.cancel(window, cx);
             }
             Err(e) => {
-                self.status = Some(ConnectionStatus::Error(format!("保存失败: {}", e)));
+                self.status = Some(CreateStatus::Error(format!("保存失败: {}", e)));
                 cx.notify();
             }
         }
@@ -363,9 +360,9 @@ impl Render for CreateWindow {
                     )
                     .children(status.as_ref().map(|s| {
                         let (bg, fg, message) = match s {
-                            ConnectionStatus::Testing => (theme.info, theme.info_foreground, "测试连接...".to_string()),
-                            ConnectionStatus::Success(msg) => (theme.success, theme.success_foreground, msg.clone()),
-                            ConnectionStatus::Error(msg) => (theme.danger, theme.danger_foreground, msg.clone()),
+                            CreateStatus::Testing => (theme.info, theme.info_foreground, "测试连接...".to_string()),
+                            CreateStatus::Success(msg) => (theme.success, theme.success_foreground, msg.clone()),
+                            CreateStatus::Error(msg) => (theme.danger, theme.danger_foreground, msg.clone()),
                         };
 
                         div()

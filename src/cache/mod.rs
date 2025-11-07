@@ -4,9 +4,10 @@ use aes_gcm::{
     aead::{Aead, KeyInit},
     Aes256Gcm,
 };
+use dirs::home_dir;
 use thiserror::Error;
 
-use crate::model::DataSource;
+use crate::model::{DataSource, SavedQuery, TableInfo};
 
 const ENCRYPTION_KEY: [u8; 32] = [
     0x7f, 0x3e, 0x9a, 0x5c, 0x2b, 0x8f, 0x1d, 0x6e, 0x4a, 0x0c, 0x7b, 0x9f, 0x3d, 0x5a, 0x8e, 0x2c, 0x1f, 0x6b, 0x4d,
@@ -15,8 +16,11 @@ const ENCRYPTION_KEY: [u8; 32] = [
 
 const NONCE: [u8; 12] = [0xa1, 0xb2, 0xc3, 0xd4, 0xe5, 0xf6, 0x07, 0x18, 0x29, 0x3a, 0x4b, 0x5c];
 
-const CACHE_DIR: &str = ".sqler";
-const CACHE_FILE: &str = "sources.db";
+const ROOT_DIR: &str = ".sqler";
+const CACHE_DIR: &str = "cache";
+const SOURCES_FILE: &str = "sources.db";
+const TABLES_FILE: &str = "tables.json";
+const QUERIES_FILE: &str = "queries.json";
 
 #[derive(Error, Debug)]
 pub enum CacheError {
@@ -29,35 +33,42 @@ pub enum CacheError {
     #[error("Encryption error: {0}")]
     Encryption(String),
 
+    #[error("Decryption error: {0}")]
+    Decryption(String),
+
     #[error("Cache directory not found")]
     DirectoryNotFound,
 }
 
 pub struct CacheApp {
+    root: PathBuf,
     sources: Vec<DataSource>,
-    sources_path: PathBuf,
 }
 
 impl CacheApp {
     pub fn init() -> Result<Self, CacheError> {
-        let cache_dir = dirs::home_dir()
-            .map(|home| home.join(CACHE_DIR))
+        let root_dir = home_dir()
+            .map(|home| home.join(ROOT_DIR))
             .ok_or(CacheError::DirectoryNotFound)?;
+
+        let cache_dir = root_dir.join(CACHE_DIR);
         if !cache_dir.exists() {
             fs::create_dir_all(&cache_dir)?;
         }
 
-        let sources_path = cache_dir.join(CACHE_FILE);
+        let sources_path = root_dir.join(SOURCES_FILE);
         let sources = if sources_path.exists() {
             let encrypted = fs::read(&sources_path)?;
             let decrypted = Self::decrypt(&encrypted)?;
-            let data: Vec<DataSource> = serde_json::from_slice(&decrypted)?;
-            data
+            serde_json::from_slice(&decrypted)?
         } else {
             Vec::new()
         };
 
-        Ok(Self { sources, sources_path })
+        Ok(Self {
+            sources,
+            root: root_dir,
+        })
     }
 
     pub fn sources(&self) -> &[DataSource] {
@@ -69,10 +80,70 @@ impl CacheApp {
     }
 
     pub fn sources_update(&mut self) -> Result<(), CacheError> {
-        let data = self.sources.clone();
-        let json = serde_json::to_vec(&data)?;
+        let json = serde_json::to_vec(&self.sources)?;
         let encrypted = Self::encrypt(&json)?;
-        fs::write(&self.sources_path, encrypted)?;
+        let sources_path = self.root.join(SOURCES_FILE);
+        fs::write(&sources_path, encrypted)?;
+        Ok(())
+    }
+
+    pub fn tables(
+        &self,
+        uuid: &str,
+    ) -> Result<Vec<TableInfo>, CacheError> {
+        let path = self.root.join(CACHE_DIR).join(uuid).join(TABLES_FILE);
+        if !path.exists() {
+            return Ok(Vec::new());
+        }
+
+        let data = fs::read(&path)?;
+        let tables = serde_json::from_slice(&data)?;
+        Ok(tables)
+    }
+
+    pub fn tables_update(
+        &self,
+        uuid: &str,
+        tables: &[TableInfo],
+    ) -> Result<(), CacheError> {
+        let dir = self.root.join(CACHE_DIR).join(uuid);
+        if !dir.exists() {
+            fs::create_dir_all(&dir)?;
+        }
+
+        let path = dir.join(TABLES_FILE);
+        let json = serde_json::to_vec(tables)?;
+        fs::write(&path, json)?;
+        Ok(())
+    }
+
+    pub fn queries(
+        &self,
+        uuid: &str,
+    ) -> Result<Vec<SavedQuery>, CacheError> {
+        let path = self.root.join(CACHE_DIR).join(uuid).join(QUERIES_FILE);
+        if !path.exists() {
+            return Ok(Vec::new());
+        }
+
+        let data = fs::read(&path)?;
+        let queries = serde_json::from_slice(&data)?;
+        Ok(queries)
+    }
+
+    pub fn queries_update(
+        &self,
+        uuid: &str,
+        queries: &[SavedQuery],
+    ) -> Result<(), CacheError> {
+        let dir = self.root.join(CACHE_DIR).join(uuid);
+        if !dir.exists() {
+            fs::create_dir_all(&dir)?;
+        }
+
+        let path = dir.join(QUERIES_FILE);
+        let json = serde_json::to_vec(queries)?;
+        fs::write(&path, json)?;
         Ok(())
     }
 
@@ -85,7 +156,7 @@ impl CacheApp {
     fn decrypt(data: &[u8]) -> Result<Vec<u8>, CacheError> {
         Aes256Gcm::new(&ENCRYPTION_KEY.into())
             .decrypt(&NONCE.into(), data)
-            .map_err(|e| CacheError::Encryption(e.to_string()))
+            .map_err(|e| CacheError::Decryption(e.to_string()))
     }
 }
 

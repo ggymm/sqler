@@ -90,7 +90,7 @@ pub fn render_home(
         .min_w_0()
         .min_h_0()
         .scrollable(Axis::Vertical)
-        .children(app.sources.iter().cloned().map(|source| {
+        .children(app.cache.sources().iter().cloned().map(|source| {
             let display = source.display_endpoint();
 
             div()
