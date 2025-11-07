@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-pub use kind::DataSourceKind;
+pub use kind::{ColumnKind, DataSourceKind};
 pub use options::{
-    DataSourceOptions, MongoDBHost, MongoDBOptions, MySQLOptions, PostgresOptions, RedisOptions, SQLServerOptions,
-    SQLiteOptions,
+    DataSourceOptions, MongoDBHost, MongoDBOptions, MySQLOptions, OracleOptions, PostgresOptions, RedisOptions,
+    SQLServerOptions, SQLiteOptions,
 };
 
 mod kind;
@@ -83,7 +83,7 @@ pub struct TableInfo {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ColumnInfo {
     pub name: String,
-    pub data_type: String,
+    pub data_type: ColumnKind,
     pub nullable: bool,
     pub default_value: Option<String>,
 }

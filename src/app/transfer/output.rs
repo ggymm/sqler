@@ -5,8 +5,9 @@ use gpui_component::{
     ActiveTheme, Sizable, Size, StyledExt,
 };
 
-use super::TransferFormat;
 use crate::app::comps::DivExt;
+
+use super::TransferFormat;
 
 pub struct OutputConfig {
     format: Option<TransferFormat>,

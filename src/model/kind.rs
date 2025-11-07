@@ -1,5 +1,74 @@
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ColumnKind {
+    TinyInt,
+    SmallInt,
+    Int,
+    BigInt,
+    Float,
+    Double,
+    Decimal,
+    Char,
+    VarChar,
+    Text,
+    Binary,
+    VarBinary,
+    Blob,
+    Date,
+    Time,
+    DateTime,
+    Timestamp,
+    Boolean,
+    Json,
+    Uuid,
+    Enum,
+    Set,
+    Document,
+    Array,
+    String,
+    List,
+    Hash,
+    ZSet,
+    Unknown,
+}
+
+impl ColumnKind {
+    pub fn label(&self) -> &'static str {
+        match self {
+            ColumnKind::TinyInt => "TINYINT",
+            ColumnKind::SmallInt => "SMALLINT",
+            ColumnKind::Int => "INT",
+            ColumnKind::BigInt => "BIGINT",
+            ColumnKind::Float => "FLOAT",
+            ColumnKind::Double => "DOUBLE",
+            ColumnKind::Decimal => "DECIMAL",
+            ColumnKind::Char => "CHAR",
+            ColumnKind::VarChar => "VARCHAR",
+            ColumnKind::Text => "TEXT",
+            ColumnKind::Binary => "BINARY",
+            ColumnKind::VarBinary => "VARBINARY",
+            ColumnKind::Blob => "BLOB",
+            ColumnKind::Date => "DATE",
+            ColumnKind::Time => "TIME",
+            ColumnKind::DateTime => "DATETIME",
+            ColumnKind::Timestamp => "TIMESTAMP",
+            ColumnKind::Boolean => "BOOLEAN",
+            ColumnKind::Json => "JSON",
+            ColumnKind::Uuid => "UUID",
+            ColumnKind::Enum => "ENUM",
+            ColumnKind::Set => "SET",
+            ColumnKind::Document => "DOCUMENT",
+            ColumnKind::Array => "ARRAY",
+            ColumnKind::String => "STRING",
+            ColumnKind::List => "LIST",
+            ColumnKind::Hash => "HASH",
+            ColumnKind::ZSet => "ZSET",
+            ColumnKind::Unknown => "UNKNOWN",
+        }
+    }
+}
+
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DataSourceKind {

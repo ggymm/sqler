@@ -2,11 +2,11 @@ use std::{collections::HashMap, fs, path::Path};
 
 use rusqlite::{types::ValueRef, Connection, OpenFlags};
 
-use crate::model::SQLiteOptions;
+use crate::model::{ColumnKind, SQLiteOptions};
 
 use super::{
-    validate_sql, DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError, InsertReq, Operator, QueryReq,
-    QueryResp, UpdateReq, UpdateResp, ValueCond,
+    validate_sql, DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, Operator, QueryReq, QueryResp,
+    UpdateReq, UpdateResp, ValueCond,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -283,19 +283,19 @@ impl DatabaseSession for SQLiteConnection {
 impl DatabaseDriver for SQLiteDriver {
     type Config = SQLiteOptions;
 
-    fn data_types(&self) -> Vec<Datatype> {
+    fn col_kinds(&self) -> Vec<ColumnKind> {
         vec![
-            Datatype::Int,
-            Datatype::BigInt,
-            Datatype::Float,
-            Datatype::Double,
-            Datatype::Char,
-            Datatype::VarChar,
-            Datatype::Text,
-            Datatype::Blob,
-            Datatype::Date,
-            Datatype::DateTime,
-            Datatype::Boolean,
+            ColumnKind::Int,
+            ColumnKind::BigInt,
+            ColumnKind::Float,
+            ColumnKind::Double,
+            ColumnKind::Char,
+            ColumnKind::VarChar,
+            ColumnKind::Text,
+            ColumnKind::Blob,
+            ColumnKind::Date,
+            ColumnKind::DateTime,
+            ColumnKind::Boolean,
         ]
     }
 

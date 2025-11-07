@@ -2,11 +2,11 @@ use std::collections::HashMap;
 
 use postgres::{types::Type, Client, Config, Error as PostgresError, NoTls};
 
-use crate::model::PostgresOptions;
+use crate::model::{ColumnKind, PostgresOptions};
 
 use super::{
-    validate_sql, DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError, InsertReq, Operator, QueryReq,
-    QueryResp, UpdateReq, UpdateResp, ValueCond,
+    validate_sql, DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, Operator, QueryReq, QueryResp,
+    UpdateReq, UpdateResp, ValueCond,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -15,25 +15,25 @@ pub struct PostgresDriver;
 impl DatabaseDriver for PostgresDriver {
     type Config = PostgresOptions;
 
-    fn data_types(&self) -> Vec<Datatype> {
+    fn col_kinds(&self) -> Vec<ColumnKind> {
         vec![
-            Datatype::SmallInt,
-            Datatype::Int,
-            Datatype::BigInt,
-            Datatype::Float,
-            Datatype::Double,
-            Datatype::Decimal,
-            Datatype::Char,
-            Datatype::VarChar,
-            Datatype::Text,
-            Datatype::Binary,
-            Datatype::Date,
-            Datatype::Time,
-            Datatype::Timestamp,
-            Datatype::Boolean,
-            Datatype::Json,
-            Datatype::Uuid,
-            Datatype::Array,
+            ColumnKind::SmallInt,
+            ColumnKind::Int,
+            ColumnKind::BigInt,
+            ColumnKind::Float,
+            ColumnKind::Double,
+            ColumnKind::Decimal,
+            ColumnKind::Char,
+            ColumnKind::VarChar,
+            ColumnKind::Text,
+            ColumnKind::Binary,
+            ColumnKind::Date,
+            ColumnKind::Time,
+            ColumnKind::Timestamp,
+            ColumnKind::Boolean,
+            ColumnKind::Json,
+            ColumnKind::Uuid,
+            ColumnKind::Array,
         ]
     }
 

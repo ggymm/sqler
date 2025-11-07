@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 use serde_json::Value;
 
+use crate::model::{ColumnKind, DataSourceKind, DataSourceOptions};
+
 pub use mongodb::MongoDBDriver;
 pub use mysql::MySQLDriver;
 pub use postgres::PostgresDriver;
@@ -9,97 +11,13 @@ pub use redis::RedisDriver;
 pub use sqlite::SQLiteDriver;
 pub use sqlserver::SQLServerDriver;
 
-use crate::model::{DataSourceKind, DataSourceOptions};
-
-pub use crate::model::{MongoDBHost, MongoDBOptions, MySQLOptions, PostgresOptions, RedisOptions, SQLiteOptions};
-
-pub mod mongodb;
-pub mod mysql;
-pub mod oracle;
-pub mod postgres;
-pub mod redis;
-pub mod sqlite;
-pub mod sqlserver;
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Datatype {
-    // 整数类型
-    TinyInt,
-    SmallInt,
-    Int,
-    BigInt,
-    // 浮点类型
-    Float,
-    Double,
-    Decimal,
-    // 字符串类型
-    Char,
-    VarChar,
-    Text,
-    // 二进制类型
-    Binary,
-    VarBinary,
-    Blob,
-    // 日期时间类型
-    Date,
-    Time,
-    DateTime,
-    Timestamp,
-    // 布尔类型
-    Boolean,
-    // JSON 类型
-    Json,
-    // 特殊类型
-    Uuid,
-    Enum,
-    Set,
-    // NoSQL 特殊类型
-    Document,
-    Array,
-    // Redis 特殊类型
-    String,
-    List,
-    Hash,
-    ZSet,
-    // 其他
-    Unknown,
-}
-
-impl Datatype {
-    pub fn label(&self) -> &'static str {
-        match self {
-            Datatype::TinyInt => "TINYINT",
-            Datatype::SmallInt => "SMALLINT",
-            Datatype::Int => "INT",
-            Datatype::BigInt => "BIGINT",
-            Datatype::Float => "FLOAT",
-            Datatype::Double => "DOUBLE",
-            Datatype::Decimal => "DECIMAL",
-            Datatype::Char => "CHAR",
-            Datatype::VarChar => "VARCHAR",
-            Datatype::Text => "TEXT",
-            Datatype::Binary => "BINARY",
-            Datatype::VarBinary => "VARBINARY",
-            Datatype::Blob => "BLOB",
-            Datatype::Date => "DATE",
-            Datatype::Time => "TIME",
-            Datatype::DateTime => "DATETIME",
-            Datatype::Timestamp => "TIMESTAMP",
-            Datatype::Boolean => "BOOLEAN",
-            Datatype::Json => "JSON",
-            Datatype::Uuid => "UUID",
-            Datatype::Enum => "ENUM",
-            Datatype::Set => "SET",
-            Datatype::Document => "DOCUMENT",
-            Datatype::Array => "ARRAY",
-            Datatype::String => "STRING",
-            Datatype::List => "LIST",
-            Datatype::Hash => "HASH",
-            Datatype::ZSet => "ZSET",
-            Datatype::Unknown => "UNKNOWN",
-        }
-    }
-}
+mod mongodb;
+mod mysql;
+mod oracle;
+mod postgres;
+mod redis;
+mod sqlite;
+mod sqlserver;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Operator {
@@ -274,7 +192,7 @@ pub enum DriverError {
 pub trait DatabaseDriver {
     type Config;
 
-    fn data_types(&self) -> Vec<Datatype>;
+    fn col_kinds(&self) -> Vec<ColumnKind>;
 
     fn check_connection(
         &self,
@@ -316,15 +234,15 @@ pub trait DatabaseSession: Send {
     ) -> Result<Vec<String>, DriverError>;
 }
 
-pub fn get_datatypes(kind: DataSourceKind) -> Vec<Datatype> {
+pub fn get_datatypes(kind: DataSourceKind) -> Vec<ColumnKind> {
     match kind {
-        DataSourceKind::MySQL => MySQLDriver.data_types(),
-        DataSourceKind::SQLite => SQLiteDriver.data_types(),
-        DataSourceKind::Postgres => PostgresDriver.data_types(),
+        DataSourceKind::MySQL => MySQLDriver.col_kinds(),
+        DataSourceKind::SQLite => SQLiteDriver.col_kinds(),
+        DataSourceKind::Postgres => PostgresDriver.col_kinds(),
         DataSourceKind::Oracle => vec![],
-        DataSourceKind::SQLServer => SQLServerDriver.data_types(),
-        DataSourceKind::MongoDB => MongoDBDriver.data_types(),
-        DataSourceKind::Redis => RedisDriver.data_types(),
+        DataSourceKind::SQLServer => SQLServerDriver.col_kinds(),
+        DataSourceKind::MongoDB => MongoDBDriver.col_kinds(),
+        DataSourceKind::Redis => RedisDriver.col_kinds(),
     }
 }
 

@@ -14,8 +14,7 @@ use crate::{
         workspace::WorkspaceState,
     },
     cache::CacheApp,
-    driver::MySQLOptions,
-    model::{DataSource, DataSourceKind, DataSourceOptions},
+    model::{DataSource, DataSourceKind, DataSourceOptions, MySQLOptions},
 };
 
 mod comps;

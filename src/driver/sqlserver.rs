@@ -1,8 +1,8 @@
+use crate::model::{ColumnKind, SQLServerOptions};
+
 use super::{
-    DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp, UpdateReq,
-    UpdateResp,
+    DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp, UpdateReq, UpdateResp,
 };
-use crate::model::SQLServerOptions;
 
 /// SQL Server 驱动占位实现。
 #[derive(Debug, Clone, Copy)]
@@ -54,26 +54,26 @@ impl DatabaseSession for SqlServerConnection {
 impl DatabaseDriver for SQLServerDriver {
     type Config = SQLServerOptions;
 
-    fn data_types(&self) -> Vec<Datatype> {
+    fn col_kinds(&self) -> Vec<ColumnKind> {
         vec![
-            Datatype::TinyInt,
-            Datatype::SmallInt,
-            Datatype::Int,
-            Datatype::BigInt,
-            Datatype::Float,
-            Datatype::Double,
-            Datatype::Decimal,
-            Datatype::Char,
-            Datatype::VarChar,
-            Datatype::Text,
-            Datatype::Binary,
-            Datatype::VarBinary,
-            Datatype::Date,
-            Datatype::Time,
-            Datatype::DateTime,
-            Datatype::Timestamp,
-            Datatype::Boolean,
-            Datatype::Uuid,
+            ColumnKind::TinyInt,
+            ColumnKind::SmallInt,
+            ColumnKind::Int,
+            ColumnKind::BigInt,
+            ColumnKind::Float,
+            ColumnKind::Double,
+            ColumnKind::Decimal,
+            ColumnKind::Char,
+            ColumnKind::VarChar,
+            ColumnKind::Text,
+            ColumnKind::Binary,
+            ColumnKind::VarBinary,
+            ColumnKind::Date,
+            ColumnKind::Time,
+            ColumnKind::DateTime,
+            ColumnKind::Timestamp,
+            ColumnKind::Boolean,
+            ColumnKind::Uuid,
         ]
     }
 

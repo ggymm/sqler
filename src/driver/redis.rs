@@ -1,11 +1,11 @@
 use redis::{Client, Connection, Value};
 use serde_json::{Map as JsonMap, Number, Value as JsonValue};
 
+use crate::model::{ColumnKind, RedisOptions};
+
 use super::{
-    DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp, UpdateReq,
-    UpdateResp,
+    DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp, UpdateReq, UpdateResp,
 };
-use crate::model::RedisOptions;
 
 #[derive(Debug, Clone, Copy)]
 pub struct RedisDriver;
@@ -106,8 +106,8 @@ impl DatabaseSession for RedisConnection {
 impl DatabaseDriver for RedisDriver {
     type Config = RedisOptions;
 
-    fn data_types(&self) -> Vec<Datatype> {
-        vec![Datatype::String, Datatype::List, Datatype::Hash, Datatype::ZSet]
+    fn col_kinds(&self) -> Vec<ColumnKind> {
+        vec![ColumnKind::String, ColumnKind::List, ColumnKind::Hash, ColumnKind::ZSet]
     }
 
     fn check_connection(

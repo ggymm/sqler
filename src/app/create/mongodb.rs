@@ -5,7 +5,7 @@ use gpui_component::{
     Sizable, Size,
 };
 
-use crate::driver::{MongoDBHost, MongoDBOptions};
+use crate::model::{MongoDBHost, MongoDBOptions};
 
 pub struct MongoDBCreate {
     pub name: Entity<InputState>,

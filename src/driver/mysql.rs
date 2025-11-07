@@ -2,11 +2,12 @@ use std::collections::HashMap;
 
 use mysql::{prelude::Queryable, Conn, Opts, OptsBuilder, SslOpts, Value};
 
+use crate::model::{ColumnKind, MySQLOptions};
+
 use super::{
-    validate_sql, DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError, InsertReq, Operator, QueryReq,
-    QueryResp, UpdateReq, UpdateResp, ValueCond,
+    validate_sql, DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, Operator, QueryReq, QueryResp,
+    UpdateReq, UpdateResp, ValueCond,
 };
-use crate::model::MySQLOptions;
 
 #[derive(Debug, Clone, Copy)]
 pub struct MySQLDriver;
@@ -14,28 +15,28 @@ pub struct MySQLDriver;
 impl DatabaseDriver for MySQLDriver {
     type Config = MySQLOptions;
 
-    fn data_types(&self) -> Vec<Datatype> {
+    fn col_kinds(&self) -> Vec<ColumnKind> {
         vec![
-            Datatype::TinyInt,
-            Datatype::SmallInt,
-            Datatype::Int,
-            Datatype::BigInt,
-            Datatype::Float,
-            Datatype::Double,
-            Datatype::Decimal,
-            Datatype::Char,
-            Datatype::VarChar,
-            Datatype::Text,
-            Datatype::Binary,
-            Datatype::VarBinary,
-            Datatype::Blob,
-            Datatype::Date,
-            Datatype::Time,
-            Datatype::DateTime,
-            Datatype::Timestamp,
-            Datatype::Json,
-            Datatype::Enum,
-            Datatype::Set,
+            ColumnKind::TinyInt,
+            ColumnKind::SmallInt,
+            ColumnKind::Int,
+            ColumnKind::BigInt,
+            ColumnKind::Float,
+            ColumnKind::Double,
+            ColumnKind::Decimal,
+            ColumnKind::Char,
+            ColumnKind::VarChar,
+            ColumnKind::Text,
+            ColumnKind::Binary,
+            ColumnKind::VarBinary,
+            ColumnKind::Blob,
+            ColumnKind::Date,
+            ColumnKind::Time,
+            ColumnKind::DateTime,
+            ColumnKind::Timestamp,
+            ColumnKind::Json,
+            ColumnKind::Enum,
+            ColumnKind::Set,
         ]
     }
 

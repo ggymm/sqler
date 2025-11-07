@@ -6,7 +6,7 @@ use gpui_component::{
     Sizable, Size,
 };
 
-use crate::{app::comps::DivExt, driver::SQLiteOptions};
+use crate::{app::comps::DivExt, model::SQLiteOptions};
 
 pub struct SQLiteCreate {
     pub name: Entity<InputState>,

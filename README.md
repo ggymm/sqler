@@ -30,3 +30,5 @@
 - [ ] 工作区结构重构（优先级最低）
 - [x] 将build的内容移动到driver中，修改queryReq的结构
 - [ ] 添加git分支，使用worktree
+
+datatype 应该 重命名为 ColumnType

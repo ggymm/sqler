@@ -8,13 +8,13 @@ use crate::{
     model::{DataSource, DataSourceKind, DataSourceOptions},
 };
 
-pub mod mongodb;
-pub mod mysql;
-pub mod oracle;
-pub mod postgres;
-pub mod redis;
-pub mod sqlite;
-pub mod sqlserver;
+mod mongodb;
+mod mysql;
+mod oracle;
+mod postgres;
+mod redis;
+mod sqlite;
+mod sqlserver;
 
 #[derive(Clone, Debug)]
 pub enum ConnectionStatus {

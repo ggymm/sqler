@@ -3,11 +3,10 @@ use mongodb::{
     sync::Client,
 };
 
-use crate::model::{MongoDBHost, MongoDBOptions};
+use crate::model::{ColumnKind, MongoDBHost, MongoDBOptions};
 
 use super::{
-    DatabaseDriver, DatabaseSession, Datatype, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp, UpdateReq,
-    UpdateResp,
+    DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp, UpdateReq, UpdateResp,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -16,18 +15,18 @@ pub struct MongoDBDriver;
 impl DatabaseDriver for MongoDBDriver {
     type Config = MongoDBOptions;
 
-    fn data_types(&self) -> Vec<Datatype> {
+    fn col_kinds(&self) -> Vec<ColumnKind> {
         vec![
-            Datatype::Int,
-            Datatype::BigInt,
-            Datatype::Double,
-            Datatype::String,
-            Datatype::Boolean,
-            Datatype::Date,
-            Datatype::Timestamp,
-            Datatype::Document,
-            Datatype::Array,
-            Datatype::Binary,
+            ColumnKind::Int,
+            ColumnKind::BigInt,
+            ColumnKind::Double,
+            ColumnKind::String,
+            ColumnKind::Boolean,
+            ColumnKind::Date,
+            ColumnKind::Timestamp,
+            ColumnKind::Document,
+            ColumnKind::Array,
+            ColumnKind::Binary,
         ]
     }
 

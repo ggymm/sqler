@@ -6,7 +6,7 @@ use gpui_component::{
     IndexPath, Sizable, Size,
 };
 
-use crate::driver::RedisOptions;
+use crate::model::RedisOptions;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum RedisAuthMode {

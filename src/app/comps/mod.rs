@@ -1,7 +1,8 @@
 use gpui::*;
 use gpui_component::Icon;
 
-pub mod table;
+mod table;
+
 pub use table::DataTable;
 
 pub fn comp_id<I>(parts: I) -> ElementId
