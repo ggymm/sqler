@@ -92,8 +92,8 @@ impl FieldMapping {
     }
 }
 
-pub struct ImportConfig {
-    datasource: DataSource,
+pub struct ImportTable {
+    meta: DataSource,
 
     format: Entity<DropdownState<Vec<SharedString>>>,
     selected_format: TransferFormat,
@@ -113,9 +113,9 @@ pub struct ImportConfig {
     field_mappings: Vec<FieldMapping>,
 }
 
-impl ImportConfig {
+impl ImportTable {
     pub fn new(
-        datasource: DataSource,
+        meta: DataSource,
         tables: Vec<SharedString>,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -131,7 +131,7 @@ impl ImportConfig {
             .collect();
 
         Self {
-            datasource,
+            meta: meta,
             format: cx.new(|cx| DropdownState::new(formats, None, window, cx)),
             selected_format: TransferFormat::Csv,
             file_path: cx.new(|cx| InputState::new(window, cx)),
@@ -145,6 +145,34 @@ impl ImportConfig {
             import_mode: cx.new(|cx| DropdownState::new(import_modes, None, window, cx)),
             field_mappings: Vec::new(),
         }
+    }
+
+    pub fn choose_files(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let path = cx.prompt_for_paths(PathPromptOptions {
+            files: true,
+            multiple: true,
+            directories: false,
+            prompt: Some("选择数据库文件".into()),
+        });
+
+        // let filepath = self.filepath.clone();
+        cx.spawn_in(window, async move |_, cx| {
+            if let Ok(Ok(Some(mut paths))) = path.await {
+                if let Some(path) = paths.pop() {
+                    let p = path.display().to_string();
+                    let _ = cx.update(|window, cx| {
+                        // filepath.update(cx, |this, cx| {
+                        //     this.set_value(&p, window, cx);
+                        // });
+                    });
+                }
+            }
+        })
+            .detach();
     }
 
     fn select_table_option(
@@ -173,7 +201,7 @@ impl ImportConfig {
     }
 }
 
-impl Render for ImportConfig {
+impl Render for ImportTable {
     fn render(
         &mut self,
         _window: &mut Window,
@@ -190,7 +218,7 @@ impl Render for ImportConfig {
     }
 }
 
-impl ImportConfig {
+impl ImportTable {
     fn render_form(
         &self,
         theme: &gpui_component::theme::Theme,
@@ -201,18 +229,6 @@ impl ImportConfig {
             .gap_5()
             .col_full()
             .scrollable(Axis::Vertical)
-            .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap_2()
-                    .child(div().text_lg().font_semibold().child("数据源信息"))
-                    .child(div().text_sm().text_color(theme.muted_foreground).child(format!(
-                        "数据源: {} ({})",
-                        self.datasource.name,
-                        self.datasource.kind.label()
-                    ))),
-            )
             .child(
                 Form::vertical()
                     .layout(Axis::Horizontal)
@@ -296,7 +312,7 @@ impl ImportConfig {
                             .child(div().text_base().font_semibold().child(opt.label()))
                             .on_click(cx.listener({
                                 let opt = *opt;
-                                move |this: &mut ImportConfig, _ev, _window, cx| {
+                                move |this: &mut ImportTable, _ev, _window, cx| {
                                     this.select_table_option(opt, cx);
                                 }
                             }))
@@ -449,7 +465,7 @@ impl ImportConfig {
                 Button::new("import-execute")
                     .outline()
                     .label("开始导入")
-                    .on_click(cx.listener(|_this: &mut ImportConfig, _ev, _window, _cx| {
+                    .on_click(cx.listener(|_this: &mut ImportTable, _ev, _window, _cx| {
                         // 导入逻辑将在后续实现
                     })),
             )

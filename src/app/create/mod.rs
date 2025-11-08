@@ -226,10 +226,10 @@ impl Render for CreateWindow {
                     .bg(theme.secondary)
                     .border_b_1()
                     .border_color(theme.border)
-                    .child(match kind {
-                        Some(kind) => div().text_xl().font_semibold().child(format!("配置 {}", kind.label())),
-                        None => div().text_xl().font_semibold().child("新建数据源"),
-                    }),
+                    .child(div().text_xl().font_semibold().child(match kind {
+                        None => "新建数据源".to_string(),
+                        Some(kind) => format!("配置 {}", kind.label()),
+                    })),
             )
             .child(
                 div().id("datasource-create").col_full().child(match kind {

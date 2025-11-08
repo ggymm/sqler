@@ -9,13 +9,13 @@ use crate::app::comps::DivExt;
 
 use super::TransferFormat;
 
-pub struct OutputConfig {
+pub struct ExportTable {
     format: Option<TransferFormat>,
     file_path: Entity<InputState>,
     table_name: Entity<InputState>,
 }
 
-impl OutputConfig {
+impl ExportTable {
     pub fn new(
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -37,7 +37,7 @@ impl OutputConfig {
     }
 }
 
-impl Render for OutputConfig {
+impl Render for ExportTable {
     fn render(
         &mut self,
         _window: &mut Window,
@@ -112,7 +112,7 @@ impl Render for OutputConfig {
                             )
                             .on_click(cx.listener({
                                 let fmt = *fmt;
-                                move |this: &mut OutputConfig, _ev, _window, cx| {
+                                move |this: &mut ExportTable, _ev, _window, cx| {
                                     this.select_format(fmt, cx);
                                 }
                             }))

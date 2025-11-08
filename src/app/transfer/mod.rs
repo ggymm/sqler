@@ -2,12 +2,12 @@ use gpui::{prelude::*, *};
 use gpui_component::{button::Button, ActiveTheme, StyledExt};
 
 use crate::{
-    app::{comps::DivExt, SqlerApp},
+    app::{comps::DivExt, transfer::export::ExportTable, transfer::import::ImportTable, SqlerApp},
     model::DataSource,
 };
 
+mod export;
 mod import;
-mod output;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TransferType {
@@ -65,16 +65,15 @@ impl TransferFormat {
 }
 
 pub struct TransferWindow {
-    transfer_type: Option<TransferType>,
+    kind: Option<TransferType>,
     parent: WeakEntity<SqlerApp>,
-
-    import_config: Entity<import::ImportConfig>,
-    output_config: Entity<output::OutputConfig>,
+    import: Entity<ImportTable>,
+    output: Entity<ExportTable>,
 }
 
 impl TransferWindow {
     pub fn new(
-        datasource: DataSource,
+        meta: DataSource,
         tables: Vec<SharedString>,
         parent: WeakEntity<SqlerApp>,
         window: &mut Window,
@@ -91,14 +90,14 @@ impl TransferWindow {
         });
 
         Self {
-            transfer_type: None,
+            kind: None,
             parent,
-            import_config: cx.new(|cx| import::ImportConfig::new(datasource, tables, window, cx)),
-            output_config: cx.new(|cx| output::OutputConfig::new(window, cx)),
+            import: cx.new(|cx| ImportTable::new(meta, tables, window, cx)),
+            output: cx.new(|cx| ExportTable::new(window, cx)),
         }
     }
 
-    fn close_window(
+    fn cancel(
         &self,
         _window: &mut Window,
         cx: &mut Context<Self>,
@@ -110,26 +109,6 @@ impl TransferWindow {
             });
         }
     }
-
-    fn select_type(
-        &mut self,
-        transfer_type: TransferType,
-        cx: &mut Context<Self>,
-    ) {
-        if self.transfer_type != Some(transfer_type) {
-            self.transfer_type = Some(transfer_type);
-            cx.notify();
-        }
-    }
-
-    fn deselect_type(
-        &mut self,
-        cx: &mut Context<Self>,
-    ) {
-        if self.transfer_type.take().is_some() {
-            cx.notify();
-        }
-    }
 }
 
 impl Render for TransferWindow {
@@ -138,14 +117,11 @@ impl Render for TransferWindow {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let theme = cx.theme().clone();
-        let transfer_type = self.transfer_type;
+        let kind = self.kind;
 
+        let theme = cx.theme();
         div()
-            .size_full()
-            .flex()
-            .flex_col()
-            .bg(theme.background)
+            .col_full()
             .child(
                 div()
                     .flex()
@@ -157,99 +133,98 @@ impl Render for TransferWindow {
                     .bg(theme.secondary)
                     .border_b_1()
                     .border_color(theme.border)
-                    .child(div().text_lg().font_semibold().child("数据传输")),
-            )
-            .child(div().flex_1().relative().overflow_hidden().child(match transfer_type {
-                None => self.render_type_selection(&theme, cx).into_any_element(),
-                Some(TransferType::Import) => self.import_config.clone().into_any_element(),
-                Some(TransferType::Export) => self.output_config.clone().into_any_element(),
-            }))
-            .child(self.render_footer(&theme, transfer_type, cx))
-    }
-}
-
-impl TransferWindow {
-    fn render_type_selection(
-        &self,
-        theme: &gpui_component::theme::Theme,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        div().p_6().gap_5().col_full().scrollable(Axis::Vertical).children(
-            TransferType::all()
-                .iter()
-                .map(|typ| {
-                    div()
-                        .flex()
-                        .flex_row()
-                        .items_center()
-                        .p_4()
-                        .gap_4()
-                        .h_20()
-                        .w_full()
-                        .bg(theme.list)
-                        .border_1()
-                        .border_color(theme.border)
-                        .rounded_lg()
-                        .cursor_pointer()
-                        .id(("transfer-type-{}", *typ as u64))
-                        .hover(|this| this.bg(theme.list_hover))
-                        .child(
-                            div()
-                                .flex()
-                                .flex_1()
-                                .flex_col()
-                                .items_start()
-                                .justify_center()
-                                .child(div().text_base().font_semibold().child(typ.label()))
-                                .child(div().text_sm().child(typ.description())),
-                        )
-                        .on_click(cx.listener({
-                            let typ = *typ;
-                            move |this: &mut TransferWindow, _ev, _window, cx| {
-                                this.select_type(typ, cx);
-                            }
-                        }))
-                        .into_any_element()
-                })
-                .collect::<Vec<_>>(),
-        )
-    }
-
-    fn render_footer(
-        &self,
-        theme: &gpui_component::theme::Theme,
-        transfer_type: Option<TransferType>,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        div()
-            .relative()
-            .flex()
-            .flex_row()
-            .items_center()
-            .justify_end()
-            .px_8()
-            .py_5()
-            .gap_4()
-            .bg(theme.secondary)
-            .border_t_1()
-            .border_color(theme.border)
-            .when(transfer_type.is_some(), |this| {
-                this.child(
-                    Button::new("transfer-back")
-                        .outline()
-                        .label("上一步")
-                        .on_click(cx.listener(|this: &mut TransferWindow, _ev, _window, cx| {
-                            this.deselect_type(cx);
-                        })),
-                )
-            })
-            .child(
-                Button::new("transfer-cancel")
-                    .outline()
-                    .label("取消")
-                    .on_click(cx.listener(|this: &mut TransferWindow, _ev, window, cx| {
-                        this.close_window(window, cx);
+                    .child(div().text_xl().font_semibold().child(match kind {
+                        None => "数据传输",
+                        Some(TransferType::Import) => "数据导入",
+                        Some(TransferType::Export) => "数据导出",
                     })),
+            )
+            .child(
+                div().id("transfer-content").col_full().child(match kind {
+                    None => div()
+                        .p_6()
+                        .gap_5()
+                        .col_full()
+                        .scrollable(Axis::Vertical)
+                        .children(
+                            TransferType::all()
+                                .iter()
+                                .map(|kind| {
+                                    div()
+                                        .flex()
+                                        .flex_row()
+                                        .items_center()
+                                        .p_4()
+                                        .gap_4()
+                                        .h_20()
+                                        .w_full()
+                                        .bg(theme.list)
+                                        .border_1()
+                                        .border_color(theme.border)
+                                        .rounded_lg()
+                                        .cursor_pointer()
+                                        .id(("transfer-type-{}", *kind as u64))
+                                        .hover(|this| this.bg(theme.list_hover))
+                                        .child(
+                                            div()
+                                                .flex()
+                                                .flex_1()
+                                                .flex_col()
+                                                .items_start()
+                                                .justify_center()
+                                                .child(div().text_base().font_semibold().child(kind.label()))
+                                                .child(div().text_sm().child(kind.description())),
+                                        )
+                                        .on_click(cx.listener({
+                                            move |this: &mut TransferWindow, _ev, _window, cx| {
+                                                if this.kind != Some(*kind) {
+                                                    this.kind = Some(*kind);
+                                                    cx.notify();
+                                                }
+                                            }
+                                        }))
+                                        .into_any_element()
+                                })
+                                .collect::<Vec<_>>(),
+                        )
+                        .into_any_element(),
+                    Some(TransferType::Import) => self.import.clone().into_any_element(),
+                    Some(TransferType::Export) => self.output.clone().into_any_element(),
+                }),
+            )
+            .child(
+                div()
+                    .relative()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .justify_end()
+                    .px_8()
+                    .py_5()
+                    .gap_4()
+                    .bg(theme.secondary)
+                    .border_t_1()
+                    .border_color(theme.border)
+                    .when(kind.is_some(), |this| {
+                        this.child(
+                            Button::new("transfer-back")
+                                .outline()
+                                .label("上一步")
+                                .on_click(cx.listener(|this: &mut TransferWindow, _ev, _window, cx| {
+                                    if this.kind.take().is_some() {
+                                        cx.notify();
+                                    }
+                                })),
+                        )
+                    })
+                    .child(
+                        Button::new("transfer-cancel")
+                            .outline()
+                            .label("取消")
+                            .on_click(cx.listener(|this: &mut TransferWindow, _ev, window, cx| {
+                                this.cancel(window, cx);
+                            })),
+                    ),
             )
     }
 }
