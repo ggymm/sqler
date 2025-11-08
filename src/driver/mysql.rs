@@ -77,15 +77,16 @@ impl DatabaseSession for MySQLSession {
         let (sql, params) = match request {
             QueryReq::Sql { sql, args } => {
                 validate_sql(&sql)?;
-                (sql, args)
+                let params: Vec<Value> = args.into_iter().map(Value::from).collect();
+                (sql, params)
             }
             QueryReq::Builder {
                 table,
                 columns,
-                limit,
-                offset,
                 orders,
                 filters,
+                limit,
+                offset,
             } => {
                 let cols = if columns.is_empty() {
                     "*".to_string()
@@ -97,7 +98,7 @@ impl DatabaseSession for MySQLSession {
                         .join(", ")
                 };
                 let mut sql = format!("SELECT {} FROM `{}`", cols, table.replace('`', "``"));
-                let mut params = Vec::new();
+                let mut params: Vec<Value> = Vec::new();
 
                 // WHERE 子句
                 if !filters.is_empty() {
@@ -112,7 +113,9 @@ impl DatabaseSession for MySQLSession {
                                     if !list.is_empty() {
                                         let placeholders = vec!["?"; list.len()].join(", ");
                                         clauses.push(format!("{} IN ({})", field, placeholders));
-                                        params.extend(list.clone());
+                                        for item in list {
+                                            params.push(Value::from(item.as_str()));
+                                        }
                                     }
                                 }
                             }
@@ -121,15 +124,17 @@ impl DatabaseSession for MySQLSession {
                                     if !list.is_empty() {
                                         let placeholders = vec!["?"; list.len()].join(", ");
                                         clauses.push(format!("{} NOT IN ({})", field, placeholders));
-                                        params.extend(list.clone());
+                                        for item in list {
+                                            params.push(Value::from(item.as_str()));
+                                        }
                                     }
                                 }
                             }
                             Operator::Between => {
                                 if let ValueCond::Range(ref start, ref end) = filter.value {
                                     clauses.push(format!("{} BETWEEN ? AND ?", field));
-                                    params.push(start.clone());
-                                    params.push(end.clone());
+                                    params.push(Value::from(start.as_str()));
+                                    params.push(Value::from(end.as_str()));
                                 }
                             }
                             _ => {
@@ -146,11 +151,9 @@ impl DatabaseSession for MySQLSession {
                                 };
                                 clauses.push(format!("{} {} ?", field, op_str));
                                 match &filter.value {
-                                    ValueCond::String(s) => params.push(s.clone()),
-                                    ValueCond::Number(n) => params.push(n.to_string()),
-                                    ValueCond::Bool(b) => {
-                                        params.push(if *b { "1".to_string() } else { "0".to_string() })
-                                    }
+                                    ValueCond::String(s) => params.push(Value::from(s.as_str())),
+                                    ValueCond::Number(n) => params.push(Value::from(*n)),
+                                    ValueCond::Bool(b) => params.push(Value::from(*b)),
                                     _ => {}
                                 }
                             }
@@ -196,12 +199,9 @@ impl DatabaseSession for MySQLSession {
 
         tracing::debug!(sql = %sql);
 
-        // 统一执行查询和转换结果
-        let mysql_params: Vec<Value> = params.into_iter().map(Value::from).collect();
-
         let rows: Vec<mysql::Row> = self
             .conn
-            .exec(&sql, mysql_params)
+            .exec(&sql, params)
             .map_err(|err| DriverError::Other(format!("执行查询失败: {}", err)))?;
 
         if rows.is_empty() {

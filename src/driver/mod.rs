@@ -97,10 +97,10 @@ pub enum QueryReq {
         args: Vec<String>,
     },
     Builder {
-        table: String,
-        columns: Vec<String>,
         limit: Option<usize>,
         offset: Option<usize>,
+        table: String,
+        columns: Vec<String>,
         orders: Vec<OrderCond>,
         filters: Vec<FilterCond>,
     },
