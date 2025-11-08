@@ -17,7 +17,7 @@ use crate::{
         SqlerApp,
     },
     driver::{
-        create_connection, DatabaseSession, DriverError, FilterCond, Operator, OrderCond, QueryReq, QueryResp,
+        create_connection, DatabaseSession, DriverError, FilterCond, Operator, OrderCond, Paging, QueryReq, QueryResp,
         ValueCond,
     },
     model::DataSource,
@@ -335,8 +335,7 @@ impl CommonWorkspace {
         }
 
         // 设置分页
-        let limit = Some(size);
-        let offset = Some(page * size);
+        let paging = Paging::new(size, page);
 
         let tab_id = tab_id.clone();
         let session = match self.active_session() {
@@ -365,8 +364,7 @@ impl CommonWorkspace {
                     let count_resp = session.query(QueryReq::Builder {
                         table: table.to_string(),
                         columns: vec!["COUNT(*)".to_string()],
-                        limit: None,
-                        offset: None,
+                        paging: None,
                         orders: Vec::new(),
                         filters: filters.clone(),
                     })?;
@@ -383,8 +381,7 @@ impl CommonWorkspace {
                     let query_resp = session.query(QueryReq::Builder {
                         table: table.to_string(),
                         columns: Vec::new(),
-                        limit,
-                        offset,
+                        paging: Some(paging),
                         orders,
                         filters,
                     })?;

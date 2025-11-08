@@ -80,8 +80,7 @@ impl DatabaseSession for PostgresSession {
             QueryReq::Builder {
                 table,
                 columns,
-                limit,
-                offset,
+                paging,
                 orders,
                 filters,
             } => {
@@ -192,11 +191,12 @@ impl DatabaseSession for PostgresSession {
                     sql.push_str(&format!(" ORDER BY {}", order_clauses.join(", ")));
                 }
 
-                match (limit, offset) {
-                    (Some(l), Some(o)) => sql.push_str(&format!(" LIMIT {} OFFSET {}", l, o)),
-                    (Some(l), None) => sql.push_str(&format!(" LIMIT {}", l)),
-                    (None, Some(o)) => sql.push_str(&format!(" OFFSET {}", o)),
-                    (None, None) => {}
+                // 分页子句 - PostgreSQL 建议使用 OFFSET 时必须有 ORDER BY
+                if let Some(page) = paging {
+                    if orders.is_empty() {
+                        tracing::warn!("PostgreSQL: 使用 OFFSET 但没有 ORDER BY，结果顺序可能不确定");
+                    }
+                    sql.push_str(&format!(" LIMIT {} OFFSET {}", page.limit(), page.offset()));
                 }
 
                 (sql, params)

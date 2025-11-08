@@ -83,10 +83,9 @@ impl DatabaseSession for MySQLSession {
             QueryReq::Builder {
                 table,
                 columns,
+                paging,
                 orders,
                 filters,
-                limit,
-                offset,
             } => {
                 let cols = if columns.is_empty() {
                     "*".to_string()
@@ -179,12 +178,9 @@ impl DatabaseSession for MySQLSession {
                     sql.push_str(&format!(" ORDER BY {}", order_clauses.join(", ")));
                 }
 
-                // LIMIT/OFFSET 子句
-                match (limit, offset) {
-                    (Some(l), Some(o)) => sql.push_str(&format!(" LIMIT {} OFFSET {}", l, o)),
-                    (Some(l), None) => sql.push_str(&format!(" LIMIT {}", l)),
-                    (None, Some(o)) => sql.push_str(&format!(" LIMIT 18446744073709551615 OFFSET {}", o)),
-                    (None, None) => {}
+                // 分页子句
+                if let Some(page) = paging {
+                    sql.push_str(&format!(" LIMIT {} OFFSET {}", page.limit(), page.offset()));
                 }
 
                 (sql, params)

@@ -19,6 +19,29 @@ mod redis;
 mod sqlite;
 mod sqlserver;
 
+#[derive(Clone, Debug)]
+pub struct Paging {
+    pub size: usize,
+    pub number: usize,
+}
+
+impl Paging {
+    pub fn new(
+        size: usize,
+        number: usize,
+    ) -> Self {
+        Self { size, number }
+    }
+
+    pub fn offset(&self) -> usize {
+        self.number * self.size
+    }
+
+    pub fn limit(&self) -> usize {
+        self.size
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Operator {
     Equal,
@@ -97,10 +120,9 @@ pub enum QueryReq {
         args: Vec<String>,
     },
     Builder {
-        limit: Option<usize>,
-        offset: Option<usize>,
         table: String,
         columns: Vec<String>,
+        paging: Option<Paging>,
         orders: Vec<OrderCond>,
         filters: Vec<FilterCond>,
     },

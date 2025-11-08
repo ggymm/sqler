@@ -35,8 +35,7 @@ impl DatabaseSession for SQLiteConnection {
             QueryReq::Builder {
                 table,
                 columns,
-                limit,
-                offset,
+                paging,
                 orders,
                 filters,
             } => {
@@ -127,11 +126,9 @@ impl DatabaseSession for SQLiteConnection {
                     sql.push_str(&format!(" ORDER BY {}", order_clauses.join(", ")));
                 }
 
-                match (limit, offset) {
-                    (Some(l), Some(o)) => sql.push_str(&format!(" LIMIT {} OFFSET {}", l, o)),
-                    (Some(l), None) => sql.push_str(&format!(" LIMIT {}", l)),
-                    (None, Some(o)) => sql.push_str(&format!(" LIMIT -1 OFFSET {}", o)),
-                    (None, None) => {}
+                // 分页子句
+                if let Some(page) = paging {
+                    sql.push_str(&format!(" LIMIT {} OFFSET {}", page.limit(), page.offset()));
                 }
 
                 (sql, params)
