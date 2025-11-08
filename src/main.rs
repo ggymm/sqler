@@ -4,6 +4,7 @@ use std::{
     io::stdout,
     mem::forget,
     path::PathBuf,
+    sync::OnceLock,
 };
 
 use dirs::home_dir;
@@ -19,9 +20,10 @@ use crate::app::SqlerApp;
 
 mod app;
 mod cache;
+mod codegen;
 mod driver;
 mod model;
-mod plugin;
+mod update;
 
 struct FsAssets;
 
@@ -59,16 +61,17 @@ fn init_runtime(_cx: &mut App) {
         create_dir_all(&log_dir).expect("Failed to create log dir");
     }
 
-    let file_appender = RollingFileAppender::builder()
+    let log_level = if cfg!(debug_assertions) { "debug" } else { "info" };
+    let log_rolling = RollingFileAppender::builder()
         .rotation(Rotation::DAILY) // rotate log files once every hour
         .filename_prefix("sqler") // log file names will be prefixed with `myapp.`
         .filename_suffix("log") // log file names will be suffixed with `.log`
         .build(&log_dir)
         .expect("Failed to create log file appender");
-    let (non_blocking, _guard) = non_blocking(file_appender);
+    let (non_blocking, _guard) = non_blocking(log_rolling);
 
     tracing_subscriber::registry()
-        .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
+        .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(log_level)))
         .with(layer().with_writer(stdout))
         .with(layer().with_writer(non_blocking).with_ansi(false))
         .init();

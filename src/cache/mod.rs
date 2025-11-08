@@ -41,8 +41,9 @@ pub enum CacheError {
 }
 
 pub struct CacheApp {
-    root: PathBuf,
     sources: Vec<DataSource>,
+    sources_path: PathBuf,
+    sources_cache: PathBuf,
 }
 
 impl CacheApp {
@@ -51,12 +52,12 @@ impl CacheApp {
             .map(|home| home.join(ROOT_DIR))
             .ok_or(CacheError::DirectoryNotFound)?;
 
-        let cache_dir = root_dir.join(CACHE_DIR);
-        if !cache_dir.exists() {
-            fs::create_dir_all(&cache_dir)?;
+        let sources_path = root_dir.join(SOURCES_FILE);
+        let sources_cache = root_dir.join(CACHE_DIR);
+        if !sources_cache.exists() {
+            fs::create_dir_all(&sources_cache)?;
         }
 
-        let sources_path = root_dir.join(SOURCES_FILE);
         let sources = if sources_path.exists() {
             let encrypted = fs::read(&sources_path)?;
             let decrypted = Self::decrypt(&encrypted)?;
@@ -67,7 +68,8 @@ impl CacheApp {
 
         Ok(Self {
             sources,
-            root: root_dir,
+            sources_path,
+            sources_cache,
         })
     }
 
@@ -82,8 +84,7 @@ impl CacheApp {
     pub fn sources_update(&mut self) -> Result<(), CacheError> {
         let json = serde_json::to_vec(&self.sources)?;
         let encrypted = Self::encrypt(&json)?;
-        let sources_path = self.root.join(SOURCES_FILE);
-        fs::write(&sources_path, encrypted)?;
+        fs::write(&self.sources_path, encrypted)?;
         Ok(())
     }
 
@@ -91,7 +92,7 @@ impl CacheApp {
         &self,
         uuid: &str,
     ) -> Result<Vec<TableInfo>, CacheError> {
-        let path = self.root.join(CACHE_DIR).join(uuid).join(TABLES_FILE);
+        let path = self.sources_cache.join(uuid).join(TABLES_FILE);
         if !path.exists() {
             return Ok(Vec::new());
         }
@@ -106,7 +107,7 @@ impl CacheApp {
         uuid: &str,
         tables: &[TableInfo],
     ) -> Result<(), CacheError> {
-        let dir = self.root.join(CACHE_DIR).join(uuid);
+        let dir = self.sources_cache.join(uuid);
         if !dir.exists() {
             fs::create_dir_all(&dir)?;
         }
@@ -121,7 +122,7 @@ impl CacheApp {
         &self,
         uuid: &str,
     ) -> Result<Vec<SavedQuery>, CacheError> {
-        let path = self.root.join(CACHE_DIR).join(uuid).join(QUERIES_FILE);
+        let path = self.sources_cache.join(uuid).join(QUERIES_FILE);
         if !path.exists() {
             return Ok(Vec::new());
         }
@@ -136,7 +137,7 @@ impl CacheApp {
         uuid: &str,
         queries: &[SavedQuery],
     ) -> Result<(), CacheError> {
-        let dir = self.root.join(CACHE_DIR).join(uuid);
+        let dir = self.sources_cache.join(uuid);
         if !dir.exists() {
             fs::create_dir_all(&dir)?;
         }

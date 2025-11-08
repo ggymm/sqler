@@ -74,7 +74,6 @@ impl DatabaseSession for MySQLSession {
         &mut self,
         request: QueryReq,
     ) -> Result<QueryResp, DriverError> {
-        // 根据请求类型构建 SQL 和参数
         let (sql, params) = match request {
             QueryReq::Sql { sql, args } => {
                 validate_sql(&sql)?;
@@ -88,7 +87,6 @@ impl DatabaseSession for MySQLSession {
                 orders,
                 filters,
             } => {
-                // 构建 SELECT SQL
                 let cols = if columns.is_empty() {
                     "*".to_string()
                 } else {
@@ -195,6 +193,8 @@ impl DatabaseSession for MySQLSession {
                 )))
             }
         };
+
+        tracing::debug!(sql = %sql);
 
         // 统一执行查询和转换结果
         let mysql_params: Vec<Value> = params.into_iter().map(Value::from).collect();
