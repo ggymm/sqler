@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use gpui::{prelude::*, *};
 use gpui_component::{
     button::Button,
@@ -72,6 +74,36 @@ impl ImportMode {
 }
 
 #[derive(Clone, Debug)]
+struct FileImportItem {
+    path: PathBuf,
+    table_option: TableOption,
+    new_table_name: Entity<InputState>,
+    selected_table: Entity<DropdownState<Vec<SharedString>>>,
+}
+
+impl FileImportItem {
+    fn new(
+        path: PathBuf,
+        tables: Vec<SharedString>,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> Self {
+        let default_name = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("table")
+            .to_string();
+
+        Self {
+            path,
+            table_option: TableOption::NewTable,
+            new_table_name: cx.new(|cx| InputState::new(window, cx).default_value(&default_name)),
+            selected_table: cx.new(|cx| DropdownState::new(tables, None, window, cx)),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
 struct FieldMapping {
     source_field: SharedString,
     target_field: SharedString,
@@ -97,16 +129,14 @@ pub struct ImportTable {
 
     format: Entity<DropdownState<Vec<SharedString>>>,
     selected_format: TransferFormat,
-    file_path: Entity<InputState>,
+
+    tables: Vec<SharedString>,
+    selected_files: Vec<FileImportItem>,
 
     row_delimiter: Entity<InputState>,
     column_delimiter: Entity<InputState>,
     header_row: Entity<InputState>,
     data_start_row: Entity<InputState>,
-
-    table_option: Option<TableOption>,
-    selected_table: Entity<DropdownState<Vec<SharedString>>>,
-    new_table_name: Entity<InputState>,
 
     import_mode: Entity<DropdownState<Vec<SharedString>>>,
 
@@ -131,17 +161,15 @@ impl ImportTable {
             .collect();
 
         Self {
-            meta: meta,
+            meta,
             format: cx.new(|cx| DropdownState::new(formats, None, window, cx)),
             selected_format: TransferFormat::Csv,
-            file_path: cx.new(|cx| InputState::new(window, cx)),
+            tables,
+            selected_files: Vec::new(),
             row_delimiter: cx.new(|cx| InputState::new(window, cx).default_value("\\n")),
             column_delimiter: cx.new(|cx| InputState::new(window, cx).default_value(",")),
             header_row: cx.new(|cx| InputState::new(window, cx).default_value("1")),
             data_start_row: cx.new(|cx| InputState::new(window, cx).default_value("2")),
-            table_option: None,
-            selected_table: cx.new(|cx| DropdownState::new(tables, None, window, cx)),
-            new_table_name: cx.new(|cx| InputState::new(window, cx)),
             import_mode: cx.new(|cx| DropdownState::new(import_modes, None, window, cx)),
             field_mappings: Vec::new(),
         }
@@ -152,37 +180,50 @@ impl ImportTable {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let path = cx.prompt_for_paths(PathPromptOptions {
+        let path_future = cx.prompt_for_paths(PathPromptOptions {
             files: true,
             multiple: true,
             directories: false,
-            prompt: Some("选择数据库文件".into()),
+            prompt: Some("选择导入文件".into()),
         });
 
-        // let filepath = self.filepath.clone();
-        cx.spawn_in(window, async move |_, cx| {
-            if let Ok(Ok(Some(mut paths))) = path.await {
-                if let Some(path) = paths.pop() {
-                    let p = path.display().to_string();
-                    let _ = cx.update(|window, cx| {
-                        // filepath.update(cx, |this, cx| {
-                        //     this.set_value(&p, window, cx);
-                        // });
+        cx.spawn_in(window, async move |this, cx| {
+            if let Ok(Ok(Some(paths))) = path_future.await {
+                let _ = cx.update(|window, cx| {
+                    this.update(cx, |this, cx| {
+                        let tables = this.tables.clone();
+                        for path in paths {
+                            let item = FileImportItem::new(path, tables.clone(), window, cx);
+                            this.selected_files.push(item);
+                        }
                     });
-                }
+                });
             }
         })
-            .detach();
+        .detach();
     }
 
-    fn select_table_option(
+    fn remove_file(
         &mut self,
+        index: usize,
+        cx: &mut Context<Self>,
+    ) {
+        if index < self.selected_files.len() {
+            self.selected_files.remove(index);
+            cx.notify();
+        }
+    }
+
+    fn toggle_file_table_option(
+        &mut self,
+        index: usize,
         option: TableOption,
         cx: &mut Context<Self>,
     ) {
-        self.table_option = Some(option);
-        // 选择表选项后，加载字段映射（模拟CSV解析）
-        self.load_csv_fields(cx);
+        if index < self.selected_files.len() {
+            self.selected_files[index].table_option = option;
+            cx.notify();
+        }
     }
 
     fn load_csv_fields(
@@ -230,21 +271,42 @@ impl ImportTable {
             .col_full()
             .scrollable(Axis::Vertical)
             .child(
-                Form::vertical()
-                    .layout(Axis::Horizontal)
-                    .with_size(Size::Large)
-                    .label_width(px(100.))
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_2()
+                    .child(div().text_base().font_semibold().child("文件格式"))
                     .child(
-                        form_field()
-                            .label("文件路径")
-                            .child(TextInput::new(&self.file_path).cleanable()),
-                    )
-                    .child(
-                        form_field()
-                            .label("文件格式")
-                            .child(Dropdown::new(&self.format).with_size(Size::Large)),
+                        Form::vertical()
+                            .layout(Axis::Horizontal)
+                            .with_size(Size::Large)
+                            .label_width(px(100.))
+                            .child(
+                                form_field()
+                                    .label("文件格式")
+                                    .child(Dropdown::new(&self.format).with_size(Size::Large)),
+                            ),
                     ),
             )
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_2()
+                    .mt_4()
+                    .child(div().text_base().font_semibold().child("选择文件"))
+                    .child(
+                        Button::new("choose-files")
+                            .outline()
+                            .label("选择文件")
+                            .on_click(cx.listener(|this: &mut ImportTable, _ev, window, cx| {
+                                this.choose_files(window, cx);
+                            })),
+                    ),
+            )
+            .when(!self.selected_files.is_empty(), |this| {
+                this.child(self.render_file_list(theme, cx))
+            })
             .when(true, |this| {
                 this.child(
                     div()
@@ -287,71 +349,6 @@ impl ImportTable {
                     .flex_col()
                     .gap_2()
                     .mt_4()
-                    .child(div().text_base().font_semibold().child("目标表")),
-            )
-            .children(
-                TableOption::all()
-                    .iter()
-                    .map(|opt| {
-                        let is_selected = self.table_option == Some(*opt);
-                        div()
-                            .flex()
-                            .flex_row()
-                            .items_center()
-                            .p_4()
-                            .gap_4()
-                            .w_full()
-                            .bg(theme.list)
-                            .border_1()
-                            .when(is_selected, |this| this.border_color(theme.primary))
-                            .when(!is_selected, |this| this.border_color(theme.border))
-                            .rounded_lg()
-                            .cursor_pointer()
-                            .id(("table-option-{}", *opt as u64))
-                            .hover(|this| this.bg(theme.list_hover))
-                            .child(div().text_base().font_semibold().child(opt.label()))
-                            .on_click(cx.listener({
-                                let opt = *opt;
-                                move |this: &mut ImportTable, _ev, _window, cx| {
-                                    this.select_table_option(opt, cx);
-                                }
-                            }))
-                            .into_any_element()
-                    })
-                    .collect::<Vec<_>>(),
-            )
-            .when(self.table_option == Some(TableOption::ExistingTable), |this| {
-                this.child(
-                    Form::vertical()
-                        .layout(Axis::Horizontal)
-                        .with_size(Size::Large)
-                        .label_width(px(100.))
-                        .child(
-                            form_field()
-                                .label("选择表")
-                                .child(Dropdown::new(&self.selected_table).with_size(Size::Large)),
-                        ),
-                )
-            })
-            .when(self.table_option == Some(TableOption::NewTable), |this| {
-                this.child(
-                    Form::vertical()
-                        .layout(Axis::Horizontal)
-                        .with_size(Size::Large)
-                        .label_width(px(100.))
-                        .child(
-                            form_field()
-                                .label("新表名称")
-                                .child(TextInput::new(&self.new_table_name).cleanable()),
-                        ),
-                )
-            })
-            .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap_2()
-                    .mt_4()
                     .child(div().text_base().font_semibold().child("导入模式"))
                     .child(
                         Form::vertical()
@@ -365,7 +362,7 @@ impl ImportTable {
                             ),
                     ),
             )
-            .when(self.table_option.is_some() && !self.field_mappings.is_empty(), |this| {
+            .when(!self.field_mappings.is_empty(), |this| {
                 this.child(
                     div()
                         .flex()
@@ -376,6 +373,149 @@ impl ImportTable {
                         .child(self.render_field_mappings(theme)),
                 )
             })
+    }
+
+    fn render_file_list(
+        &self,
+        theme: &gpui_component::theme::Theme,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        div()
+            .flex()
+            .flex_col()
+            .gap_2()
+            .mt_4()
+            .child(div().text_base().font_semibold().child("已选择的文件"))
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_3()
+                    .border_1()
+                    .border_color(theme.border)
+                    .rounded_lg()
+                    .p_3()
+                    .children(
+                        self.selected_files
+                            .iter()
+                            .enumerate()
+                            .map(|(idx, file)| {
+                                div()
+                                    .flex()
+                                    .flex_col()
+                                    .gap_2()
+                                    .p_3()
+                                    .bg(theme.list)
+                                    .rounded_md()
+                                    .border_1()
+                                    .border_color(theme.border)
+                                    .child(
+                                        div()
+                                            .flex()
+                                            .flex_row()
+                                            .items_center()
+                                            .justify_between()
+                                            .child(
+                                                div()
+                                                    .text_sm()
+                                                    .text_color(theme.muted_foreground)
+                                                    .child(file.path.display().to_string()),
+                                            )
+                                            .child(
+                                                Button::new(("remove-file", idx))
+                                                    .outline()
+                                                    .label("删除")
+                                                    .on_click(cx.listener({
+                                                        let idx = idx;
+                                                        move |this: &mut ImportTable, _ev, _window, cx| {
+                                                            this.remove_file(idx, cx);
+                                                        }
+                                                    })),
+                                            ),
+                                    )
+                                    .child(
+                                        div()
+                                            .flex()
+                                            .flex_row()
+                                            .gap_2()
+                                            .children(
+                                                TableOption::all()
+                                                    .iter()
+                                                    .map(|opt| {
+                                                        let is_selected = file.table_option == *opt;
+                                                        div()
+                                                            .flex_1()
+                                                            .p_2()
+                                                            .text_sm()
+                                                            .text_center()
+                                                            .bg(if is_selected { theme.primary } else { theme.background })
+                                                            .text_color(if is_selected {
+                                                                theme.primary_foreground
+                                                            } else {
+                                                                theme.foreground
+                                                            })
+                                                            .border_1()
+                                                            .border_color(if is_selected { theme.primary } else { theme.border })
+                                                            .rounded_md()
+                                                            .cursor_pointer()
+                                                            .id(SharedString::from(format!("table-option-{}-{}", idx, *opt as u64)))
+                                                            .hover(|this| {
+                                                                if !is_selected {
+                                                                    this.bg(theme.list_hover)
+                                                                } else {
+                                                                    this
+                                                                }
+                                                            })
+                                                            .child(opt.label())
+                                                            .on_click(cx.listener({
+                                                                let idx = idx;
+                                                                let opt = *opt;
+                                                                move |this: &mut ImportTable, _ev, _window, cx| {
+                                                                    this.toggle_file_table_option(idx, opt, cx);
+                                                                }
+                                                            }))
+                                                            .into_any_element()
+                                                    })
+                                                    .collect::<Vec<_>>(),
+                                            ),
+                                    )
+                                    .child(
+                                        div()
+                                            .flex()
+                                            .flex_col()
+                                            .gap_2()
+                                            .when(file.table_option == TableOption::NewTable, |this| {
+                                                this.child(
+                                                    Form::vertical()
+                                                        .layout(Axis::Horizontal)
+                                                        .with_size(Size::Large)
+                                                        .label_width(px(80.))
+                                                        .child(
+                                                            form_field()
+                                                                .label("新表名")
+                                                                .child(TextInput::new(&file.new_table_name).cleanable()),
+                                                        ),
+                                                )
+                                            })
+                                            .when(file.table_option == TableOption::ExistingTable, |this| {
+                                                this.child(
+                                                    Form::vertical()
+                                                        .layout(Axis::Horizontal)
+                                                        .with_size(Size::Large)
+                                                        .label_width(px(80.))
+                                                        .child(
+                                                            form_field()
+                                                                .label("选择表")
+                                                                .child(Dropdown::new(&file.selected_table).with_size(Size::Large)),
+                                                        ),
+                                                )
+                                            }),
+                                    )
+                                    .into_any_element()
+                            })
+                            .collect::<Vec<_>>(),
+                    ),
+            )
     }
 
     fn render_field_mappings(
