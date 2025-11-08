@@ -44,7 +44,14 @@ impl DatabaseSession for SQLiteConnection {
                 } else {
                     columns
                         .iter()
-                        .map(|c| format!("\"{}\"", c.replace('"', "\"\"")))
+                        .map(|c| {
+                            // 只对 SQL 关键字添加双引号转义
+                            if needs_quoting(c) {
+                                format!("\"{}\"", c.replace('"', "\"\""))
+                            } else {
+                                c.to_string()
+                            }
+                        })
                         .collect::<Vec<_>>()
                         .join(", ")
                 };
@@ -353,4 +360,79 @@ fn parse_value(value: ValueRef<'_>) -> String {
             blob.iter().map(|b| format!("{:02x}", b)).collect::<String>()
         }
     }
+}
+
+fn needs_quoting(s: &str) -> bool {
+    // SQLite 保留关键字（常用的）
+    let keywords = [
+        "SELECT",
+        "FROM",
+        "WHERE",
+        "INSERT",
+        "UPDATE",
+        "DELETE",
+        "CREATE",
+        "DROP",
+        "ALTER",
+        "TABLE",
+        "INDEX",
+        "VIEW",
+        "JOIN",
+        "LEFT",
+        "RIGHT",
+        "INNER",
+        "OUTER",
+        "ON",
+        "GROUP",
+        "ORDER",
+        "BY",
+        "HAVING",
+        "LIMIT",
+        "OFFSET",
+        "AS",
+        "AND",
+        "OR",
+        "NOT",
+        "IN",
+        "IS",
+        "NULL",
+        "PRIMARY",
+        "KEY",
+        "FOREIGN",
+        "REFERENCES",
+        "CONSTRAINT",
+        "DEFAULT",
+        "UNIQUE",
+        "CHECK",
+        "AUTOINCREMENT",
+        "COUNT",
+        "SUM",
+        "AVG",
+        "MAX",
+        "MIN",
+        "DISTINCT",
+        "ALL",
+        "BETWEEN",
+        "LIKE",
+        "EXISTS",
+        "GLOB",
+        "CASE",
+        "WHEN",
+        "THEN",
+        "ELSE",
+        "END",
+        "UNION",
+        "INTERSECT",
+        "EXCEPT",
+        "INT",
+        "INTEGER",
+        "TEXT",
+        "REAL",
+        "BLOB",
+        "VARCHAR",
+        "DATE",
+        "DATETIME",
+        "TIMESTAMP",
+    ];
+    keywords.contains(&s.trim().to_uppercase().as_str())
 }

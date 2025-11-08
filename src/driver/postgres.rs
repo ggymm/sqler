@@ -89,7 +89,14 @@ impl DatabaseSession for PostgresSession {
                 } else {
                     columns
                         .iter()
-                        .map(|c| format!("\"{}\"", c.replace('"', "\"\"")))
+                        .map(|c| {
+                            // 只对 SQL 关键字添加双引号转义
+                            if needs_quoting(c) {
+                                format!("\"{}\"", c.replace('"', "\"\""))
+                            } else {
+                                c.to_string()
+                            }
+                        })
                         .collect::<Vec<_>>()
                         .join(", ")
                 };
@@ -402,6 +409,80 @@ fn parse_value(
         }
     };
     Ok(value)
+}
+
+fn needs_quoting(s: &str) -> bool {
+    // PostgreSQL 保留关键字（常用的）
+    let keywords = [
+        "SELECT",
+        "FROM",
+        "WHERE",
+        "INSERT",
+        "UPDATE",
+        "DELETE",
+        "CREATE",
+        "DROP",
+        "ALTER",
+        "TABLE",
+        "INDEX",
+        "VIEW",
+        "JOIN",
+        "LEFT",
+        "RIGHT",
+        "INNER",
+        "OUTER",
+        "ON",
+        "GROUP",
+        "ORDER",
+        "BY",
+        "HAVING",
+        "LIMIT",
+        "OFFSET",
+        "AS",
+        "AND",
+        "OR",
+        "NOT",
+        "IN",
+        "IS",
+        "NULL",
+        "PRIMARY",
+        "KEY",
+        "FOREIGN",
+        "REFERENCES",
+        "CONSTRAINT",
+        "DEFAULT",
+        "UNIQUE",
+        "CHECK",
+        "COUNT",
+        "SUM",
+        "AVG",
+        "MAX",
+        "MIN",
+        "DISTINCT",
+        "ALL",
+        "BETWEEN",
+        "LIKE",
+        "EXISTS",
+        "CASE",
+        "WHEN",
+        "THEN",
+        "ELSE",
+        "END",
+        "UNION",
+        "INTERSECT",
+        "EXCEPT",
+        "INT",
+        "VARCHAR",
+        "TEXT",
+        "DATE",
+        "TIMESTAMP",
+        "CHAR",
+        "DECIMAL",
+        "FLOAT",
+        "DOUBLE",
+        "BOOLEAN",
+    ];
+    keywords.contains(&s.trim().to_uppercase().as_str())
 }
 
 fn map_pg_err(err: PostgresError) -> DriverError {

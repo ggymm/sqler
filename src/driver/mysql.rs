@@ -92,7 +92,14 @@ impl DatabaseSession for MySQLSession {
                 } else {
                     columns
                         .iter()
-                        .map(|c| format!("`{}`", c.replace('`', "``")))
+                        .map(|c| {
+                            // 只对 SQL 关键字添加反引号转义
+                            if needs_quoting(c) {
+                                format!("`{}`", c.replace('`', "``"))
+                            } else {
+                                c.to_string()
+                            }
+                        })
                         .collect::<Vec<_>>()
                         .join(", ")
                 };
@@ -192,7 +199,6 @@ impl DatabaseSession for MySQLSession {
                 )))
             }
         };
-
         tracing::debug!(sql = %sql);
 
         let rows: Vec<mysql::Row> = self
@@ -373,4 +379,86 @@ fn parse_value(value: Value) -> String {
             format!("{sign}{days} {hours:02}:{minutes:02}:{seconds:02}.{micros:06}")
         }
     }
+}
+
+fn needs_quoting(s: &str) -> bool {
+    // MySQL 保留关键字列表（常用的）
+    // 参考: https://dev.mysql.com/doc/refman/8.0/en/keywords.html
+    let keywords = [
+        "SELECT",
+        "FROM",
+        "WHERE",
+        "INSERT",
+        "UPDATE",
+        "DELETE",
+        "CREATE",
+        "DROP",
+        "ALTER",
+        "TABLE",
+        "INDEX",
+        "VIEW",
+        "JOIN",
+        "LEFT",
+        "RIGHT",
+        "INNER",
+        "OUTER",
+        "ON",
+        "GROUP",
+        "ORDER",
+        "BY",
+        "HAVING",
+        "LIMIT",
+        "OFFSET",
+        "AS",
+        "AND",
+        "OR",
+        "NOT",
+        "IN",
+        "IS",
+        "NULL",
+        "PRIMARY",
+        "KEY",
+        "FOREIGN",
+        "REFERENCES",
+        "CONSTRAINT",
+        "DEFAULT",
+        "AUTO_INCREMENT",
+        "UNIQUE",
+        "CHECK",
+        "COUNT",
+        "SUM",
+        "AVG",
+        "MAX",
+        "MIN",
+        "DISTINCT",
+        "ALL",
+        "BETWEEN",
+        "LIKE",
+        "EXISTS",
+        "CASE",
+        "WHEN",
+        "THEN",
+        "ELSE",
+        "END",
+        "UNION",
+        "INTERSECT",
+        "EXCEPT",
+        "DATABASE",
+        "SCHEMA",
+        "TRIGGER",
+        "PROCEDURE",
+        "FUNCTION",
+        "INT",
+        "VARCHAR",
+        "TEXT",
+        "DATE",
+        "DATETIME",
+        "TIMESTAMP",
+        "CHAR",
+        "DECIMAL",
+        "FLOAT",
+        "DOUBLE",
+        "BOOLEAN",
+    ];
+    keywords.contains(&s.trim().to_uppercase().as_str())
 }
