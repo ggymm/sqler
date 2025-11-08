@@ -23,7 +23,7 @@ use crate::{
     model::DataSource,
 };
 
-const PAGE_SIZE: usize = 100;
+const PAGE_SIZE: usize = 500;
 const ORDER_ASC: &str = "升序";
 const ORDER_DESC: &str = "降序";
 
@@ -37,7 +37,7 @@ struct TabItem {
 impl TabItem {
     fn overview() -> Self {
         Self {
-            id: SharedString::from("relational-overview-tab"),
+            id: SharedString::from("common-overview-tab"),
             title: SharedString::from("概览"),
             content: TabContent::Overview,
             closable: false,
@@ -46,7 +46,9 @@ impl TabItem {
 }
 
 enum TabContent {
-    Table(TableContent),
+    Data(DataContent),
+    Query(),
+    Struct(),
     Overview,
 }
 
@@ -63,17 +65,17 @@ struct OrderRule {
     order: Entity<DropdownState<Vec<SharedString>>>,
 }
 
-struct TableContent {
+struct DataContent {
     id: SharedString,
     table: SharedString,
     columns: Vec<SharedString>,
-    content: Entity<Table<DataTable>>,
     page_no: usize,
     page_size: usize,
     total_rows: usize,
     order_rules: Vec<OrderRule>,
     query_rules: Vec<QueryRule>,
     filter_enable: bool,
+    content: Entity<Table<DataTable>>,
 }
 
 pub struct CommonWorkspace {
@@ -175,19 +177,19 @@ impl CommonWorkspace {
 
         // 清除失效的标签页
         self.tabs.retain(|tab| match &tab.content {
-            TabContent::Table(tab) => self.tables.iter().any(|t| t == &tab.table),
+            TabContent::Data(tab) => self.tables.iter().any(|t| t == &tab.table),
             _ => true,
         });
 
         cx.notify();
     }
 
-    fn table_content(
+    fn data_content(
         &mut self,
         tab_id: &SharedString,
-    ) -> Option<&mut TableContent> {
+    ) -> Option<&mut DataContent> {
         self.tabs.iter_mut().find(|tab| tab.id == *tab_id).and_then(|item| {
-            if let TabContent::Table(tab) = &mut item.content {
+            if let TabContent::Data(tab) = &mut item.content {
                 Some(tab)
             } else {
                 None
@@ -195,19 +197,19 @@ impl CommonWorkspace {
         })
     }
 
-    fn create_table_tab(
+    fn create_data_tab(
         &mut self,
         table: SharedString,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let id = SharedString::from(format!("relational-table-tab-{}-{}", self.meta.id, table));
+        let id = SharedString::from(format!("common-table-tab-{}-{}", self.meta.id, table));
 
         // 检查标签页是否已存在
         if let Some(existing) = self.tabs.iter().find(|tab| {
             matches!(
                 &tab.content,
-                TabContent::Table(current) if current.id == id
+                TabContent::Data(current) if current.id == id
             )
         }) {
             self.active_tab = existing.id.clone();
@@ -221,7 +223,7 @@ impl CommonWorkspace {
         self.tabs.push(TabItem {
             id: id.clone(),
             title: table.clone(),
-            content: TabContent::Table(TableContent {
+            content: TabContent::Data(DataContent {
                 id: id.clone(),
                 table: table.clone(),
                 columns: vec![],
@@ -241,17 +243,17 @@ impl CommonWorkspace {
         cx.notify();
 
         // 调用 reload_table_tab 加载数据
-        self.reload_table_tab(&id, window, cx);
+        self.reload_data_tab(&id, window, cx);
     }
 
-    fn reload_table_tab(
+    fn reload_data_tab(
         &mut self,
         tab_id: &SharedString,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         let (table, mut page, size, total, orders, filters) = {
-            let Some(content) = self.table_content(tab_id) else {
+            let Some(content) = self.data_content(tab_id) else {
                 return;
             };
 
@@ -413,7 +415,7 @@ impl CommonWorkspace {
                         this.session = Some(session);
 
                         let (columns, rows, total_rows) = data;
-                        let Some(content) = this.table_content(&tab_id) else {
+                        let Some(content) = this.data_content(&tab_id) else {
                             return;
                         };
                         content.page_no = page;
@@ -433,7 +435,7 @@ impl CommonWorkspace {
                         eprintln!("加载数据表失败: {}", err);
                         this.session = None;
 
-                        if let Some(content) = this.table_content(&tab_id) {
+                        if let Some(content) = this.data_content(&tab_id) {
                             content.content.update(cx, |t, cx| {
                                 t.delegate_mut().update_loading(false);
                                 cx.notify();
@@ -447,9 +449,9 @@ impl CommonWorkspace {
         .detach();
     }
 
-    fn render_table_tab(
+    fn render_data_tab(
         &self,
-        tab: &TableContent,
+        tab: &DataContent,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let theme = cx.theme().clone();
@@ -487,7 +489,7 @@ impl CommonWorkspace {
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
                 move |view: &mut Self, _, _, cx| {
-                    if let Some(content) = view.table_content(&tab_id) {
+                    if let Some(content) = view.data_content(&tab_id) {
                         content.filter_enable = !content.filter_enable;
                     }
                     cx.notify();
@@ -502,10 +504,10 @@ impl CommonWorkspace {
                 let tab_id = tab_id.clone();
                 let prev_page = current_page.saturating_sub(1);
                 move |view: &mut Self, _, window, cx| {
-                    if let Some(content) = view.table_content(&tab_id) {
+                    if let Some(content) = view.data_content(&tab_id) {
                         content.page_no = prev_page;
                     }
-                    view.reload_table_tab(&tab_id, window, cx);
+                    view.reload_data_tab(&tab_id, window, cx);
                 }
             }));
         let page_next_btn = Button::new(comp_id(["table-page-next", &tab_id]))
@@ -516,10 +518,10 @@ impl CommonWorkspace {
                 let tab_id = tab_id.clone();
                 let next_page = current_page.saturating_add(1);
                 move |view: &mut Self, _, window, cx| {
-                    if let Some(content) = view.table_content(&tab_id) {
+                    if let Some(content) = view.data_content(&tab_id) {
                         content.page_no = next_page;
                     }
-                    view.reload_table_tab(&tab_id, window, cx);
+                    view.reload_data_tab(&tab_id, window, cx);
                 }
             }));
         let create_order_btn = Button::new(comp_id(["create-order", &tab_id]))
@@ -530,7 +532,7 @@ impl CommonWorkspace {
                 let tab_id = tab_id.clone();
                 let headers = headers.clone();
                 move |view: &mut Self, _, window, cx| {
-                    if let Some(content) = view.table_content(&tab_id) {
+                    if let Some(content) = view.data_content(&tab_id) {
                         content.order_rules.push(OrderRule {
                             id: SharedString::from(Uuid::new_v4().to_string()),
                             field: cx.new(|cx| {
@@ -554,7 +556,7 @@ impl CommonWorkspace {
                 let tab_id = tab_id.clone();
                 let headers = headers.clone();
                 move |view: &mut Self, _, window, cx| {
-                    if let Some(content) = view.table_content(&tab_id) {
+                    if let Some(content) = view.data_content(&tab_id) {
                         content.query_rules.push(QueryRule {
                             id: SharedString::from(Uuid::new_v4().to_string()),
                             field: cx.new(|cx| {
@@ -578,10 +580,10 @@ impl CommonWorkspace {
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
                 move |view: &mut Self, _, window, cx| {
-                    if let Some(content) = view.table_content(&tab_id) {
+                    if let Some(content) = view.data_content(&tab_id) {
                         content.page_no = 0;
                     }
-                    view.reload_table_tab(&tab_id, window, cx);
+                    view.reload_data_tab(&tab_id, window, cx);
                 }
             }));
         let clear_cond_btn = Button::new(comp_id(["filter-clear", &tab_id]))
@@ -591,7 +593,7 @@ impl CommonWorkspace {
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
                 move |view: &mut Self, _, _, cx| {
-                    if let Some(content) = view.table_content(&tab_id) {
+                    if let Some(content) = view.data_content(&tab_id) {
                         content.order_rules.clear();
                         content.query_rules.clear();
                     }
@@ -634,7 +636,7 @@ impl CommonWorkspace {
                                         .on_click(cx.listener({
                                             let tab_id = tab_id.clone();
                                             move |view: &mut Self, _, _, cx| {
-                                                if let Some(content) = view.table_content(&tab_id) {
+                                                if let Some(content) = view.data_content(&tab_id) {
                                                     content.order_rules.retain(|r| &r.id != &rule_id);
                                                 }
                                                 cx.notify();
@@ -664,7 +666,7 @@ impl CommonWorkspace {
                                         .on_click(cx.listener({
                                             let tab_id = tab_id.clone();
                                             move |view: &mut Self, _, _, cx| {
-                                                if let Some(content) = view.table_content(&tab_id) {
+                                                if let Some(content) = view.data_content(&tab_id) {
                                                     content.query_rules.retain(|r| &r.id != &rule_id);
                                                 }
                                                 cx.notify();
@@ -699,6 +701,7 @@ impl CommonWorkspace {
                     .flex()
                     .flex_row()
                     .items_center()
+                    .py_2()
                     .gap_2()
                     .child(filter_btn)
                     .child(column_btn)
@@ -720,6 +723,27 @@ impl CommonWorkspace {
         &mut self,
         _cx: &mut Context<Self>,
     ) {
+    }
+
+    fn render_query_tab(
+        &self,
+        _cx: &mut Context<Self>,
+    ) -> AnyElement {
+        div().into_any_element()
+    }
+
+    fn create_struct_tab(
+        &mut self,
+        _window: &mut Window,
+        _cx: &mut Context<Self>,
+    ) {
+    }
+
+    fn render_struct_tab(
+        &self,
+        _cx: &mut Context<Self>,
+    ) -> AnyElement {
+        div().into_any_element()
     }
 
     fn render_overview_tab(
@@ -778,7 +802,7 @@ impl Render for CommonWorkspace {
 
         let sidebar = self.tables.iter().cloned().fold(
             div()
-                .id(comp_id(["relational-sidebar", id]))
+                .id(comp_id(["common-sidebar", id]))
                 .p_2()
                 .gap_2()
                 .col_full()
@@ -788,7 +812,7 @@ impl Render for CommonWorkspace {
                 let active_table = table.clone();
                 acc.child(
                     div()
-                        .id(comp_id(["relational-sidebar-item", &self.meta.id, &table]))
+                        .id(comp_id(["common-sidebar-item", &self.meta.id, &table]))
                         .px_4()
                         .py_2()
                         .gap_2()
@@ -802,7 +826,7 @@ impl Render for CommonWorkspace {
                             |this| this.hover(|this| this.bg(theme.list_hover)),
                         )
                         .on_double_click(cx.listener(move |this, _, window, cx| {
-                            this.create_table_tab(active_table.clone(), window, cx);
+                            this.create_data_tab(active_table.clone(), window, cx);
                         }))
                         .child(icon_sheet())
                         .child(table.clone()),
@@ -816,7 +840,7 @@ impl Render for CommonWorkspace {
             .col_full()
             .child(
                 div()
-                    .id(comp_id(["relational-tabs", id]))
+                    .id(comp_id(["common-tabs", id]))
                     .flex()
                     .flex_row()
                     .gap_2()
@@ -826,7 +850,7 @@ impl Render for CommonWorkspace {
                         let tab_active = &tab_id == active;
 
                         let mut item = div()
-                            .id(comp_id(["relational-tabs-item", &tab_id]))
+                            .id(comp_id(["common-tabs-item", &tab_id]))
                             .flex()
                             .flex_row()
                             .items_center()
@@ -863,7 +887,7 @@ impl Render for CommonWorkspace {
 
                         if tab.closable {
                             item = item.child(
-                                Button::new(comp_id(["relational-tabs-close", &tab_id]))
+                                Button::new(comp_id(["common-tabs-close", &tab_id]))
                                     .ghost()
                                     .xsmall()
                                     .compact()
@@ -888,7 +912,7 @@ impl Render for CommonWorkspace {
             )
             .child(
                 div()
-                    .id(comp_id(["relational-main", id]))
+                    .id(comp_id(["common-main", id]))
                     .col_full()
                     .child(
                         match self
@@ -897,7 +921,9 @@ impl Render for CommonWorkspace {
                             .find(|tab| tab.id == self.active_tab)
                             .map(|tab| &tab.content)
                         {
-                            Some(TabContent::Table(content)) => self.render_table_tab(&content, cx),
+                            Some(TabContent::Data(content)) => self.render_data_tab(&content, cx),
+                            Some(TabContent::Query()) => self.render_query_tab(cx),
+                            Some(TabContent::Struct()) => self.render_struct_tab(cx),
                             Some(TabContent::Overview) | None => self.render_overview_tab(cx),
                         },
                     )
@@ -906,11 +932,11 @@ impl Render for CommonWorkspace {
             .into_any_element();
 
         div()
-            .id(comp_id(["relational", id]))
+            .id(comp_id(["common", id]))
             .col_full()
             .child(
                 div()
-                    .id(comp_id(["relational-header", id]))
+                    .id(comp_id(["common-header", id]))
                     .flex()
                     .flex_row()
                     .p_4()
@@ -918,7 +944,7 @@ impl Render for CommonWorkspace {
                     .border_b_1()
                     .border_color(theme.border)
                     .child(
-                        Button::new(comp_id(["relational-header-refresh", id]))
+                        Button::new(comp_id(["common-header-refresh", id]))
                             .outline()
                             .icon(icon_relead().with_size(Size::Small))
                             .on_click(cx.listener(|view: &mut Self, _, _, cx| {
@@ -927,7 +953,16 @@ impl Render for CommonWorkspace {
                             .label("刷新表"),
                     )
                     .child(
-                        Button::new(comp_id(["relational-header-query", id]))
+                        Button::new(comp_id(["common-header-table", id]))
+                            .outline()
+                            .icon(icon_sheet().with_size(Size::Small))
+                            .label("新建表")
+                            .on_click(cx.listener(|view: &mut Self, _, _, cx| {
+                                view.create_query_tab(cx);
+                            })),
+                    )
+                    .child(
+                        Button::new(comp_id(["common-header-query", id]))
                             .outline()
                             .icon(icon_search().with_size(Size::Small))
                             .label("新建查询")
@@ -935,8 +970,9 @@ impl Render for CommonWorkspace {
                                 view.create_query_tab(cx);
                             })),
                     )
+                    .child(div().flex_1())
                     .child(
-                        Button::new(comp_id(["relational-header-transfer", id]))
+                        Button::new(comp_id(["common-header-transfer", id]))
                             .outline()
                             .icon(icon_transfer().with_size(Size::Small))
                             .label("数据传输")
@@ -953,7 +989,7 @@ impl Render for CommonWorkspace {
             )
             .child(
                 div().col_full().child(
-                    h_resizable(comp_id(["relational-content", id]), self.sidebar_resize.clone())
+                    h_resizable(comp_id(["common-content", id]), self.sidebar_resize.clone())
                         .child(
                             resizable_panel()
                                 .size(px(200.0))

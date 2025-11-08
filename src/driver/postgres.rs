@@ -84,23 +84,11 @@ impl DatabaseSession for PostgresSession {
                 orders,
                 filters,
             } => {
-                let cols = if columns.is_empty() {
-                    "*".to_string()
-                } else {
-                    columns
-                        .iter()
-                        .map(|c| {
-                            // 只对 SQL 关键字添加双引号转义
-                            if needs_quoting(c) {
-                                format!("\"{}\"", c.replace('"', "\"\""))
-                            } else {
-                                c.to_string()
-                            }
-                        })
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                };
-                let mut sql = format!("SELECT {} FROM \"{}\"", cols, table.replace('"', "\"\""));
+                let mut sql = format!(
+                    "SELECT {} FROM \"{}\"",
+                    format_columns(&columns),
+                    table.replace('"', "\"\"")
+                );
                 let mut params = Vec::new();
                 let mut param_index = 1;
 
@@ -411,78 +399,42 @@ fn parse_value(
     Ok(value)
 }
 
-fn needs_quoting(s: &str) -> bool {
-    // PostgreSQL 保留关键字（常用的）
+fn format_columns(columns: &[String]) -> String {
+    if columns.is_empty() {
+        return "*".to_string();
+    }
+
+    // PostgreSQL 保留关键字列表
+    #[rustfmt::skip]
     let keywords = [
-        "SELECT",
-        "FROM",
-        "WHERE",
-        "INSERT",
-        "UPDATE",
-        "DELETE",
-        "CREATE",
-        "DROP",
-        "ALTER",
-        "TABLE",
-        "INDEX",
-        "VIEW",
-        "JOIN",
-        "LEFT",
-        "RIGHT",
-        "INNER",
-        "OUTER",
-        "ON",
-        "GROUP",
-        "ORDER",
-        "BY",
-        "HAVING",
-        "LIMIT",
-        "OFFSET",
-        "AS",
-        "AND",
-        "OR",
-        "NOT",
-        "IN",
-        "IS",
-        "NULL",
-        "PRIMARY",
-        "KEY",
-        "FOREIGN",
-        "REFERENCES",
-        "CONSTRAINT",
-        "DEFAULT",
-        "UNIQUE",
-        "CHECK",
-        "COUNT",
-        "SUM",
-        "AVG",
-        "MAX",
-        "MIN",
-        "DISTINCT",
-        "ALL",
-        "BETWEEN",
-        "LIKE",
-        "EXISTS",
-        "CASE",
-        "WHEN",
-        "THEN",
-        "ELSE",
-        "END",
-        "UNION",
-        "INTERSECT",
-        "EXCEPT",
-        "INT",
-        "VARCHAR",
-        "TEXT",
-        "DATE",
-        "TIMESTAMP",
-        "CHAR",
-        "DECIMAL",
-        "FLOAT",
-        "DOUBLE",
-        "BOOLEAN",
+        "SELECT", "FROM", "WHERE", "INSERT", "UPDATE", "DELETE",
+        "CREATE", "DROP", "ALTER", "TABLE", "INDEX", "VIEW",
+        "JOIN", "LEFT", "RIGHT", "INNER", "OUTER", "ON",
+        "GROUP", "ORDER", "BY", "HAVING", "LIMIT", "OFFSET",
+        "AS", "AND", "OR", "NOT", "IN", "IS", "NULL",
+        "PRIMARY", "KEY", "FOREIGN", "REFERENCES", "CONSTRAINT",
+        "DEFAULT", "UNIQUE", "CHECK",
+        "COUNT", "SUM", "AVG", "MAX", "MIN",
+        "DISTINCT", "ALL", "BETWEEN", "LIKE", "EXISTS",
+        "CASE", "WHEN", "THEN", "ELSE", "END",
+        "UNION", "INTERSECT", "EXCEPT",
+        "INT", "VARCHAR", "TEXT", "DATE", "TIMESTAMP",
+        "CHAR", "DECIMAL", "FLOAT", "DOUBLE", "BOOLEAN",
     ];
-    keywords.contains(&s.trim().to_uppercase().as_str())
+
+    columns
+        .iter()
+        .map(|c| {
+            if keywords.contains(&c.trim().to_uppercase().as_str()) {
+                // SQL 关键字，添加双引号转义
+                format!("\"{}\"", c.replace('"', "\"\""))
+            } else {
+                // 普通列名或表达式，不转义
+                c.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn map_pg_err(err: PostgresError) -> DriverError {
