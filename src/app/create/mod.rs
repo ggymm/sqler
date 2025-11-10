@@ -367,6 +367,5 @@ impl Render for CreateWindow {
                             .child(div().text_sm().overflow_hidden().whitespace_nowrap().child(message))
                     })),
             )
-            .into_any_element()
     }
 }

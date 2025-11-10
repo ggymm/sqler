@@ -2,11 +2,12 @@ use std::path::PathBuf;
 
 use gpui::{prelude::*, *};
 use gpui_component::{
-    button::{Button, ButtonVariants},
+    button::Button,
     dropdown::{Dropdown, DropdownState},
     form::{form_field, Form},
     input::{InputState, TextInput},
-    ActiveTheme, Disableable, IndexPath, Sizable, Size, StyledExt,
+    switch::Switch,
+    ActiveTheme, IndexPath, Sizable, Size, StyledExt,
 };
 
 use crate::{
@@ -22,18 +23,7 @@ enum TableOption {
     ExistingTable,
 }
 
-impl TableOption {
-    fn label(&self) -> &'static str {
-        match self {
-            TableOption::NewTable => "新建表",
-            TableOption::ExistingTable => "已有表",
-        }
-    }
-
-    fn all() -> Vec<Self> {
-        vec![Self::NewTable, Self::ExistingTable]
-    }
-}
+impl TableOption {}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ImportMode {
@@ -77,7 +67,7 @@ impl ImportMode {
 }
 
 #[derive(Clone, Debug)]
-struct FileImportItem {
+struct ImportFile {
     path: PathBuf,
     table_option: TableOption,
     new_table_name: Entity<InputState>,
@@ -85,7 +75,7 @@ struct FileImportItem {
     field_mappings: Vec<FieldMapping>,
 }
 
-impl FileImportItem {
+impl ImportFile {
     fn new(
         path: PathBuf,
         tables: Vec<SharedString>,
@@ -213,18 +203,20 @@ impl ImportStep {
 }
 
 pub struct ImportWindow {
-    parent: WeakEntity<SqlerApp>,
     meta: DataSource,
-    format: Entity<DropdownState<Vec<SharedString>>>,
+    step: ImportStep,
+    parent: WeakEntity<SqlerApp>,
+
+    files: Vec<ImportFile>,
     tables: Vec<SharedString>,
-    selected_files: Vec<FileImportItem>,
+
+    format: Entity<DropdownState<Vec<SharedString>>>,
     row_delimiter: Entity<InputState>,
     column_delimiter: Entity<InputState>,
     header_row: Entity<InputState>,
     data_start_row: Entity<InputState>,
     import_mode: Entity<DropdownState<Vec<SharedString>>>,
     mapping_selector: Entity<DropdownState<Vec<SharedString>>>,
-    current_step: ImportStep,
 }
 
 impl ImportWindow {
@@ -245,38 +237,27 @@ impl ImportWindow {
             }
         });
 
-        let format_options: Vec<SharedString> = TransferFormat::all().iter().map(|f| f.label().into()).collect();
+        let formats: Vec<SharedString> = TransferFormat::all().iter().map(|f| f.label().into()).collect();
         let import_modes: Vec<SharedString> = ImportMode::all()
             .iter()
             .map(|m| format!("{} - {}", m.label(), m.description()).into())
             .collect();
 
         Self {
-            parent,
             meta,
-            format: cx.new(|cx| DropdownState::new(format_options, Some(IndexPath::new(0)), window, cx)),
+            step: ImportStep::Files,
+            parent,
+
+            files: Vec::new(),
             tables: tables.clone(),
-            selected_files: Vec::new(),
+
+            format: cx.new(|cx| DropdownState::new(formats, Some(IndexPath::new(0)), window, cx)),
             row_delimiter: cx.new(|cx| InputState::new(window, cx).default_value("\\n")),
             column_delimiter: cx.new(|cx| InputState::new(window, cx).default_value(",")),
             header_row: cx.new(|cx| InputState::new(window, cx).default_value("1")),
             data_start_row: cx.new(|cx| InputState::new(window, cx).default_value("2")),
             import_mode: cx.new(|cx| DropdownState::new(import_modes, Some(IndexPath::new(0)), window, cx)),
             mapping_selector: cx.new(|cx| DropdownState::new(Vec::<SharedString>::new(), None, window, cx)),
-            current_step: ImportStep::Files,
-        }
-    }
-
-    fn cancel(
-        &self,
-        _window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if let Some(parent) = self.parent.upgrade() {
-            let _ = parent.update(cx, |app, cx| {
-                app.close_import_window();
-                cx.notify();
-            });
         }
     }
 
@@ -296,7 +277,7 @@ impl ImportWindow {
         cx: &mut Context<Self>,
     ) {
         let tables = self.tables.clone();
-        let path_future = cx.prompt_for_paths(PathPromptOptions {
+        let future = cx.prompt_for_paths(PathPromptOptions {
             files: true,
             multiple: true,
             directories: false,
@@ -304,30 +285,18 @@ impl ImportWindow {
         });
 
         cx.spawn_in(window, async move |this, cx| {
-            if let Ok(Ok(Some(paths))) = path_future.await {
+            if let Ok(Ok(Some(paths))) = future.await {
                 let _ = cx.update(|window, cx| {
                     let _ = this.update(cx, |this, cx| {
                         for path in paths {
-                            let item = FileImportItem::new(path, tables.clone(), window, cx);
-                            this.selected_files.push(item);
+                            let item = ImportFile::new(path, tables.clone(), window, cx);
+                            this.files.push(item);
                         }
-                        cx.notify();
                     });
                 });
             }
         })
         .detach();
-    }
-
-    fn remove_file(
-        &mut self,
-        index: usize,
-        cx: &mut Context<Self>,
-    ) {
-        if index < self.selected_files.len() {
-            self.selected_files.remove(index);
-            cx.notify();
-        }
     }
 
     fn toggle_file_table_option(
@@ -336,8 +305,8 @@ impl ImportWindow {
         option: TableOption,
         cx: &mut Context<Self>,
     ) {
-        if index < self.selected_files.len() {
-            self.selected_files[index].table_option = option;
+        if index < self.files.len() {
+            self.files[index].table_option = option;
             cx.notify();
         }
     }
@@ -348,7 +317,7 @@ impl ImportWindow {
         cx: &mut Context<Self>,
     ) {
         let options: Vec<SharedString> = self
-            .selected_files
+            .files
             .iter()
             .enumerate()
             .map(|(idx, file)| file.option_label(idx))
@@ -377,106 +346,22 @@ impl ImportWindow {
         cx: &App,
     ) -> Option<usize> {
         let selected = self.mapping_selector.read(cx).selected_value()?.clone();
-        self.selected_files
+        self.files
             .iter()
             .enumerate()
             .find(|(idx, file)| file.option_label(*idx) == selected)
             .map(|(idx, _)| idx)
     }
 
-    fn go_next(
-        &mut self,
-        cx: &mut Context<Self>,
-    ) {
-        if let Some(next) = self.current_step.next() {
-            self.current_step = next;
-            cx.notify();
-        }
-    }
-
-    fn go_prev(
-        &mut self,
-        cx: &mut Context<Self>,
-    ) {
-        if let Some(prev) = self.current_step.prev() {
-            self.current_step = prev;
-            cx.notify();
-        }
-    }
-
-    fn render_stepper(
-        &self,
-        theme: &gpui_component::theme::Theme,
-    ) -> impl IntoElement {
-        div()
-            .flex()
-            .flex_row()
-            .gap_4()
-            .px_8()
-            .py_4()
-            .children(ImportStep::all().iter().enumerate().map(|(idx, step)| {
-                let active = *step == self.current_step;
-                div()
-                    .flex()
-                    .flex_col()
-                    .items_start()
-                    .gap_1()
-                    .child(
-                        div()
-                            .flex()
-                            .items_center()
-                            .gap_2()
-                            .child(
-                                div()
-                                    .w(px(28.))
-                                    .h(px(28.))
-                                    .rounded_full()
-                                    .flex()
-                                    .items_center()
-                                    .justify_center()
-                                    .text_sm()
-                                    .font_semibold()
-                                    .bg(if active { theme.primary } else { theme.secondary })
-                                    .text_color(if active {
-                                        theme.primary_foreground
-                                    } else {
-                                        theme.foreground
-                                    })
-                                    .child((idx + 1).to_string()),
-                            )
-                            .child(div().text_sm().font_semibold().child(step.title())),
-                    )
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.muted_foreground)
-                            .child(step.description()),
-                    )
-                    .into_any_element()
-            }))
-    }
-    fn render_header(
-        &self,
-        theme: &gpui_component::theme::Theme,
-    ) -> AnyElement {
-        div()
-            .bg(theme.secondary)
-            .border_b_1()
-            .border_color(theme.border)
-            .child(self.render_stepper(theme))
-            .into_any_element()
-    }
-
     fn render_files_step(
         &self,
-        theme: &gpui_component::theme::Theme,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        let theme = cx.theme();
+
         div()
-            .flex()
-            .flex_col()
-            .gap_3()
-            .p_6()
+            .gap_4()
+            .col_full()
             .child(
                 Button::new("choose-files")
                     .outline()
@@ -489,76 +374,55 @@ impl ImportWindow {
                 div()
                     .flex()
                     .flex_col()
-                    .gap_2()
-                    .child(div().text_sm().text_color(theme.muted_foreground).child("已选择的文件"))
-                    .when(self.selected_files.is_empty(), |this| {
-                        this.child(div().text_sm().text_color(theme.muted_foreground).child("暂未选择文件"))
-                    })
-                    .when(!self.selected_files.is_empty(), |this| {
-                        this.child(div().flex().flex_col().gap_3().children(
-                            self.selected_files.iter().enumerate().map(|(idx, file)| {
+                    .children(self.files.iter().enumerate().map(|(i, file)| {
+                        div()
+                            .flex()
+                            .flex_row()
+                            .items_center()
+                            .justify_between()
+                            .p_4()
+                            .bg(theme.list)
+                            .hover(|this| this.bg(theme.list_hover))
+                            .rounded_lg()
+                            .child(
                                 div()
-                                    .flex()
-                                    .flex_row()
-                                    .items_center()
-                                    .justify_between()
-                                    .p_3()
-                                    .rounded_md()
-                                    .border_1()
-                                    .border_color(theme.border)
-                                    .bg(theme.list)
-                                    .child(
-                                        div()
-                                            .flex()
-                                            .flex_col()
-                                            .child(div().text_base().font_semibold().child(file.display_name()))
-                                            .child(
-                                                div()
-                                                    .text_sm()
-                                                    .text_color(theme.muted_foreground)
-                                                    .child(file.path.display().to_string()),
-                                            ),
-                                    )
-                                    .child(Button::new(("remove-file", idx)).outline().label("删除").on_click(
-                                        cx.listener({
-                                            let idx = idx;
-                                            move |this: &mut ImportWindow, _ev, _window, cx| {
-                                                this.remove_file(idx, cx);
+                                    .text_color(theme.foreground)
+                                    .child(file.path.display().to_string()),
+                            )
+                            .child(
+                                Button::new(("remove-file", i))
+                                    .outline()
+                                    .label("删除")
+                                    .on_click(cx.listener({
+                                        move |this: &mut ImportWindow, _ev, _window, cx| {
+                                            if i < this.files.len() {
+                                                this.files.remove(i);
+                                                cx.notify();
                                             }
-                                        }),
-                                    ))
-                                    .into_any_element()
-                            }),
-                        ))
-                    }),
+                                        }
+                                    })),
+                            )
+                    })),
             )
             .into_any_element()
     }
 
     fn render_format_step(
         &self,
-        theme: &gpui_component::theme::Theme,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let current_format = self.current_format(cx);
+        let format = self.current_format(cx);
 
         div()
-            .p_6()
-            .gap_4()
             .col_full()
-            .scrollable(Axis::Vertical)
             .child(
                 Form::vertical()
                     .layout(Axis::Horizontal)
                     .with_size(Size::Large)
                     .label_width(px(120.))
-                    .child(
-                        form_field()
-                            .label("文件类型")
-                            .child(Dropdown::new(&self.format).with_size(Size::Large)),
-                    ),
+                    .child(form_field().label("文件类型").child(Dropdown::new(&self.format))),
             )
-            .when(matches!(current_format, Some(TransferFormat::Csv)), |this| {
+            .when(matches!(format, Some(TransferFormat::Csv)), |this| {
                 this.child(
                     div()
                         .flex()
@@ -593,23 +457,15 @@ impl ImportWindow {
                         ),
                 )
             })
-            .when(!matches!(current_format, Some(TransferFormat::Csv)), |this| {
-                this.child(
-                    div()
-                        .text_sm()
-                        .text_color(theme.muted_foreground)
-                        .child("当前文件类型暂无额外配置"),
-                )
-            })
             .into_any_element()
     }
 
     fn render_target_step(
         &self,
-        theme: &gpui_component::theme::Theme,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        if self.selected_files.is_empty() {
+        let theme = cx.theme().clone();
+        if self.files.is_empty() {
             return div()
                 .p_6()
                 .text_sm()
@@ -618,84 +474,89 @@ impl ImportWindow {
                 .into_any_element();
         }
 
+        let header = div()
+            .flex()
+            .flex_row()
+            .items_center()
+            .px_4()
+            .py_2()
+            .bg(theme.table_head)
+            .text_sm()
+            .font_semibold()
+            .child(div().flex_1().child("源文件名"))
+            .child(div().flex_1().child("目标表设置"));
+        let rows = self.files.iter().enumerate().map(|(idx, file)| {
+            div()
+                .flex()
+                .flex_row()
+                .items_center()
+                .px_4()
+                .py_3()
+                .border_b_1()
+                .border_color(theme.border)
+                .child(
+                    div()
+                        .flex_1()
+                        .text_sm()
+                        .text_color(theme.foreground)
+                        .child(file.display_name()),
+                )
+                .child(
+                    div()
+                        .flex_1()
+                        .flex_col()
+                        .gap_2()
+                        .child(
+                            Switch::new(("target-switch", idx as u32))
+                                .label("新建表")
+                                .checked(file.table_option == TableOption::NewTable)
+                                .on_click(cx.listener({
+                                    let idx = idx;
+                                    move |this: &mut ImportWindow, checked, _window, cx| {
+                                        let option = if *checked {
+                                            TableOption::NewTable
+                                        } else {
+                                            TableOption::ExistingTable
+                                        };
+                                        this.toggle_file_table_option(idx, option, cx);
+                                    }
+                                })),
+                        )
+                        .child(match file.table_option {
+                            TableOption::NewTable => {
+                                TextInput::new(&file.new_table_name).cleanable().into_any_element()
+                            }
+                            TableOption::ExistingTable => Dropdown::new(&file.selected_table)
+                                .with_size(Size::Large)
+                                .into_any_element(),
+                        }),
+                )
+                .into_any_element()
+        });
+
         div()
             .flex()
             .flex_col()
             .gap_3()
             .p_6()
-            .children(self.selected_files.iter().enumerate().map(|(idx, file)| {
+            .child(
                 div()
-                    .flex()
-                    .flex_col()
-                    .gap_3()
-                    .p_4()
-                    .rounded_lg()
                     .border_1()
                     .border_color(theme.border)
-                    .bg(theme.list)
-                    .child(
-                        div()
-                            .text_base()
-                            .font_semibold()
-                            .child(format!("源文件：{}", file.display_name())),
-                    )
-                    .child(
-                        div()
-                            .flex()
-                            .flex_row()
-                            .gap_2()
-                            .children(TableOption::all().into_iter().map(|option| {
-                                let active = file.table_option == option;
-                                let option_id = match option {
-                                    TableOption::NewTable => "table-option-new",
-                                    TableOption::ExistingTable => "table-option-existing",
-                                };
-                                let mut button = Button::new((option_id, idx as u32)).label(option.label());
-                                if active {
-                                    button = button.outline();
-                                } else {
-                                    button = button.ghost();
-                                }
-                                button
-                                    .on_click(cx.listener({
-                                        let idx = idx;
-                                        move |this: &mut ImportWindow, _ev, _window, cx| {
-                                            this.toggle_file_table_option(idx, option, cx);
-                                        }
-                                    }))
-                                    .into_any_element()
-                            })),
-                    )
-                    .child({
-                        let selector: AnyElement = match file.table_option {
-                            TableOption::NewTable => div()
-                                .flex()
-                                .flex_col()
-                                .gap_2()
-                                .child(div().text_sm().text_color(theme.muted_foreground).child("新表名称"))
-                                .child(TextInput::new(&file.new_table_name).cleanable())
-                                .into_any_element(),
-                            TableOption::ExistingTable => div()
-                                .flex()
-                                .flex_col()
-                                .gap_2()
-                                .child(div().text_sm().text_color(theme.muted_foreground).child("选择已有表"))
-                                .child(Dropdown::new(&file.selected_table).with_size(Size::Large))
-                                .into_any_element(),
-                        };
-                        selector
-                    })
-                    .into_any_element()
-            }))
+                    .rounded_lg()
+                    .overflow_hidden()
+                    .child(header)
+                    .child(div().flex().flex_col().children(rows)),
+            )
             .into_any_element()
     }
 
     fn render_mapping_step(
         &self,
-        theme: &gpui_component::theme::Theme,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        if self.selected_files.is_empty() {
+        let theme = cx.theme().clone();
+        if self.files.is_empty() {
             return div()
                 .p_6()
                 .text_sm()
@@ -704,11 +565,8 @@ impl ImportWindow {
                 .into_any_element();
         }
 
-        let selected_index = self
-            .mapping_selected_index(cx)
-            .unwrap_or(0)
-            .min(self.selected_files.len() - 1);
-        let file = &self.selected_files[selected_index];
+        let selected_index = self.mapping_selected_index(cx).unwrap_or(0).min(self.files.len() - 1);
+        let file = &self.files[selected_index];
 
         div()
             .flex()
@@ -728,127 +586,108 @@ impl ImportWindow {
                         ),
                     ),
             )
-            .child(self.render_mapping_card(selected_index, file, theme, cx))
-            .into_any_element()
-    }
-
-    fn render_mapping_card(
-        &self,
-        index: usize,
-        file: &FileImportItem,
-        theme: &gpui_component::theme::Theme,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
-        div()
-            .flex()
-            .flex_col()
-            .gap_3()
-            .p_4()
-            .rounded_lg()
-            .border_1()
-            .border_color(theme.border)
-            .bg(theme.list)
-            .child(
-                div()
-                    .text_base()
-                    .font_semibold()
-                    .child(format!("文件 {}", file.display_name())),
-            )
             .child(
                 div()
                     .flex()
-                    .flex_row()
-                    .items_center()
-                    .justify_between()
-                    .child(div().text_sm().text_color(theme.muted_foreground).child("字段对应关系"))
+                    .flex_col()
+                    .gap_3()
+                    .p_4()
+                    .rounded_lg()
+                    .border_1()
+                    .border_color(theme.border)
+                    .bg(theme.list)
                     .child(
-                        Button::new(("refresh-mapping", index as u32))
-                            .outline()
-                            .label("刷新字段")
-                            .on_click(cx.listener({
-                                let idx = index;
-                                move |this: &mut ImportWindow, _ev, _window, cx| {
-                                    if let Some(file) = this.selected_files.get_mut(idx) {
-                                        file.field_mappings = FileImportItem::default_mappings();
-                                    }
-                                    cx.notify();
-                                }
+                        div()
+                            .text_base()
+                            .font_semibold()
+                            .child(format!("文件 {}", file.display_name())),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .flex_row()
+                            .items_center()
+                            .justify_between()
+                            .child(div().text_sm().text_color(theme.muted_foreground).child("字段对应关系"))
+                            .child(
+                                Button::new(("refresh-mapping", selected_index as u32))
+                                    .outline()
+                                    .label("刷新字段")
+                                    .on_click(cx.listener({
+                                        let idx = selected_index;
+                                        move |this: &mut ImportWindow, _ev, _window, cx| {
+                                            if let Some(file) = this.files.get_mut(idx) {
+                                                file.field_mappings = ImportFile::default_mappings();
+                                            }
+                                            cx.notify();
+                                        }
+                                    })),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .w_full()
+                            .border_1()
+                            .border_color(theme.border)
+                            .rounded_lg()
+                            .overflow_hidden()
+                            .child(
+                                div()
+                                    .flex()
+                                    .flex_row()
+                                    .bg(theme.table_head)
+                                    .border_b_1()
+                                    .border_color(theme.border)
+                                    .child(div().flex_1().px_4().py_3().text_sm().font_semibold().child("源字段"))
+                                    .child(div().flex_1().px_4().py_3().text_sm().font_semibold().child("目标字段"))
+                                    .child(div().flex_1().px_4().py_3().text_sm().font_semibold().child("类型"))
+                                    .child(div().w(px(100.)).px_4().py_3().text_sm().font_semibold().child("长度"))
+                                    .child(div().w(px(80.)).px_4().py_3().text_sm().font_semibold().child("主键")),
+                            )
+                            .children(file.field_mappings.iter().map(|mapping| {
+                                div()
+                                    .flex()
+                                    .flex_row()
+                                    .border_b_1()
+                                    .border_color(theme.border)
+                                    .child(
+                                        div()
+                                            .flex_1()
+                                            .px_4()
+                                            .py_3()
+                                            .text_sm()
+                                            .child(mapping.source_field.clone()),
+                                    )
+                                    .child(
+                                        div()
+                                            .flex_1()
+                                            .px_4()
+                                            .py_3()
+                                            .text_sm()
+                                            .child(mapping.target_field.clone()),
+                                    )
+                                    .child(div().flex_1().px_4().py_3().text_sm().child(mapping.field_type.clone()))
+                                    .child(div().w(px(100.)).px_4().py_3().text_sm().child(
+                                        mapping.length.map(|l| l.to_string()).unwrap_or_else(|| "-".to_string()),
+                                    ))
+                                    .child(div().w(px(80.)).px_4().py_3().text_sm().child(if mapping.is_primary {
+                                        "是"
+                                    } else {
+                                        "否"
+                                    }))
+                                    .into_any_element()
                             })),
-                    ),
+                    )
+                    .into_any_element(),
             )
-            .child(self.render_field_mappings(&file.field_mappings, theme))
             .into_any_element()
-    }
-
-    fn render_field_mappings(
-        &self,
-        mappings: &[FieldMapping],
-        theme: &gpui_component::theme::Theme,
-    ) -> impl IntoElement {
-        div()
-            .w_full()
-            .border_1()
-            .border_color(theme.border)
-            .rounded_lg()
-            .overflow_hidden()
-            .child(
-                div()
-                    .flex()
-                    .flex_row()
-                    .bg(theme.table_head)
-                    .border_b_1()
-                    .border_color(theme.border)
-                    .child(div().flex_1().px_4().py_3().text_sm().font_semibold().child("源字段"))
-                    .child(div().flex_1().px_4().py_3().text_sm().font_semibold().child("目标字段"))
-                    .child(div().flex_1().px_4().py_3().text_sm().font_semibold().child("类型"))
-                    .child(div().w(px(100.)).px_4().py_3().text_sm().font_semibold().child("长度"))
-                    .child(div().w(px(80.)).px_4().py_3().text_sm().font_semibold().child("主键")),
-            )
-            .children(mappings.iter().map(|mapping| {
-                div()
-                    .flex()
-                    .flex_row()
-                    .border_b_1()
-                    .border_color(theme.border)
-                    .child(
-                        div()
-                            .flex_1()
-                            .px_4()
-                            .py_3()
-                            .text_sm()
-                            .child(mapping.source_field.clone()),
-                    )
-                    .child(
-                        div()
-                            .flex_1()
-                            .px_4()
-                            .py_3()
-                            .text_sm()
-                            .child(mapping.target_field.clone()),
-                    )
-                    .child(div().flex_1().px_4().py_3().text_sm().child(mapping.field_type.clone()))
-                    .child(
-                        div()
-                            .w(px(100.))
-                            .px_4()
-                            .py_3()
-                            .text_sm()
-                            .child(mapping.length.map(|l| l.to_string()).unwrap_or_else(|| "-".to_string())),
-                    )
-                    .child(div().w(px(80.)).px_4().py_3().text_sm().child(if mapping.is_primary {
-                        "是"
-                    } else {
-                        "否"
-                    }))
-                    .into_any_element()
-            }))
     }
 
     fn render_mode_step(
         &self,
-        theme: &gpui_component::theme::Theme,
-        _cx: &mut Context<Self>,
+        cx: &mut Context<Self>,
     ) -> AnyElement {
+        let theme = cx.theme();
         div()
             .p_6()
             .gap_4()
@@ -871,112 +710,34 @@ impl ImportWindow {
                     .flex_col()
                     .gap_1()
                     .child(div().text_base().font_semibold().child("导入进度"))
-                    .child(self.render_progress_section(theme)),
-            )
-            .into_any_element()
-    }
+                    .child({
+                        if self.files.is_empty() {
+                            return div()
+                                .text_sm()
+                                .text_color(theme.muted_foreground)
+                                .child("尚未选择文件，无法展示进度")
+                                .into_any_element();
+                        }
 
-    fn render_progress_section(
-        &self,
-        theme: &gpui_component::theme::Theme,
-    ) -> AnyElement {
-        if self.selected_files.is_empty() {
-            return div()
-                .text_sm()
-                .text_color(theme.muted_foreground)
-                .child("尚未选择文件，无法展示进度")
-                .into_any_element();
-        }
-
-        div()
-            .flex()
-            .flex_col()
-            .gap_2()
-            .children(self.selected_files.iter().map(|file| {
-                div()
-                    .flex()
-                    .flex_row()
-                    .items_center()
-                    .justify_between()
-                    .p_3()
-                    .rounded_md()
-                    .border_1()
-                    .border_color(theme.border)
-                    .child(div().text_sm().child(file.display_name()))
-                    .child(div().text_sm().text_color(theme.muted_foreground).child("未开始"))
-                    .into_any_element()
-            }))
-            .into_any_element()
-    }
-
-    fn render_navigation(
-        &self,
-        theme: &gpui_component::theme::Theme,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
-        div()
-            .flex()
-            .flex_row()
-            .items_center()
-            .justify_between()
-            .px_8()
-            .py_5()
-            .bg(theme.secondary)
-            .border_t_1()
-            .border_color(theme.border)
-            .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap_1()
-                    .child(
-                        Button::new("transfer-cancel")
-                            .outline()
-                            .label("取消")
-                            .on_click(cx.listener(|this: &mut ImportWindow, _ev, window, cx| {
-                                this.cancel(window, cx);
-                            })),
-                    )
-                    .child(
                         div()
-                            .text_xs()
-                            .text_color(theme.muted_foreground)
-                            .child(format!("当前数据源：{}", self.meta.name)),
-                    ),
-            )
-            .child(
-                div()
-                    .flex()
-                    .flex_row()
-                    .gap_3()
-                    .child(
-                        Button::new("import-prev-step")
-                            .outline()
-                            .label("上一步")
-                            .disabled(self.current_step.prev().is_none())
-                            .on_click(cx.listener(|this: &mut ImportWindow, _ev, _window, cx| {
-                                this.go_prev(cx);
-                            })),
-                    )
-                    .when(self.current_step != ImportStep::Mode, |buttons| {
-                        buttons.child(
-                            Button::new("import-next-step")
-                                .outline()
-                                .label("下一步")
-                                .on_click(cx.listener(|this: &mut ImportWindow, _ev, _window, cx| {
-                                    this.go_next(cx);
-                                })),
-                        )
-                    })
-                    .when(self.current_step == ImportStep::Mode, |buttons| {
-                        buttons.child(
-                            Button::new("import-start")
-                                .outline()
-                                .label("开始导入")
-                                .on_click(cx.listener(|_this: &mut ImportWindow, _ev, _window, _cx| {
-                                    // 导入逻辑将在后续实现
-                                })),
-                        )
+                            .flex()
+                            .flex_col()
+                            .gap_2()
+                            .children(self.files.iter().map(|file| {
+                                div()
+                                    .flex()
+                                    .flex_row()
+                                    .items_center()
+                                    .justify_between()
+                                    .p_3()
+                                    .rounded_md()
+                                    .border_1()
+                                    .border_color(theme.border)
+                                    .child(div().text_sm().child(file.display_name()))
+                                    .child(div().text_sm().text_color(theme.muted_foreground).child("未开始"))
+                                    .into_any_element()
+                            }))
+                            .into_any_element()
                     }),
             )
             .into_any_element()
@@ -992,24 +753,136 @@ impl Render for ImportWindow {
         self.sync_mapping_selector(window, cx);
         let theme = cx.theme().clone();
 
-        let step_content: AnyElement = match self.current_step {
-            ImportStep::Files => self.render_files_step(&theme, cx),
-            ImportStep::Format => self.render_format_step(&theme, cx),
-            ImportStep::Target => self.render_target_step(&theme, cx),
-            ImportStep::Mapping => self.render_mapping_step(&theme, cx),
-            ImportStep::Mode => self.render_mode_step(&theme, cx),
+        let content: AnyElement = match self.step {
+            ImportStep::Files => self.render_files_step(cx),   // 修改完成
+            ImportStep::Format => self.render_format_step(cx), // 修改完成
+            ImportStep::Target => self.render_target_step(cx),
+            ImportStep::Mapping => self.render_mapping_step(cx),
+            ImportStep::Mode => self.render_mode_step(cx),
         };
 
         div()
             .col_full()
-            .child(self.render_header(&theme))
             .child(
                 div()
-                    .flex_1()
-                    .min_h_0()
-                    .child(div().flex_1().min_h_0().scrollable(Axis::Vertical).child(step_content)),
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .px_8()
+                    .py_5()
+                    .gap_4()
+                    .bg(theme.secondary)
+                    .border_b_1()
+                    .border_color(theme.border)
+                    .children(ImportStep::all().iter().enumerate().map(|(i, step)| {
+                        let active = *step == self.step;
+                        div()
+                            .flex()
+                            .flex_row()
+                            .items_center()
+                            .justify_center()
+                            .gap_2()
+                            .child(
+                                div()
+                                    .flex()
+                                    .items_center()
+                                    .justify_center()
+                                    .w_8()
+                                    .h_8()
+                                    .text_sm()
+                                    .font_semibold()
+                                    .when(active, |this| this.bg(theme.primary))
+                                    .when(!active, |this| this.bg(theme.secondary))
+                                    .text_color(if active {
+                                        theme.primary_foreground
+                                    } else {
+                                        theme.foreground
+                                    })
+                                    .rounded_full()
+                                    .child((i + 1).to_string()),
+                            )
+                            .child(
+                                div()
+                                    .flex()
+                                    .flex_col()
+                                    .child(div().text_sm().font_semibold().child(step.title()))
+                                    .child(
+                                        div()
+                                            .text_xs()
+                                            .text_color(theme.muted_foreground)
+                                            .child(step.description()),
+                                    ),
+                            )
+                    })),
             )
-            .child(self.render_navigation(&theme, cx))
-            .into_any_element()
+            .child(
+                div().flex_1().min_h_0().child(
+                    div()
+                        .p_6()
+                        .gap_5()
+                        .col_full()
+                        .scrollable(Axis::Vertical)
+                        .child(content)
+                        .child(div()),
+                ),
+            )
+            .child(
+                div()
+                    .relative()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .justify_between()
+                    .px_8()
+                    .py_5()
+                    .gap_4()
+                    .bg(theme.secondary)
+                    .border_t_1()
+                    .border_color(theme.border)
+                    .child(
+                        Button::new("import-cancel")
+                            .outline()
+                            .label("取消")
+                            .on_click(cx.listener(|this: &mut ImportWindow, _, _, cx| {
+                                if let Some(parent) = this.parent.upgrade() {
+                                    let _ = parent.update(cx, |app, cx| {
+                                        app.close_import_window();
+                                        cx.notify();
+                                    });
+                                }
+                            })),
+                    )
+                    .child(div().flex_1())
+                    .child(
+                        Button::new("import-prev-step")
+                            .outline()
+                            .label("上一步")
+                            .on_click(cx.listener(|this: &mut ImportWindow, _, _, cx| {
+                                if let Some(prev) = this.step.prev() {
+                                    this.step = prev;
+                                    cx.notify();
+                                }
+                            })),
+                    )
+                    .child(
+                        Button::new("import-next-step")
+                            .outline()
+                            .label("下一步")
+                            .on_click(cx.listener(|this: &mut ImportWindow, _, _, cx| {
+                                if let Some(next) = this.step.next() {
+                                    this.step = next;
+                                    cx.notify();
+                                }
+                            })),
+                    )
+                    .child(
+                        Button::new("import-start")
+                            .outline()
+                            .label("开始导入")
+                            .on_click(cx.listener(|_this: &mut ImportWindow, _, _, _cx| {
+                                // 导入逻辑将在后续实现
+                            })),
+                    ),
+            )
     }
 }

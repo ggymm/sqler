@@ -233,7 +233,7 @@ impl SqlerApp {
             return;
         }
 
-        let wsize = size(px(640.), px(480.));
+        let wsize = size(px(1280.), px(720.));
         let options = WindowOptions {
             kind: WindowKind::Floating,
             window_bounds: Some(WindowBounds::Windowed(Bounds::centered(None, wsize, cx))),
@@ -400,7 +400,7 @@ impl Render for SqlerApp {
                             .flex_row()
                             .gap_5()
                             .child(Button::new("header-new-source").outline().label("新建数据源").on_click(
-                                cx.listener(|this, _, window, cx| {
+                                cx.listener(|this, _, _, cx| {
                                     this.display_create_window(cx);
                                 }),
                             ))
