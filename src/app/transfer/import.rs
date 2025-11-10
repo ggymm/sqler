@@ -88,11 +88,7 @@ impl FileImportItem {
         window: &mut Window,
         cx: &mut App,
     ) -> Self {
-        let default_name = path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("table")
-            .to_string();
+        let default_name = path.file_stem().and_then(|s| s.to_str()).unwrap_or("table").to_string();
 
         Self {
             path,
@@ -421,63 +417,63 @@ impl ImportTable {
                                                     .text_color(theme.muted_foreground)
                                                     .child(file.path.display().to_string()),
                                             )
-                                            .child(
-                                                Button::new(("remove-file", idx))
-                                                    .outline()
-                                                    .label("删除")
-                                                    .on_click(cx.listener({
-                                                        let idx = idx;
-                                                        move |this: &mut ImportTable, _ev, _window, cx| {
-                                                            this.remove_file(idx, cx);
-                                                        }
-                                                    })),
-                                            ),
+                                            .child(Button::new(("remove-file", idx)).outline().label("删除").on_click(
+                                                cx.listener({
+                                                    let idx = idx;
+                                                    move |this: &mut ImportTable, _ev, _window, cx| {
+                                                        this.remove_file(idx, cx);
+                                                    }
+                                                }),
+                                            )),
                                     )
                                     .child(
-                                        div()
-                                            .flex()
-                                            .flex_row()
-                                            .gap_2()
-                                            .children(
-                                                TableOption::all()
-                                                    .iter()
-                                                    .map(|opt| {
-                                                        let is_selected = file.table_option == *opt;
-                                                        div()
-                                                            .flex_1()
-                                                            .p_2()
-                                                            .text_sm()
-                                                            .text_center()
-                                                            .bg(if is_selected { theme.primary } else { theme.background })
-                                                            .text_color(if is_selected {
-                                                                theme.primary_foreground
+                                        div().flex().flex_row().gap_2().children(
+                                            TableOption::all()
+                                                .iter()
+                                                .map(|opt| {
+                                                    let is_selected = file.table_option == *opt;
+                                                    div()
+                                                        .flex_1()
+                                                        .p_2()
+                                                        .text_sm()
+                                                        .text_center()
+                                                        .bg(if is_selected { theme.primary } else { theme.background })
+                                                        .text_color(if is_selected {
+                                                            theme.primary_foreground
+                                                        } else {
+                                                            theme.foreground
+                                                        })
+                                                        .border_1()
+                                                        .border_color(if is_selected {
+                                                            theme.primary
+                                                        } else {
+                                                            theme.border
+                                                        })
+                                                        .rounded_md()
+                                                        .cursor_pointer()
+                                                        .id(SharedString::from(format!(
+                                                            "table-option-{}-{}",
+                                                            idx, *opt as u64
+                                                        )))
+                                                        .hover(|this| {
+                                                            if !is_selected {
+                                                                this.bg(theme.list_hover)
                                                             } else {
-                                                                theme.foreground
-                                                            })
-                                                            .border_1()
-                                                            .border_color(if is_selected { theme.primary } else { theme.border })
-                                                            .rounded_md()
-                                                            .cursor_pointer()
-                                                            .id(SharedString::from(format!("table-option-{}-{}", idx, *opt as u64)))
-                                                            .hover(|this| {
-                                                                if !is_selected {
-                                                                    this.bg(theme.list_hover)
-                                                                } else {
-                                                                    this
-                                                                }
-                                                            })
-                                                            .child(opt.label())
-                                                            .on_click(cx.listener({
-                                                                let idx = idx;
-                                                                let opt = *opt;
-                                                                move |this: &mut ImportTable, _ev, _window, cx| {
-                                                                    this.toggle_file_table_option(idx, opt, cx);
-                                                                }
-                                                            }))
-                                                            .into_any_element()
-                                                    })
-                                                    .collect::<Vec<_>>(),
-                                            ),
+                                                                this
+                                                            }
+                                                        })
+                                                        .child(opt.label())
+                                                        .on_click(cx.listener({
+                                                            let idx = idx;
+                                                            let opt = *opt;
+                                                            move |this: &mut ImportTable, _ev, _window, cx| {
+                                                                this.toggle_file_table_option(idx, opt, cx);
+                                                            }
+                                                        }))
+                                                        .into_any_element()
+                                                })
+                                                .collect::<Vec<_>>(),
+                                        ),
                                     )
                                     .child(
                                         div()
@@ -491,9 +487,9 @@ impl ImportTable {
                                                         .with_size(Size::Large)
                                                         .label_width(px(80.))
                                                         .child(
-                                                            form_field()
-                                                                .label("新表名")
-                                                                .child(TextInput::new(&file.new_table_name).cleanable()),
+                                                            form_field().label("新表名").child(
+                                                                TextInput::new(&file.new_table_name).cleanable(),
+                                                            ),
                                                         ),
                                                 )
                                             })
@@ -503,11 +499,9 @@ impl ImportTable {
                                                         .layout(Axis::Horizontal)
                                                         .with_size(Size::Large)
                                                         .label_width(px(80.))
-                                                        .child(
-                                                            form_field()
-                                                                .label("选择表")
-                                                                .child(Dropdown::new(&file.selected_table).with_size(Size::Large)),
-                                                        ),
+                                                        .child(form_field().label("选择表").child(
+                                                            Dropdown::new(&file.selected_table).with_size(Size::Large),
+                                                        )),
                                                 )
                                             }),
                                     )
