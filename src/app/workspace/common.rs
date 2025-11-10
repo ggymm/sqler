@@ -12,7 +12,8 @@ use uuid::Uuid;
 use crate::{
     app::{
         comps::{
-            comp_id, icon_close, icon_relead, icon_search, icon_sheet, icon_transfer, icon_trash, DataTable, DivExt,
+            comp_id, icon_close, icon_export, icon_import, icon_relead, icon_search, icon_sheet, icon_trash, DataTable,
+            DivExt,
         },
         SqlerApp,
     },
@@ -611,39 +612,42 @@ impl CommonWorkspace {
                     div()
                         .flex()
                         .flex_col()
-                        .p_2()
-                        .border_1()
-                        .rounded_lg()
-                        .border_color(theme.border)
-                        .child(div().flex().flex_col().children(tab.order_rules.iter().map(|rule| {
-                            let rule_id = rule.id.clone();
-                            let rule_field = Dropdown::new(&rule.field).small().placeholder("");
-                            let rule_order = Dropdown::new(&rule.order).small().placeholder("");
-
+                        .px_2()
+                        .child(
                             div()
                                 .flex()
-                                .flex_row()
-                                .items_center()
-                                .mb_2()
-                                .gap_2()
-                                .w_full()
-                                .child(div().w_48().child(rule_field))
-                                .child(div().w_48().child(rule_order))
-                                .child(
-                                    Button::new(comp_id(["order-remove", &rule_id]))
-                                        .ghost()
-                                        .icon(icon_trash())
-                                        .on_click(cx.listener({
-                                            let tab_id = tab_id.clone();
-                                            move |view: &mut Self, _, _, cx| {
-                                                if let Some(content) = view.data_content(&tab_id) {
-                                                    content.order_rules.retain(|r| &r.id != &rule_id);
-                                                }
-                                                cx.notify();
-                                            }
-                                        })),
-                                )
-                        })))
+                                .flex_col()
+                                .children(tab.order_rules.iter().map(|rule| {
+                                    let rule_id = rule.id.clone();
+                                    let rule_field = Dropdown::new(&rule.field).small().placeholder("");
+                                    let rule_order = Dropdown::new(&rule.order).small().placeholder("");
+
+                                    div()
+                                        .flex()
+                                        .flex_row()
+                                        .items_center()
+                                        .mb_2()
+                                        .gap_2()
+                                        .w_full()
+                                        .child(div().w_48().child(rule_field))
+                                        .child(div().w_48().child(rule_order))
+                                        .child(
+                                            Button::new(comp_id(["order-remove", &rule_id]))
+                                                .ghost()
+                                                .icon(icon_trash())
+                                                .on_click(cx.listener({
+                                                    let tab_id = tab_id.clone();
+                                                    move |view: &mut Self, _, _, cx| {
+                                                        if let Some(content) = view.data_content(&tab_id) {
+                                                            content.order_rules.retain(|r| &r.id != &rule_id);
+                                                        }
+                                                        cx.notify();
+                                                    }
+                                                })),
+                                        )
+                                }))
+                                .child(div()),
+                        )
                         .child(div().flex().flex_col().children(tab.query_rules.iter().map(|rule| {
                             let rule_id = rule.id.clone();
                             let rule_field = Dropdown::new(&rule.field).small().placeholder("");
@@ -701,8 +705,11 @@ impl CommonWorkspace {
                     .flex()
                     .flex_row()
                     .items_center()
-                    .py_2()
+                    .p_2()
                     .gap_2()
+                    .bg(theme.secondary)
+                    .border_t_1()
+                    .border_color(theme.border)
                     .child(filter_btn)
                     .child(column_btn)
                     .child(div().flex_1())
@@ -835,14 +842,13 @@ impl Render for CommonWorkspace {
         );
 
         let container = div()
-            .p_2()
-            .gap_2()
             .col_full()
             .child(
                 div()
                     .id(comp_id(["common-tabs", id]))
                     .flex()
                     .flex_row()
+                    .p_2()
                     .gap_2()
                     .min_w_0()
                     .children(self.tabs.iter().map(|tab| {
@@ -970,33 +976,32 @@ impl Render for CommonWorkspace {
                                 view.create_query_tab(cx);
                             })),
                     )
-                    .child(div().flex_1())
                     .child(
-                        Button::new(comp_id(["common-header-transfer", id]))
+                        Button::new(comp_id(["common-header-import", id]))
                             .outline()
-                            .icon(icon_transfer().with_size(Size::Small))
-                            .label("数据传输")
-                            .on_click(cx.listener(|view: &mut Self, _, window, cx| {
+                            .icon(icon_import().with_size(Size::Small))
+                            .label("数据导入")
+                            .on_click(cx.listener(|view: &mut Self, _, _, cx| {
                                 if let Some(parent) = view.parent.upgrade() {
                                     let meta = view.meta.clone();
                                     let tables = view.tables.clone();
                                     let _ = parent.update(cx, |app, cx| {
-                                        app.display_transfer_window(meta, tables, cx);
+                                        app.display_import_window(meta, tables, cx);
                                     });
                                 }
                             })),
                     )
                     .child(
-                        Button::new(comp_id(["common-header-transfer", id]))
+                        Button::new(comp_id(["common-header-export", id]))
                             .outline()
-                            .icon(icon_transfer().with_size(Size::Small))
-                            .label("数据传输")
-                            .on_click(cx.listener(|view: &mut Self, _, window, cx| {
+                            .icon(icon_export().with_size(Size::Small))
+                            .label("数据导出")
+                            .on_click(cx.listener(|view: &mut Self, _, _, cx| {
                                 if let Some(parent) = view.parent.upgrade() {
                                     let meta = view.meta.clone();
                                     let tables = view.tables.clone();
                                     let _ = parent.update(cx, |app, cx| {
-                                        app.display_transfer_window(meta, tables, cx);
+                                        app.display_export_window(meta, tables, cx);
                                     });
                                 }
                             })),

@@ -9,7 +9,7 @@ use crate::{
     app::{
         comps::{comp_id, icon_close},
         create::CreateWindow,
-        transfer::TransferWindow,
+        transfer::{ExportWindow, ImportWindow},
         workspace::WorkspaceState,
     },
     cache::CacheApp,
@@ -73,7 +73,8 @@ pub struct SqlerApp {
 
     pub cache: CacheApp,
     pub create_window: Option<WindowHandle<Root>>,
-    pub transfer_window: Option<WindowHandle<Root>>,
+    pub import_window: Option<WindowHandle<Root>>,
+    pub export_window: Option<WindowHandle<Root>>,
 }
 
 impl SqlerApp {
@@ -95,7 +96,8 @@ impl SqlerApp {
             cache,
 
             create_window: None,
-            transfer_window: None,
+            import_window: None,
+            export_window: None,
         }
     }
 
@@ -169,6 +171,14 @@ impl SqlerApp {
         self.create_window = None;
     }
 
+    pub fn close_import_window(&mut self) {
+        self.import_window = None;
+    }
+
+    pub fn close_export_window(&mut self) {
+        self.export_window = None;
+    }
+
     pub fn display_create_window(
         &mut self,
         cx: &mut Context<SqlerApp>,
@@ -210,19 +220,15 @@ impl SqlerApp {
         }
     }
 
-    pub fn close_transfer_window(&mut self) {
-        self.transfer_window = None;
-    }
-
-    pub fn display_transfer_window(
+    pub fn display_import_window(
         &mut self,
         meta: DataSource,
         tables: Vec<SharedString>,
         cx: &mut Context<SqlerApp>,
     ) {
-        if let Some(handle) = &self.transfer_window {
-            let _ = handle.update(cx, |_, transfer_window, _| {
-                transfer_window.activate_window();
+        if let Some(handle) = &self.import_window {
+            let _ = handle.update(cx, |_, import_window, _| {
+                import_window.activate_window();
             });
             return;
         }
@@ -238,17 +244,56 @@ impl SqlerApp {
         let parent = cx.weak_entity();
         match cx.open_window(options, move |window, app_cx| {
             let parent = parent.clone();
-            let view = app_cx.new(|cx| TransferWindow::new(meta, tables, parent.clone(), window, cx));
+            let view = app_cx.new(|cx| ImportWindow::new(meta, tables, parent.clone(), window, cx));
             app_cx.new(|cx| Root::new(view.into(), window, cx))
         }) {
             Ok(handle) => {
                 let _ = handle.update(cx, |_, modal_window, _| {
-                    modal_window.set_window_title("数据传输");
+                    modal_window.set_window_title("数据导入");
                 });
-                self.transfer_window = Some(handle);
+                self.import_window = Some(handle);
             }
             Err(err) => {
-                eprintln!("failed to open transfer window: {err:?}");
+                eprintln!("failed to open import window: {err:?}");
+            }
+        }
+    }
+
+    pub fn display_export_window(
+        &mut self,
+        _meta: DataSource,
+        _tables: Vec<SharedString>,
+        cx: &mut Context<SqlerApp>,
+    ) {
+        if let Some(handle) = &self.export_window {
+            let _ = handle.update(cx, |_, export_window, _| {
+                export_window.activate_window();
+            });
+            return;
+        }
+
+        let wsize = size(px(640.), px(480.));
+        let options = WindowOptions {
+            kind: WindowKind::Floating,
+            window_bounds: Some(WindowBounds::Windowed(Bounds::centered(None, wsize, cx))),
+            is_minimizable: false,
+            ..Default::default()
+        };
+
+        let parent = cx.weak_entity();
+        match cx.open_window(options, move |window, app_cx| {
+            let parent = parent.clone();
+            let view = app_cx.new(|cx| ExportWindow::new(parent.clone(), window, cx));
+            app_cx.new(|cx| Root::new(view.into(), window, cx))
+        }) {
+            Ok(handle) => {
+                let _ = handle.update(cx, |_, modal_window, _| {
+                    modal_window.set_window_title("数据导出");
+                });
+                self.export_window = Some(handle);
+            }
+            Err(err) => {
+                eprintln!("failed to open export window: {err:?}");
             }
         }
     }

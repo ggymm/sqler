@@ -1,29 +1,56 @@
 use gpui::{prelude::*, *};
 use gpui_component::{
+    button::Button,
     form::{form_field, Form},
     input::{InputState, TextInput},
     ActiveTheme, Sizable, Size, StyledExt,
 };
 
-use crate::app::comps::DivExt;
+use crate::app::{comps::DivExt, SqlerApp};
 
 use super::TransferFormat;
 
-pub struct ExportTable {
+pub struct ExportWindow {
+    parent: WeakEntity<SqlerApp>,
     format: Option<TransferFormat>,
     file_path: Entity<InputState>,
     table_name: Entity<InputState>,
 }
 
-impl ExportTable {
+impl ExportWindow {
     pub fn new(
+        parent: WeakEntity<SqlerApp>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
+        let parent_for_release = parent.clone();
+        let _ = cx.on_release(move |_, app| {
+            if let Some(parent) = parent_for_release.upgrade() {
+                let _ = parent.update(app, |app, cx| {
+                    app.close_export_window();
+                    cx.notify();
+                });
+            }
+        });
+
         Self {
+            parent,
             format: None,
             file_path: cx.new(|cx| InputState::new(window, cx)),
             table_name: cx.new(|cx| InputState::new(window, cx)),
+        }
+    }
+
+    fn cancel(
+        &self,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(parent) = self.parent.upgrade() {
+            let _ = parent.update(cx, |app, cx| {
+                app.close_export_window();
+                cx.notify();
+            });
         }
     }
 
@@ -35,15 +62,12 @@ impl ExportTable {
         self.format = Some(format);
         cx.notify();
     }
-}
 
-impl Render for ExportTable {
-    fn render(
-        &mut self,
-        _window: &mut Window,
+    fn render_form(
+        &self,
+        theme: &gpui_component::theme::Theme,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let theme = cx.theme().clone();
         let selected_format = self.format;
 
         div()
@@ -112,13 +136,68 @@ impl Render for ExportTable {
                             )
                             .on_click(cx.listener({
                                 let fmt = *fmt;
-                                move |this: &mut ExportTable, _ev, _window, cx| {
+                                move |this: &mut ExportWindow, _ev, _window, cx| {
                                     this.select_format(fmt, cx);
                                 }
                             }))
                             .into_any_element()
                     })
                     .collect::<Vec<_>>(),
+            )
+    }
+}
+
+impl Render for ExportWindow {
+    fn render(
+        &mut self,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let theme = cx.theme().clone();
+
+        div()
+            .col_full()
+            .child(
+                div()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .justify_between()
+                    .px_8()
+                    .py_5()
+                    .bg(theme.secondary)
+                    .border_b_1()
+                    .border_color(theme.border)
+                    .child(div().text_xl().font_semibold().child("数据导出")),
+            )
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .size_full()
+                    .child(div().flex_1().overflow_hidden().child(self.render_form(&theme, cx))),
+            )
+            .child(
+                div()
+                    .relative()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .justify_end()
+                    .px_8()
+                    .py_5()
+                    .gap_4()
+                    .bg(theme.secondary)
+                    .border_t_1()
+                    .border_color(theme.border)
+                    .child(
+                        Button::new("transfer-cancel")
+                            .outline()
+                            .label("取消")
+                            .on_click(cx.listener(|this: &mut ExportWindow, _ev, window, cx| {
+                                this.cancel(window, cx);
+                            })),
+                    ),
             )
     }
 }

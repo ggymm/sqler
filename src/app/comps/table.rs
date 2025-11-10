@@ -33,7 +33,7 @@ impl DataTable {
         cx.new(|cx| {
             Table::new(self, window, cx)
                 .with_size(Size::Small)
-                .border(true)
+                .border(false)
                 .stripe(false)
                 .sortable(false)
                 .col_movable(true)
