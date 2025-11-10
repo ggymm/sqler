@@ -20,7 +20,7 @@ use super::TransferFormat;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum TableOption {
     NewTable,
-    ExistingTable,
+    ExistTable,
 }
 
 impl TableOption {}
@@ -69,9 +69,9 @@ impl ImportMode {
 #[derive(Clone, Debug)]
 struct ImportFile {
     path: PathBuf,
-    table_option: TableOption,
-    new_table_name: Entity<InputState>,
-    selected_table: Entity<DropdownState<Vec<SharedString>>>,
+    option: TableOption,
+    new_table: Entity<InputState>,
+    exist_table: Entity<DropdownState<Vec<SharedString>>>,
     field_mappings: Vec<FieldMapping>,
 }
 
@@ -86,9 +86,9 @@ impl ImportFile {
 
         Self {
             path,
-            table_option: TableOption::NewTable,
-            new_table_name: cx.new(|cx| InputState::new(window, cx).default_value(&default_name)),
-            selected_table: cx.new(|cx| DropdownState::new(tables, None, window, cx)),
+            option: TableOption::NewTable,
+            new_table: cx.new(|cx| InputState::new(window, cx).default_value(&default_name)),
+            exist_table: cx.new(|cx| DropdownState::new(tables, None, window, cx)),
             field_mappings: Self::default_mappings(),
         }
     }
@@ -97,7 +97,7 @@ impl ImportFile {
         self.path
             .file_name()
             .and_then(|s| s.to_str())
-            .unwrap_or("未命名文件")
+            .unwrap_or("")
             .to_string()
             .into()
     }
@@ -211,12 +211,14 @@ pub struct ImportWindow {
     tables: Vec<SharedString>,
 
     format: Entity<DropdownState<Vec<SharedString>>>,
+    col_index: Entity<InputState>,
+    data_index: Entity<InputState>,
     row_delimiter: Entity<InputState>,
-    column_delimiter: Entity<InputState>,
-    header_row: Entity<InputState>,
-    data_start_row: Entity<InputState>,
-    import_mode: Entity<DropdownState<Vec<SharedString>>>,
+    col_delimiter: Entity<InputState>,
+
     mapping_selector: Entity<DropdownState<Vec<SharedString>>>,
+
+    import_mode: Entity<DropdownState<Vec<SharedString>>>,
 }
 
 impl ImportWindow {
@@ -252,12 +254,14 @@ impl ImportWindow {
             tables: tables.clone(),
 
             format: cx.new(|cx| DropdownState::new(formats, Some(IndexPath::new(0)), window, cx)),
+            col_index: cx.new(|cx| InputState::new(window, cx).default_value("1")),
+            data_index: cx.new(|cx| InputState::new(window, cx).default_value("2")),
             row_delimiter: cx.new(|cx| InputState::new(window, cx).default_value("\\n")),
-            column_delimiter: cx.new(|cx| InputState::new(window, cx).default_value(",")),
-            header_row: cx.new(|cx| InputState::new(window, cx).default_value("1")),
-            data_start_row: cx.new(|cx| InputState::new(window, cx).default_value("2")),
-            import_mode: cx.new(|cx| DropdownState::new(import_modes, Some(IndexPath::new(0)), window, cx)),
+            col_delimiter: cx.new(|cx| InputState::new(window, cx).default_value(",")),
+
             mapping_selector: cx.new(|cx| DropdownState::new(Vec::<SharedString>::new(), None, window, cx)),
+
+            import_mode: cx.new(|cx| DropdownState::new(import_modes, Some(IndexPath::new(0)), window, cx)),
         }
     }
 
@@ -306,7 +310,7 @@ impl ImportWindow {
         cx: &mut Context<Self>,
     ) {
         if index < self.files.len() {
-            self.files[index].table_option = option;
+            self.files[index].option = option;
             cx.notify();
         }
     }
@@ -420,43 +424,30 @@ impl ImportWindow {
                     .layout(Axis::Horizontal)
                     .with_size(Size::Large)
                     .label_width(px(120.))
-                    .child(form_field().label("文件类型").child(Dropdown::new(&self.format))),
-            )
-            .when(matches!(format, Some(TransferFormat::Csv)), |this| {
-                this.child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap_3()
-                        .child(div().text_base().font_semibold().child("CSV 额外参数"))
+                    .child(form_field().label("文件类型").child(Dropdown::new(&self.format)))
+                    .when(matches!(format, Some(TransferFormat::Csv)), |this| {
+                        this.child(
+                            form_field()
+                                .label("字段行")
+                                .child(TextInput::new(&self.col_index).cleanable()),
+                        )
                         .child(
-                            Form::vertical()
-                                .layout(Axis::Horizontal)
-                                .with_size(Size::Large)
-                                .label_width(px(120.))
-                                .child(
-                                    form_field()
-                                        .label("行分隔符")
-                                        .child(TextInput::new(&self.row_delimiter).cleanable()),
-                                )
-                                .child(
-                                    form_field()
-                                        .label("列分隔符")
-                                        .child(TextInput::new(&self.column_delimiter).cleanable()),
-                                )
-                                .child(
-                                    form_field()
-                                        .label("字段行")
-                                        .child(TextInput::new(&self.header_row).cleanable()),
-                                )
-                                .child(
-                                    form_field()
-                                        .label("数据起始行")
-                                        .child(TextInput::new(&self.data_start_row).cleanable()),
-                                ),
-                        ),
-                )
-            })
+                            form_field()
+                                .label("数据起始行")
+                                .child(TextInput::new(&self.data_index).cleanable()),
+                        )
+                        .child(
+                            form_field()
+                                .label("行分隔符")
+                                .child(TextInput::new(&self.row_delimiter).cleanable()),
+                        )
+                        .child(
+                            form_field()
+                                .label("列分隔符")
+                                .child(TextInput::new(&self.col_delimiter).cleanable()),
+                        )
+                    }),
+            )
             .into_any_element()
     }
 
@@ -464,89 +455,79 @@ impl ImportWindow {
         &self,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let theme = cx.theme().clone();
+        let theme = cx.theme();
+
         if self.files.is_empty() {
             return div()
-                .p_6()
-                .text_sm()
+                .text_base()
                 .text_color(theme.muted_foreground)
                 .child("请先在第一步选择文件")
                 .into_any_element();
         }
 
-        let header = div()
-            .flex()
-            .flex_row()
-            .items_center()
-            .px_4()
-            .py_2()
-            .bg(theme.table_head)
-            .text_sm()
-            .font_semibold()
-            .child(div().flex_1().child("源文件名"))
-            .child(div().flex_1().child("目标表设置"));
-        let rows = self.files.iter().enumerate().map(|(idx, file)| {
-            div()
-                .flex()
-                .flex_row()
-                .items_center()
-                .px_4()
-                .py_3()
-                .border_b_1()
-                .border_color(theme.border)
-                .child(
-                    div()
-                        .flex_1()
-                        .text_sm()
-                        .text_color(theme.foreground)
-                        .child(file.display_name()),
-                )
-                .child(
-                    div()
-                        .flex_1()
-                        .flex_col()
-                        .gap_2()
-                        .child(
-                            Switch::new(("target-switch", idx as u32))
-                                .label("新建表")
-                                .checked(file.table_option == TableOption::NewTable)
-                                .on_click(cx.listener({
-                                    let idx = idx;
-                                    move |this: &mut ImportWindow, checked, _window, cx| {
-                                        let option = if *checked {
-                                            TableOption::NewTable
-                                        } else {
-                                            TableOption::ExistingTable
-                                        };
-                                        this.toggle_file_table_option(idx, option, cx);
-                                    }
-                                })),
-                        )
-                        .child(match file.table_option {
-                            TableOption::NewTable => {
-                                TextInput::new(&file.new_table_name).cleanable().into_any_element()
-                            }
-                            TableOption::ExistingTable => Dropdown::new(&file.selected_table)
-                                .with_size(Size::Large)
-                                .into_any_element(),
-                        }),
-                )
-                .into_any_element()
-        });
-
         div()
-            .flex()
-            .flex_col()
-            .gap_3()
-            .p_6()
+            .col_full()
             .child(
                 div()
                     .border_1()
                     .border_color(theme.border)
                     .rounded_lg()
-                    .overflow_hidden()
-                    .child(header)
-                    .child(div().flex().flex_col().children(rows)),
+                    .child(
+                        div()
+                            .flex()
+                            .flex_row()
+                            .items_center()
+                            .p_4()
+                            .bg(theme.table_head)
+                            .child(div().flex_1().child("源文件名"))
+                            .child(div().flex_1().child("目标表设置")),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .children(self.files.iter().enumerate().map(|(i, file)| {
+                                div()
+                                    .flex()
+                                    .flex_row()
+                                    .items_center()
+                                    .p_4()
+                                    .border_t_1()
+                                    .border_color(theme.border)
+                                    .child(div().flex_1().child(file.display_name()))
+                                    .child(
+                                        div()
+                                            .flex()
+                                            .flex_1()
+                                            .flex_row()
+                                            .items_center()
+                                            .gap_2()
+                                            .child(match file.option {
+                                                TableOption::NewTable => {
+                                                    TextInput::new(&file.new_table).cleanable().into_any_element()
+                                                }
+                                                TableOption::ExistTable => {
+                                                    Dropdown::new(&file.exist_table).into_any_element()
+                                                }
+                                            })
+                                            .child(
+                                                Switch::new(("target-switch", i as u32))
+                                                    .label("新建表")
+                                                    .checked(file.option == TableOption::NewTable)
+                                                    .on_click(cx.listener({
+                                                        move |this: &mut ImportWindow, checked, _window, cx| {
+                                                            let option = if *checked {
+                                                                TableOption::NewTable
+                                                            } else {
+                                                                TableOption::ExistTable
+                                                            };
+                                                            this.toggle_file_table_option(i, option, cx);
+                                                        }
+                                                    })),
+                                            ),
+                                    )
+                            })),
+                    ),
             )
             .into_any_element()
     }
@@ -756,7 +737,7 @@ impl Render for ImportWindow {
         let content: AnyElement = match self.step {
             ImportStep::Files => self.render_files_step(cx),   // 修改完成
             ImportStep::Format => self.render_format_step(cx), // 修改完成
-            ImportStep::Target => self.render_target_step(cx),
+            ImportStep::Target => self.render_target_step(cx), // 修改完成
             ImportStep::Mapping => self.render_mapping_step(cx),
             ImportStep::Mode => self.render_mode_step(cx),
         };
