@@ -171,7 +171,6 @@ impl SqlerApp {
 
     pub fn display_create_window(
         &mut self,
-        _window: &mut Window,
         cx: &mut Context<SqlerApp>,
     ) {
         if let Some(handle) = &self.create_window {
@@ -194,10 +193,10 @@ impl SqlerApp {
         };
 
         let parent = cx.weak_entity();
-        match cx.open_window(options, move |modal_window, app_cx| {
+        match cx.open_window(options, move |window, app_cx| {
             let parent = parent.clone();
-            let view = app_cx.new(|cx| CreateWindow::new(parent.clone(), modal_window, cx));
-            app_cx.new(|cx| Root::new(view.into(), modal_window, cx))
+            let view = app_cx.new(|cx| CreateWindow::new(parent.clone(), window, cx));
+            app_cx.new(|cx| Root::new(view.into(), window, cx))
         }) {
             Ok(handle) => {
                 let _ = handle.update(cx, |_, modal_window, _| {
@@ -217,9 +216,8 @@ impl SqlerApp {
 
     pub fn display_transfer_window(
         &mut self,
-        datasource: DataSource,
+        meta: DataSource,
         tables: Vec<SharedString>,
-        _window: &mut Window,
         cx: &mut Context<SqlerApp>,
     ) {
         if let Some(handle) = &self.transfer_window {
@@ -238,10 +236,10 @@ impl SqlerApp {
         };
 
         let parent = cx.weak_entity();
-        match cx.open_window(options, move |modal_window, app_cx| {
+        match cx.open_window(options, move |window, app_cx| {
             let parent = parent.clone();
-            let view = app_cx.new(|cx| TransferWindow::new(datasource, tables, parent.clone(), modal_window, cx));
-            app_cx.new(|cx| Root::new(view.into(), modal_window, cx))
+            let view = app_cx.new(|cx| TransferWindow::new(meta, tables, parent.clone(), window, cx));
+            app_cx.new(|cx| Root::new(view.into(), window, cx))
         }) {
             Ok(handle) => {
                 let _ = handle.update(cx, |_, modal_window, _| {
@@ -358,7 +356,7 @@ impl Render for SqlerApp {
                             .gap_5()
                             .child(Button::new("header-new-source").outline().label("新建数据源").on_click(
                                 cx.listener(|this, _, window, cx| {
-                                    this.display_create_window(window, cx);
+                                    this.display_create_window(cx);
                                 }),
                             ))
                             .child(

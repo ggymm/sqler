@@ -978,10 +978,25 @@ impl Render for CommonWorkspace {
                             .label("数据传输")
                             .on_click(cx.listener(|view: &mut Self, _, window, cx| {
                                 if let Some(parent) = view.parent.upgrade() {
-                                    let datasource = view.meta.clone();
+                                    let meta = view.meta.clone();
                                     let tables = view.tables.clone();
                                     let _ = parent.update(cx, |app, cx| {
-                                        app.display_transfer_window(datasource, tables, window, cx);
+                                        app.display_transfer_window(meta, tables, cx);
+                                    });
+                                }
+                            })),
+                    )
+                    .child(
+                        Button::new(comp_id(["common-header-transfer", id]))
+                            .outline()
+                            .icon(icon_transfer().with_size(Size::Small))
+                            .label("数据传输")
+                            .on_click(cx.listener(|view: &mut Self, _, window, cx| {
+                                if let Some(parent) = view.parent.upgrade() {
+                                    let meta = view.meta.clone();
+                                    let tables = view.tables.clone();
+                                    let _ = parent.update(cx, |app, cx| {
+                                        app.display_transfer_window(meta, tables, cx);
                                     });
                                 }
                             })),
