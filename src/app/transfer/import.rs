@@ -22,7 +22,6 @@ enum ImportStep {
     Kind,
     Files,
     Table,
-    Field,
     Import,
 }
 
@@ -32,7 +31,6 @@ impl ImportStep {
             ImportStep::Kind,
             ImportStep::Files,
             ImportStep::Table,
-            ImportStep::Field,
             ImportStep::Import,
         ]
     }
@@ -42,8 +40,7 @@ impl ImportStep {
             ImportStep::Kind => None,
             ImportStep::Files => Some(ImportStep::Kind),
             ImportStep::Table => Some(ImportStep::Files),
-            ImportStep::Field => Some(ImportStep::Table),
-            ImportStep::Import => Some(ImportStep::Field),
+            ImportStep::Import => Some(ImportStep::Table),
         }
     }
 
@@ -51,8 +48,7 @@ impl ImportStep {
         match self {
             ImportStep::Kind => Some(ImportStep::Files),
             ImportStep::Files => Some(ImportStep::Table),
-            ImportStep::Table => Some(ImportStep::Field),
-            ImportStep::Field => Some(ImportStep::Import),
+            ImportStep::Table => Some(ImportStep::Import),
             ImportStep::Import => None,
         }
     }
@@ -62,7 +58,6 @@ impl ImportStep {
             ImportStep::Kind => "文件类型",
             ImportStep::Files => "选择文件",
             ImportStep::Table => "目标表",
-            ImportStep::Field => "字段映射",
             ImportStep::Import => "导入模式",
         }
     }
@@ -72,7 +67,6 @@ impl ImportStep {
             ImportStep::Kind => "设置文件类型与参数",
             ImportStep::Files => "选择需要导入的文件",
             ImportStep::Table => "配置源文件与目标表",
-            ImportStep::Field => "确认字段对应关系",
             ImportStep::Import => "选择导入模式与进度",
         }
     }
@@ -113,7 +107,6 @@ impl ImportMode {
 struct ImportFile {
     path: PathBuf,
     option: TableOption,
-    fields: Vec<TableField>,
     new_table: Entity<InputState>,
     exist_table: Entity<DropdownState<Vec<SharedString>>>,
 }
@@ -130,7 +123,6 @@ impl ImportFile {
         Self {
             path,
             option: TableOption::NewTable,
-            fields: Self::default_mappings(),
             new_table: cx.new(|cx| InputState::new(window, cx).default_value(&default_name)),
             exist_table: cx.new(|cx| DropdownState::new(tables, None, window, cx)),
         }
@@ -143,49 +135,6 @@ impl ImportFile {
             .unwrap_or("unknown")
             .to_string()
             .into()
-    }
-
-    fn default_mappings() -> Vec<TableField> {
-        vec![
-            TableField::new("id"),
-            TableField::new("name"),
-            TableField::new("email"),
-            TableField::new("created_at"),
-            TableField::new("id"),
-            TableField::new("name"),
-            TableField::new("email"),
-            TableField::new("created_at"),
-            TableField::new("id"),
-            TableField::new("name"),
-            TableField::new("email"),
-            TableField::new("created_at"),
-            TableField::new("id"),
-            TableField::new("name"),
-            TableField::new("email"),
-            TableField::new("created_at"),
-        ]
-    }
-}
-
-#[derive(Clone, Debug)]
-struct TableField {
-    source_field: SharedString,
-    target_field: SharedString,
-    field_type: SharedString,
-    length: Option<u32>,
-    is_primary: bool,
-}
-
-impl TableField {
-    fn new(field: &str) -> Self {
-        let name: SharedString = field.to_string().into();
-        Self {
-            source_field: name.clone(),
-            target_field: name,
-            field_type: "VARCHAR".into(),
-            length: Some(255),
-            is_primary: false,
-        }
     }
 }
 
@@ -209,7 +158,6 @@ pub struct ImportWindow {
     col_delimiter: Entity<InputState>,
 
     file_kinds: Entity<DropdownState<Vec<SharedString>>>,
-    import_items: Entity<DropdownState<Vec<SharedString>>>,
     import_modes: Entity<DropdownState<Vec<SharedString>>>,
 }
 
@@ -248,19 +196,8 @@ impl ImportWindow {
             col_delimiter: cx.new(|cx| InputState::new(window, cx).default_value(",")),
 
             file_kinds: cx.new(|cx| DropdownState::new(file_kinds, Some(IndexPath::new(0)), window, cx)),
-            import_items: cx.new(|cx| DropdownState::new(Vec::<SharedString>::new(), None, window, cx)),
             import_modes: cx.new(|cx| DropdownState::new(import_modes, Some(IndexPath::new(0)), window, cx)),
         }
-    }
-
-    fn current_format(
-        &self,
-        cx: &Context<Self>,
-    ) -> Option<TransferKind> {
-        self.file_kinds
-            .read(cx)
-            .selected_value()
-            .and_then(|value| TransferKind::from_label(value.as_ref()))
     }
 
     fn choose_files(
@@ -281,8 +218,7 @@ impl ImportWindow {
                 let _ = cx.update(|window, cx| {
                     let _ = this.update(cx, |this, cx| {
                         for path in paths {
-                            let item = ImportFile::new(path, tables.clone(), window, cx);
-                            this.files.push(item);
+                            this.files.push(ImportFile::new(path, tables.clone(), window, cx));
                         }
                     });
                 });
@@ -295,7 +231,11 @@ impl ImportWindow {
         &self,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let format = self.current_format(cx);
+        let format = self
+            .file_kinds
+            .read(cx)
+            .selected_value()
+            .and_then(|value| TransferKind::from_label(value.as_ref()));
 
         div()
             .p_6()
@@ -370,7 +310,8 @@ impl ImportWindow {
                                     .flex_row()
                                     .items_center()
                                     .justify_between()
-                                    .p_4()
+                                    .px_4()
+                                    .py_2()
                                     .bg(theme.list)
                                     .hover(|this| this.bg(theme.list_hover))
                                     .child(
@@ -464,7 +405,7 @@ impl ImportWindow {
                                                 .flex()
                                                 .flex_row()
                                                 .items_center()
-                                                .gap_2()
+                                                .gap_4()
                                                 .child(match file.option {
                                                     TableOption::NewTable => {
                                                         TextInput::new(&file.new_table).cleanable().into_any_element()
@@ -504,120 +445,6 @@ impl ImportWindow {
             .into_any_element()
     }
 
-    fn render_field_step(
-        &self,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
-        if self.files.is_empty() {
-            return div().into_any_element();
-        }
-        let theme = cx.theme();
-        let index = self.import_items.read(cx).selected_index(cx).map(|i| i.row);
-
-        div()
-            .p_6()
-            .gap_4()
-            .col_full()
-            .child(
-                Form::vertical()
-                    .layout(Axis::Horizontal)
-                    .with_size(Size::Large)
-                    .label_width(px(120.))
-                    .child(
-                        form_field()
-                            .label("选择文件")
-                            .child(Dropdown::new(&self.import_items).placeholder("选择文件")),
-                    ),
-            )
-            .child({
-                if let Some(i) = index.filter(|&idx| idx < self.files.len()) {
-                    let file = &self.files[i];
-                    div()
-                        .flex()
-                        .flex_row()
-                        .items_center()
-                        .justify_between()
-                        .child(div().text_base().font_semibold().child(format!("文件 {}", file.name())))
-                        .child(
-                            Button::new(("refresh-mapping", i as u32))
-                                .outline()
-                                .label("刷新字段")
-                                .on_click(cx.listener({
-                                    move |this: &mut ImportWindow, _, _, cx| {
-                                        if let Some(file) = this.files.get_mut(i) {
-                                            file.fields = ImportFile::default_mappings();
-                                        }
-                                        cx.notify();
-                                    }
-                                })),
-                        )
-                } else {
-                    div()
-                }
-            })
-            .child({
-                if let Some(i) = index.filter(|&idx| idx < self.files.len()) {
-                    let file = &self.files[i];
-                    div()
-                        .col_full()
-                        .border_1()
-                        .border_color(theme.border)
-                        .rounded_lg()
-                        .child(
-                            div()
-                                .flex()
-                                .flex_row()
-                                .items_center()
-                                .p_2()
-                                .bg(theme.table_head)
-                                .child(div().flex_1().text_sm().font_semibold().child("源字段"))
-                                .child(div().flex_1().text_sm().font_semibold().child("目标字段"))
-                                .child(div().flex_1().text_sm().font_semibold().child("类型"))
-                                .child(div().w(px(100.)).text_sm().font_semibold().child("长度"))
-                                .child(div().w(px(80.)).text_sm().font_semibold().child("主键")),
-                        )
-                        .child(
-                            div()
-                                .col_full()
-                                .child(
-                                    div()
-                                        .col_full()
-                                        .scrollable(Axis::Vertical)
-                                        .children(file.fields.iter().map(|mapping| {
-                                            div()
-                                                .flex()
-                                                .flex_row()
-                                                .items_center()
-                                                .p_2()
-                                                .border_t_1()
-                                                .border_color(theme.border)
-                                                .child(div().flex_1().text_sm().child(mapping.source_field.clone()))
-                                                .child(div().flex_1().text_sm().child(mapping.target_field.clone()))
-                                                .child(div().flex_1().text_sm().child(mapping.field_type.clone()))
-                                                .child(
-                                                    div().w(px(100.)).text_sm().child(
-                                                        mapping
-                                                            .length
-                                                            .map(|l| l.to_string())
-                                                            .unwrap_or_else(|| "-".to_string()),
-                                                    ),
-                                                )
-                                                .child(div().w(px(80.)).text_sm().child(if mapping.is_primary {
-                                                    "是"
-                                                } else {
-                                                    "否"
-                                                }))
-                                                .into_any_element()
-                                        })),
-                                ),
-                        )
-                } else {
-                    div()
-                }
-            })
-            .into_any_element()
-    }
-
     fn render_mode_step(
         &self,
         cx: &mut Context<Self>,
@@ -639,7 +466,6 @@ impl ImportWindow {
                             .child(Dropdown::new(&self.import_modes).placeholder("选择导入模式")),
                     ),
             )
-            .child(div().text_base().font_semibold().child("导入进度"))
             .child(
                 div()
                     .col_full()
@@ -656,8 +482,8 @@ impl ImportWindow {
                                     .flex_row()
                                     .items_center()
                                     .justify_between()
-                                    .p_4()
-                                    .rounded_lg()
+                                    .px_4()
+                                    .py_2()
                                     .child(div().text_sm().child(file.name()))
                                     .child(div().text_sm().text_color(theme.muted_foreground).child("未开始"))
                             })),
@@ -670,25 +496,13 @@ impl ImportWindow {
 impl Render for ImportWindow {
     fn render(
         &mut self,
-        window: &mut Window,
+        _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let options: Vec<SharedString> = self
-            .files
-            .iter()
-            .enumerate()
-            .map(|(i, f)| format!("{}. {}", i + 1, f.name()).into())
-            .collect();
-        self.import_items.update(cx, |state, cx| {
-            state.set_items(options.clone(), window, cx);
-            // state.set_selected_index(None, window, cx);
-        });
-
         let content: AnyElement = match self.step {
             ImportStep::Files => self.render_files_step(cx),
             ImportStep::Kind => self.render_kind_step(cx),
             ImportStep::Table => self.render_table_step(cx),
-            ImportStep::Field => self.render_field_step(cx),
             ImportStep::Import => self.render_mode_step(cx),
         };
 
