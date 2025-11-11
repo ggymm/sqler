@@ -579,13 +579,14 @@ impl Render for ImportWindow {
                         Button::new("import-cancel")
                             .outline()
                             .label("取消")
-                            .on_click(cx.listener(|this: &mut ImportWindow, _, _, cx| {
+                            .on_click(cx.listener(|this: &mut ImportWindow, _, window, cx| {
                                 if let Some(parent) = this.parent.upgrade() {
                                     let _ = parent.update(cx, |app, cx| {
                                         app.close_import_window();
                                         cx.notify();
                                     });
                                 }
+                                window.remove_window();
                             })),
                     )
                     .child(div().flex_1())

@@ -41,19 +41,6 @@ impl ExportWindow {
         }
     }
 
-    fn cancel(
-        &self,
-        _window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if let Some(parent) = self.parent.upgrade() {
-            let _ = parent.update(cx, |app, cx| {
-                app.close_export_window();
-                cx.notify();
-            });
-        }
-    }
-
     fn select_format(
         &mut self,
         format: TransferKind,
@@ -195,7 +182,13 @@ impl Render for ExportWindow {
                             .outline()
                             .label("取消")
                             .on_click(cx.listener(|this: &mut ExportWindow, _, window, cx| {
-                                this.cancel(window, cx);
+                                if let Some(parent) = this.parent.upgrade() {
+                                    let _ = parent.update(cx, |app, cx| {
+                                        app.close_export_window();
+                                        cx.notify();
+                                    });
+                                }
+                                window.remove_window()
                             })),
                     ),
             )
