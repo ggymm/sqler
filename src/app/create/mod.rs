@@ -278,7 +278,7 @@ impl Render for CreateWindow {
                                             .child(div().text_sm().child(kind.description())),
                                     )
                                     .on_click(cx.listener({
-                                        move |this: &mut CreateWindow, _ev, _window, cx| {
+                                        move |this: &mut CreateWindow, _, _, cx| {
                                             if this.kind != Some(*kind) {
                                                 this.kind = Some(*kind);
                                                 this.status = None;
@@ -309,7 +309,7 @@ impl Render for CreateWindow {
                         Button::new("datasource-check-connection")
                             .outline()
                             .label("测试连接")
-                            .on_click(cx.listener(|this: &mut CreateWindow, _ev, window, cx| {
+                            .on_click(cx.listener(|this: &mut CreateWindow, _, window, cx| {
                                 this.check_conn(window, cx);
                             })),
                     )
@@ -323,7 +323,7 @@ impl Render for CreateWindow {
                                 Button::new("datasource-create-back")
                                     .outline()
                                     .label("上一步")
-                                    .on_click(cx.listener(|this: &mut CreateWindow, _ev, _window, cx| {
+                                    .on_click(cx.listener(|this: &mut CreateWindow, _, _, cx| {
                                         if this.kind.take().is_some() {
                                             cx.notify();
                                         }
@@ -333,7 +333,7 @@ impl Render for CreateWindow {
                                 Button::new("datasource-create-cancel")
                                     .outline()
                                     .label("取消")
-                                    .on_click(cx.listener(|this: &mut CreateWindow, _ev, window, cx| {
+                                    .on_click(cx.listener(|this: &mut CreateWindow, _, window, cx| {
                                         this.cancel(window, cx);
                                     })),
                             )
@@ -341,7 +341,7 @@ impl Render for CreateWindow {
                                 Button::new("datasource-create-confirm")
                                     .outline()
                                     .label("保存")
-                                    .on_click(cx.listener(|this: &mut CreateWindow, _ev, window, cx| {
+                                    .on_click(cx.listener(|this: &mut CreateWindow, _, window, cx| {
                                         this.create_conn(window, cx);
                                     })),
                             ),

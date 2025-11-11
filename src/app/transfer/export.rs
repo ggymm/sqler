@@ -136,7 +136,7 @@ impl ExportWindow {
                             )
                             .on_click(cx.listener({
                                 let fmt = *fmt;
-                                move |this: &mut ExportWindow, _ev, _window, cx| {
+                                move |this: &mut ExportWindow, _, _, cx| {
                                     this.select_format(fmt, cx);
                                 }
                             }))
@@ -194,7 +194,7 @@ impl Render for ExportWindow {
                         Button::new("transfer-cancel")
                             .outline()
                             .label("取消")
-                            .on_click(cx.listener(|this: &mut ExportWindow, _ev, window, cx| {
+                            .on_click(cx.listener(|this: &mut ExportWindow, _, window, cx| {
                                 this.cancel(window, cx);
                             })),
                     ),

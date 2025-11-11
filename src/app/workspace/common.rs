@@ -410,7 +410,7 @@ impl CommonWorkspace {
                 .await;
 
             // 更新 UI
-            let _ = cx.update(|_window, cx| {
+            let _ = cx.update(|_, cx| {
                 let _ = this.update(cx, |this, cx| match result {
                     Ok((data, session)) => {
                         this.session = Some(session);

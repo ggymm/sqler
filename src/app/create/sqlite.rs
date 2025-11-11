@@ -89,7 +89,7 @@ impl Render for SQLiteCreate {
                             .items_center()
                             .child(TextInput::new(&self.filepath).cleanable())
                             .child(Button::new("sqlite-choose-file").outline().label("选择文件").on_click(
-                                cx.listener(|this: &mut SQLiteCreate, _ev, window, cx| {
+                                cx.listener(|this: &mut SQLiteCreate, _, window, cx| {
                                     this.choose_file(window, cx);
                                 }),
                             )),

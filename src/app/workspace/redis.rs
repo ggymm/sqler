@@ -206,7 +206,7 @@ impl RedisWorkspace {
                             .label("执行")
                             .on_click(cx.listener({
                                 let tab_id = tab_id.clone();
-                                move |_view, _, _window, cx| {
+                                move |_view, _, _, cx| {
                                     // TODO: 实现命令执行逻辑
                                     cx.notify();
                                 }
