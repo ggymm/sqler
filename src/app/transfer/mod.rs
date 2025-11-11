@@ -5,38 +5,38 @@ pub use export::ExportWindow;
 pub use import::ImportWindow;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum TransferFormat {
+pub enum TransferKind {
     Csv,
     Json,
     Sql,
 }
 
-impl TransferFormat {
-    pub fn all() -> &'static [TransferFormat] {
-        &[TransferFormat::Csv, TransferFormat::Json, TransferFormat::Sql]
+impl TransferKind {
+    pub fn all() -> &'static [TransferKind] {
+        &[TransferKind::Csv, TransferKind::Json, TransferKind::Sql]
     }
 
     pub fn label(&self) -> &'static str {
         match self {
-            TransferFormat::Csv => "CSV",
-            TransferFormat::Json => "JSON",
-            TransferFormat::Sql => "SQL",
+            TransferKind::Csv => "CSV",
+            TransferKind::Json => "JSON",
+            TransferKind::Sql => "SQL",
         }
     }
 
     pub fn description(&self) -> &'static str {
         match self {
-            TransferFormat::Csv => "逗号分隔值文件，适用于表格数据",
-            TransferFormat::Json => "JSON 格式文件，适用于结构化数据",
-            TransferFormat::Sql => "SQL 脚本文件，包含完整的建表和插入语句",
+            TransferKind::Csv => "逗号分隔值文件，适用于表格数据",
+            TransferKind::Json => "JSON 格式文件，适用于结构化数据",
+            TransferKind::Sql => "SQL 脚本文件，包含完整的建表和插入语句",
         }
     }
 
     pub fn from_label(label: &str) -> Option<Self> {
         match label {
-            "CSV" => Some(TransferFormat::Csv),
-            "JSON" => Some(TransferFormat::Json),
-            "SQL" => Some(TransferFormat::Sql),
+            "CSV" => Some(TransferKind::Csv),
+            "JSON" => Some(TransferKind::Json),
+            "SQL" => Some(TransferKind::Sql),
             _ => None,
         }
     }

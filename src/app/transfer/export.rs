@@ -8,11 +8,11 @@ use gpui_component::{
 
 use crate::app::{comps::DivExt, SqlerApp};
 
-use super::TransferFormat;
+use super::TransferKind;
 
 pub struct ExportWindow {
     parent: WeakEntity<SqlerApp>,
-    format: Option<TransferFormat>,
+    format: Option<TransferKind>,
     file_path: Entity<InputState>,
     table_name: Entity<InputState>,
 }
@@ -56,7 +56,7 @@ impl ExportWindow {
 
     fn select_format(
         &mut self,
-        format: TransferFormat,
+        format: TransferKind,
         cx: &mut Context<Self>,
     ) {
         self.format = Some(format);
@@ -100,7 +100,7 @@ impl ExportWindow {
                     .child(div().text_base().font_semibold().child("选择导出格式")),
             )
             .children(
-                TransferFormat::all()
+                TransferKind::all()
                     .iter()
                     .map(|fmt| {
                         let is_selected = selected_format == Some(*fmt);

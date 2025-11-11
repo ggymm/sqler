@@ -15,15 +15,68 @@ use crate::{
     model::DataSource,
 };
 
-use super::TransferFormat;
+use super::TransferKind;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum TableOption {
-    NewTable,
-    ExistTable,
+enum ImportStep {
+    Files,
+    Kind,
+    Table,
+    Field,
+    Import,
 }
 
-impl TableOption {}
+impl ImportStep {
+    fn all() -> &'static [ImportStep] {
+        &[
+            ImportStep::Files,
+            ImportStep::Kind,
+            ImportStep::Table,
+            ImportStep::Field,
+            ImportStep::Import,
+        ]
+    }
+
+    fn prev(self) -> Option<Self> {
+        match self {
+            ImportStep::Files => None,
+            ImportStep::Kind => Some(ImportStep::Files),
+            ImportStep::Table => Some(ImportStep::Kind),
+            ImportStep::Field => Some(ImportStep::Table),
+            ImportStep::Import => Some(ImportStep::Field),
+        }
+    }
+
+    fn next(self) -> Option<Self> {
+        match self {
+            ImportStep::Files => Some(ImportStep::Kind),
+            ImportStep::Kind => Some(ImportStep::Table),
+            ImportStep::Table => Some(ImportStep::Field),
+            ImportStep::Field => Some(ImportStep::Import),
+            ImportStep::Import => None,
+        }
+    }
+
+    fn title(&self) -> &'static str {
+        match self {
+            ImportStep::Files => "选择文件",
+            ImportStep::Kind => "文件类型",
+            ImportStep::Table => "目标表",
+            ImportStep::Field => "字段映射",
+            ImportStep::Import => "导入模式",
+        }
+    }
+
+    fn description(&self) -> &'static str {
+        match self {
+            ImportStep::Files => "选择需要导入的文件",
+            ImportStep::Kind => "设置文件类型与参数",
+            ImportStep::Table => "配置源文件与目标表",
+            ImportStep::Field => "确认字段对应关系",
+            ImportStep::Import => "选择导入模式与进度",
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ImportMode {
@@ -35,26 +88,6 @@ enum ImportMode {
 }
 
 impl ImportMode {
-    fn label(&self) -> &'static str {
-        match self {
-            ImportMode::Replace => "替换",
-            ImportMode::Append => "追加",
-            ImportMode::Update => "更新",
-            ImportMode::AppendOrUpdate => "追加或更新",
-            ImportMode::AppendNoUpdate => "追加不更新",
-        }
-    }
-
-    fn description(&self) -> &'static str {
-        match self {
-            ImportMode::Replace => "清空表后导入新数据",
-            ImportMode::Append => "在表末尾追加新数据",
-            ImportMode::Update => "更新已存在的数据",
-            ImportMode::AppendOrUpdate => "存在则更新，不存在则追加",
-            ImportMode::AppendNoUpdate => "仅追加不存在的数据",
-        }
-    }
-
     fn all() -> Vec<Self> {
         vec![
             Self::Replace,
@@ -64,15 +97,25 @@ impl ImportMode {
             Self::AppendNoUpdate,
         ]
     }
+
+    fn label(&self) -> &'static str {
+        match self {
+            ImportMode::Replace => "替换 - 清空表后导入新数据",
+            ImportMode::Append => "追加 - 在表末尾追加新数据",
+            ImportMode::Update => "更新 - 更新已存在的数据",
+            ImportMode::AppendOrUpdate => "追加或更新 - 存在则更新，不存在则追加",
+            ImportMode::AppendNoUpdate => "追加不更新 - 仅追加不存在的数据",
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
 struct ImportFile {
     path: PathBuf,
     option: TableOption,
+    fields: Vec<TableField>,
     new_table: Entity<InputState>,
     exist_table: Entity<DropdownState<Vec<SharedString>>>,
-    field_mappings: Vec<FieldMapping>,
 }
 
 impl ImportFile {
@@ -87,9 +130,9 @@ impl ImportFile {
         Self {
             path,
             option: TableOption::NewTable,
+            fields: Self::default_mappings(),
             new_table: cx.new(|cx| InputState::new(window, cx).default_value(&default_name)),
             exist_table: cx.new(|cx| DropdownState::new(tables, None, window, cx)),
-            field_mappings: Self::default_mappings(),
         }
     }
 
@@ -102,25 +145,18 @@ impl ImportFile {
             .into()
     }
 
-    fn option_label(
-        &self,
-        index: usize,
-    ) -> SharedString {
-        format!("{} (文件 {})", self.display_name(), index + 1).into()
-    }
-
-    fn default_mappings() -> Vec<FieldMapping> {
+    fn default_mappings() -> Vec<TableField> {
         vec![
-            FieldMapping::new("id"),
-            FieldMapping::new("name"),
-            FieldMapping::new("email"),
-            FieldMapping::new("created_at"),
+            TableField::new("id"),
+            TableField::new("name"),
+            TableField::new("email"),
+            TableField::new("created_at"),
         ]
     }
 }
 
 #[derive(Clone, Debug)]
-struct FieldMapping {
+struct TableField {
     source_field: SharedString,
     target_field: SharedString,
     field_type: SharedString,
@@ -128,7 +164,7 @@ struct FieldMapping {
     is_primary: bool,
 }
 
-impl FieldMapping {
+impl TableField {
     fn new(field: &str) -> Self {
         let name: SharedString = field.to_string().into();
         Self {
@@ -142,83 +178,27 @@ impl FieldMapping {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum ImportStep {
-    Files,
-    Format,
-    Target,
-    Mapping,
-    Mode,
-}
-
-impl ImportStep {
-    fn all() -> &'static [ImportStep] {
-        &[
-            ImportStep::Files,
-            ImportStep::Format,
-            ImportStep::Target,
-            ImportStep::Mapping,
-            ImportStep::Mode,
-        ]
-    }
-
-    fn title(&self) -> &'static str {
-        match self {
-            ImportStep::Files => "选择文件",
-            ImportStep::Format => "文件类型",
-            ImportStep::Target => "目标表",
-            ImportStep::Mapping => "字段映射",
-            ImportStep::Mode => "导入模式",
-        }
-    }
-
-    fn description(&self) -> &'static str {
-        match self {
-            ImportStep::Files => "选择需要导入的文件",
-            ImportStep::Format => "设置文件类型与参数",
-            ImportStep::Target => "配置源文件与目标表",
-            ImportStep::Mapping => "确认字段对应关系",
-            ImportStep::Mode => "选择导入模式与进度",
-        }
-    }
-
-    fn next(self) -> Option<Self> {
-        match self {
-            ImportStep::Files => Some(ImportStep::Format),
-            ImportStep::Format => Some(ImportStep::Target),
-            ImportStep::Target => Some(ImportStep::Mapping),
-            ImportStep::Mapping => Some(ImportStep::Mode),
-            ImportStep::Mode => None,
-        }
-    }
-
-    fn prev(self) -> Option<Self> {
-        match self {
-            ImportStep::Files => None,
-            ImportStep::Format => Some(ImportStep::Files),
-            ImportStep::Target => Some(ImportStep::Format),
-            ImportStep::Mapping => Some(ImportStep::Target),
-            ImportStep::Mode => Some(ImportStep::Mapping),
-        }
-    }
+enum TableOption {
+    NewTable,
+    ExistTable,
 }
 
 pub struct ImportWindow {
     meta: DataSource,
-    step: ImportStep,
     parent: WeakEntity<SqlerApp>,
 
+    step: ImportStep,
     files: Vec<ImportFile>,
     tables: Vec<SharedString>,
 
-    format: Entity<DropdownState<Vec<SharedString>>>,
+    file_kinds: Entity<DropdownState<Vec<SharedString>>>,
     col_index: Entity<InputState>,
     data_index: Entity<InputState>,
     row_delimiter: Entity<InputState>,
     col_delimiter: Entity<InputState>,
 
-    mapping_selector: Entity<DropdownState<Vec<SharedString>>>,
-
-    import_mode: Entity<DropdownState<Vec<SharedString>>>,
+    import_items: Entity<DropdownState<Vec<SharedString>>>,
+    import_modes: Entity<DropdownState<Vec<SharedString>>>,
 }
 
 impl ImportWindow {
@@ -239,40 +219,36 @@ impl ImportWindow {
             }
         });
 
-        let formats: Vec<SharedString> = TransferFormat::all().iter().map(|f| f.label().into()).collect();
-        let import_modes: Vec<SharedString> = ImportMode::all()
-            .iter()
-            .map(|m| format!("{} - {}", m.label(), m.description()).into())
-            .collect();
+        let file_kinds: Vec<SharedString> = TransferKind::all().iter().map(|f| f.label().into()).collect();
+        let import_modes: Vec<SharedString> = ImportMode::all().iter().map(|m| m.label().into()).collect();
 
         Self {
             meta,
-            step: ImportStep::Files,
             parent,
 
+            step: ImportStep::Files,
             files: Vec::new(),
             tables: tables.clone(),
 
-            format: cx.new(|cx| DropdownState::new(formats, Some(IndexPath::new(0)), window, cx)),
+            file_kinds: cx.new(|cx| DropdownState::new(file_kinds, Some(IndexPath::new(0)), window, cx)),
             col_index: cx.new(|cx| InputState::new(window, cx).default_value("1")),
             data_index: cx.new(|cx| InputState::new(window, cx).default_value("2")),
             row_delimiter: cx.new(|cx| InputState::new(window, cx).default_value("\\n")),
             col_delimiter: cx.new(|cx| InputState::new(window, cx).default_value(",")),
 
-            mapping_selector: cx.new(|cx| DropdownState::new(Vec::<SharedString>::new(), None, window, cx)),
-
-            import_mode: cx.new(|cx| DropdownState::new(import_modes, Some(IndexPath::new(0)), window, cx)),
+            import_items: cx.new(|cx| DropdownState::new(Vec::<SharedString>::new(), None, window, cx)),
+            import_modes: cx.new(|cx| DropdownState::new(import_modes, Some(IndexPath::new(0)), window, cx)),
         }
     }
 
     fn current_format(
         &self,
         cx: &Context<Self>,
-    ) -> Option<TransferFormat> {
-        self.format
+    ) -> Option<TransferKind> {
+        self.file_kinds
             .read(cx)
             .selected_value()
-            .and_then(|value| TransferFormat::from_label(value.as_ref()))
+            .and_then(|value| TransferKind::from_label(value.as_ref()))
     }
 
     fn choose_files(
@@ -303,18 +279,6 @@ impl ImportWindow {
         .detach();
     }
 
-    fn toggle_file_table_option(
-        &mut self,
-        index: usize,
-        option: TableOption,
-        cx: &mut Context<Self>,
-    ) {
-        if index < self.files.len() {
-            self.files[index].option = option;
-            cx.notify();
-        }
-    }
-
     fn sync_mapping_selector(
         &mut self,
         window: &mut Window,
@@ -324,37 +288,24 @@ impl ImportWindow {
             .files
             .iter()
             .enumerate()
-            .map(|(idx, file)| file.option_label(idx))
+            .map(|(i, file)| format!("{} (文件 {})", file.display_name(), i + 1).into())
             .collect();
 
-        let current_value = self.mapping_selector.read(cx).selected_value().cloned();
-
-        self.mapping_selector.update(cx, |state, cx| {
+        self.import_items.update(cx, |state, cx| {
             state.set_items(options.clone(), window, cx);
-            if let Some(value) = current_value
-                .as_ref()
-                .filter(|value| options.iter().any(|item| item == *value))
-                .cloned()
-            {
-                state.set_selected_value(&value, window, cx);
-            } else if let Some(value) = options.first() {
-                state.set_selected_value(value, window, cx);
-            } else {
+            if options.is_empty() {
                 state.set_selected_index(None, window, cx);
+            } else {
+                let selected_index = self
+                    .import_items
+                    .read(cx)
+                    .selected_index(cx)
+                    .map(|i| i.row)
+                    .unwrap_or(0)
+                    .min(self.files.len() - 1);
+                state.set_selected_index(Some(IndexPath::new(selected_index)), window, cx);
             }
         });
-    }
-
-    fn mapping_selected_index(
-        &self,
-        cx: &App,
-    ) -> Option<usize> {
-        let selected = self.mapping_selector.read(cx).selected_value()?.clone();
-        self.files
-            .iter()
-            .enumerate()
-            .find(|(idx, file)| file.option_label(*idx) == selected)
-            .map(|(idx, _)| idx)
     }
 
     fn render_files_step(
@@ -411,7 +362,7 @@ impl ImportWindow {
             .into_any_element()
     }
 
-    fn render_format_step(
+    fn render_kind_step(
         &self,
         cx: &mut Context<Self>,
     ) -> AnyElement {
@@ -424,8 +375,8 @@ impl ImportWindow {
                     .layout(Axis::Horizontal)
                     .with_size(Size::Large)
                     .label_width(px(120.))
-                    .child(form_field().label("文件类型").child(Dropdown::new(&self.format)))
-                    .when(matches!(format, Some(TransferFormat::Csv)), |this| {
+                    .child(form_field().label("文件类型").child(Dropdown::new(&self.file_kinds)))
+                    .when(matches!(format, Some(TransferKind::Csv)), |this| {
                         this.child(
                             form_field()
                                 .label("字段行")
@@ -451,7 +402,7 @@ impl ImportWindow {
             .into_any_element()
     }
 
-    fn render_target_step(
+    fn render_table_step(
         &self,
         cx: &mut Context<Self>,
     ) -> AnyElement {
@@ -521,7 +472,10 @@ impl ImportWindow {
                                                             } else {
                                                                 TableOption::ExistTable
                                                             };
-                                                            this.toggle_file_table_option(i, option, cx);
+                                                            if i < this.files.len() {
+                                                                this.files[i].option = option;
+                                                                cx.notify();
+                                                            }
                                                         }
                                                     })),
                                             ),
@@ -532,7 +486,7 @@ impl ImportWindow {
             .into_any_element()
     }
 
-    fn render_mapping_step(
+    fn render_field_step(
         &self,
         cx: &mut Context<Self>,
     ) -> AnyElement {
@@ -546,7 +500,14 @@ impl ImportWindow {
                 .into_any_element();
         }
 
-        let selected_index = self.mapping_selected_index(cx).unwrap_or(0).min(self.files.len() - 1);
+        let selected_index = self
+            .import_items
+            .read(cx)
+            .selected_index(cx)
+            .map(|i| i.row)
+            .unwrap_or(0)
+            .min(self.files.len() - 1);
+
         let file = &self.files[selected_index];
 
         div()
@@ -561,7 +522,7 @@ impl ImportWindow {
                     .label_width(px(120.))
                     .child(
                         form_field().label("选择文件").child(
-                            Dropdown::new(&self.mapping_selector)
+                            Dropdown::new(&self.import_items)
                                 .with_size(Size::Large)
                                 .placeholder("请选择文件"),
                         ),
@@ -598,7 +559,7 @@ impl ImportWindow {
                                         let idx = selected_index;
                                         move |this: &mut ImportWindow, _ev, _window, cx| {
                                             if let Some(file) = this.files.get_mut(idx) {
-                                                file.field_mappings = ImportFile::default_mappings();
+                                                file.fields = ImportFile::default_mappings();
                                             }
                                             cx.notify();
                                         }
@@ -625,7 +586,7 @@ impl ImportWindow {
                                     .child(div().w(px(100.)).px_4().py_3().text_sm().font_semibold().child("长度"))
                                     .child(div().w(px(80.)).px_4().py_3().text_sm().font_semibold().child("主键")),
                             )
-                            .children(file.field_mappings.iter().map(|mapping| {
+                            .children(file.fields.iter().map(|mapping| {
                                 div()
                                     .flex()
                                     .flex_row()
@@ -682,7 +643,7 @@ impl ImportWindow {
                     .child(
                         form_field()
                             .label("导入模式")
-                            .child(Dropdown::new(&self.import_mode).with_size(Size::Large)),
+                            .child(Dropdown::new(&self.import_modes).with_size(Size::Large)),
                     ),
             )
             .child(
@@ -735,11 +696,11 @@ impl Render for ImportWindow {
         let theme = cx.theme().clone();
 
         let content: AnyElement = match self.step {
-            ImportStep::Files => self.render_files_step(cx),   // 修改完成
-            ImportStep::Format => self.render_format_step(cx), // 修改完成
-            ImportStep::Target => self.render_target_step(cx), // 修改完成
-            ImportStep::Mapping => self.render_mapping_step(cx),
-            ImportStep::Mode => self.render_mode_step(cx),
+            ImportStep::Files => self.render_files_step(cx), // 修改完成
+            ImportStep::Kind => self.render_kind_step(cx),   // 修改完成
+            ImportStep::Table => self.render_table_step(cx), // 修改完成
+            ImportStep::Field => self.render_field_step(cx),
+            ImportStep::Import => self.render_mode_step(cx),
         };
 
         div()
