@@ -136,13 +136,20 @@ impl ImportFile {
         }
     }
 
-    fn display_name(&self) -> SharedString {
+    fn name(&self) -> SharedString {
         self.path
             .file_name()
             .and_then(|s| s.to_str())
-            .unwrap_or("")
+            .unwrap_or("unknown")
             .to_string()
             .into()
+    }
+
+    fn label(
+        &self,
+        i: usize,
+    ) -> SharedString {
+        format!("{} (文件 {})", self.name(), i + 1).into()
     }
 
     fn default_mappings() -> Vec<TableField> {
@@ -279,35 +286,6 @@ impl ImportWindow {
         .detach();
     }
 
-    fn sync_mapping_selector(
-        &mut self,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let options: Vec<SharedString> = self
-            .files
-            .iter()
-            .enumerate()
-            .map(|(i, file)| format!("{} (文件 {})", file.display_name(), i + 1).into())
-            .collect();
-
-        self.import_items.update(cx, |state, cx| {
-            state.set_items(options.clone(), window, cx);
-            if options.is_empty() {
-                state.set_selected_index(None, window, cx);
-            } else {
-                let selected_index = self
-                    .import_items
-                    .read(cx)
-                    .selected_index(cx)
-                    .map(|i| i.row)
-                    .unwrap_or(0)
-                    .min(self.files.len() - 1);
-                state.set_selected_index(Some(IndexPath::new(selected_index)), window, cx);
-            }
-        });
-    }
-
     fn render_files_step(
         &self,
         cx: &mut Context<Self>,
@@ -341,6 +319,7 @@ impl ImportWindow {
                             .rounded_lg()
                             .child(
                                 div()
+                                    .text_sm()
                                     .text_color(theme.foreground)
                                     .child(file.path.display().to_string()),
                             )
@@ -430,8 +409,8 @@ impl ImportWindow {
                             .items_center()
                             .p_4()
                             .bg(theme.table_head)
-                            .child(div().flex_1().child("源文件名"))
-                            .child(div().flex_1().child("目标表设置")),
+                            .child(div().flex_1().text_sm().child("源文件名"))
+                            .child(div().flex_1().text_sm().child("目标表设置")),
                     )
                     .child(
                         div()
@@ -445,7 +424,7 @@ impl ImportWindow {
                                     .p_4()
                                     .border_t_1()
                                     .border_color(theme.border)
-                                    .child(div().flex_1().child(file.display_name()))
+                                    .child(div().flex_1().text_sm().child(file.name()))
                                     .child(
                                         div()
                                             .flex()
@@ -490,10 +469,10 @@ impl ImportWindow {
         &self,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let theme = cx.theme().clone();
+        let theme = cx.theme();
+
         if self.files.is_empty() {
             return div()
-                .p_6()
                 .text_sm()
                 .text_color(theme.muted_foreground)
                 .child("暂无文件可配置字段")
@@ -511,46 +490,30 @@ impl ImportWindow {
         let file = &self.files[selected_index];
 
         div()
-            .flex()
-            .flex_col()
-            .gap_4()
-            .p_6()
+            .col_full()
             .child(
                 Form::vertical()
                     .layout(Axis::Horizontal)
                     .with_size(Size::Large)
                     .label_width(px(120.))
                     .child(
-                        form_field().label("选择文件").child(
-                            Dropdown::new(&self.import_items)
-                                .with_size(Size::Large)
-                                .placeholder("请选择文件"),
-                        ),
+                        form_field()
+                            .label("选择文件")
+                            .child(Dropdown::new(&self.import_items).placeholder("请选择文件")),
                     ),
             )
             .child(
                 div()
                     .flex()
                     .flex_col()
-                    .gap_3()
-                    .p_4()
                     .rounded_lg()
-                    .border_1()
-                    .border_color(theme.border)
-                    .bg(theme.list)
-                    .child(
-                        div()
-                            .text_base()
-                            .font_semibold()
-                            .child(format!("文件 {}", file.display_name())),
-                    )
                     .child(
                         div()
                             .flex()
                             .flex_row()
                             .items_center()
                             .justify_between()
-                            .child(div().text_sm().text_color(theme.muted_foreground).child("字段对应关系"))
+                            .child(div().text_base().font_semibold().child(format!("文件 {}", file.name())))
                             .child(
                                 Button::new(("refresh-mapping", selected_index as u32))
                                     .outline()
@@ -572,7 +535,6 @@ impl ImportWindow {
                             .border_1()
                             .border_color(theme.border)
                             .rounded_lg()
-                            .overflow_hidden()
                             .child(
                                 div()
                                     .flex()
@@ -675,7 +637,7 @@ impl ImportWindow {
                                     .rounded_md()
                                     .border_1()
                                     .border_color(theme.border)
-                                    .child(div().text_sm().child(file.display_name()))
+                                    .child(div().text_sm().child(file.name()))
                                     .child(div().text_sm().text_color(theme.muted_foreground).child("未开始"))
                                     .into_any_element()
                             }))
@@ -692,8 +654,11 @@ impl Render for ImportWindow {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        self.sync_mapping_selector(window, cx);
-        let theme = cx.theme().clone();
+        let options: Vec<SharedString> = self.files.iter().enumerate().map(|(i, file)| file.label(i)).collect();
+        self.import_items.update(cx, |state, cx| {
+            state.set_items(options.clone(), window, cx);
+            state.set_selected_index(None, window, cx);
+        });
 
         let content: AnyElement = match self.step {
             ImportStep::Files => self.render_files_step(cx), // 修改完成
@@ -703,6 +668,7 @@ impl Render for ImportWindow {
             ImportStep::Import => self.render_mode_step(cx),
         };
 
+        let theme = cx.theme();
         div()
             .col_full()
             .child(
