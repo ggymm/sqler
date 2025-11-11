@@ -234,9 +234,13 @@ impl SqlerApp {
         }
 
         let wsize = size(px(1280.), px(720.));
+        let bounds = Bounds {
+            origin: point(px(0.), px(0.)),
+            size: wsize,
+        };
         let options = WindowOptions {
             kind: WindowKind::Floating,
-            window_bounds: Some(WindowBounds::Windowed(Bounds::centered(None, wsize, cx))),
+            window_bounds: Some(WindowBounds::Windowed(bounds)),
             is_minimizable: false,
             ..Default::default()
         };
