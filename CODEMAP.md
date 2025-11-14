@@ -19,7 +19,7 @@
 
 ## 代码结构
 
-### 1. 入口模块 (`src/main.rs`, 84 行)
+### 1. 入口模块 (`src/main.rs`, 125 行)
 
 **职责**: 程序入口，应用初始化和窗口创建
 
@@ -27,11 +27,16 @@
 
 1. 注册本地资源加载器 `FsAssets` (从 `assets/` 目录加载图标等资源)
 2. 初始化 GPUI 框架和组件库
-3. 配置全局主题 (字号 14pt，滚动条悬停显示)
-4. 创建主窗口 (1280x800，居中显示)
-5. 挂载 `SqlerApp` 作为根视图
-6. 配置窗口关闭行为 (所有窗口关闭时退出应用)
-7. 预留 `init_runtime()` 运行时初始化挂钩（当前为空实现）
+3. **日志系统初始化** (`init_runtime()`):
+   - 日志目录: `~/.sqler/logs/`
+   - 文件滚动: 每天轮转
+   - 文件命名: `sqler.log`
+   - 日志级别: debug (开发模式) / info (发布模式)
+   - 双重输出: 终端 (带颜色) + 文件 (无颜色)
+4. 配置全局主题 (字号 14pt，滚动条悬停显示)
+5. 创建主窗口 (1280x800，居中显示)
+6. 挂载 `SqlerApp` 作为根视图
+7. 配置窗口关闭行为 (所有窗口关闭时退出应用)
 
 ---
 
@@ -39,7 +44,7 @@
 
 **职责**: 核心 UI 逻辑、状态管理和用户交互
 
-#### 2.1 应用状态 (`mod.rs`, ~390 行)
+#### 2.1 应用状态 (`mod.rs`, 437 行)
 
 **核心结构**: `SqlerApp`
 
@@ -51,7 +56,8 @@ pub struct SqlerApp {
     pub active_tab: String,                            // 当前活动标签 ID
     pub cache: CacheApp,                               // 缓存管理器(唯一数据源)
     pub create_window: Option<WindowHandle<Root>>,    // 新建数据源窗口句柄
-    pub transfer_window: Option<WindowHandle<Root>>,  // 数据传输窗口句柄
+    pub import_window: Option<WindowHandle<Root>>,    // 数据导入窗口句柄
+    pub export_window: Option<WindowHandle<Root>>,    // 数据导出窗口句柄
 }
 ```
 
@@ -85,9 +91,11 @@ pub enum TabView {
 4. `create_tab()`: 创建工作区标签（避免重复，使用 `cache.sources()` 查找数据源）
 5. `toggle_theme()`: 切换亮色/暗色主题
 6. `display_create_window()`: 打开新建数据源窗口
-7. `display_transfer_window()`: 打开数据传输窗口
-8. `close_create_window()`: 关闭新建数据源窗口
-9. `close_transfer_window()`: 关闭数据传输窗口
+7. `display_import_window(meta, tables)`: 打开数据导入窗口（传入数据源和表列表）
+8. `display_export_window(meta, tables)`: 打开数据导出窗口
+9. `close_create_window()`: 关闭新建数据源窗口
+10. `close_import_window()`: 关闭数据导入窗口
+11. `close_export_window()`: 关闭数据导出窗口
 
 **数据源管理**:
 
@@ -173,7 +181,7 @@ pub struct DataTable {
 
 #### 2.3 数据源创建 (`create/`)
 
-##### 创建窗口 (`mod.rs`, ~375 行)
+##### 创建窗口 (`mod.rs`, 371 行)
 
 **核心结构**: `CreateWindow`
 
@@ -206,6 +214,12 @@ pub enum CreateStatus {
 2. `cancel()`: 取消创建，关闭窗口
 3. `check_conn()`: 异步测试连接，调用 `check_connection(&options)`
 4. `create_conn()`: 保存数据源到缓存
+
+**窗口配置**:
+- 尺寸: 640x560
+- 位置: 自动居中 (`Bounds::centered`)
+- 类型: 浮动窗口 (WindowKind::Floating)
+- 不可最小化
 
 **功能流程**:
 
@@ -560,13 +574,117 @@ struct CollectionContent {
 
 #### 2.5 数据传输 (`transfer/`)
 
-##### 传输窗口 (`mod.rs`)
+**职责**: 数据导入/导出功能
 
-**核心结构**: `TransferWindow`
+**模块组成** (`mod.rs`, 43 行):
+- `ImportWindow`: 数据导入窗口
+- `ExportWindow`: 数据导出窗口
+- `TransferKind` 枚举: CSV / JSON / SQL
 
-**功能**: 数据导入/导出
+---
 
-**当前状态**: 基础框架，具体逻辑待实现
+##### 导入窗口 (`import.rs`, 625 行)
+
+**核心结构**: `ImportWindow`
+
+```rust
+pub struct ImportWindow {
+    meta: DataSource,                                      // 数据源信息
+    parent: WeakEntity<SqlerApp>,
+
+    step: ImportStep,                                      // 当前步骤
+    files: Vec<ImportFile>,                                // 待导入文件列表
+    tables: Vec<SharedString>,                             // 数据库表列表
+
+    // CSV 参数配置
+    col_index: Entity<InputState>,                         // 字段行索引
+    data_index: Entity<InputState>,                        // 数据起始行
+    row_delimiter: Entity<InputState>,                     // 行分隔符
+    col_delimiter: Entity<InputState>,                     // 列分隔符
+
+    file_kinds: Entity<DropdownState<Vec<SharedString>>>,  // 文件格式选择
+    import_modes: Entity<DropdownState<Vec<SharedString>>>, // 导入模式选择
+}
+```
+
+**导入步骤** (`ImportStep` 枚举):
+1. **Kind**: 文件类型与参数配置
+2. **Files**: 选择待导入文件
+3. **Table**: 配置源文件与目标表映射
+4. **Import**: 选择导入模式并执行
+
+**导入模式** (`ImportMode` 枚举):
+- Replace: 替换 - 清空表后导入新数据
+- Append: 追加 - 在表末尾追加新数据
+- Update: 更新 - 更新已存在的数据
+- AppendOrUpdate: 追加或更新 - 存在则更新，不存在则追加
+- AppendNoUpdate: 追加不更新 - 仅追加不存在的数据
+
+**ImportFile 结构**:
+```rust
+struct ImportFile {
+    path: PathBuf,                                         // 文件路径
+    option: TableOption,                                   // NewTable / ExistTable
+    new_table: Entity<InputState>,                         // 新建表名输入
+    exist_table: Entity<DropdownState<Vec<SharedString>>>, // 已存在表选择
+}
+```
+
+**窗口配置**:
+- 尺寸: 1280x720
+- 位置: (0, 0) 固定左上角
+- 类型: 浮动窗口
+- 标题: "数据导入"
+
+**核心功能**:
+1. ✅ 步骤式导入流程 UI
+2. ✅ 文件选择器集成 (`prompt_for_paths`)
+3. ✅ CSV 参数配置（字段行、分隔符等）
+4. ✅ 文件与目标表映射（支持新建表/选择已存在表）
+5. ✅ 导入模式选择
+6. ❌ 实际导入逻辑待实现
+
+---
+
+##### 导出窗口 (`export.rs`, 196 行)
+
+**核心结构**: `ExportWindow`
+
+```rust
+pub struct ExportWindow {
+    parent: WeakEntity<SqlerApp>,
+    format: Option<TransferKind>,                          // 导出格式
+    file_path: Entity<InputState>,                         // 目标文件路径
+    table_name: Entity<InputState>,                        // 源表名称
+}
+```
+
+**窗口配置**:
+- 尺寸: 1280x720
+- 位置: (0, 0) 固定左上角
+- 类型: 浮动窗口
+- 标题: "数据导出"
+
+**核心功能**:
+1. ✅ 格式选择 UI（CSV / JSON / SQL，卡片式选择）
+2. ✅ 源表名称输入
+3. ✅ 目标文件路径输入
+4. ❌ 实际导出逻辑待实现
+
+---
+
+##### TransferKind 枚举
+
+**支持的格式**:
+- CSV: 逗号分隔值文件，适用于表格数据
+- JSON: JSON 格式文件，适用于结构化数据
+- SQL: SQL 脚本文件，包含完整的建表和插入语句
+
+**方法**:
+- `all()`: 返回所有格式
+- `label()`: 返回格式标签
+- `description()`: 返回格式描述
+- `from_label(label)`: 从标签解析格式
 
 ---
 
@@ -1053,6 +1171,7 @@ pub enum DataSourceOptions {
 1. ✅ 顶部标签栏（支持多标签切换）
 2. ✅ 主题切换按钮（亮色/暗色）
 3. ✅ 新建数据源浮动窗口
+4. ✅ 日志系统（终端+文件双重输出，每日轮转）
 
 #### 首页
 
@@ -1100,6 +1219,25 @@ pub enum DataSourceOptions {
 3. ✅ 测试连接功能（异步调用 `check_connection()`）
 4. ✅ 保存到缓存（已实现并接入）
 5. ✅ 状态提示（测试中/成功/失败）
+6. ✅ 窗口自动居中
+
+#### 数据导入窗口
+
+1. ✅ 步骤式导入流程 UI（4 步骤）
+2. ✅ 文件选择器集成
+3. ✅ CSV 参数配置（字段行、分隔符等）
+4. ✅ 文件与目标表映射 UI
+5. ✅ 支持新建表/选择已存在表
+6. ✅ 导入模式选择（5 种模式）
+7. ❌ 实际导入逻辑待实现
+
+#### 数据导出窗口
+
+1. ✅ 格式选择 UI（CSV / JSON / SQL）
+2. ✅ 源表名称输入
+3. ✅ 目标文件路径输入
+4. ❌ 文件保存对话框集成
+5. ❌ 实际导出逻辑待实现
 
 #### 缓存系统
 
@@ -1119,27 +1257,33 @@ pub enum DataSourceOptions {
 
 #### 高优先级
 
-1. **筛选/排序功能**
+1. **数据导入/导出执行逻辑**
+    - 实现 CSV/JSON/SQL 解析器
+    - 实现批量数据插入
+    - 实现进度跟踪和错误处理
+    - 集成文件保存对话框
+
+2. **筛选/排序功能**
     - 从 Dropdown 读取选中值
     - 构建实际的 `QueryConditions`
     - 将条件注入 SQL 查询
 
-2. **表信息和查询缓存使用**
+3. **表信息和查询缓存使用**
     - 工作区加载表列表时读取/更新 `tables.json`
     - 实现保存查询功能，使用 `queries.json`
     - 避免重复查询表元信息
 
-3. **数据源编辑和删除功能**
+4. **数据源编辑和删除功能**
     - 首页右键菜单（编辑/删除）
     - 编辑窗口（复用 CreateWindow）
     - 删除确认对话框
 
-4. **Redis/MongoDB 工作区功能实现**
+5. **Redis/MongoDB 工作区功能实现**
     - Redis 命令执行逻辑
     - MongoDB 文档查询和筛选
     - 结果解析和展示
 
-5. **SQL Server 驱动完整实现**
+6. **SQL Server 驱动完整实现**
     - 连接管理
     - 查询执行
     - tables() 和 columns() 实现
@@ -1160,12 +1304,7 @@ pub enum DataSourceOptions {
     - 行增删
     - 保存变更到数据库
 
-3. **导入/导出**
-    - CSV 导入
-    - JSON 导出
-    - SQL 导出
-
-4. **错误处理优化**
+3. **错误处理优化**
     - 友好的错误提示
     - 连接失败重试
     - 超时处理
@@ -1255,12 +1394,14 @@ pub enum DataSourceOptions {
 
 | 模块      | 文件数    | 代码行数（估算）  |
 |---------|--------|-----------|
-| app/    | 28     | ~3500     |
+| app/    | 18     | ~3800     |
 | driver/ | 8      | ~2800     |
 | cache/  | 1      | ~165      |
 | model/  | 3      | ~150      |
-| main.rs | 1      | ~90       |
-| **总计**  | **41** | **~6700** |
+| codegen/| -      | -         |
+| update/ | -      | -         |
+| main.rs | 1      | 125       |
+| **总计**  | **31** | **~7000** |
 
 ---
 
@@ -1277,12 +1418,15 @@ pub enum DataSourceOptions {
 - ✅ 统一的列查询接口
 - ✅ 新建数据源窗口（测试连接+保存）
 - ✅ 缓存系统（单一数据源原则）
+- ✅ 日志系统（终端+文件双重输出）
+- ✅ 数据导入/导出 UI 完整实现
 
 **开发中**:
 
 - 🚧 筛选/排序逻辑
 - 🚧 Redis/MongoDB 工作区功能
 - 🚧 表信息和查询缓存使用
+- 🚧 数据导入/导出执行逻辑
 
 **待开发**:
 
@@ -1290,7 +1434,6 @@ pub enum DataSourceOptions {
 - 📋 SQL Server/Oracle 驱动
 - 📋 查询编辑器
 - 📋 数据编辑
-- 📋 导入/导出
 
 ---
 
@@ -1332,4 +1475,4 @@ pub enum DataSourceOptions {
 
 ---
 
-**最后更新**: 2025-01-07 (完善缓存系统,消除数据重复)
+**最后更新**: 2025-11-14 (深度阅读代码并更新所有不一致之处)

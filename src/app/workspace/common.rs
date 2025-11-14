@@ -228,13 +228,13 @@ impl CommonWorkspace {
                 id: id.clone(),
                 table: table.clone(),
                 columns: vec![],
-                content,
                 page_no: 0,
                 page_size: PAGE_SIZE,
                 total_rows: 0,
-                filter_enable: false,
                 query_rules: Vec::new(),
                 order_rules: Vec::new(),
+                filter_enable: false,
+                content,
             }),
             closable: true,
         });
@@ -477,9 +477,6 @@ impl CommonWorkspace {
         let start_row = current_page * tab.page_size + 1;
         let end_row = ((current_page + 1) * tab.page_size).min(tab.total_rows);
 
-        let column_btn = Button::new(comp_id(["table-choose-column", &tab_id]))
-            .outline()
-            .label("字段筛选");
         let filter_btn = Button::new(comp_id(["table-toggle-filter", &tab_id]))
             .outline()
             .label(if tab.filter_enable {
@@ -496,6 +493,9 @@ impl CommonWorkspace {
                     cx.notify();
                 }
             }));
+        let column_btn = Button::new(comp_id(["table-choose-column", &tab_id]))
+            .outline()
+            .label("字段筛选");
 
         let page_prev_btn = Button::new(comp_id(["table-page-prev", &tab_id]))
             .outline()
