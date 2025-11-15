@@ -76,6 +76,7 @@ struct DataContent {
     order_rules: Vec<OrderRule>,
     query_rules: Vec<QueryRule>,
     filter_enable: bool,
+    filter_popover_open: bool,
     content: Entity<Table<DataTable>>,
 }
 
@@ -234,6 +235,7 @@ impl CommonWorkspace {
                 query_rules: Vec::new(),
                 order_rules: Vec::new(),
                 filter_enable: false,
+                filter_popover_open: false,
                 content,
             }),
             closable: true,
@@ -463,6 +465,10 @@ impl CommonWorkspace {
             .into_iter()
             .map(|op| SharedString::from(op.label().to_string()))
             .collect();
+
+        // 为浮动面板准备克隆的数据
+        let order_ops_for_panel = order_ops.clone();
+        let filter_ops_for_panel = filter_ops.clone();
 
         // 获取列名
         let headers = &tab.columns;
@@ -702,6 +708,7 @@ impl CommonWorkspace {
             )
             .child(
                 div()
+                    .relative() // 将 relative 移到底部工具栏
                     .flex()
                     .flex_row()
                     .items_center()
@@ -712,6 +719,283 @@ impl CommonWorkspace {
                     .border_color(theme.border)
                     .child(filter_btn)
                     .child(column_btn)
+                    .child(
+                        // 快捷筛选按钮
+                        Button::new(comp_id(["quick-filter-btn", &tab_id]))
+                            .outline()
+                            .label("快捷筛选")
+                            .on_click(cx.listener({
+                                let tab_id = tab_id.clone();
+                                move |view: &mut Self, _, _, cx| {
+                                    if let Some(content) = view.data_content(&tab_id) {
+                                        content.filter_popover_open = !content.filter_popover_open;
+                                    }
+                                    cx.notify();
+                                }
+                            })),
+                    )
+                    // 浮动面板（放在工具栏层级）
+                    .when(tab.filter_popover_open, |this| {
+                        let tab_id = tab_id.clone();
+                        let headers = headers.clone();
+
+                        this.child(
+                            div()
+                                .absolute()
+                                .bottom(px(45.))
+                                .left_0()
+                                .w_1_2()
+                                .h(px(400.))
+                                .bg(theme.background)
+                                .border_1()
+                                .border_color(theme.border)
+                                .rounded_lg()
+                                .shadow_lg()
+                                .flex()
+                                .flex_col()
+                                .gap_2()
+                                // 头部：标题 + 关闭按钮
+                                .child(
+                                    div()
+                                        .flex()
+                                        .flex_row()
+                                        .items_center()
+                                        .justify_between()
+                                        .px_4()
+                                        .py_3()
+                                        .border_b_1()
+                                        .border_color(theme.border)
+                                        .child(div().text_base().font_semibold().child("快捷筛选"))
+                                        .child(
+                                            Button::new(comp_id(["quick-filter-close", &tab_id]))
+                                                .ghost()
+                                                .small()
+                                                .icon(icon_close())
+                                                .on_click(cx.listener({
+                                                    let tab_id = tab_id.clone();
+                                                    move |view: &mut Self, _, _, cx| {
+                                                        if let Some(content) = view.data_content(&tab_id) {
+                                                            content.filter_popover_open = false;
+                                                        }
+                                                        cx.notify();
+                                                    }
+                                                })),
+                                        ),
+                                )
+                                // 内容区域：排序和筛选规则
+                                .child(
+                                    div()
+                                        .flex_1()
+                                        .overflow_hidden()
+                                        .px_4()
+                                        .flex()
+                                        .flex_col()
+                                        .gap_3()
+                                        // 排序规则
+                                        .child(
+                                            div()
+                                                .flex()
+                                                .flex_col()
+                                                .gap_2()
+                                                .child(div().text_sm().font_semibold().child("排序规则"))
+                                                .children(tab.order_rules.iter().map(|rule| {
+                                                    let rule_id = rule.id.clone();
+                                                    let rule_field = Dropdown::new(&rule.field).small().placeholder("");
+                                                    let rule_order = Dropdown::new(&rule.order).small().placeholder("");
+
+                                                    div()
+                                                        .flex()
+                                                        .flex_row()
+                                                        .items_center()
+                                                        .gap_2()
+                                                        .w_full()
+                                                        .child(div().flex_1().child(rule_field))
+                                                        .child(div().w_48().child(rule_order))
+                                                        .child(
+                                                            Button::new(comp_id(["quick-order-remove", &rule_id]))
+                                                                .ghost()
+                                                                .icon(icon_trash())
+                                                                .on_click(cx.listener({
+                                                                    let tab_id = tab_id.clone();
+                                                                    move |view: &mut Self, _, _, cx| {
+                                                                        if let Some(content) =
+                                                                            view.data_content(&tab_id)
+                                                                        {
+                                                                            content
+                                                                                .order_rules
+                                                                                .retain(|r| &r.id != &rule_id);
+                                                                        }
+                                                                        cx.notify();
+                                                                    }
+                                                                })),
+                                                        )
+                                                }))
+                                                .child(
+                                                    Button::new(comp_id(["quick-create-order", &tab_id]))
+                                                        .small()
+                                                        .outline()
+                                                        .label("新增排序")
+                                                        .on_click(cx.listener({
+                                                            let tab_id = tab_id.clone();
+                                                            let headers = headers.clone();
+                                                            move |view: &mut Self, _, window, cx| {
+                                                                if let Some(content) = view.data_content(&tab_id) {
+                                                                    content.order_rules.push(OrderRule {
+                                                                        id: SharedString::from(
+                                                                            Uuid::new_v4().to_string(),
+                                                                        ),
+                                                                        field: cx.new(|cx| {
+                                                                            DropdownState::new(
+                                                                                headers.clone(),
+                                                                                None,
+                                                                                window,
+                                                                                cx,
+                                                                            )
+                                                                        }),
+                                                                        order: cx.new(|cx| {
+                                                                            DropdownState::new(
+                                                                                order_ops_for_panel.clone(),
+                                                                                None,
+                                                                                window,
+                                                                                cx,
+                                                                            )
+                                                                        }),
+                                                                    });
+                                                                }
+                                                                cx.notify();
+                                                            }
+                                                        })),
+                                                ),
+                                        )
+                                        // 筛选规则
+                                        .child(
+                                            div()
+                                                .flex()
+                                                .flex_col()
+                                                .gap_2()
+                                                .child(div().text_sm().font_semibold().child("筛选规则"))
+                                                .children(tab.query_rules.iter().map(|rule| {
+                                                    let rule_id = rule.id.clone();
+                                                    let rule_field = Dropdown::new(&rule.field).small().placeholder("");
+                                                    let rule_operator =
+                                                        Dropdown::new(&rule.operator).small().placeholder("");
+
+                                                    div()
+                                                        .flex()
+                                                        .flex_row()
+                                                        .items_center()
+                                                        .gap_2()
+                                                        .w_full()
+                                                        .child(div().w_48().child(rule_field))
+                                                        .child(div().w_48().child(rule_operator))
+                                                        .child(
+                                                            div().flex_1().child(TextInput::new(&rule.value).small()),
+                                                        )
+                                                        .child(
+                                                            Button::new(comp_id(["quick-filter-remove", &rule_id]))
+                                                                .ghost()
+                                                                .icon(icon_trash())
+                                                                .on_click(cx.listener({
+                                                                    let tab_id = tab_id.clone();
+                                                                    move |view: &mut Self, _, _, cx| {
+                                                                        if let Some(content) =
+                                                                            view.data_content(&tab_id)
+                                                                        {
+                                                                            content
+                                                                                .query_rules
+                                                                                .retain(|r| &r.id != &rule_id);
+                                                                        }
+                                                                        cx.notify();
+                                                                    }
+                                                                })),
+                                                        )
+                                                }))
+                                                .child(
+                                                    Button::new(comp_id(["quick-create-filter", &tab_id]))
+                                                        .small()
+                                                        .outline()
+                                                        .label("新增筛选")
+                                                        .on_click(cx.listener({
+                                                            let tab_id = tab_id.clone();
+                                                            let headers = headers.clone();
+                                                            move |view: &mut Self, _, window, cx| {
+                                                                if let Some(content) = view.data_content(&tab_id) {
+                                                                    content.query_rules.push(QueryRule {
+                                                                        id: SharedString::from(
+                                                                            Uuid::new_v4().to_string(),
+                                                                        ),
+                                                                        field: cx.new(|cx| {
+                                                                            DropdownState::new(
+                                                                                headers.clone(),
+                                                                                None,
+                                                                                window,
+                                                                                cx,
+                                                                            )
+                                                                        }),
+                                                                        operator: cx.new(|cx| {
+                                                                            DropdownState::new(
+                                                                                filter_ops_for_panel.clone(),
+                                                                                None,
+                                                                                window,
+                                                                                cx,
+                                                                            )
+                                                                        }),
+                                                                        value: cx.new(|cx| InputState::new(window, cx)),
+                                                                    });
+                                                                }
+                                                                cx.notify();
+                                                            }
+                                                        })),
+                                                ),
+                                        ),
+                                )
+                                // 底部操作按钮
+                                .child(
+                                    div()
+                                        .flex()
+                                        .flex_row()
+                                        .items_center()
+                                        .justify_end()
+                                        .gap_2()
+                                        .px_4()
+                                        .py_3()
+                                        .border_t_1()
+                                        .border_color(theme.border)
+                                        .child(
+                                            Button::new(comp_id(["quick-filter-clear", &tab_id]))
+                                                .small()
+                                                .outline()
+                                                .label("清除条件")
+                                                .on_click(cx.listener({
+                                                    let tab_id = tab_id.clone();
+                                                    move |view: &mut Self, _, _, cx| {
+                                                        if let Some(content) = view.data_content(&tab_id) {
+                                                            content.order_rules.clear();
+                                                            content.query_rules.clear();
+                                                        }
+                                                        cx.notify();
+                                                    }
+                                                })),
+                                        )
+                                        .child(
+                                            Button::new(comp_id(["quick-filter-apply", &tab_id]))
+                                                .small()
+                                                .primary()
+                                                .label("应用条件")
+                                                .on_click(cx.listener({
+                                                    let tab_id = tab_id.clone();
+                                                    move |view: &mut Self, _, window, cx| {
+                                                        if let Some(content) = view.data_content(&tab_id) {
+                                                            content.filter_popover_open = false;
+                                                            content.page_no = 0;
+                                                        }
+                                                        view.reload_data_tab(&tab_id, window, cx);
+                                                    }
+                                                })),
+                                        ),
+                                ),
+                        )
+                    })
                     .child(div().flex_1())
                     .child(div().text_sm().child(format!(
                         "显示 {} - {} / 共 {} 条",
