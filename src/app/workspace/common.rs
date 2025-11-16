@@ -458,24 +458,13 @@ impl CommonWorkspace {
         let theme = cx.theme().clone();
         let tab_id = tab.id.clone();
 
-        let order_ops = vec![SharedString::from(ORDER_ASC), SharedString::from(ORDER_DESC)];
-        let filter_ops: Vec<SharedString> = Operator::all()
-            .into_iter()
-            .map(|op| SharedString::from(op.label().to_string()))
-            .collect();
-
-        // 获取列名
-        let headers = &tab.columns;
-
-        // 计算分页信息
+        let page = tab.page_no;
+        let columns = &tab.columns;
         let total_pages = if tab.total_rows == 0 {
             1
         } else {
             (tab.total_rows + tab.page_size - 1) / tab.page_size
         };
-        let current_page = tab.page_no;
-        let start_row = current_page * tab.page_size + 1;
-        let end_row = ((current_page + 1) * tab.page_size).min(tab.total_rows);
 
         let filter_btn = Button::new(comp_id(["table-toggle-filter", &tab_id]))
             .outline()
@@ -500,10 +489,10 @@ impl CommonWorkspace {
         let page_prev_btn = Button::new(comp_id(["table-page-prev", &tab_id]))
             .outline()
             .label("上一页")
-            .disabled(current_page == 0)
+            .disabled(page == 0)
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
-                let prev_page = current_page.saturating_sub(1);
+                let prev_page = page.saturating_sub(1);
                 move |view: &mut Self, _, window, cx| {
                     if let Some(content) = view.data_content(&tab_id) {
                         content.page_no = prev_page;
@@ -514,10 +503,10 @@ impl CommonWorkspace {
         let page_next_btn = Button::new(comp_id(["table-page-next", &tab_id]))
             .outline()
             .label("下一页")
-            .disabled(current_page + 1 >= total_pages)
+            .disabled(page + 1 >= total_pages)
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
-                let next_page = current_page.saturating_add(1);
+                let next_page = page.saturating_add(1);
                 move |view: &mut Self, _, window, cx| {
                     if let Some(content) = view.data_content(&tab_id) {
                         content.page_no = next_page;
@@ -525,13 +514,19 @@ impl CommonWorkspace {
                     view.reload_data_tab(&tab_id, window, cx);
                 }
             }));
+
+        let order_ops = vec![SharedString::from(ORDER_ASC), SharedString::from(ORDER_DESC)];
+        let filter_ops: Vec<SharedString> = Operator::all()
+            .into_iter()
+            .map(|op| SharedString::from(op.label().to_string()))
+            .collect();
         let create_order_btn = Button::new(comp_id(["create-order", &tab_id]))
             .small()
             .outline()
             .label("新增排序")
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
-                let headers = headers.clone();
+                let headers = columns.clone();
                 move |view: &mut Self, _, window, cx| {
                     if let Some(content) = view.data_content(&tab_id) {
                         content.order_rules.push(OrderRule {
@@ -555,7 +550,7 @@ impl CommonWorkspace {
             .label("新增筛选")
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
-                let headers = headers.clone();
+                let headers = columns.clone();
                 move |view: &mut Self, _, window, cx| {
                     if let Some(content) = view.data_content(&tab_id) {
                         content.query_rules.push(QueryRule {
@@ -667,6 +662,7 @@ impl CommonWorkspace {
         }
 
         div()
+            .relative()
             .flex()
             .flex_1()
             .flex_col()
@@ -681,7 +677,6 @@ impl CommonWorkspace {
             )
             .child(
                 div()
-                    .relative()
                     .flex()
                     .flex_row()
                     .items_center()
@@ -691,73 +686,84 @@ impl CommonWorkspace {
                     .bg(theme.secondary)
                     .border_t_1()
                     .border_color(theme.border)
-                    .when(tab.filter_enable, |this| {
-                        this.child(
-                            div()
-                                .col_full()
-                                .absolute()
-                                .w_2_3()
-                                .h_128()
-                                .left_0()
-                                .bottom_12()
-                                .bg(theme.background)
-                                .border_1()
-                                .border_color(theme.border)
-                                .shadow_lg()
-                                .rounded_lg()
-                                .child(
-                                    div()
-                                        .flex()
-                                        .flex_row()
-                                        .items_center()
-                                        .p_4()
-                                        .border_b_1()
-                                        .border_color(theme.border)
-                                        .child(div().text_base().child("筛选数据")),
-                                )
-                                .child(
-                                    div().flex_1().min_h_0().child(
-                                        div()
-                                            .p_4()
-                                            .gap_2()
-                                            .col_full()
-                                            .scrollable(Axis::Vertical)
-                                            .child(div().text_sm().font_semibold().child("排序规则"))
-                                            .children(orders)
-                                            .child(div().text_sm().font_semibold().child("筛选规则"))
-                                            .children(queries),
-                                    ),
-                                )
-                                .child(
-                                    div()
-                                        .flex()
-                                        .flex_row()
-                                        .items_center()
-                                        .p_4()
-                                        .gap_2()
-                                        .border_t_1()
-                                        .border_color(theme.border)
-                                        .child(create_order_btn)
-                                        .child(create_query_btn)
-                                        .child(div().flex_1())
-                                        .child(clear_cond_btn)
-                                        .child(apply_cond_btn),
-                                ),
-                        )
-                    })
                     .child(filter_btn)
                     .child(column_btn)
                     .child(div().flex_1())
                     .child(div().text_sm().child(format!(
                         "显示 {} - {} / 共 {} 条",
-                        if tab.total_rows == 0 { 0 } else { start_row },
-                        end_row,
+                        if tab.total_rows == 0 { 0 } else { page * tab.page_size + 1 },
+                        ((page + 1) * tab.page_size).min(tab.total_rows),
                         tab.total_rows
                     )))
                     .child(div().flex_1())
                     .child(page_prev_btn)
                     .child(page_next_btn),
             )
+            .when(tab.filter_enable, |this| {
+                this.child(
+                    div()
+                        .id("filter-overlay")
+                        .top_0()
+                        .left_0()
+                        .right_0()
+                        .bottom_0()
+                        .occlude()
+                        .absolute(),
+                )
+                .child(
+                    div()
+                        .col_full()
+                        .absolute()
+                        .w_2_3()
+                        .h_128()
+                        .left_0()
+                        .bottom_12()
+                        .occlude()
+                        .bg(theme.background)
+                        .border_1()
+                        .border_color(theme.border)
+                        .shadow_lg()
+                        .rounded_lg()
+                        .child(
+                            div()
+                                .flex()
+                                .flex_row()
+                                .items_center()
+                                .p_4()
+                                .border_b_1()
+                                .border_color(theme.border)
+                                .child(div().text_base().child("筛选数据")),
+                        )
+                        .child(
+                            div().flex_1().min_h_0().child(
+                                div()
+                                    .p_4()
+                                    .gap_2()
+                                    .col_full()
+                                    .scrollable(Axis::Vertical)
+                                    .child(div().text_sm().font_semibold().child("排序规则"))
+                                    .children(orders)
+                                    .child(div().text_sm().font_semibold().child("筛选规则"))
+                                    .children(queries),
+                            ),
+                        )
+                        .child(
+                            div()
+                                .flex()
+                                .flex_row()
+                                .items_center()
+                                .p_4()
+                                .gap_2()
+                                .border_t_1()
+                                .border_color(theme.border)
+                                .child(create_order_btn)
+                                .child(create_query_btn)
+                                .child(div().flex_1())
+                                .child(clear_cond_btn)
+                                .child(apply_cond_btn),
+                        ),
+                )
+            })
             .into_any_element()
     }
 
