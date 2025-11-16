@@ -468,11 +468,7 @@ impl CommonWorkspace {
 
         let filter_btn = Button::new(comp_id(["table-toggle-filter", &tab_id]))
             .outline()
-            .label(if tab.filter_enable {
-                "隐藏筛选"
-            } else {
-                "数据筛选"
-            })
+            .label("数据筛选")
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
                 move |view: &mut Self, _, _, cx| {
@@ -718,7 +714,6 @@ impl CommonWorkspace {
                         .h_128()
                         .left_0()
                         .bottom_12()
-                        .occlude()
                         .bg(theme.background)
                         .border_1()
                         .border_color(theme.border)
