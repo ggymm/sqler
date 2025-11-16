@@ -595,11 +595,11 @@ impl CommonWorkspace {
             }));
 
         let mut orders = Vec::new();
-        for rule in tab.order_rules.iter() {
+        for order in tab.order_rules.iter() {
             let tab_id = tab_id.clone();
-            let rule_id = rule.id.clone();
-            let rule_field = Dropdown::new(&rule.field).small().placeholder("");
-            let rule_order = Dropdown::new(&rule.order).small().placeholder("");
+            let rule_id = order.id.clone();
+            let rule_field = Dropdown::new(&order.field).small().placeholder("");
+            let rule_order = Dropdown::new(&order.order).small().placeholder("");
             orders.push(
                 div()
                     .flex()
@@ -625,11 +625,11 @@ impl CommonWorkspace {
             )
         }
         let mut queries = Vec::new();
-        for rule in tab.query_rules.iter() {
+        for query in tab.query_rules.iter() {
             let tab_id = tab_id.clone();
-            let rule_id = rule.id.clone();
-            let rule_field = Dropdown::new(&rule.field).small().placeholder("");
-            let rule_operator = Dropdown::new(&rule.operator).small().placeholder("");
+            let rule_id = query.id.clone();
+            let rule_field = Dropdown::new(&query.field).small().placeholder("");
+            let rule_operator = Dropdown::new(&query.operator).small().placeholder("");
 
             queries.push(
                 div()
@@ -640,7 +640,7 @@ impl CommonWorkspace {
                     .w_full()
                     .child(div().w_48().child(rule_field))
                     .child(div().w_48().child(rule_operator))
-                    .child(div().flex_1().child(TextInput::new(&rule.value).small()))
+                    .child(div().flex_1().child(TextInput::new(&query.value).small()))
                     .child(
                         Button::new(comp_id(["filter-query-remove", &rule_id]))
                             .ghost()
@@ -687,7 +687,11 @@ impl CommonWorkspace {
                     .child(div().flex_1())
                     .child(div().text_sm().child(format!(
                         "显示 {} - {} / 共 {} 条",
-                        if tab.total_rows == 0 { 0 } else { page * tab.page_size + 1 },
+                        if tab.total_rows == 0 {
+                            0
+                        } else {
+                            page * tab.page_size + 1
+                        },
                         ((page + 1) * tab.page_size).min(tab.total_rows),
                         tab.total_rows
                     )))
@@ -843,135 +847,98 @@ impl Render for CommonWorkspace {
         let theme = cx.theme().clone();
         let active = &self.active_tab;
 
-        let sidebar = self.tables.iter().cloned().fold(
-            div()
-                .id(comp_id(["common-sidebar", id]))
-                .p_2()
+        let mut tabs = Vec::new();
+        for tab in self.tabs.iter() {
+            let tab_id = tab.id.clone();
+            let tab_active = &tab_id == active;
+
+            let mut item = div()
+                .id(comp_id(["common-tabs-item", &tab_id]))
+                .flex()
+                .flex_row()
+                .items_center()
+                .justify_center()
+                .px_2()
+                .py_1()
                 .gap_2()
-                .col_full()
-                .scrollable(Axis::Vertical),
-            |acc, table| {
-                let active = self.active_table.as_ref() == Some(&table);
-                let active_table = table.clone();
-                acc.child(
+                .border_1()
+                .border_color(theme.border)
+                .rounded_lg()
+                .text_sm()
+                .cursor_pointer()
+                .when(tab_active, |this| {
+                    this.bg(theme.tab_active).text_color(theme.tab_active_foreground)
+                })
+                .when(!tab_active, |this| {
+                    this.bg(theme.tab_bar).text_color(theme.muted_foreground)
+                })
+                .on_click(cx.listener({
+                    let tab_id = tab.id.clone();
+                    let tab_title = tab.title.clone();
+                    move |this, _, _, cx| {
+                        this.active_tab(tab_id.clone(), tab_title.clone(), cx);
+                    }
+                }))
+                .child(
                     div()
-                        .id(comp_id(["common-sidebar-item", &self.meta.id, &table]))
-                        .px_4()
-                        .py_2()
-                        .gap_2()
-                        .row_full()
-                        .items_center()
-                        .text_sm()
-                        .rounded_lg()
-                        .when_else(
-                            active,
-                            |this| this.bg(theme.list_active).font_semibold(),
-                            |this| this.hover(|this| this.bg(theme.list_hover)),
-                        )
-                        .on_double_click(cx.listener(move |this, _, window, cx| {
-                            this.create_data_tab(active_table.clone(), window, cx);
-                        }))
-                        .child(icon_sheet())
-                        .child(table.clone()),
-                )
-            },
-        );
+                        .flex_1()
+                        .min_w_0()
+                        .overflow_hidden()
+                        .whitespace_nowrap()
+                        .child(tab.title.clone()),
+                );
 
-        let container = div()
-            .col_full()
-            .child(
+            if tab.closable {
+                item = item.child(
+                    Button::new(comp_id(["common-tabs-close", &tab_id]))
+                        .ghost()
+                        .xsmall()
+                        .compact()
+                        .tab_stop(false)
+                        .icon(icon_close().with_size(Size::Small))
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            this.close_tab(&tab_id, cx);
+                        })),
+                );
+            }
+
+            {
+                let style = item.style();
+                style.flex_grow = Some(0.);
+                style.flex_shrink = Some(1.);
+                style.flex_basis = Some(Length::Definite(px(120.).into()));
+                style.min_size.width = Some(Length::Definite(px(0.).into()));
+            }
+
+            tabs.push(item)
+        }
+        let mut tables = Vec::new();
+        for item in self.tables.iter() {
+            let active = self.active_table.as_ref() == Some(&item);
+            let active_table = item.clone();
+
+            tables.push(
                 div()
-                    .id(comp_id(["common-tabs", id]))
-                    .flex()
-                    .flex_row()
-                    .p_2()
+                    .id(comp_id(["common-sidebar-item", &self.meta.id, &item]))
+                    .px_4()
+                    .py_2()
                     .gap_2()
-                    .min_w_0()
-                    .children(self.tabs.iter().map(|tab| {
-                        let tab_id = tab.id.clone();
-                        let tab_active = &tab_id == active;
-
-                        let mut item = div()
-                            .id(comp_id(["common-tabs-item", &tab_id]))
-                            .flex()
-                            .flex_row()
-                            .items_center()
-                            .justify_center()
-                            .px_2()
-                            .py_1()
-                            .gap_2()
-                            .border_1()
-                            .border_color(theme.border)
-                            .rounded_lg()
-                            .text_sm()
-                            .cursor_pointer()
-                            .when(tab_active, |this| {
-                                this.bg(theme.tab_active).text_color(theme.tab_active_foreground)
-                            })
-                            .when(!tab_active, |this| {
-                                this.bg(theme.tab_bar).text_color(theme.muted_foreground)
-                            })
-                            .on_click(cx.listener({
-                                let tab_id = tab.id.clone();
-                                let tab_title = tab.title.clone();
-                                move |this, _, _, cx| {
-                                    this.active_tab(tab_id.clone(), tab_title.clone(), cx);
-                                }
-                            }))
-                            .child(
-                                div()
-                                    .flex_1()
-                                    .min_w_0()
-                                    .overflow_hidden()
-                                    .whitespace_nowrap()
-                                    .child(tab.title.clone()),
-                            );
-
-                        if tab.closable {
-                            item = item.child(
-                                Button::new(comp_id(["common-tabs-close", &tab_id]))
-                                    .ghost()
-                                    .xsmall()
-                                    .compact()
-                                    .tab_stop(false)
-                                    .icon(icon_close().with_size(Size::Small))
-                                    .on_click(cx.listener(move |this, _, _, cx| {
-                                        this.close_tab(&tab_id, cx);
-                                    })),
-                            );
-                        }
-
-                        {
-                            let style = item.style();
-                            style.flex_grow = Some(0.);
-                            style.flex_shrink = Some(1.);
-                            style.flex_basis = Some(Length::Definite(px(120.).into()));
-                            style.min_size.width = Some(Length::Definite(px(0.).into()));
-                        }
-
-                        item.into_any_element()
-                    })),
-            )
-            .child(
-                div()
-                    .id(comp_id(["common-main", id]))
-                    .col_full()
-                    .child(
-                        match self
-                            .tabs
-                            .iter()
-                            .find(|tab| tab.id == self.active_tab)
-                            .map(|tab| &tab.content)
-                        {
-                            Some(TabContent::Data(content)) => self.render_data_tab(&content, cx),
-                            Some(TabContent::Query()) => self.render_query_tab(cx),
-                            Some(TabContent::Struct()) => self.render_struct_tab(cx),
-                            Some(TabContent::Overview) | None => self.render_overview_tab(cx),
-                        },
+                    .row_full()
+                    .items_center()
+                    .text_sm()
+                    .rounded_lg()
+                    .when_else(
+                        active,
+                        |this| this.bg(theme.list_active).font_semibold(),
+                        |this| this.hover(|this| this.bg(theme.list_hover)),
                     )
-                    .child(div()),
+                    .on_double_click(cx.listener(move |this, _, window, cx| {
+                        this.create_data_tab(active_table.clone(), window, cx);
+                    }))
+                    .child(icon_sheet())
+                    .child(item.clone()),
             )
-            .into_any_element();
+        }
 
         div()
             .id(comp_id(["common", id]))
@@ -1044,16 +1011,52 @@ impl Render for CommonWorkspace {
                     ),
             )
             .child(
-                div().col_full().child(
-                    h_resizable(comp_id(["common-content", id]), self.sidebar_resize.clone())
-                        .child(
-                            resizable_panel()
-                                .size(px(180.0))
-                                .size_range(px(100.)..px(320.))
-                                .child(sidebar),
-                        )
-                        .child(container),
-                ),
+                h_resizable(comp_id(["common-content", id]), self.sidebar_resize.clone())
+                    .child(
+                        resizable_panel()
+                            .size(px(180.0))
+                            .size_range(px(100.)..px(320.))
+                            .child(
+                                div()
+                                    .id(comp_id(["common-sidebar", id]))
+                                    .p_2()
+                                    .gap_2()
+                                    .col_full()
+                                    .scrollable(Axis::Vertical)
+                                    .children(tables),
+                            )
+                            .child(div()),
+                    )
+                    .child(
+                        div()
+                            .col_full()
+                            .child(
+                                div()
+                                    .id(comp_id(["common-tabs", id]))
+                                    .flex()
+                                    .flex_row()
+                                    .p_2()
+                                    .gap_2()
+                                    .min_w_0()
+                                    .children(tabs),
+                            )
+                            .child(
+                                div().id(comp_id(["common-main", id])).col_full().child(
+                                    match self
+                                        .tabs
+                                        .iter()
+                                        .find(|tab| tab.id == self.active_tab)
+                                        .map(|tab| &tab.content)
+                                    {
+                                        Some(TabContent::Data(content)) => self.render_data_tab(&content, cx),
+                                        Some(TabContent::Query()) => self.render_query_tab(cx),
+                                        Some(TabContent::Struct()) => self.render_struct_tab(cx),
+                                        Some(TabContent::Overview) | None => self.render_overview_tab(cx),
+                                    },
+                                ),
+                            )
+                            .into_any_element(),
+                    ),
             )
     }
 }
