@@ -19,7 +19,7 @@
 
 ## 代码结构
 
-### 1. 入口模块 (`src/main.rs`, 125 行)
+### 1. 入口模块 (`src/main.rs`, 124 行)
 
 **职责**: 程序入口，应用初始化和窗口创建
 
@@ -44,7 +44,7 @@
 
 **职责**: 核心 UI 逻辑、状态管理和用户交互
 
-#### 2.1 应用状态 (`mod.rs`, 437 行)
+#### 2.1 应用状态 (`mod.rs`, 438 行)
 
 **核心结构**: `SqlerApp`
 
@@ -115,7 +115,7 @@ pub enum TabView {
 
 #### 2.2 公共组件 (`comps/`)
 
-##### 组件工具 (`mod.rs`, ~100 行)
+##### 组件工具 (`mod.rs`, 80 行)
 
 **提供功能**:
 
@@ -140,7 +140,7 @@ pub enum TabView {
 
 ---
 
-##### 数据表格组件 (`table.rs`, ~150 行)
+##### 数据表格组件 (`table.rs`, 123 行)
 
 **核心结构**: `DataTable`
 
@@ -153,7 +153,7 @@ pub struct DataTable {
 }
 ```
 
-**实现接口**: `gpui_component::TableDelegate`
+**实现接口**: `gpui_component::table::TableDelegate`
 
 **核心方法**:
 
@@ -252,15 +252,15 @@ pub enum CreateStatus {
 
 **支持的数据库类型** (每个独立模块):
 
-| 模块             | 数据库        | 行数   | 状态   |
+| 模块             | 数据库        | 行数 | 状态   |
 |----------------|------------|------|------|
-| `mysql.rs`     | MySQL      | ~100 | ✅ 完整 |
-| `postgres.rs`  | PostgreSQL | ~100 | ✅ 完整 |
-| `sqlite.rs`    | SQLite     | ~80  | ✅ 完整 |
-| `oracle.rs`    | Oracle     | ~120 | ✅ 完整 |
-| `sqlserver.rs` | SQL Server | ~120 | ✅ 完整 |
-| `redis.rs`     | Redis      | ~80  | ✅ 完整 |
-| `mongodb.rs`   | MongoDB    | ~150 | ✅ 完整 |
+| `mysql.rs`     | MySQL      | 91   | ✅ 完整 |
+| `postgres.rs`  | PostgreSQL | 89   | ✅ 完整 |
+| `sqlite.rs`    | SQLite     | 85   | ✅ 完整 |
+| `oracle.rs`    | Oracle     | 132  | ✅ 完整 |
+| `sqlserver.rs` | SQL Server | 120  | ✅ 完整 |
+| `redis.rs`     | Redis      | 96   | ✅ 完整 |
+| `mongodb.rs`   | MongoDB    | 151  | ✅ 完整 |
 
 **表单特点**:
 
@@ -273,7 +273,7 @@ pub enum CreateStatus {
 
 #### 2.4 工作区 (`workspace/`)
 
-##### 工作区路由 (`mod.rs`, ~136 行)
+##### 工作区路由 (`mod.rs`, 144 行)
 
 **职责**: 根据数据源类型构造对应工作区视图
 
@@ -325,7 +325,7 @@ MySQL → SQLite → Postgres → Oracle → SQLServer → Redis → MongoDB
 
 ---
 
-##### CommonWorkspace - 关系型数据库工作区 (`common.rs`, ~1000 行)
+##### CommonWorkspace - 关系型数据库工作区 (`common.rs`, 1058 行)
 
 **适用数据库**: MySQL, PostgreSQL, SQLite, Oracle, SQL Server
 
@@ -372,14 +372,14 @@ struct TableContent {
 struct QueryRule {
     id: SharedString,
     value: Entity<InputState>,
-    field: Entity<DropdownState<Vec<SharedString>>>,
-    operator: Entity<DropdownState<Vec<SharedString>>>,
+    field: Entity<SelectState<Vec<SharedString>>>,
+    operator: Entity<SelectState<Vec<SharedString>>>,
 }
 
 struct OrderRule {
     id: SharedString,
-    field: Entity<DropdownState<Vec<SharedString>>>,
-    order: Entity<DropdownState<Vec<SharedString>>>,  // "升序"/"降序"
+    field: Entity<SelectState<Vec<SharedString>>>,
+    order: Entity<SelectState<Vec<SharedString>>>,  // "升序"/"降序"
 }
 ```
 
@@ -474,13 +474,13 @@ struct OrderRule {
 
 **TODO**:
 
-- ❌ 筛选条件已收集但尚未写入 `QueryConditions`
-- ❌ 排序规则已收集但尚未写入 `QueryConditions`
-- ❌ 需要从 Dropdown 读取选中值并构建实际筛选/排序条件
+- ❌ 筛选条件已收集但尚未应用到查询
+- ❌ 排序规则已收集但尚未应用到查询
+- ❌ 需要从 SelectState 读取选中值并构建实际筛选/排序条件
 
 ---
 
-##### RedisWorkspace - Redis 工作区 (`redis.rs`, ~360 行)
+##### RedisWorkspace - Redis 工作区 (`redis.rs`, 387 行)
 
 **核心结构**:
 
@@ -521,7 +521,7 @@ struct CommandContent {
 
 ---
 
-##### MongoDBWorkspace - MongoDB 工作区 (`mongodb.rs`, ~480 行)
+##### MongoDBWorkspace - MongoDB 工作区 (`mongodb.rs`, 501 行)
 
 **核心结构**:
 
@@ -646,7 +646,7 @@ struct ImportFile {
 
 ---
 
-##### 导出窗口 (`export.rs`, 196 行)
+##### 导出窗口 (`export.rs`, 197 行)
 
 **核心结构**: `ExportWindow`
 
@@ -688,7 +688,7 @@ pub struct ExportWindow {
 
 ---
 
-### 3. 缓存系统 (`src/cache/mod.rs`, 165 行)
+### 3. 缓存系统 (`src/cache/mod.rs`, 166 行)
 
 **职责**: 本地存储数据源配置和缓存数据
 
@@ -770,11 +770,11 @@ pub struct CacheApp {
 
 ---
 
-### 4. 数据库驱动 (`src/driver/`, ~2800 行)
+### 4. 数据库驱动 (`src/driver/`, ~3200 行)
 
 **职责**: 统一数据库操作接口、SQL 查询构建和连接管理
 
-#### 4.1 核心接口 (`mod.rs`, 483 行)
+#### 4.1 核心接口 (`mod.rs`, 304 行)
 
 **Trait 定义**:
 
@@ -858,17 +858,17 @@ pub struct DataSource {
 
 | 驱动             | 行数  | 查询              | 写操作                    | tables()           | columns()            | 状态        |
 |----------------|-----|-----------------|------------------------|--------------------|----------------------|-----------|
-| **MySQL**      | 466 | ✅ SQL + Builder | ✅ INSERT/UPDATE/DELETE | ✅ SHOW TABLES      | ✅ SHOW COLUMNS FROM  | 全功能       |
-| **PostgreSQL** | 464 | ✅ SQL + Builder | ✅ SQL方式                | ✅ pg_tables        | ✅ information_schema | 全功能       |
-| **SQLite**     | 409 | ✅ SQL + Builder | ✅ SQL方式                | ✅ sqlite_master    | ✅ PRAGMA table_info  | 全功能       |
-| **MongoDB**    | 428 | ✅ Document查询    | ✅ INSERT/UPDATE/DELETE | ✅ list_collections | ❌ 返回错误               | 文档型       |
-| **Redis**      | 310 | ✅ Command执行     | ✅ Command方式            | ❌ 返回错误             | ❌ 返回错误               | 键值型       |
-| **SQL Server** | 164 | ❌ 占位实现          | ❌ 占位实现                 | ❌ 占位实现             | ❌ 占位实现               | **未实现**   |
-| **Oracle**     | 72  | -               | -                      | -                  | -                    | **仅配置结构** |
+| **MySQL**      | 575 | ✅ SQL + Builder | ✅ INSERT/UPDATE/DELETE | ✅ SHOW TABLES      | ✅ SHOW COLUMNS FROM  | 全功能       |
+| **PostgreSQL** | 555 | ✅ SQL + Builder | ✅ SQL方式                | ✅ pg_tables        | ✅ information_schema | 全功能       |
+| **SQLite**     | 476 | ✅ SQL + Builder | ✅ SQL方式                | ✅ sqlite_master    | ✅ PRAGMA table_info  | 全功能       |
+| **MongoDB**    | 345 | ✅ Document查询    | ✅ INSERT/UPDATE/DELETE | ✅ list_collections | ❌ 返回错误               | 文档型       |
+| **Redis**      | 320 | ✅ Command执行     | ✅ Command方式            | ❌ 返回错误             | ❌ 返回错误               | 键值型       |
+| **SQL Server** | 130 | ❌ 占位实现          | ❌ 占位实现                 | ❌ 占位实现             | ❌ 占位实现               | **未实现**   |
+| **Oracle**     | 2   | -               | -                      | -                  | -                    | **仅注释** |
 
 ---
 
-#### 4.3 MySQL 驱动 (`mysql.rs`, 466 行)
+#### 4.3 MySQL 驱动 (`mysql.rs`, 575 行)
 
 **实现**: 基于 `mysql` crate
 
@@ -905,7 +905,7 @@ fn columns(&mut self, table: &str) -> Result<Vec<String>, DriverError> {
 
 ---
 
-#### 4.4 PostgreSQL 驱动 (`postgres.rs`, 464 行)
+#### 4.4 PostgreSQL 驱动 (`postgres.rs`, 555 行)
 
 **实现**: 基于 `postgres` crate
 
@@ -942,7 +942,7 @@ fn columns(&mut self, table: &str) -> Result<Vec<String>, DriverError> {
 
 ---
 
-#### 4.5 SQLite 驱动 (`sqlite.rs`, 409 行)
+#### 4.5 SQLite 驱动 (`sqlite.rs`, 476 行)
 
 **实现**: 基于 `rusqlite` crate
 
@@ -978,7 +978,7 @@ fn columns(&mut self, table: &str) -> Result<Vec<String>, DriverError> {
 
 ---
 
-#### 4.6 MongoDB 驱动 (`mongodb.rs`, 428 行)
+#### 4.6 MongoDB 驱动 (`mongodb.rs`, 345 行)
 
 **实现**: 基于 `mongodb` crate
 
@@ -1004,7 +1004,7 @@ fn columns(&mut self, _table: &str) -> Result<Vec<String>, DriverError> {
 
 ---
 
-#### 4.7 Redis 驱动 (`redis.rs`, 310 行)
+#### 4.7 Redis 驱动 (`redis.rs`, 320 行)
 
 **实现**: 基于 `redis` crate
 
@@ -1030,7 +1030,7 @@ fn columns(&mut self, _table: &str) -> Result<Vec<String>, DriverError> {
 
 ---
 
-#### 4.8 SQL Server 驱动 (`sqlserver.rs`, 164 行)
+#### 4.8 SQL Server 驱动 (`sqlserver.rs`, 130 行)
 
 **状态**: 占位实现
 
@@ -1046,11 +1046,17 @@ fn columns(&mut self, _table: &str) -> Result<Vec<String>, DriverError> {
 
 ---
 
-#### 4.9 Oracle 驱动 (`oracle.rs`, 72 行)
+#### 4.9 Oracle 驱动 (`oracle.rs`, 2 行)
 
-**状态**: 仅包含配置结构
+**状态**: 仅包含注释，配置结构已移至 `src/model.rs`
 
+```rust
+// Oracle 驱动相关类型定义已移至 src/model/options.rs
 ```
+
+**配置结构** (在 `src/model.rs` 中):
+
+```rust
 pub enum OracleAddress {
     ServiceName(String),
     Sid(String),
@@ -1264,9 +1270,9 @@ pub enum DataSourceOptions {
     - 集成文件保存对话框
 
 2. **筛选/排序功能**
-    - 从 Dropdown 读取选中值
-    - 构建实际的 `QueryConditions`
-    - 将条件注入 SQL 查询
+    - 从 SelectState 读取选中值
+    - 构建实际的 FilterCond 和 OrderCond
+    - 将条件应用到 SQL 查询
 
 3. **表信息和查询缓存使用**
     - 工作区加载表列表时读取/更新 `tables.json`
@@ -1392,16 +1398,18 @@ pub enum DataSourceOptions {
 
 ## 代码统计
 
-| 模块      | 文件数    | 代码行数（估算）  |
-|---------|--------|-----------|
-| app/    | 18     | ~3800     |
-| driver/ | 8      | ~2800     |
-| cache/  | 1      | ~165      |
-| model/  | 3      | ~150      |
-| codegen/| -      | -         |
-| update/ | -      | -         |
-| main.rs | 1      | 125       |
-| **总计**  | **31** | **~7000** |
+| 模块       | 文件数 | 代码行数（估算） |
+|----------|-----|----------|
+| app/     | 18  | ~3900    |
+| driver/  | 8   | ~3200    |
+| cache/   | 1   | ~166     |
+| model.rs | 1   | ~675     |
+| main.rs  | 1   | 124      |
+| **总计**   | 29  | **~7752** |
+
+**空模块**:
+- `codegen/mod.rs` - 空文件
+- `update/mod.rs` - 空文件
 
 ---
 
@@ -1475,4 +1483,4 @@ pub enum DataSourceOptions {
 
 ---
 
-**最后更新**: 2025-11-14 (深度阅读代码并更新所有不一致之处)
+**最后更新**: 2025-01-17 (基于实际代码详细更新所有文件行数和实现细节)

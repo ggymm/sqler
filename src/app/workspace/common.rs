@@ -5,7 +5,7 @@ use gpui_component::{
     resizable::{h_resizable, resizable_panel},
     select::{Select, SelectState},
     table::{Table, TableState},
-    ActiveTheme, Disableable, InteractiveElementExt, Sizable, Size, StyledExt,
+    ActiveTheme, Disableable, IconName, InteractiveElementExt, Sizable, Size, StyledExt,
 };
 use uuid::Uuid;
 
@@ -591,6 +591,19 @@ impl CommonWorkspace {
                     cx.notify();
                 }
             }));
+        let close_cond_btn = Button::new(comp_id(["filter-apply", &tab_id]))
+            .small()
+            .ghost()
+            .icon(IconName::Close)
+            .on_click(cx.listener({
+                let tab_id = tab_id.clone();
+                move |view: &mut Self, _, window, cx| {
+                    if let Some(content) = view.data_content(&tab_id) {
+                        content.filter_enable = false;
+                    }
+                    cx.notify();
+                }
+            }));
 
         let mut orders = Vec::new();
         for order in tab.order_rules.iter() {
@@ -605,7 +618,7 @@ impl CommonWorkspace {
                     .items_center()
                     .gap_2()
                     .w_full()
-                    .child(div().flex_1().child(rule_field))
+                    .child(div().w_48().child(rule_field))
                     .child(div().w_48().child(rule_order))
                     .child(
                         Button::new(comp_id(["filter-order-remove", &rule_id]))
@@ -711,9 +724,9 @@ impl CommonWorkspace {
                         .col_full()
                         .absolute()
                         .w_2_3()
-                        .h_128()
-                        .left_0()
-                        .bottom_12()
+                        .h_2_3()
+                        .top_1_6()
+                        .left_1_6()
                         .bg(theme.background)
                         .border_1()
                         .border_color(theme.border)
@@ -724,15 +737,19 @@ impl CommonWorkspace {
                                 .flex()
                                 .flex_row()
                                 .items_center()
-                                .p_4()
+                                .justify_between()
+                                .px_4()
+                                .py_2()
                                 .border_b_1()
                                 .border_color(theme.border)
-                                .child(div().text_base().child("筛选数据")),
+                                .child(div().text_base().child("筛选数据"))
+                                .child(close_cond_btn),
                         )
                         .child(
                             div().flex_1().min_h_0().child(
                                 div()
-                                    .p_4()
+                                    .px_4()
+                                    .py_2()
                                     .gap_2()
                                     .col_full()
                                     .scrollable(Axis::Vertical)
@@ -747,7 +764,8 @@ impl CommonWorkspace {
                                 .flex()
                                 .flex_row()
                                 .items_center()
-                                .p_4()
+                                .px_4()
+                                .py_2()
                                 .gap_2()
                                 .border_t_1()
                                 .border_color(theme.border)
