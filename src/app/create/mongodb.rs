@@ -69,11 +69,7 @@ impl Render for MongoDBCreate {
                 .child(field().label("名称").child(Input::new(&self.name).cleanable(true)))
                 .child(field().label("主机").child(Input::new(&self.host).cleanable(true)))
                 .child(field().label("端口").child(Input::new(&self.port).cleanable(true)))
-                .child(
-                    field()
-                        .label("账号")
-                        .child(Input::new(&self.username).cleanable(true)),
-                )
+                .child(field().label("账号").child(Input::new(&self.username).cleanable(true)))
                 .child(
                     field()
                         .label("密码")
