@@ -307,8 +307,8 @@ impl Render for CreateWindow {
                     .border_color(theme.border)
                     .child(
                         Button::new("datasource-check-connection")
-                            .outline()
                             .label("测试连接")
+                            .outline()
                             .on_click(cx.listener(|this: &mut CreateWindow, _, window, cx| {
                                 this.check_conn(window, cx);
                             })),
@@ -321,8 +321,8 @@ impl Render for CreateWindow {
                             .gap_4()
                             .child(
                                 Button::new("datasource-create-back")
-                                    .outline()
                                     .label("上一步")
+                                    .outline()
                                     .on_click(cx.listener(|this: &mut CreateWindow, _, _, cx| {
                                         if this.kind.take().is_some() {
                                             cx.notify();
@@ -331,16 +331,16 @@ impl Render for CreateWindow {
                             )
                             .child(
                                 Button::new("datasource-create-cancel")
-                                    .outline()
                                     .label("取消")
+                                    .outline()
                                     .on_click(cx.listener(|this: &mut CreateWindow, _, window, cx| {
                                         this.cancel(window, cx);
                                     })),
                             )
                             .child(
                                 Button::new("datasource-create-confirm")
-                                    .outline()
                                     .label("保存")
+                                    .outline()
                                     .on_click(cx.listener(|this: &mut CreateWindow, _, window, cx| {
                                         this.create_conn(window, cx);
                                     })),

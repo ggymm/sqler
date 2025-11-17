@@ -200,8 +200,8 @@ impl RedisWorkspace {
                     .child(div().flex_1().child(Input::new(&content.command_input)))
                     .child(
                         Button::new(comp_id(["redis-execute-command", &tab_id]))
-                            .outline()
                             .label("执行")
+                            .outline()
                             .on_click(cx.listener({
                                 let _tab_id = tab_id.clone();
                                 move |_view, _, _, cx| {
@@ -357,15 +357,15 @@ impl Render for RedisWorkspace {
                     .border_color(theme.border)
                     .child(
                         Button::new(comp_id(["redis-header-refresh", id]))
-                            .outline()
                             .icon(icon_relead().with_size(Size::Small))
-                            .label("刷新连接"),
+                            .label("刷新连接")
+                            .outline(),
                     )
                     .child(
                         Button::new(comp_id(["redis-header-command", id]))
-                            .outline()
                             .icon(icon_search().with_size(Size::Small))
                             .label("新建命令")
+                            .outline()
                             .on_click(cx.listener(|view: &mut Self, _, window, cx| {
                                 view.create_command_tab(window, cx);
                             })),

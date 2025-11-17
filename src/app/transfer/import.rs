@@ -288,8 +288,8 @@ impl ImportWindow {
             .col_full()
             .child(
                 Button::new("choose-files")
-                    .outline()
                     .label("选择文件")
+                    .outline()
                     .on_click(cx.listener(|this: &mut ImportWindow, _, window, cx| {
                         this.choose_files(window, cx);
                     })),
@@ -320,7 +320,7 @@ impl ImportWindow {
                                             .text_color(theme.foreground)
                                             .child(file.path.display().to_string()),
                                     )
-                                    .child(Button::new(("remove-file", i)).outline().label("删除").on_click(
+                                    .child(Button::new(("remove-file", i)).label("删除").outline().on_click(
                                         cx.listener({
                                             move |this: &mut ImportWindow, _, _, cx| {
                                                 if i < this.files.len() {
@@ -577,8 +577,8 @@ impl Render for ImportWindow {
                     .border_color(theme.border)
                     .child(
                         Button::new("import-cancel")
-                            .outline()
                             .label("取消")
+                            .outline()
                             .on_click(cx.listener(|this: &mut ImportWindow, _, window, cx| {
                                 if let Some(parent) = this.parent.upgrade() {
                                     let _ = parent.update(cx, |app, cx| {
@@ -592,8 +592,8 @@ impl Render for ImportWindow {
                     .child(div().flex_1())
                     .child(
                         Button::new("import-prev-step")
-                            .outline()
                             .label("上一步")
+                            .outline()
                             .on_click(cx.listener(|this: &mut ImportWindow, _, _, cx| {
                                 if let Some(prev) = this.step.prev() {
                                     this.step = prev;
@@ -603,8 +603,8 @@ impl Render for ImportWindow {
                     )
                     .child(
                         Button::new("import-next-step")
-                            .outline()
                             .label("下一步")
+                            .outline()
                             .on_click(cx.listener(|this: &mut ImportWindow, _, _, cx| {
                                 if let Some(next) = this.step.next() {
                                     this.step = next;
@@ -614,8 +614,8 @@ impl Render for ImportWindow {
                     )
                     .child(
                         Button::new("import-start")
-                            .outline()
                             .label("开始导入")
+                            .outline()
                             .on_click(cx.listener(|_this: &mut ImportWindow, _, _, _cx| {
                                 // 导入逻辑将在后续实现
                             })),

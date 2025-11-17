@@ -179,8 +179,8 @@ impl Render for ExportWindow {
                     .border_color(theme.border)
                     .child(
                         Button::new("transfer-cancel")
-                            .outline()
                             .label("取消")
+                            .outline()
                             .on_click(cx.listener(|this: &mut ExportWindow, _, window, cx| {
                                 if let Some(parent) = this.parent.upgrade() {
                                     let _ = parent.update(cx, |app, cx| {

@@ -256,17 +256,17 @@ impl MongoDBWorkspace {
         let end_doc = ((current_page + 1) * content.page_size).min(content.total_docs);
 
         let filter_btn = Button::new(comp_id(["mongodb-apply-filter", &tab_id]))
-            .outline()
-            .label("应用筛选");
+            .label("应用筛选")
+            .outline();
 
         let page_prev_btn = Button::new(comp_id(["mongodb-page-prev", &tab_id]))
-            .outline()
             .label("上一页")
+            .outline()
             .disabled(current_page == 0);
 
         let page_next_btn = Button::new(comp_id(["mongodb-page-next", &tab_id]))
-            .outline()
             .label("下一页")
+            .outline()
             .disabled(current_page + 1 >= total_pages);
 
         div()
@@ -471,18 +471,18 @@ impl Render for MongoDBWorkspace {
                     .border_color(theme.border)
                     .child(
                         Button::new(comp_id(["mongodb-header-refresh", id]))
-                            .outline()
                             .icon(icon_relead().with_size(Size::Small))
+                            .label("刷新集合")
+                            .outline()
                             .on_click(cx.listener(|view: &mut Self, _, _, cx| {
                                 view.reload_collections(cx);
-                            }))
-                            .label("刷新集合"),
+                            })),
                     )
                     .child(
                         Button::new(comp_id(["mongodb-header-query", id]))
-                            .outline()
                             .icon(icon_search().with_size(Size::Small))
-                            .label("新建查询"),
+                            .label("新建查询")
+                            .outline(),
                     ),
             )
             .child(

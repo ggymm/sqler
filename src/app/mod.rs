@@ -405,19 +405,19 @@ impl Render for SqlerApp {
                             .flex()
                             .flex_row()
                             .gap_5()
-                            .child(Button::new("header-new-source").outline().label("新建数据源").on_click(
+                            .child(Button::new("header-new-source").label("新建数据源").outline().on_click(
                                 cx.listener(|this, _, _, cx| {
                                     this.display_create_window(cx);
                                 }),
                             ))
                             .child(
                                 Button::new("toggle-theme")
-                                    .outline()
                                     .label(if theme.is_dark() {
                                         "切换到亮色"
                                     } else {
                                         "切换到暗色"
                                     })
+                                    .outline()
                                     .on_click(cx.listener(|this, _, window, cx| {
                                         this.toggle_theme(window, cx);
                                     })),

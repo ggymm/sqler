@@ -76,6 +76,7 @@ struct DataContent {
     order_rules: Vec<OrderRule>,
     query_rules: Vec<QueryRule>,
     filter_enable: bool,
+    columns_enable: bool,
     content: Entity<TableState<DataTable>>,
 }
 
@@ -232,6 +233,7 @@ impl CommonWorkspace {
                 query_rules: Vec::new(),
                 order_rules: Vec::new(),
                 filter_enable: false,
+                columns_enable: false,
                 content,
             }),
             closable: true,
@@ -465,8 +467,8 @@ impl CommonWorkspace {
         };
 
         let filter_btn = Button::new(comp_id(["table-toggle-filter", &tab_id]))
-            .outline()
             .label("数据筛选")
+            .outline()
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
                 move |view: &mut Self, _, _, cx| {
@@ -477,12 +479,12 @@ impl CommonWorkspace {
                 }
             }));
         let column_btn = Button::new(comp_id(["table-choose-column", &tab_id]))
-            .outline()
-            .label("字段筛选");
+            .label("字段筛选")
+            .outline();
 
         let page_prev_btn = Button::new(comp_id(["table-page-prev", &tab_id]))
-            .outline()
             .label("上一页")
+            .outline()
             .disabled(page == 0)
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
@@ -495,8 +497,8 @@ impl CommonWorkspace {
                 }
             }));
         let page_next_btn = Button::new(comp_id(["table-page-next", &tab_id]))
-            .outline()
             .label("下一页")
+            .outline()
             .disabled(page + 1 >= total_pages)
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
@@ -516,8 +518,7 @@ impl CommonWorkspace {
             .collect();
         let create_order_btn = Button::new(comp_id(["create-order", &tab_id]))
             .small()
-            .outline()
-            .label("新增排序")
+            .icon(IconName::Plus)
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
                 let headers = columns.clone();
@@ -540,8 +541,7 @@ impl CommonWorkspace {
             }));
         let create_query_btn = Button::new(comp_id(["create-filter", &tab_id]))
             .small()
-            .outline()
-            .label("新增筛选")
+            .icon(IconName::Plus)
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
                 let headers = columns.clone();
@@ -564,9 +564,8 @@ impl CommonWorkspace {
                 }
             }));
         let apply_cond_btn = Button::new(comp_id(["filter-apply", &tab_id]))
-            .small()
-            .outline()
             .label("应用条件")
+            .outline()
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
                 move |view: &mut Self, _, window, cx| {
@@ -578,9 +577,8 @@ impl CommonWorkspace {
                 }
             }));
         let clear_cond_btn = Button::new(comp_id(["filter-clear", &tab_id]))
-            .small()
-            .outline()
             .label("清除条件")
+            .outline()
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
                 move |view: &mut Self, _, _, cx| {
@@ -591,7 +589,7 @@ impl CommonWorkspace {
                     cx.notify();
                 }
             }));
-        let close_cond_btn = Button::new(comp_id(["filter-apply", &tab_id]))
+        let close_cond_btn = Button::new(comp_id(["filter-close", &tab_id]))
             .small()
             .ghost()
             .icon(IconName::Close)
@@ -708,7 +706,7 @@ impl CommonWorkspace {
                     .child(page_prev_btn)
                     .child(page_next_btn),
             )
-            .when(tab.filter_enable, |this| {
+            .when(tab.filter_enable || tab.columns_enable, |this| {
                 this.child(
                     div()
                         .id("filter-overlay")
@@ -719,13 +717,15 @@ impl CommonWorkspace {
                         .occlude()
                         .absolute(),
                 )
-                .child(
+            })
+            .when(tab.filter_enable, |this| {
+                this.child(
                     div()
                         .col_full()
                         .absolute()
                         .w_2_3()
                         .h_2_3()
-                        .top_1_6()
+                        .top_0()
                         .left_1_6()
                         .bg(theme.background)
                         .border_1()
@@ -753,9 +753,21 @@ impl CommonWorkspace {
                                     .gap_2()
                                     .col_full()
                                     .scrollable(Axis::Vertical)
-                                    .child(div().text_sm().font_semibold().child("排序规则"))
+                                    .child(
+                                        div()
+                                            .gap_4()
+                                            .row_full()
+                                            .child(div().text_sm().font_semibold().child("排序规则"))
+                                            .child(create_order_btn),
+                                    )
                                     .children(orders)
-                                    .child(div().text_sm().font_semibold().child("筛选规则"))
+                                    .child(
+                                        div()
+                                            .gap_4()
+                                            .row_full()
+                                            .child(div().text_sm().font_semibold().child("筛选规则"))
+                                            .child(create_query_btn),
+                                    )
                                     .children(queries),
                             ),
                         )
@@ -769,14 +781,13 @@ impl CommonWorkspace {
                                 .gap_2()
                                 .border_t_1()
                                 .border_color(theme.border)
-                                .child(create_order_btn)
-                                .child(create_query_btn)
                                 .child(div().flex_1())
                                 .child(clear_cond_btn)
                                 .child(apply_cond_btn),
                         ),
                 )
             })
+            .when(tab.columns_enable, |this| this.child(div()))
             .into_any_element()
     }
 
@@ -938,8 +949,6 @@ impl Render for CommonWorkspace {
                     .py_2()
                     .gap_2()
                     .row_full()
-                    .items_center()
-                    .text_sm()
                     .rounded_lg()
                     .when_else(
                         active,
@@ -950,7 +959,13 @@ impl Render for CommonWorkspace {
                         this.create_data_tab(active_table.clone(), window, cx);
                     }))
                     .child(icon_sheet())
-                    .child(item.clone()),
+                    .child(
+                        div()
+                            .text_sm()
+                            .overflow_hidden()
+                            .whitespace_nowrap()
+                            .child(item.clone()),
+                    ),
             )
         }
 
@@ -968,36 +983,36 @@ impl Render for CommonWorkspace {
                     .border_color(theme.border)
                     .child(
                         Button::new(comp_id(["common-header-refresh", id]))
-                            .outline()
                             .icon(icon_relead().with_size(Size::Small))
+                            .label("刷新表")
+                            .outline()
                             .on_click(cx.listener(|view: &mut Self, _, _, cx| {
                                 view.reload_tables(cx);
-                            }))
-                            .label("刷新表"),
+                            })),
                     )
                     .child(
                         Button::new(comp_id(["common-header-table", id]))
-                            .outline()
                             .icon(icon_sheet().with_size(Size::Small))
                             .label("新建表")
+                            .outline()
                             .on_click(cx.listener(|view: &mut Self, _, _, cx| {
                                 view.create_query_tab(cx);
                             })),
                     )
                     .child(
                         Button::new(comp_id(["common-header-query", id]))
-                            .outline()
                             .icon(icon_search().with_size(Size::Small))
                             .label("新建查询")
+                            .outline()
                             .on_click(cx.listener(|view: &mut Self, _, _, cx| {
                                 view.create_query_tab(cx);
                             })),
                     )
                     .child(
                         Button::new(comp_id(["common-header-import", id]))
-                            .outline()
                             .icon(icon_import().with_size(Size::Small))
                             .label("数据导入")
+                            .outline()
                             .on_click(cx.listener(|view: &mut Self, _, _, cx| {
                                 if let Some(parent) = view.parent.upgrade() {
                                     let meta = view.meta.clone();
@@ -1010,9 +1025,9 @@ impl Render for CommonWorkspace {
                     )
                     .child(
                         Button::new(comp_id(["common-header-export", id]))
-                            .outline()
                             .icon(icon_export().with_size(Size::Small))
                             .label("数据导出")
+                            .outline()
                             .on_click(cx.listener(|view: &mut Self, _, _, cx| {
                                 if let Some(parent) = view.parent.upgrade() {
                                     let meta = view.meta.clone();
