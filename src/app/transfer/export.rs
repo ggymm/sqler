@@ -1,8 +1,8 @@
 use gpui::{prelude::*, *};
 use gpui_component::{
     button::Button,
-    form::{form_field, Form},
-    input::{InputState, TextInput},
+    form::{field, Form},
+    input::{Input, InputState},
     ActiveTheme, Sizable, Size, StyledExt,
 };
 
@@ -68,14 +68,14 @@ impl ExportWindow {
                     .with_size(Size::Large)
                     .label_width(px(100.))
                     .child(
-                        form_field()
+                        field()
                             .label("源表名称")
-                            .child(TextInput::new(&self.table_name).cleanable()),
+                            .child(Input::new(&self.table_name).cleanable(true)),
                     )
                     .child(
-                        form_field()
+                        field()
                             .label("文件路径")
-                            .child(TextInput::new(&self.file_path).cleanable()),
+                            .child(Input::new(&self.file_path).cleanable(true)),
                     ),
             )
             .child(

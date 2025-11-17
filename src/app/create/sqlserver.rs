@@ -1,7 +1,7 @@
 use gpui::{prelude::*, *};
 use gpui_component::{
-    form::{form_field, Form},
-    input::{InputState, TextInput},
+    form::{field, Form},
+    input::{Input, InputState},
     Sizable, Size,
 };
 
@@ -43,28 +43,24 @@ impl Render for SQLServerCreate {
                 .layout(Axis::Horizontal)
                 .with_size(Size::Large)
                 .label_width(px(80.))
-                .child(form_field().label("名称").child(TextInput::new(&self.name).cleanable()))
-                .child(form_field().label("主机").child(TextInput::new(&self.host).cleanable()))
-                .child(form_field().label("端口").child(TextInput::new(&self.port).cleanable()))
+                .child(field().label("名称").child(Input::new(&self.name).cleanable(true)))
+                .child(field().label("主机").child(Input::new(&self.host).cleanable(true)))
+                .child(field().label("端口").child(Input::new(&self.port).cleanable(true)))
+                .child(field().label("账号").child(Input::new(&self.username).cleanable(true)))
                 .child(
-                    form_field()
-                        .label("账号")
-                        .child(TextInput::new(&self.username).cleanable()),
-                )
-                .child(
-                    form_field()
+                    field()
                         .label("密码")
-                        .child(TextInput::new(&self.password).mask_toggle().cleanable()),
+                        .child(Input::new(&self.password).mask_toggle().cleanable(true)),
                 )
                 .child(
-                    form_field()
+                    field()
                         .label("实例名")
-                        .child(TextInput::new(&self.instance).cleanable()),
+                        .child(Input::new(&self.instance).cleanable(true)),
                 )
                 .child(
-                    form_field()
+                    field()
                         .label("数据库")
-                        .child(TextInput::new(&self.database).cleanable()),
+                        .child(Input::new(&self.database).cleanable(true)),
                 ),
         )
     }

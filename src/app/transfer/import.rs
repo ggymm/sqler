@@ -3,9 +3,9 @@ use std::path::PathBuf;
 use gpui::{prelude::*, *};
 use gpui_component::{
     button::Button,
-    dropdown::{Dropdown, DropdownState},
-    form::{form_field, Form},
-    input::{InputState, TextInput},
+    form::{field, Form},
+    input::{Input, InputState},
+    select::{Select, SelectState},
     switch::Switch,
     ActiveTheme, IndexPath, Sizable, Size, StyledExt,
 };
@@ -108,7 +108,7 @@ struct ImportFile {
     path: PathBuf,
     option: TableOption,
     new_table: Entity<InputState>,
-    exist_table: Entity<DropdownState<Vec<SharedString>>>,
+    exist_table: Entity<SelectState<Vec<SharedString>>>,
 }
 
 impl ImportFile {
@@ -124,7 +124,7 @@ impl ImportFile {
             path,
             option: TableOption::NewTable,
             new_table: cx.new(|cx| InputState::new(window, cx).default_value(&default_name)),
-            exist_table: cx.new(|cx| DropdownState::new(tables, None, window, cx)),
+            exist_table: cx.new(|cx| SelectState::new(tables, None, window, cx)),
         }
     }
 
@@ -157,8 +157,8 @@ pub struct ImportWindow {
     row_delimiter: Entity<InputState>,
     col_delimiter: Entity<InputState>,
 
-    file_kinds: Entity<DropdownState<Vec<SharedString>>>,
-    import_modes: Entity<DropdownState<Vec<SharedString>>>,
+    file_kinds: Entity<SelectState<Vec<SharedString>>>,
+    import_modes: Entity<SelectState<Vec<SharedString>>>,
 }
 
 impl ImportWindow {
@@ -195,8 +195,8 @@ impl ImportWindow {
             row_delimiter: cx.new(|cx| InputState::new(window, cx).default_value("\\n")),
             col_delimiter: cx.new(|cx| InputState::new(window, cx).default_value(",")),
 
-            file_kinds: cx.new(|cx| DropdownState::new(file_kinds, Some(IndexPath::new(0)), window, cx)),
-            import_modes: cx.new(|cx| DropdownState::new(import_modes, Some(IndexPath::new(0)), window, cx)),
+            file_kinds: cx.new(|cx| SelectState::new(file_kinds, Some(IndexPath::new(0)), window, cx)),
+            import_modes: cx.new(|cx| SelectState::new(import_modes, Some(IndexPath::new(0)), window, cx)),
         }
     }
 
@@ -246,30 +246,30 @@ impl ImportWindow {
                     .with_size(Size::Large)
                     .label_width(px(120.))
                     .child(
-                        form_field()
+                        field()
                             .label("文件类型")
-                            .child(Dropdown::new(&self.file_kinds).placeholder("选择文件类型")),
+                            .child(Select::new(&self.file_kinds).placeholder("选择文件类型")),
                     )
                     .when(matches!(format, Some(TransferKind::Csv)), |this| {
                         this.child(
-                            form_field()
+                            field()
                                 .label("字段行")
-                                .child(TextInput::new(&self.col_index).cleanable()),
+                                .child(Input::new(&self.col_index).cleanable(true)),
                         )
                         .child(
-                            form_field()
+                            field()
                                 .label("数据起始行")
-                                .child(TextInput::new(&self.data_index).cleanable()),
+                                .child(Input::new(&self.data_index).cleanable(true)),
                         )
                         .child(
-                            form_field()
+                            field()
                                 .label("行分隔符")
-                                .child(TextInput::new(&self.row_delimiter).cleanable()),
+                                .child(Input::new(&self.row_delimiter).cleanable(true)),
                         )
                         .child(
-                            form_field()
+                            field()
                                 .label("列分隔符")
-                                .child(TextInput::new(&self.col_delimiter).cleanable()),
+                                .child(Input::new(&self.col_delimiter).cleanable(true)),
                         )
                     }),
             )
@@ -408,9 +408,9 @@ impl ImportWindow {
                                                 .gap_4()
                                                 .child(match file.option {
                                                     TableOption::NewTable => {
-                                                        TextInput::new(&file.new_table).cleanable().into_any_element()
+                                                        Input::new(&file.new_table).cleanable(true).into_any_element()
                                                     }
-                                                    TableOption::ExistTable => Dropdown::new(&file.exist_table)
+                                                    TableOption::ExistTable => Select::new(&file.exist_table)
                                                         .placeholder("选择表")
                                                         .into_any_element(),
                                                 })
@@ -461,9 +461,9 @@ impl ImportWindow {
                     .with_size(Size::Large)
                     .label_width(px(120.))
                     .child(
-                        form_field()
+                        field()
                             .label("导入模式")
-                            .child(Dropdown::new(&self.import_modes).placeholder("选择导入模式")),
+                            .child(Select::new(&self.import_modes).placeholder("选择导入模式")),
                     ),
             )
             .child(

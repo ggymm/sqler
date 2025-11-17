@@ -1,8 +1,8 @@
 use gpui::{prelude::*, *};
 use gpui_component::{
-    dropdown::{Dropdown, DropdownState},
-    form::{form_field, Form},
-    input::{InputState, TextInput},
+    form::{field, Form},
+    input::{Input, InputState},
+    select::{Select, SelectState},
     IndexPath, Sizable, Size,
 };
 
@@ -37,7 +37,7 @@ pub struct RedisCreate {
     pub name: Entity<InputState>,
     pub host: Entity<InputState>,
     pub port: Entity<InputState>,
-    pub auth: Entity<DropdownState<Vec<SharedString>>>,
+    pub auth: Entity<SelectState<Vec<SharedString>>>,
     pub username: Entity<InputState>,
     pub password: Entity<InputState>,
 }
@@ -53,7 +53,7 @@ impl RedisCreate {
             name: cx.new(|cx| InputState::new(window, cx).default_value("Redis数据源")),
             host: cx.new(|cx| InputState::new(window, cx).default_value("127.0.0.1")),
             port: cx.new(|cx| InputState::new(window, cx).default_value("6379")),
-            auth: cx.new(|cx| DropdownState::new(auths, Some(IndexPath::new(0)), window, cx)),
+            auth: cx.new(|cx| SelectState::new(auths, Some(IndexPath::new(0)), window, cx)),
             username: cx.new(|cx| InputState::new(window, cx)),
             password: cx.new(|cx| InputState::new(window, cx).masked(true)),
         }
@@ -101,22 +101,18 @@ impl Render for RedisCreate {
                 .layout(Axis::Horizontal)
                 .with_size(Size::Large)
                 .label_width(px(80.))
-                .child(form_field().label("名称").child(TextInput::new(&self.name).cleanable()))
-                .child(form_field().label("主机").child(TextInput::new(&self.host).cleanable()))
-                .child(form_field().label("端口").child(TextInput::new(&self.port).cleanable()))
-                .child(form_field().label("认证模式").child(Dropdown::new(&self.auth)))
+                .child(field().label("名称").child(Input::new(&self.name).cleanable(true)))
+                .child(field().label("主机").child(Input::new(&self.host).cleanable(true)))
+                .child(field().label("端口").child(Input::new(&self.port).cleanable(true)))
+                .child(field().label("认证模式").child(Select::new(&self.auth)))
                 .when(show_username, |form| {
-                    form.child(
-                        form_field()
-                            .label("账号")
-                            .child(TextInput::new(&self.username).cleanable()),
-                    )
+                    form.child(field().label("账号").child(Input::new(&self.username).cleanable(true)))
                 })
                 .when(show_username || show_password, |form| {
                     form.child(
-                        form_field()
+                        field()
                             .label("密码")
-                            .child(TextInput::new(&self.password).mask_toggle().cleanable()),
+                            .child(Input::new(&self.password).mask_toggle().cleanable(true)),
                     )
                 }),
         )

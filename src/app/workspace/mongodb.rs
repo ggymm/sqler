@@ -1,8 +1,8 @@
 use gpui::{prelude::*, *};
 use gpui_component::{
     button::{Button, ButtonVariants},
-    input::{InputState, TextInput},
-    resizable::{h_resizable, resizable_panel, ResizableState},
+    input::{Input, InputState},
+    resizable::{h_resizable, resizable_panel},
     table::Table,
     ActiveTheme, Disableable, InteractiveElementExt, Sizable, Size, StyledExt,
 };
@@ -60,14 +60,13 @@ pub struct MongoDBWorkspace {
     active_tab: SharedString,
     collections: Vec<SharedString>,
     active_collection: Option<SharedString>,
-    sidebar_resize: Entity<ResizableState>,
 }
 
 impl MongoDBWorkspace {
     pub fn new(
         meta: DataSource,
         parent: WeakEntity<SqlerApp>,
-        cx: &mut Context<Self>,
+        _cx: &mut Context<Self>,
     ) -> Self {
         let overview = TabItem::overview();
         let active_tab = overview.id.clone();
@@ -81,7 +80,6 @@ impl MongoDBWorkspace {
             active_tab,
             collections: vec![],
             active_collection: None,
-            sidebar_resize: ResizableState::new(cx),
         }
     }
 
@@ -245,7 +243,7 @@ impl MongoDBWorkspace {
         content: &CollectionContent,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let theme = cx.theme().clone();
+        let _theme = cx.theme().clone();
         let tab_id = content.id.clone();
 
         let total_pages = if content.total_docs == 0 {
@@ -282,7 +280,7 @@ impl MongoDBWorkspace {
                     .flex_row()
                     .items_center()
                     .gap_2()
-                    .child(div().flex_1().child(TextInput::new(&content.filter_input)))
+                    .child(div().flex_1().child(Input::new(&content.filter_input)))
                     .child(filter_btn),
             )
             .child(
@@ -483,7 +481,7 @@ impl Render for MongoDBWorkspace {
             )
             .child(
                 div().id(comp_id(["mongodb-content", id])).col_full().child(
-                    h_resizable(comp_id(["mongodb-content", id]), self.sidebar_resize.clone())
+                    h_resizable(comp_id(["mongodb-content", id]))
                         .child(
                             resizable_panel()
                                 .size(px(200.0))

@@ -4,7 +4,6 @@ use std::{
     io::stdout,
     mem::forget,
     path::PathBuf,
-    sync::OnceLock,
 };
 
 use dirs::home_dir;
@@ -113,7 +112,7 @@ fn main() {
             },
             |window, cx| {
                 let view = cx.new(|cx| SqlerApp::new(window, cx));
-                cx.new(|cx| Root::new(view.into(), window, cx))
+                cx.new(|cx| Root::new(view, window, cx))
             },
         )
         .expect("failed to open window")

@@ -1,8 +1,8 @@
 use gpui::{prelude::*, *};
 use gpui_component::{
     button::{Button, ButtonVariants},
-    input::{InputState, TextInput},
-    resizable::{h_resizable, resizable_panel, ResizableState},
+    input::{Input, InputState},
+    resizable::{h_resizable, resizable_panel},
     table::Table,
     ActiveTheme, Sizable, Size, StyledExt,
 };
@@ -53,7 +53,6 @@ pub struct RedisWorkspace {
 
     tabs: Vec<TabItem>,
     active_tab: SharedString,
-    sidebar_resize: Entity<ResizableState>,
 }
 
 impl RedisWorkspace {
@@ -72,7 +71,6 @@ impl RedisWorkspace {
 
             tabs: vec![overview],
             active_tab,
-            sidebar_resize: ResizableState::new(cx),
         }
     }
 
@@ -199,7 +197,7 @@ impl RedisWorkspace {
                     .flex_row()
                     .items_center()
                     .gap_2()
-                    .child(div().flex_1().child(TextInput::new(&content.command_input)))
+                    .child(div().flex_1().child(Input::new(&content.command_input)))
                     .child(
                         Button::new(comp_id(["redis-execute-command", &tab_id]))
                             .outline()
@@ -373,7 +371,7 @@ impl Render for RedisWorkspace {
             )
             .child(
                 div().id(comp_id(["redis-content", id])).col_full().child(
-                    h_resizable(comp_id(["redis-content", id]), self.sidebar_resize.clone())
+                    h_resizable(comp_id(["redis-content", id]))
                         .child(
                             resizable_panel()
                                 .size(px(200.0))

@@ -1,9 +1,9 @@
 use gpui::{prelude::*, *};
 use gpui_component::{
     button::{Button, ButtonVariants},
-    dropdown::{Dropdown, DropdownState},
-    input::{InputState, TextInput},
-    resizable::{h_resizable, resizable_panel, ResizableState},
+    input::{Input, InputState},
+    resizable::{h_resizable, resizable_panel},
+    select::{Select, SelectState},
     table::Table,
     ActiveTheme, Disableable, InteractiveElementExt, Sizable, Size, StyledExt,
 };
@@ -56,14 +56,14 @@ enum TabContent {
 struct QueryRule {
     id: SharedString,
     value: Entity<InputState>,
-    field: Entity<DropdownState<Vec<SharedString>>>,
-    operator: Entity<DropdownState<Vec<SharedString>>>,
+    field: Entity<SelectState<Vec<SharedString>>>,
+    operator: Entity<SelectState<Vec<SharedString>>>,
 }
 
 struct OrderRule {
     id: SharedString,
-    field: Entity<DropdownState<Vec<SharedString>>>,
-    order: Entity<DropdownState<Vec<SharedString>>>,
+    field: Entity<SelectState<Vec<SharedString>>>,
+    order: Entity<SelectState<Vec<SharedString>>>,
 }
 
 struct DataContent {
@@ -76,7 +76,7 @@ struct DataContent {
     order_rules: Vec<OrderRule>,
     query_rules: Vec<QueryRule>,
     filter_enable: bool,
-    content: Entity<Table<DataTable>>,
+    content: Table<DataTable>,
 }
 
 pub struct CommonWorkspace {
@@ -88,14 +88,13 @@ pub struct CommonWorkspace {
     active_tab: SharedString,
     tables: Vec<SharedString>,
     active_table: Option<SharedString>,
-    sidebar_resize: Entity<ResizableState>,
 }
 
 impl CommonWorkspace {
     pub fn new(
         meta: DataSource,
         parent: WeakEntity<SqlerApp>,
-        cx: &mut Context<Self>,
+        _cx: &mut Context<Self>,
     ) -> Self {
         let overview = TabItem::overview();
         let active_tab = overview.id.clone();
@@ -109,7 +108,6 @@ impl CommonWorkspace {
             active_tab,
             tables: vec![],
             active_table: None,
-            sidebar_resize: ResizableState::new(cx),
         }
     }
 
@@ -529,11 +527,11 @@ impl CommonWorkspace {
                             id: SharedString::from(Uuid::new_v4().to_string()),
                             field: cx.new(|cx| {
                                 // rustfmt::skip
-                                DropdownState::new(headers.clone(), None, window, cx)
+                                SelectState::new(headers.clone(), None, window, cx)
                             }),
                             order: cx.new(|cx| {
                                 // rustfmt::skip
-                                DropdownState::new(order_ops.clone(), None, window, cx)
+                                SelectState::new(order_ops.clone(), None, window, cx)
                             }),
                         });
                     }
@@ -553,11 +551,11 @@ impl CommonWorkspace {
                             id: SharedString::from(Uuid::new_v4().to_string()),
                             field: cx.new(|cx| {
                                 // rustfmt::skip
-                                DropdownState::new(headers.clone(), None, window, cx)
+                                SelectState::new(headers.clone(), None, window, cx)
                             }),
                             operator: cx.new(|cx| {
                                 // rustfmt::skip
-                                DropdownState::new(filter_ops.clone(), None, window, cx)
+                                SelectState::new(filter_ops.clone(), None, window, cx)
                             }),
                             value: cx.new(|cx| InputState::new(window, cx)),
                         });
@@ -598,8 +596,8 @@ impl CommonWorkspace {
         for order in tab.order_rules.iter() {
             let tab_id = tab_id.clone();
             let rule_id = order.id.clone();
-            let rule_field = Dropdown::new(&order.field).small().placeholder("");
-            let rule_order = Dropdown::new(&order.order).small().placeholder("");
+            let rule_field = Select::new(&order.field).small().placeholder("");
+            let rule_order = Select::new(&order.order).small().placeholder("");
             orders.push(
                 div()
                     .flex()
@@ -628,8 +626,8 @@ impl CommonWorkspace {
         for query in tab.query_rules.iter() {
             let tab_id = tab_id.clone();
             let rule_id = query.id.clone();
-            let rule_field = Dropdown::new(&query.field).small().placeholder("");
-            let rule_operator = Dropdown::new(&query.operator).small().placeholder("");
+            let rule_field = Select::new(&query.field).small().placeholder("");
+            let rule_operator = Select::new(&query.operator).small().placeholder("");
 
             queries.push(
                 div()
@@ -640,7 +638,7 @@ impl CommonWorkspace {
                     .w_full()
                     .child(div().w_48().child(rule_field))
                     .child(div().w_48().child(rule_operator))
-                    .child(div().flex_1().child(TextInput::new(&query.value).small()))
+                    .child(div().flex_1().child(Input::new(&query.value).small()))
                     .child(
                         Button::new(comp_id(["filter-query-remove", &rule_id]))
                             .ghost()
@@ -1011,7 +1009,7 @@ impl Render for CommonWorkspace {
                     ),
             )
             .child(
-                h_resizable(comp_id(["common-content", id]), self.sidebar_resize.clone())
+                h_resizable(comp_id(["common-content", id]))
                     .child(
                         resizable_panel()
                             .size(px(180.0))

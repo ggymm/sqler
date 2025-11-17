@@ -1,8 +1,8 @@
 use gpui::{prelude::*, *};
 use gpui_component::{
     button::Button,
-    form::{form_field, Form},
-    input::{InputState, TextInput},
+    form::{field, Form},
+    input::{Input, InputState},
     Sizable, Size,
 };
 
@@ -80,14 +80,14 @@ impl Render for SQLiteCreate {
                 .layout(Axis::Horizontal)
                 .with_size(Size::Large)
                 .label_width(px(80.))
-                .child(form_field().label("名称").child(TextInput::new(&self.name).cleanable()))
+                .child(field().label("名称").child(Input::new(&self.name).cleanable(true)))
                 .child(
-                    form_field().label("文件").child(
+                    field().label("文件").child(
                         div()
                             .gap_2()
                             .row_full()
                             .items_center()
-                            .child(TextInput::new(&self.filepath).cleanable())
+                            .child(Input::new(&self.filepath).cleanable(true))
                             .child(Button::new("sqlite-choose-file").outline().label("选择文件").on_click(
                                 cx.listener(|this: &mut SQLiteCreate, _, window, cx| {
                                     this.choose_file(window, cx);
@@ -96,9 +96,9 @@ impl Render for SQLiteCreate {
                     ),
                 )
                 .child(
-                    form_field()
+                    field()
                         .label("密码")
-                        .child(TextInput::new(&self.password).mask_toggle().cleanable()),
+                        .child(Input::new(&self.password).mask_toggle().cleanable(true)),
                 ),
         )
     }

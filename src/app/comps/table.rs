@@ -1,6 +1,7 @@
 use gpui::*;
+use gpui_component::table::Table;
 use gpui_component::{
-    table::{Column, Table, TableDelegate},
+    table::{Column, TableDelegate, TableState},
     Sizable, Size,
 };
 
@@ -30,19 +31,21 @@ impl DataTable {
         window: &mut Window,
         cx: &mut App,
     ) -> Entity<Table<Self>> {
-        cx.new(|cx| {
-            Table::new(self, window, cx)
-                .with_size(Size::Small)
-                .border(false)
-                .stripe(false)
+        let state = cx.new(|cx| {
+            TableState::new(self, window, cx)
                 .sortable(false)
                 .col_movable(true)
                 .col_resizable(true)
                 .col_selectable(true)
                 .row_selectable(true)
                 .loop_selection(true)
-                .scrollbar_visible(true, true)
-        })
+        });
+
+        Table::new(&state)
+            .stripe(false)
+            .bordered(false)
+            .with_size(Size::Small)
+            .scrollbar_visible(true, true)
     }
 
     pub fn update_data(
@@ -90,7 +93,7 @@ impl TableDelegate for DataTable {
         &self,
         col_ix: usize,
         _window: &mut Window,
-        _cx: &mut Context<Table<Self>>,
+        _cx: &mut App,
     ) -> impl IntoElement {
         div()
             .size_full()
@@ -103,7 +106,7 @@ impl TableDelegate for DataTable {
         row_ix: usize,
         col_ix: usize,
         _window: &mut Window,
-        _cx: &mut Context<Table<Self>>,
+        _cx: &mut App,
     ) -> impl IntoElement {
         let value = self
             .rows

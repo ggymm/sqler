@@ -206,7 +206,7 @@ impl SqlerApp {
         match cx.open_window(options, move |window, app_cx| {
             let parent = parent.clone();
             let view = app_cx.new(|cx| CreateWindow::new(parent.clone(), window, cx));
-            app_cx.new(|cx| Root::new(view.into(), window, cx))
+            app_cx.new(|cx| Root::new(view, window, cx))
         }) {
             Ok(handle) => {
                 let _ = handle.update(cx, |_, modal_window, _| {
@@ -248,7 +248,7 @@ impl SqlerApp {
         match cx.open_window(options, move |window, app_cx| {
             let parent = parent.clone();
             let view = app_cx.new(|cx| ImportWindow::new(meta, tables, parent.clone(), window, cx));
-            app_cx.new(|cx| Root::new(view.into(), window, cx))
+            app_cx.new(|cx| Root::new(view, window, cx))
         }) {
             Ok(handle) => {
                 let _ = handle.update(cx, |_, modal_window, _| {
@@ -290,7 +290,7 @@ impl SqlerApp {
         match cx.open_window(options, move |window, app_cx| {
             let parent = parent.clone();
             let view = app_cx.new(|cx| ExportWindow::new(parent.clone(), window, cx));
-            app_cx.new(|cx| Root::new(view.into(), window, cx))
+            app_cx.new(|cx| Root::new(view, window, cx))
         }) {
             Ok(handle) => {
                 let _ = handle.update(cx, |_, modal_window, _| {
