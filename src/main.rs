@@ -95,7 +95,6 @@ fn main() {
         .detach();
 
         let theme = Theme::global_mut(cx);
-        theme.font_size = px(14.);
         theme.scrollbar_show = ScrollbarShow::Hover;
 
         let window_size = size(px(1280.), px(800.));

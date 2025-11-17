@@ -1,9 +1,5 @@
 use gpui::*;
-use gpui_component::table::Table;
-use gpui_component::{
-    table::{Column, TableDelegate, TableState},
-    Sizable, Size,
-};
+use gpui_component::table::{Column, TableDelegate, TableState};
 
 pub struct DataTable {
     col_defs: Vec<Column>,
@@ -17,7 +13,10 @@ impl DataTable {
         cols: Vec<SharedString>,
         rows: Vec<Vec<SharedString>>,
     ) -> Self {
-        let col_defs = cols.iter().map(|name| Column::new(name.to_string(), "")).collect();
+        let col_defs = cols
+            .iter()
+            .map(|name| Column::new(name.clone(), name.clone()))
+            .collect();
         Self {
             col_defs,
             cols,
@@ -30,8 +29,8 @@ impl DataTable {
         self,
         window: &mut Window,
         cx: &mut App,
-    ) -> Entity<Table<Self>> {
-        let state = cx.new(|cx| {
+    ) -> Entity<TableState<Self>> {
+        cx.new(|cx| {
             TableState::new(self, window, cx)
                 .sortable(false)
                 .col_movable(true)
@@ -39,13 +38,7 @@ impl DataTable {
                 .col_selectable(true)
                 .row_selectable(true)
                 .loop_selection(true)
-        });
-
-        Table::new(&state)
-            .stripe(false)
-            .bordered(false)
-            .with_size(Size::Small)
-            .scrollbar_visible(true, true)
+        })
     }
 
     pub fn update_data(
@@ -53,7 +46,10 @@ impl DataTable {
         cols: Vec<SharedString>,
         rows: Vec<Vec<SharedString>>,
     ) {
-        self.col_defs = cols.iter().map(|name| Column::new(name.to_string(), "")).collect();
+        self.col_defs = cols
+            .iter()
+            .map(|name| Column::new(name.clone(), name.clone()))
+            .collect();
         self.cols = cols;
         self.rows = rows;
     }

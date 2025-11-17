@@ -3,7 +3,7 @@ use gpui_component::{
     button::{Button, ButtonVariants},
     input::{Input, InputState},
     resizable::{h_resizable, resizable_panel},
-    table::Table,
+    table::{Table, TableState},
     ActiveTheme, Sizable, Size, StyledExt,
 };
 use uuid::Uuid;
@@ -43,7 +43,7 @@ enum TabContent {
 struct CommandContent {
     id: SharedString,
     command_input: Entity<InputState>,
-    result_table: Entity<Table<DataTable>>,
+    result_table: Entity<TableState<DataTable>>,
 }
 
 pub struct RedisWorkspace {
@@ -59,7 +59,7 @@ impl RedisWorkspace {
     pub fn new(
         meta: DataSource,
         parent: WeakEntity<SqlerApp>,
-        cx: &mut Context<Self>,
+        _cx: &mut Context<Self>,
     ) -> Self {
         let overview = TabItem::overview();
         let active_tab = overview.id.clone();
@@ -183,7 +183,7 @@ impl RedisWorkspace {
         content: &CommandContent,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let theme = cx.theme().clone();
+        let _theme = cx.theme().clone();
         let tab_id = content.id.clone();
 
         div()
@@ -203,7 +203,7 @@ impl RedisWorkspace {
                             .outline()
                             .label("执行")
                             .on_click(cx.listener({
-                                let tab_id = tab_id.clone();
+                                let _tab_id = tab_id.clone();
                                 move |_view, _, _, cx| {
                                     // TODO: 实现命令执行逻辑
                                     cx.notify();
@@ -212,11 +212,13 @@ impl RedisWorkspace {
                     ),
             )
             .child(
-                div()
-                    .flex_1()
-                    .rounded_lg()
-                    .overflow_hidden()
-                    .child(content.result_table.clone()),
+                div().flex_1().rounded_lg().overflow_hidden().child(
+                    Table::new(&content.result_table)
+                        .stripe(false)
+                        .bordered(false)
+                        .with_size(Size::Small)
+                        .scrollbar_visible(true, true),
+                ),
             )
             .into_any_element()
     }

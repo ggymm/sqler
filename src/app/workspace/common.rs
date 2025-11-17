@@ -4,7 +4,7 @@ use gpui_component::{
     input::{Input, InputState},
     resizable::{h_resizable, resizable_panel},
     select::{Select, SelectState},
-    table::Table,
+    table::{Table, TableState},
     ActiveTheme, Disableable, InteractiveElementExt, Sizable, Size, StyledExt,
 };
 use uuid::Uuid;
@@ -76,7 +76,7 @@ struct DataContent {
     order_rules: Vec<OrderRule>,
     query_rules: Vec<QueryRule>,
     filter_enable: bool,
-    content: Table<DataTable>,
+    content: Entity<TableState<DataTable>>,
 }
 
 pub struct CommonWorkspace {
@@ -657,17 +657,15 @@ impl CommonWorkspace {
 
         div()
             .relative()
-            .flex()
-            .flex_1()
-            .flex_col()
-            .gap_2()
+            .col_full()
             .child(
-                div()
-                    .flex_1()
-                    .rounded_lg()
-                    .overflow_hidden()
-                    .child(tab.content.clone())
-                    .child(div()),
+                div().flex_1().rounded_lg().overflow_hidden().child(
+                    Table::new(&tab.content)
+                        .stripe(false)
+                        .bordered(false)
+                        .with_size(Size::Small)
+                        .scrollbar_visible(true, true),
+                ),
             )
             .child(
                 div()

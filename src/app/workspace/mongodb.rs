@@ -3,7 +3,7 @@ use gpui_component::{
     button::{Button, ButtonVariants},
     input::{Input, InputState},
     resizable::{h_resizable, resizable_panel},
-    table::Table,
+    table::{Table, TableState},
     ActiveTheme, Disableable, InteractiveElementExt, Sizable, Size, StyledExt,
 };
 
@@ -45,7 +45,7 @@ struct CollectionContent {
     id: SharedString,
     collection: SharedString,
     filter_input: Entity<InputState>,
-    content: Entity<Table<DataTable>>,
+    content: Entity<TableState<DataTable>>,
     page_no: usize,
     page_size: usize,
     total_docs: usize,
@@ -288,7 +288,13 @@ impl MongoDBWorkspace {
                     .flex_1()
                     .rounded_lg()
                     .overflow_hidden()
-                    .child(content.content.clone())
+                    .child(
+                        Table::new(&content.content)
+                            .stripe(false)
+                            .bordered(false)
+                            .with_size(Size::Small)
+                            .scrollbar_visible(true, true),
+                    )
                     .child(div()),
             )
             .child(
