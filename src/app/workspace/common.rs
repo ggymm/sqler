@@ -2,7 +2,7 @@ use gpui::{prelude::*, *};
 use gpui_component::{
     button::{Button, ButtonVariants},
     input::{Input, InputState},
-    resizable::{h_resizable, resizable_panel},
+    resizable::{h_resizable, resizable_panel, v_resizable},
     select::{Select, SelectState},
     table::{Table, TableState},
     ActiveTheme, Disableable, IconName, InteractiveElementExt, Sizable, Size, StyledExt,
@@ -48,7 +48,7 @@ impl TabItem {
 
 enum TabContent {
     Data(DataContent),
-    Query(),
+    Query(QueryContent),
     Struct(),
     Overview,
 }
@@ -69,15 +69,21 @@ struct OrderRule {
 struct DataContent {
     id: SharedString,
     table: SharedString,
-    columns: Vec<SharedString>,
     page_no: usize,
     page_size: usize,
     total_rows: usize,
     order_rules: Vec<OrderRule>,
     query_rules: Vec<QueryRule>,
     filter_enable: bool,
+    columns: Vec<SharedString>,
     columns_enable: bool,
-    content: Entity<TableState<DataTable>>,
+    datatable: Entity<TableState<DataTable>>,
+}
+
+struct QueryContent {
+    id: SharedString,
+    input: Entity<InputState>,
+    datatable: Entity<TableState<DataTable>>,
 }
 
 pub struct CommonWorkspace {
@@ -197,19 +203,32 @@ impl CommonWorkspace {
         })
     }
 
+    fn query_content(
+        &mut self,
+        tab_id: &SharedString,
+    ) -> Option<&mut QueryContent> {
+        self.tabs.iter_mut().find(|tab| tab.id == *tab_id).and_then(|item| {
+            if let TabContent::Query(tab) = &mut item.content {
+                Some(tab)
+            } else {
+                None
+            }
+        })
+    }
+
     fn create_data_tab(
         &mut self,
         table: SharedString,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let id = SharedString::from(format!("common-table-tab-{}-{}", self.meta.id, table));
+        let tab_id = SharedString::from(format!("common-table-tab-{}-{}", self.meta.id, table));
 
         // 检查标签页是否已存在
         if let Some(existing) = self.tabs.iter().find(|tab| {
             matches!(
                 &tab.content,
-                TabContent::Data(current) if current.id == id
+                TabContent::Data(current) if current.id == tab_id
             )
         }) {
             self.active_tab = existing.id.clone();
@@ -218,13 +237,12 @@ impl CommonWorkspace {
             return;
         }
 
-        let content = DataTable::new(vec![], Vec::new()).build(window, cx);
-
+        // 新建标签页
         self.tabs.push(TabItem {
-            id: id.clone(),
+            id: tab_id.clone(),
             title: table.clone(),
             content: TabContent::Data(DataContent {
-                id: id.clone(),
+                id: tab_id.clone(),
                 table: table.clone(),
                 columns: vec![],
                 page_no: 0,
@@ -234,17 +252,16 @@ impl CommonWorkspace {
                 order_rules: Vec::new(),
                 filter_enable: false,
                 columns_enable: false,
-                content,
+                datatable: DataTable::new(vec![], Vec::new()).build(window, cx),
             }),
             closable: true,
         });
-
-        self.active_tab = id.clone();
+        self.active_tab = tab_id.clone();
         self.active_table = Some(table.clone());
         cx.notify();
 
-        // 调用 reload_table_tab 加载数据
-        self.reload_data_tab(&id, window, cx);
+        // 异步加载数据
+        self.reload_data_tab(&tab_id, window, cx);
     }
 
     fn reload_data_tab(
@@ -259,7 +276,7 @@ impl CommonWorkspace {
             };
 
             // 设置表格加载状态
-            content.content.update(cx, |t, cx| {
+            content.datatable.update(cx, |t, cx| {
                 t.delegate_mut().update_loading(true);
                 cx.notify();
             });
@@ -424,7 +441,7 @@ impl CommonWorkspace {
                         content.total_rows = total_rows;
                         content.columns = columns.clone();
 
-                        content.content.update(cx, |t, cx| {
+                        content.datatable.update(cx, |t, cx| {
                             t.delegate_mut().update_data(columns, rows);
                             t.delegate_mut().update_loading(false);
                             t.refresh(cx);
@@ -437,7 +454,7 @@ impl CommonWorkspace {
                         this.session = None;
 
                         if let Some(content) = this.data_content(&tab_id) {
-                            content.content.update(cx, |t, cx| {
+                            content.datatable.update(cx, |t, cx| {
                                 t.delegate_mut().update_loading(false);
                                 cx.notify();
                             });
@@ -466,7 +483,7 @@ impl CommonWorkspace {
             (tab.total_rows + tab.page_size - 1) / tab.page_size
         };
 
-        let filter_btn = Button::new(comp_id(["table-toggle-filter", &tab_id]))
+        let filter_btn = Button::new(comp_id(["table-filter", &tab_id]))
             .label("数据筛选")
             .outline()
             .on_click(cx.listener({
@@ -478,7 +495,7 @@ impl CommonWorkspace {
                     cx.notify();
                 }
             }));
-        let column_btn = Button::new(comp_id(["table-choose-column", &tab_id]))
+        let column_btn = Button::new(comp_id(["table-column", &tab_id]))
             .label("字段筛选")
             .outline();
 
@@ -516,7 +533,7 @@ impl CommonWorkspace {
             .into_iter()
             .map(|op| SharedString::from(op.label().to_string()))
             .collect();
-        let create_order_btn = Button::new(comp_id(["create-order", &tab_id]))
+        let create_order_btn = Button::new(comp_id(["table-order-create", &tab_id]))
             .small()
             .icon(IconName::Plus)
             .on_click(cx.listener({
@@ -539,7 +556,7 @@ impl CommonWorkspace {
                     cx.notify();
                 }
             }));
-        let create_query_btn = Button::new(comp_id(["create-filter", &tab_id]))
+        let create_query_btn = Button::new(comp_id(["table-filter-create", &tab_id]))
             .small()
             .icon(IconName::Plus)
             .on_click(cx.listener({
@@ -563,7 +580,7 @@ impl CommonWorkspace {
                     cx.notify();
                 }
             }));
-        let apply_cond_btn = Button::new(comp_id(["filter-apply", &tab_id]))
+        let apply_cond_btn = Button::new(comp_id(["table-filter-apply", &tab_id]))
             .label("应用条件")
             .outline()
             .on_click(cx.listener({
@@ -576,7 +593,7 @@ impl CommonWorkspace {
                     view.reload_data_tab(&tab_id, window, cx);
                 }
             }));
-        let clear_cond_btn = Button::new(comp_id(["filter-clear", &tab_id]))
+        let clear_cond_btn = Button::new(comp_id(["table-filter-clear", &tab_id]))
             .label("清除条件")
             .outline()
             .on_click(cx.listener({
@@ -589,7 +606,7 @@ impl CommonWorkspace {
                     cx.notify();
                 }
             }));
-        let close_cond_btn = Button::new(comp_id(["filter-close", &tab_id]))
+        let close_cond_btn = Button::new(comp_id(["table-filter-close", &tab_id]))
             .small()
             .ghost()
             .icon(IconName::Close)
@@ -619,7 +636,7 @@ impl CommonWorkspace {
                     .child(div().w_48().child(rule_field))
                     .child(div().w_48().child(rule_order))
                     .child(
-                        Button::new(comp_id(["filter-order-remove", &rule_id]))
+                        Button::new(comp_id(["table-order-remove", &rule_id]))
                             .ghost()
                             .icon(icon_trash())
                             .on_click(cx.listener({
@@ -651,7 +668,7 @@ impl CommonWorkspace {
                     .child(div().w_48().child(rule_operator))
                     .child(div().flex_1().child(Input::new(&query.value).small()))
                     .child(
-                        Button::new(comp_id(["filter-query-remove", &rule_id]))
+                        Button::new(comp_id(["table-filter-remove", &rule_id]))
                             .ghost()
                             .icon(icon_trash())
                             .on_click(cx.listener({
@@ -670,8 +687,8 @@ impl CommonWorkspace {
             .relative()
             .col_full()
             .child(
-                div().flex_1().rounded_lg().overflow_hidden().child(
-                    Table::new(&tab.content)
+                div().flex_1().child(
+                    Table::new(&tab.datatable)
                         .stripe(false)
                         .bordered(false)
                         .with_size(Size::Small)
@@ -709,7 +726,7 @@ impl CommonWorkspace {
             .when(tab.filter_enable || tab.columns_enable, |this| {
                 this.child(
                     div()
-                        .id("filter-overlay")
+                        .id("overlay")
                         .top_0()
                         .left_0()
                         .right_0()
@@ -793,15 +810,183 @@ impl CommonWorkspace {
 
     fn create_query_tab(
         &mut self,
-        _cx: &mut Context<Self>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
     ) {
+        let tab_id = SharedString::from(format!("common-query-tab-{}", Uuid::new_v4()));
+
+        // 新建标签页
+        self.tabs.push(TabItem {
+            id: tab_id.clone(),
+            title: SharedString::from("SQL查询"),
+            content: TabContent::Query(QueryContent {
+                id: tab_id.clone(),
+                input: cx.new(|cx| InputState::new(window, cx).multi_line()),
+                datatable: DataTable::new(vec![], Vec::new()).build(window, cx),
+            }),
+            closable: true,
+        });
+        self.active_tab = tab_id;
+        self.active_table = Some(SharedString::from("SQL查询"));
+        cx.notify();
+    }
+
+    fn reload_query_tab(
+        &mut self,
+        tab_id: &SharedString,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let sql = {
+            let Some(query) = self.query_content(tab_id) else {
+                return;
+            };
+
+            let sql = query.input.read(cx).text().to_string();
+            if sql.trim().is_empty() {
+                eprintln!("SQL语句为空");
+                return;
+            }
+
+            query.datatable.update(cx, |t, cx| {
+                t.delegate_mut().update_loading(true);
+                cx.notify();
+            });
+
+            sql
+        };
+
+        // 获取数据库连接
+        let tab_id = tab_id.clone();
+        let session = match self.active_session() {
+            Ok(_) => self.session.take(),
+            Err(err) => {
+                eprintln!("获取数据库连接失败: {}", err);
+                return;
+            }
+        };
+        let Some(session) = session else {
+            return;
+        };
+
+        // 在后台线程执行查询
+        cx.spawn_in(window, async move |this, cx| {
+            let result = cx
+                .background_executor()
+                .spawn(async move {
+                    let mut session = session;
+
+                    // 执行SQL查询
+                    let query_resp = session.query(QueryReq::Sql { sql, args: Vec::new() })?;
+
+                    // 解析结果
+                    let rows = match query_resp {
+                        QueryResp::Rows(rows) => rows,
+                        _ => Vec::new(),
+                    };
+
+                    // 提取列名和数据
+                    let columns: Vec<SharedString> = if let Some(first_row) = rows.first() {
+                        first_row.keys().map(|k| SharedString::from(k.clone())).collect()
+                    } else {
+                        Vec::new()
+                    };
+
+                    let mut table_rows = Vec::with_capacity(rows.len());
+                    for row in rows {
+                        let mut record = Vec::with_capacity(columns.len());
+                        for col in &columns {
+                            let value = row.get(col.as_ref()).cloned().unwrap_or_default();
+                            record.push(SharedString::from(value));
+                        }
+                        table_rows.push(record);
+                    }
+
+                    Ok::<_, DriverError>((columns, table_rows, session))
+                })
+                .await;
+
+            // 更新UI
+            let _ = cx.update(|_, cx| {
+                let _ = this.update(cx, |this, cx| match result {
+                    Ok((columns, rows, session)) => {
+                        this.session = Some(session);
+
+                        if let Some(query) = this.query_content(&tab_id) {
+                            query.datatable.update(cx, |t, cx| {
+                                t.delegate_mut().update_data(columns, rows);
+                                t.delegate_mut().update_loading(false);
+                                t.refresh(cx);
+                                cx.notify();
+                            });
+                        }
+                        cx.notify();
+                    }
+                    Err(err) => {
+                        eprintln!("执行SQL查询失败: {}", err);
+                        this.session = None;
+
+                        if let Some(query) = this.query_content(&tab_id) {
+                            query.datatable.update(cx, |t, cx| {
+                                t.delegate_mut().update_loading(false);
+                                cx.notify();
+                            });
+                        }
+                        cx.notify();
+                    }
+                });
+            });
+        })
+        .detach();
     }
 
     fn render_query_tab(
         &self,
-        _cx: &mut Context<Self>,
+        tab: &QueryContent,
+        cx: &mut Context<Self>,
     ) -> AnyElement {
-        div().into_any_element()
+        let tab_id = tab.id.clone();
+
+        let execute_btn = Button::new(comp_id(["query-execute", &tab_id]))
+            .label("执行查询")
+            .primary()
+            .on_click(cx.listener({
+                let tab_id = tab_id.clone();
+                move |view: &mut Self, _, window, cx| {
+                    view.reload_query_tab(&tab_id, window, cx);
+                }
+            }));
+
+        div()
+            .col_full()
+            .child(div().gap_2().row_full().h_8().child(execute_btn))
+            .child(
+                v_resizable(comp_id(["common-content"]))
+                    .child(
+                        resizable_panel()
+                            .size(px(180.0))
+                            .size_range(px(100.)..px(320.))
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .child(Input::new(&tab.input).h_full().appearance(false).focus_bordered(false)),
+                            )
+                            .child(div()),
+                    )
+                    .child(
+                        div()
+                            .flex_1()
+                            .child(
+                                Table::new(&tab.datatable)
+                                    .stripe(false)
+                                    .bordered(false)
+                                    .with_size(Size::Small)
+                                    .scrollbar_visible(true, true),
+                            )
+                            .into_any_element(),
+                    ),
+            )
+            .into_any_element()
     }
 
     fn _create_struct_tab(
@@ -995,8 +1180,8 @@ impl Render for CommonWorkspace {
                             .icon(icon_sheet().with_size(Size::Small))
                             .label("新建表")
                             .outline()
-                            .on_click(cx.listener(|view: &mut Self, _, _, cx| {
-                                view.create_query_tab(cx);
+                            .on_click(cx.listener(|view: &mut Self, _, window, cx| {
+                                view.create_query_tab(window, cx);
                             })),
                     )
                     .child(
@@ -1004,8 +1189,8 @@ impl Render for CommonWorkspace {
                             .icon(icon_search().with_size(Size::Small))
                             .label("新建查询")
                             .outline()
-                            .on_click(cx.listener(|view: &mut Self, _, _, cx| {
-                                view.create_query_tab(cx);
+                            .on_click(cx.listener(|view: &mut Self, _, window, cx| {
+                                view.create_query_tab(window, cx);
                             })),
                     )
                     .child(
@@ -1040,52 +1225,54 @@ impl Render for CommonWorkspace {
                     ),
             )
             .child(
-                h_resizable(comp_id(["common-content", id]))
-                    .child(
-                        resizable_panel()
-                            .size(px(180.0))
-                            .size_range(px(100.)..px(320.))
-                            .child(
-                                div()
-                                    .id(comp_id(["common-sidebar", id]))
-                                    .p_2()
-                                    .gap_2()
-                                    .col_full()
-                                    .scrollable(Axis::Vertical)
-                                    .children(tables),
-                            )
-                            .child(div()),
-                    )
-                    .child(
-                        div()
-                            .col_full()
-                            .child(
-                                div()
-                                    .id(comp_id(["common-tabs", id]))
-                                    .flex()
-                                    .flex_row()
-                                    .p_2()
-                                    .gap_2()
-                                    .min_w_0()
-                                    .children(tabs),
-                            )
-                            .child(
-                                div().id(comp_id(["common-main", id])).col_full().child(
-                                    match self
-                                        .tabs
-                                        .iter()
-                                        .find(|tab| tab.id == self.active_tab)
-                                        .map(|tab| &tab.content)
-                                    {
-                                        Some(TabContent::Data(content)) => self.render_data_tab(&content, cx),
-                                        Some(TabContent::Query()) => self.render_query_tab(cx),
-                                        Some(TabContent::Struct()) => self.render_struct_tab(cx),
-                                        Some(TabContent::Overview) | None => self.render_overview_tab(cx),
-                                    },
-                                ),
-                            )
-                            .into_any_element(),
-                    ),
+                div().col_full().child(
+                    h_resizable(comp_id(["common-content", id]))
+                        .child(
+                            resizable_panel()
+                                .size(px(180.0))
+                                .size_range(px(100.)..px(320.))
+                                .child(
+                                    div()
+                                        .id(comp_id(["common-sidebar", id]))
+                                        .p_2()
+                                        .gap_2()
+                                        .col_full()
+                                        .scrollable(Axis::Vertical)
+                                        .children(tables),
+                                )
+                                .child(div()),
+                        )
+                        .child(
+                            div()
+                                .col_full()
+                                .child(
+                                    div()
+                                        .id(comp_id(["common-tabs", id]))
+                                        .flex()
+                                        .flex_row()
+                                        .p_2()
+                                        .gap_2()
+                                        .min_w_0()
+                                        .children(tabs),
+                                )
+                                .child(
+                                    div().id(comp_id(["common-main", id])).col_full().child(
+                                        match self
+                                            .tabs
+                                            .iter()
+                                            .find(|tab| tab.id == self.active_tab)
+                                            .map(|tab| &tab.content)
+                                        {
+                                            Some(TabContent::Data(tab)) => self.render_data_tab(tab, cx),
+                                            Some(TabContent::Query(tab)) => self.render_query_tab(tab, cx),
+                                            Some(TabContent::Struct()) => self.render_struct_tab(cx),
+                                            Some(TabContent::Overview) | None => self.render_overview_tab(cx),
+                                        },
+                                    ),
+                                )
+                                .into_any_element(),
+                        ),
+                ),
             )
     }
 }
