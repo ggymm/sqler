@@ -171,7 +171,7 @@ impl CommonWorkspace {
         self.tables = match result {
             Ok(tables) => tables.into_iter().map(SharedString::from).collect(),
             Err(err) => {
-                eprintln!("刷新表列表失败: {}", err);
+                tracing::error!("刷新表列表失败: {}", err);
                 if !self.tables.is_empty() {
                     return;
                 }
@@ -361,7 +361,7 @@ impl CommonWorkspace {
         let session = match self.active_session() {
             Ok(_) => self.session.take(),
             Err(err) => {
-                eprintln!("获取数据库连接失败: {}", err);
+                tracing::error!("获取数据库连接失败: {}", err);
                 return;
             }
         };
@@ -450,7 +450,7 @@ impl CommonWorkspace {
                         cx.notify();
                     }
                     Err(err) => {
-                        eprintln!("加载数据表失败: {}", err);
+                        tracing::error!("加载数据表失败: {}", err);
                         this.session = None;
 
                         if let Some(content) = this.data_content(&tab_id) {
@@ -844,7 +844,7 @@ impl CommonWorkspace {
 
             let sql = query.input.read(cx).text().to_string();
             if sql.trim().is_empty() {
-                eprintln!("SQL语句为空");
+                tracing::warn!("SQL语句为空");
                 return;
             }
 
@@ -861,7 +861,7 @@ impl CommonWorkspace {
         let session = match self.active_session() {
             Ok(_) => self.session.take(),
             Err(err) => {
-                eprintln!("获取数据库连接失败: {}", err);
+                tracing::error!("获取数据库连接失败: {}", err);
                 return;
             }
         };
@@ -886,7 +886,7 @@ impl CommonWorkspace {
                     };
 
                     // 提取列名和数据
-                    let columns: Vec<SharedString> = if let Some(first_row) = rows.first() {
+                    let table_cols: Vec<SharedString> = if let Some(first_row) = rows.first() {
                         first_row.keys().map(|k| SharedString::from(k.clone())).collect()
                     } else {
                         Vec::new()
@@ -894,15 +894,15 @@ impl CommonWorkspace {
 
                     let mut table_rows = Vec::with_capacity(rows.len());
                     for row in rows {
-                        let mut record = Vec::with_capacity(columns.len());
-                        for col in &columns {
+                        let mut record = Vec::with_capacity(table_cols.len());
+                        for col in &table_cols {
                             let value = row.get(col.as_ref()).cloned().unwrap_or_default();
                             record.push(SharedString::from(value));
                         }
                         table_rows.push(record);
                     }
 
-                    Ok::<_, DriverError>((columns, table_rows, session))
+                    Ok::<_, DriverError>((table_cols, table_rows, session))
                 })
                 .await;
 
@@ -923,7 +923,7 @@ impl CommonWorkspace {
                         cx.notify();
                     }
                     Err(err) => {
-                        eprintln!("执行SQL查询失败: {}", err);
+                        tracing::error!("执行SQL查询失败: {}", err);
                         this.session = None;
 
                         if let Some(query) = this.query_content(&tab_id) {
