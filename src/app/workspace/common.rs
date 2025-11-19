@@ -821,7 +821,12 @@ impl CommonWorkspace {
             title: SharedString::from("SQL查询"),
             content: TabContent::Query(QueryContent {
                 id: tab_id.clone(),
-                input: cx.new(|cx| InputState::new(window, cx).multi_line()),
+                input: cx.new(|cx| {
+                    InputState::new(window, cx)
+                        .code_editor("sql")
+                        .searchable(true)
+                        .line_number(true)
+                }),
                 datatable: DataTable::new(vec![], Vec::new()).build(window, cx),
             }),
             closable: true,
@@ -949,7 +954,8 @@ impl CommonWorkspace {
 
         let execute_btn = Button::new(comp_id(["query-execute", &tab_id]))
             .label("执行查询")
-            .primary()
+            .small()
+            .outline()
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
                 move |view: &mut Self, _, window, cx| {
@@ -959,7 +965,17 @@ impl CommonWorkspace {
 
         div()
             .col_full()
-            .child(div().gap_2().row_full().h_8().child(execute_btn))
+            .child(
+                div()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .h_8()
+                    .px_2()
+                    .gap_2()
+                    .child(execute_btn)
+                    .child(div()),
+            )
             .child(
                 v_resizable(comp_id(["common-content"]))
                     .child(
@@ -968,6 +984,7 @@ impl CommonWorkspace {
                             .size_range(px(100.)..px(320.))
                             .child(
                                 div()
+                                    .p_1()
                                     .flex_1()
                                     .child(Input::new(&tab.input).h_full().appearance(false).focus_bordered(false)),
                             )

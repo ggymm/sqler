@@ -20,6 +20,8 @@
 
 #### 功能列表
 
+1. 数据源管理
+
 #### TODO
 
 - [ ] 数据源测试和保存（MySQL，SQLite，Redis（集群），MongoDB，PostgreSQL）
@@ -31,6 +33,13 @@
 - [x] 将build的内容移动到driver中，修改queryReq的结构
 - [ ] 添加git分支，使用worktree
 - [ ] 工作区展示，保存的命令或者查询语句
+
+#### 常用命令
+
+```shell
+# cargo install cargo-outdated
+cargo outdated -R
+```
 
 ~/.sqler
 sources.db
