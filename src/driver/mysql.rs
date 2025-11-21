@@ -189,10 +189,15 @@ impl DatabaseSession for MySQLSession {
         };
         tracing::debug!(sql = %sql);
 
-        let rows: Vec<mysql::Row> = self
+        let iter = self
             .conn
-            .exec(&sql, params)
+            .exec_iter(&sql, params)
             .map_err(|err| DriverError::Other(format!("执行查询失败: {}", err)))?;
+
+        let rows: Vec<mysql::Row> = iter
+            .take(1000)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|err| DriverError::Other(format!("读取结果失败: {}", err)))?;
 
         if rows.is_empty() {
             return Ok(QueryResp::Rows(Vec::new()));

@@ -149,10 +149,16 @@ impl DatabaseSession for SQLiteConnection {
             .map_err(|err| DriverError::Other(format!("执行查询失败: {}", err)))?;
 
         let mut records = Vec::new();
+        let mut count = 0;
         while let Some(row) = rows
             .next()
             .map_err(|err| DriverError::Other(format!("读取结果失败: {}", err)))?
         {
+            if count >= 1000 {
+                tracing::warn!("SQLite 查询结果达到 1000 条限制，可能被截断。SQL: {}", sql);
+                break;
+            }
+
             let mut record = HashMap::with_capacity(names.len());
             for (idx, name) in names.iter().enumerate() {
                 let value = row
@@ -161,6 +167,7 @@ impl DatabaseSession for SQLiteConnection {
                 record.insert(name.clone(), parse_value(value));
             }
             records.push(record);
+            count += 1;
         }
 
         Ok(QueryResp::Rows(records))

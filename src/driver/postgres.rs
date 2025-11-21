@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use postgres::{types::Type, Client, Config, Error as PostgresError, NoTls};
+use postgres::{fallible_iterator::FallibleIterator, types::Type, Client, Config, Error as PostgresError, NoTls};
 
 use crate::model::{ColumnKind, PostgresOptions};
 
@@ -209,19 +209,29 @@ impl DatabaseSession for PostgresSession {
             .map(|s| s as &(dyn postgres::types::ToSql + Sync))
             .collect();
 
-        let rows = self
+        let mut iter = self
             .client
-            .query(&sql, &param_refs[..])
+            .query_raw(&sql, param_refs)
             .map_err(|err| DriverError::Other(format!("执行查询失败: {}", err)))?;
 
-        let mut records = Vec::with_capacity(rows.len());
-        for row in rows {
+        let mut records = Vec::new();
+        let mut count = 0;
+        while let Some(row) = iter
+            .next()
+            .map_err(|err| DriverError::Other(format!("读取结果失败: {}", err)))?
+        {
+            if count >= 1000 {
+                tracing::warn!("PostgreSQL查询结果达到1000条限制，可能被截断。SQL: {}", sql);
+                break;
+            }
+
             let mut record = HashMap::with_capacity(row.len());
             for (idx, column) in row.columns().iter().enumerate() {
                 let value = parse_value(&row, idx)?;
                 record.insert(column.name().to_string(), value);
             }
             records.push(record);
+            count += 1;
         }
 
         Ok(QueryResp::Rows(records))
