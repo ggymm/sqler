@@ -12,8 +12,7 @@ use uuid::Uuid;
 use crate::{
     app::{
         comps::{
-            comp_id, icon_close, icon_export, icon_import, icon_relead, icon_search, icon_sheet, icon_trash, DataTable,
-            DivExt,
+            comp_id, icon_export, icon_import, icon_relead, icon_search, icon_sheet, icon_trash, DataTable, DivExt,
         },
         SqlerApp,
     },
@@ -612,7 +611,7 @@ impl CommonWorkspace {
             .icon(IconName::Close)
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
-                move |view: &mut Self, _, window, cx| {
+                move |view: &mut Self, _, _, cx| {
                     if let Some(content) = view.data_content(&tab_id) {
                         content.filter_enable = false;
                     }
@@ -818,7 +817,7 @@ impl CommonWorkspace {
         // 新建标签页
         self.tabs.push(TabItem {
             id: tab_id.clone(),
-            title: SharedString::from("SQL查询"),
+            title: SharedString::from("SQL 查询"),
             content: TabContent::Query(QueryContent {
                 id: tab_id.clone(),
                 input: cx.new(|cx| {
@@ -1087,18 +1086,19 @@ impl Render for CommonWorkspace {
                 .items_center()
                 .justify_center()
                 .px_2()
-                .py_1()
                 .gap_2()
-                .border_1()
+                .border_r_1()
                 .border_color(theme.border)
-                .rounded_lg()
                 .text_sm()
-                .cursor_pointer()
                 .when(tab_active, |this| {
-                    this.bg(theme.tab_active).text_color(theme.tab_active_foreground)
+                    this.pb(px(1.))
+                        .bg(theme.tab_active)
+                        .text_color(theme.tab_active_foreground)
                 })
                 .when(!tab_active, |this| {
-                    this.bg(theme.tab_bar).text_color(theme.muted_foreground)
+                    this.border_b(px(1.))
+                        .bg(theme.tab_bar)
+                        .text_color(theme.muted_foreground)
                 })
                 .on_click(cx.listener({
                     let tab_id = tab.id.clone();
@@ -1109,8 +1109,12 @@ impl Render for CommonWorkspace {
                 }))
                 .child(
                     div()
+                        .flex()
+                        .flex_row()
+                        .h_8()
                         .flex_1()
                         .min_w_0()
+                        .items_center()
                         .overflow_hidden()
                         .whitespace_nowrap()
                         .child(tab.title.clone()),
@@ -1123,7 +1127,7 @@ impl Render for CommonWorkspace {
                         .xsmall()
                         .compact()
                         .tab_stop(false)
-                        .icon(icon_close().with_size(Size::Small))
+                        .icon(IconName::Close)
                         .on_click(cx.listener(move |this, _, _, cx| {
                             this.close_tab(&tab_id, cx);
                         })),
@@ -1152,6 +1156,7 @@ impl Render for CommonWorkspace {
                     .py_2()
                     .gap_2()
                     .row_full()
+                    .items_center()
                     .rounded_lg()
                     .when_else(
                         active,
@@ -1247,7 +1252,7 @@ impl Render for CommonWorkspace {
                     h_resizable(comp_id(["common-content", id]))
                         .child(
                             resizable_panel()
-                                .size(px(180.0))
+                                .size(px(200.0))
                                 .size_range(px(100.)..px(320.))
                                 .child(
                                     div()
@@ -1268,10 +1273,10 @@ impl Render for CommonWorkspace {
                                         .id(comp_id(["common-tabs", id]))
                                         .flex()
                                         .flex_row()
-                                        .p_2()
-                                        .gap_2()
                                         .min_w_0()
-                                        .children(tabs),
+                                        .border_color(theme.border)
+                                        .children(tabs)
+                                        .child(div().flex_1().border_b_1().border_color(theme.border)),
                                 )
                                 .child(
                                     div().id(comp_id(["common-main", id])).col_full().child(
