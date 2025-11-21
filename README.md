@@ -37,8 +37,14 @@
 #### 常用命令
 
 ```shell
+
+# cargo install cargo-bloat
+cargo bloat --release -n 50
+cargo bloat --release --crates
+
 # cargo install cargo-outdated
 cargo outdated -R
+
 ```
 
 ~/.sqler

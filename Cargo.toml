@@ -26,3 +26,9 @@ postgres = { version = "0.19" }
 redis = { version = "1.0.0-rc.3" }
 rusqlite = { version = "0.37", features = ["bundled"] }
 
+[profile.release]
+lto = true
+strip = true
+debug = false
+panic = 'abort'
+codegen-units = 1

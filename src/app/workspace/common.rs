@@ -824,8 +824,9 @@ impl CommonWorkspace {
                 input: cx.new(|cx| {
                     InputState::new(window, cx)
                         .code_editor("sql")
-                        .searchable(true)
+                        .searchable(false)
                         .line_number(true)
+                        .indent_guides(true)
                 }),
                 datatable: DataTable::new(vec![], Vec::new()).build(window, cx),
             }),

@@ -101,6 +101,7 @@ fn main() {
         let window_bounds = Bounds::centered(None, window_size, cx);
         cx.open_window(
             WindowOptions {
+                kind: WindowKind::Floating,
                 window_bounds: Some(WindowBounds::Windowed(window_bounds)),
                 titlebar: Some(TitlebarOptions {
                     title: None,
