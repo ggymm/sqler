@@ -1,5 +1,11 @@
+use std::sync::Arc;
+
 use gpui::{prelude::*, *};
-use gpui_component::{ActiveTheme, InteractiveElementExt, StyledExt};
+use gpui_component::{
+    input::{CompletionProvider, InputState},
+    ActiveTheme, InteractiveElementExt, Rope, StyledExt,
+};
+use lsp_types::{CompletionContext, CompletionItem, CompletionResponse};
 
 use crate::{
     app::{SqlerApp, TabView},
@@ -16,6 +22,61 @@ mod redis;
 
 pub fn parse_count(value: &str) -> usize {
     value.parse::<usize>().unwrap_or(0)
+}
+
+#[derive(Clone)]
+pub struct EditorComps {
+    items: Arc<Vec<CompletionItem>>,
+}
+
+impl EditorComps {
+    pub fn new() -> Self {
+        let buf = include_bytes!("keywords.json");
+        let items = serde_json::from_slice::<Vec<CompletionItem>>(buf).unwrap();
+
+        Self { items: Arc::new(items) }
+    }
+}
+
+impl CompletionProvider for EditorComps {
+    fn completions(
+        &self,
+        _: &Rope,
+        _: usize,
+        context: CompletionContext,
+        _: &mut Window,
+        cx: &mut Context<InputState>,
+    ) -> Task<Result<CompletionResponse>> {
+        let chars = context.trigger_character.unwrap_or_default();
+        if chars.is_empty() {
+            return Task::ready(Ok(CompletionResponse::Array(vec![])));
+        }
+
+        let items = self.items.clone();
+        cx.background_spawn(async move {
+            let items = items
+                .iter()
+                .filter(|item| item.label.starts_with(&chars))
+                .take(10)
+                .map(|item| {
+                    let mut item = item.clone();
+                    item.insert_text = Some(item.label.replace(&chars, ""));
+                    item
+                })
+                .collect::<Vec<_>>();
+
+            Ok(CompletionResponse::Array(items))
+        })
+    }
+
+    fn is_completion_trigger(
+        &self,
+        _: usize,
+        _: &str,
+        _: &mut Context<InputState>,
+    ) -> bool {
+        true
+    }
 }
 
 pub enum WorkspaceState {

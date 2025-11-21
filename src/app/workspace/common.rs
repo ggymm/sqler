@@ -1,7 +1,9 @@
+use std::rc::Rc;
+
 use gpui::{prelude::*, *};
 use gpui_component::{
     button::{Button, ButtonVariants},
-    input::{Input, InputState},
+    input::{Input, InputState, TabSize},
     resizable::{h_resizable, resizable_panel, v_resizable},
     select::{Select, SelectState},
     table::{Table, TableState},
@@ -22,6 +24,8 @@ use crate::{
     },
     model::DataSource,
 };
+
+use super::EditorComps;
 
 const PAGE_SIZE: usize = 500;
 const ORDER_ASC: &str = "升序";
@@ -814,19 +818,29 @@ impl CommonWorkspace {
     ) {
         let tab_id = SharedString::from(format!("common-query-tab-{}", Uuid::new_v4()));
 
+        let prov = Rc::new(EditorComps::new());
+        let editor = cx.new(|cx| {
+            let mut editor = InputState::new(window, cx)
+                .code_editor("sql")
+                .line_number(true)
+                .indent_guides(true)
+                .tab_size(TabSize {
+                    tab_size: 4,
+                    hard_tabs: false,
+                })
+                .soft_wrap(false);
+
+            editor.lsp.completion_provider = Some(prov.clone());
+
+            editor
+        });
         // 新建标签页
         self.tabs.push(TabItem {
             id: tab_id.clone(),
             title: SharedString::from("SQL 查询"),
             content: TabContent::Query(QueryContent {
                 id: tab_id.clone(),
-                input: cx.new(|cx| {
-                    InputState::new(window, cx)
-                        .code_editor("sql")
-                        .searchable(false)
-                        .line_number(true)
-                        .indent_guides(true)
-                }),
+                input: editor,
                 datatable: DataTable::new(vec![], Vec::new()).build(window, cx),
             }),
             closable: true,
@@ -983,10 +997,13 @@ impl CommonWorkspace {
                             .size(px(180.0))
                             .size_range(px(100.)..px(320.))
                             .child(
-                                div()
-                                    .p_1()
-                                    .flex_1()
-                                    .child(Input::new(&tab.input).h_full().appearance(false).focus_bordered(false)),
+                                div().flex_1().child(
+                                    Input::new(&tab.input)
+                                        .p_0()
+                                        .h_full()
+                                        .appearance(false)
+                                        .focus_bordered(false),
+                                ),
                             )
                             .child(div()),
                     )
