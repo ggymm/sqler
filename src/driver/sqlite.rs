@@ -155,7 +155,6 @@ impl DatabaseSession for SQLiteConnection {
             .map_err(|err| DriverError::Other(format!("读取结果失败: {}", err)))?
         {
             if count >= 1000 {
-                tracing::warn!("SQLite 查询结果达到 1000 条限制，可能被截断。SQL: {}", sql);
                 break;
             }
 

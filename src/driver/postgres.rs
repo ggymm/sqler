@@ -221,7 +221,6 @@ impl DatabaseSession for PostgresSession {
             .map_err(|err| DriverError::Other(format!("读取结果失败: {}", err)))?
         {
             if count >= 1000 {
-                tracing::warn!("PostgreSQL查询结果达到1000条限制，可能被截断。SQL: {}", sql);
                 break;
             }
 

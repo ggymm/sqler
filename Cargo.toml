@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 gpui = "0.2.2"
-gpui-component = { version = "0.4.0", features = ["tree-sitter-languages"] }
+gpui-component = { version = "0.4.1", features = ["tree-sitter-languages"] }
 
 dirs = "6"
 uuid = "1"
