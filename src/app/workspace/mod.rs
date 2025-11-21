@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use gpui::{prelude::*, *};
 use gpui_component::{
@@ -41,19 +42,21 @@ impl EditorComps {
 impl CompletionProvider for EditorComps {
     fn completions(
         &self,
-        _: &Rope,
-        _: usize,
-        context: CompletionContext,
-        _: &mut Window,
+        _rope: &Rope,
+        _offset: usize,
+        trigger: CompletionContext,
+        _window: &mut Window,
         cx: &mut Context<InputState>,
     ) -> Task<Result<CompletionResponse>> {
-        let chars = context.trigger_character.unwrap_or_default();
+        let chars = trigger.trigger_character.unwrap_or_default();
         if chars.is_empty() {
             return Task::ready(Ok(CompletionResponse::Array(vec![])));
         }
 
         let items = self.items.clone();
         cx.background_spawn(async move {
+            Timer::after(Duration::from_millis(20)).await;
+
             let items = items
                 .iter()
                 .filter(|item| item.label.starts_with(&chars))
@@ -71,9 +74,9 @@ impl CompletionProvider for EditorComps {
 
     fn is_completion_trigger(
         &self,
-        _: usize,
-        _: &str,
-        _: &mut Context<InputState>,
+        _offset: usize,
+        _new_text: &str,
+        _cx: &mut Context<InputState>,
     ) -> bool {
         true
     }
