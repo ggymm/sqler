@@ -50,31 +50,20 @@ impl RedisCreate {
         cx: &mut Context<Self>,
     ) -> Self {
         let auths: Vec<SharedString> = RedisAuthMode::all().iter().map(|mode| mode.label().into()).collect();
-
-        let (name_val, host_val, port_val, username_val, password_val) = match opts {
-            Some(opts) => (
-                name.unwrap_or("Redis数据源").to_string(),
-                opts.host.clone(),
-                opts.port.to_string(),
-                opts.username.clone().unwrap_or_default(),
-                opts.password.clone().unwrap_or_default(),
-            ),
-            None => (
-                "Redis数据源".to_string(),
-                "127.0.0.1".to_string(),
-                "6379".to_string(),
-                String::new(),
-                String::new(),
-            ),
-        };
+        let opts = opts.cloned().unwrap_or_default();
+        let name_val = name.unwrap_or("Redis数据源").to_string();
 
         Self {
             name: cx.new(|cx| InputState::new(window, cx).default_value(&name_val)),
-            host: cx.new(|cx| InputState::new(window, cx).default_value(&host_val)),
-            port: cx.new(|cx| InputState::new(window, cx).default_value(&port_val)),
+            host: cx.new(|cx| InputState::new(window, cx).default_value(&opts.host)),
+            port: cx.new(|cx| InputState::new(window, cx).default_value(&opts.port.to_string())),
             auth: cx.new(|cx| SelectState::new(auths, Some(IndexPath::new(0)), window, cx)),
-            username: cx.new(|cx| InputState::new(window, cx).default_value(&username_val)),
-            password: cx.new(|cx| InputState::new(window, cx).default_value(&password_val).masked(true)),
+            username: cx.new(|cx| InputState::new(window, cx).default_value(&opts.username.unwrap_or_default())),
+            password: cx.new(|cx| {
+                InputState::new(window, cx)
+                    .default_value(&opts.password.unwrap_or_default())
+                    .masked(true)
+            }),
         }
     }
 

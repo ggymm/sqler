@@ -23,32 +23,16 @@ impl PostgresCreate {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let (name_val, host_val, port_val, username_val, password_val, database_val) = match opts {
-            Some(opts) => (
-                name.unwrap_or("PostgreSQL数据源").to_string(),
-                opts.host.clone(),
-                opts.port.to_string(),
-                opts.username.clone(),
-                opts.password.clone(),
-                opts.database.clone(),
-            ),
-            None => (
-                "PostgreSQL数据源".to_string(),
-                "127.0.0.1".to_string(),
-                "5432".to_string(),
-                "postgres".to_string(),
-                String::new(),
-                String::new(),
-            ),
-        };
+        let opts = opts.cloned().unwrap_or_default();
+        let name_val = name.unwrap_or("PostgreSQL数据源").to_string();
 
         Self {
             name: cx.new(|cx| InputState::new(window, cx).default_value(&name_val)),
-            host: cx.new(|cx| InputState::new(window, cx).default_value(&host_val)),
-            port: cx.new(|cx| InputState::new(window, cx).default_value(&port_val)),
-            username: cx.new(|cx| InputState::new(window, cx).default_value(&username_val)),
-            password: cx.new(|cx| InputState::new(window, cx).default_value(&password_val).masked(true)),
-            database: cx.new(|cx| InputState::new(window, cx).default_value(&database_val)),
+            host: cx.new(|cx| InputState::new(window, cx).default_value(&opts.host)),
+            port: cx.new(|cx| InputState::new(window, cx).default_value(&opts.port.to_string())),
+            username: cx.new(|cx| InputState::new(window, cx).default_value(&opts.username)),
+            password: cx.new(|cx| InputState::new(window, cx).default_value(&opts.password).masked(true)),
+            database: cx.new(|cx| InputState::new(window, cx).default_value(&opts.database)),
         }
     }
 

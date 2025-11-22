@@ -23,36 +23,20 @@ impl MongoDBCreate {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let (name_val, host_val, port_val, username_val, password_val) = match opts {
-            Some(opts) => {
-                let (h, p) = opts
-                    .hosts
-                    .first()
-                    .map(|host| (host.host.clone(), host.port.to_string()))
-                    .unwrap_or((String::new(), "27017".to_string()));
-                (
-                    name.unwrap_or("MongoDB数据源").to_string(),
-                    h,
-                    p,
-                    opts.username.clone().unwrap_or_default(),
-                    opts.password.clone().unwrap_or_default(),
-                )
-            }
-            None => (
-                "MongoDB数据源".to_string(),
-                String::new(),
-                "27017".to_string(),
-                String::new(),
-                String::new(),
-            ),
-        };
+        let opts = opts.cloned().unwrap_or_default();
+        let name_val = name.unwrap_or("MongoDB数据源").to_string();
+        let first_host = opts.hosts.first().cloned().unwrap_or_default();
 
         Self {
             name: cx.new(|cx| InputState::new(window, cx).default_value(&name_val)),
-            host: cx.new(|cx| InputState::new(window, cx).default_value(&host_val)),
-            port: cx.new(|cx| InputState::new(window, cx).default_value(&port_val)),
-            username: cx.new(|cx| InputState::new(window, cx).default_value(&username_val)),
-            password: cx.new(|cx| InputState::new(window, cx).default_value(&password_val).masked(true)),
+            host: cx.new(|cx| InputState::new(window, cx).default_value(&first_host.host)),
+            port: cx.new(|cx| InputState::new(window, cx).default_value(&first_host.port.to_string())),
+            username: cx.new(|cx| InputState::new(window, cx).default_value(&opts.username.unwrap_or_default())),
+            password: cx.new(|cx| {
+                InputState::new(window, cx)
+                    .default_value(&opts.password.unwrap_or_default())
+                    .masked(true)
+            }),
             database: cx.new(|cx| InputState::new(window, cx)),
         }
     }

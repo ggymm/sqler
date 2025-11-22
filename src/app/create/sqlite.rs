@@ -21,19 +21,17 @@ impl SQLiteCreate {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let (name_val, filepath_val, password_val) = match opts {
-            Some(opts) => (
-                name.unwrap_or("SQLite数据源").to_string(),
-                opts.filepath.clone(),
-                opts.password.clone().unwrap_or_default(),
-            ),
-            None => ("SQLite数据源".to_string(), String::new(), String::new()),
-        };
+        let opts = opts.cloned().unwrap_or_default();
+        let name_val = name.unwrap_or("SQLite数据源").to_string();
 
         Self {
             name: cx.new(|cx| InputState::new(window, cx).default_value(&name_val)),
-            filepath: cx.new(|cx| InputState::new(window, cx).default_value(&filepath_val)),
-            password: cx.new(|cx| InputState::new(window, cx).default_value(&password_val).masked(true)),
+            filepath: cx.new(|cx| InputState::new(window, cx).default_value(&opts.filepath)),
+            password: cx.new(|cx| {
+                InputState::new(window, cx)
+                    .default_value(&opts.password.unwrap_or_default())
+                    .masked(true)
+            }),
         }
     }
 
