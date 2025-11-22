@@ -136,9 +136,6 @@ fn open_conn(config: &RedisOptions) -> Result<Connection, DriverError> {
     if config.host.trim().is_empty() {
         return Err(DriverError::MissingField("host".into()));
     }
-    if config.port == 0 {
-        return Err(DriverError::InvalidField("port".into()));
-    }
 
     let url = build_connection_url(config)?;
     let client = Client::open(url).map_err(|err| DriverError::Other(format!("创建客户端失败: {}", err)))?;
@@ -182,7 +179,7 @@ fn build_connection_url(config: &RedisOptions) -> Result<String, DriverError> {
 
     url.push_str(config.host.trim());
     url.push(':');
-    url.push_str(&config.port.to_string());
+    url.push_str(&config.port);
 
     Ok(url)
 }

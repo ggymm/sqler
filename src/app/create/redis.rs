@@ -56,7 +56,7 @@ impl RedisCreate {
         Self {
             name: cx.new(|cx| InputState::new(window, cx).default_value(&name_val)),
             host: cx.new(|cx| InputState::new(window, cx).default_value(&opts.host)),
-            port: cx.new(|cx| InputState::new(window, cx).default_value(&opts.port.to_string())),
+            port: cx.new(|cx| InputState::new(window, cx).default_value(&opts.port)),
             auth: cx.new(|cx| SelectState::new(auths, Some(IndexPath::new(0)), window, cx)),
             username: cx.new(|cx| InputState::new(window, cx).default_value(&opts.username.unwrap_or_default())),
             password: cx.new(|cx| {
@@ -78,7 +78,7 @@ impl RedisCreate {
 
         RedisOptions {
             host,
-            port: port.parse().unwrap_or(6379),
+            port,
             username: if username.is_empty() { None } else { Some(username) },
             password: if password.is_empty() { None } else { Some(password) },
             use_tls: false,
