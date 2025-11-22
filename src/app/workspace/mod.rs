@@ -6,7 +6,7 @@ use gpui_component::{
     input::{CompletionProvider, InputState},
     ActiveTheme, InteractiveElementExt, Rope, StyledExt,
 };
-use lsp_types::{CompletionContext, CompletionItem, CompletionResponse};
+use lsp_types::{CompletionContext, CompletionItem, CompletionResponse, CompletionTextEdit, Position, Range, TextEdit};
 
 use crate::{
     app::{SqlerApp, TabView},
@@ -25,6 +25,17 @@ pub fn parse_count(value: &str) -> usize {
     value.parse::<usize>().unwrap_or(0)
 }
 
+pub fn parse_position(
+    text: &str,
+    offset: usize,
+) -> Position {
+    let before = &text[..offset.min(text.len())];
+    Position {
+        line: before.chars().filter(|&c| c == '\n').count() as u32,
+        character: before.rfind('\n').map(|i| offset - i - 1).unwrap_or(offset) as u32,
+    }
+}
+
 #[derive(Clone)]
 pub struct EditorComps {
     items: Arc<Vec<CompletionItem>>,
@@ -33,7 +44,10 @@ pub struct EditorComps {
 impl EditorComps {
     pub fn new() -> Self {
         let buf = include_bytes!("keywords.json");
-        let items = serde_json::from_slice::<Vec<CompletionItem>>(buf).unwrap();
+        let mut items = serde_json::from_slice::<Vec<CompletionItem>>(buf).unwrap();
+
+        // 按照 label 长度排序
+        items.sort_by_key(|item| item.label.len());
 
         Self { items: Arc::new(items) }
     }
@@ -42,16 +56,30 @@ impl EditorComps {
 impl CompletionProvider for EditorComps {
     fn completions(
         &self,
-        _rope: &Rope,
-        _offset: usize,
-        trigger: CompletionContext,
+        rope: &Rope,
+        offset: usize,
+        _trigger: CompletionContext,
         _window: &mut Window,
         cx: &mut Context<InputState>,
     ) -> Task<Result<CompletionResponse>> {
-        let chars = trigger.trigger_character.unwrap_or_default();
-        if chars.is_empty() {
+        let full_text = {
+            let text = rope.to_string();
+            text[..offset.min(text.len())].to_string()
+        };
+
+        let word_start = full_text
+            .rfind(|c: char| c.is_whitespace() || "(),;".contains(c))
+            .map(|i| i + 1)
+            .unwrap_or(0);
+
+        if full_text[word_start..].is_empty() {
             return Task::ready(Ok(CompletionResponse::Array(vec![])));
         }
+        let word = full_text[word_start..].to_string();
+        let word_upper = word.to_ascii_uppercase();
+
+        let start_pos = parse_position(&full_text, word_start);
+        let end_pos = parse_position(&full_text, full_text.len());
 
         let items = self.items.clone();
         cx.background_spawn(async move {
@@ -59,11 +87,24 @@ impl CompletionProvider for EditorComps {
 
             let items = items
                 .iter()
-                .filter(|item| item.label.starts_with(&chars))
+                .filter(|item| {
+                    // rustfmt::skip
+                    item.label.starts_with(&word) || item.label.starts_with(&word_upper)
+                })
                 .take(10)
                 .map(|item| {
                     let mut item = item.clone();
-                    item.insert_text = Some(item.label.replace(&chars, ""));
+                    // 使用 text_edit 明确指定替换范围
+                    let range = Range {
+                        start: start_pos,
+                        end: end_pos,
+                    };
+                    let edit = TextEdit {
+                        range,
+                        new_text: item.label.clone(),
+                    };
+                    item.text_edit = Some(CompletionTextEdit::Edit(edit));
+                    item.filter_text = Some(word.clone());
                     item
                 })
                 .collect::<Vec<_>>();
