@@ -4,6 +4,7 @@ use std::time::Duration;
 use gpui::{prelude::*, *};
 use gpui_component::{
     input::{CompletionProvider, InputState},
+    menu::{ContextMenuExt, PopupMenuItem},
     ActiveTheme, InteractiveElementExt, Rope, StyledExt,
 };
 use lsp_types::{CompletionContext, CompletionItem, CompletionResponse, CompletionTextEdit, Position, Range, TextEdit};
@@ -185,6 +186,8 @@ pub fn render_home(
     cx: &Context<SqlerApp>,
 ) -> AnyElement {
     let theme = cx.theme();
+    let entity = cx.entity();
+
     div()
         .id("sources")
         .grid()
@@ -197,6 +200,7 @@ pub fn render_home(
         .scrollable(Axis::Vertical)
         .children(app.cache.sources().iter().cloned().map(|source| {
             let display = source.display_endpoint();
+            let source_id = source.id.clone();
 
             div()
                 .flex()
@@ -212,9 +216,28 @@ pub fn render_home(
                 .cursor_pointer()
                 .id(SharedString::from(format!("source-card-{}", source.id)))
                 .hover(|this| this.bg(theme.secondary_hover))
-                .on_double_click(cx.listener(move |this, _, window, cx| {
-                    this.create_tab(&source.id, window, cx);
+                .on_double_click(cx.listener({
+                    let source_id = source_id.clone();
+                    move |this, _, window, cx| {
+                        this.create_tab(&source_id, window, cx);
+                    }
                 }))
+                .context_menu({
+                    let entity = entity.clone();
+                    let source_id = source_id.clone();
+                    move |this, window, _cx| {
+                        this.item(PopupMenuItem::new("查看信息").on_click({
+                            let source_id = source_id.clone();
+                            window.listener_for(&entity, move |this, _, window, cx| {
+                                this.create_tab(&source_id, window, cx);
+                            })
+                        }))
+                        .separator()
+                        .item(PopupMenuItem::new("编辑"))
+                        .separator()
+                        .item(PopupMenuItem::new("删除"))
+                    }
+                })
                 .child(
                     div()
                         .flex()

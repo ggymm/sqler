@@ -694,7 +694,6 @@ impl CommonWorkspace {
                     Table::new(&tab.datatable)
                         .stripe(false)
                         .bordered(false)
-                        .with_size(Size::Small)
                         .scrollbar_visible(true, true),
                 ),
             )
@@ -1014,7 +1013,6 @@ impl CommonWorkspace {
                                 Table::new(&tab.datatable)
                                     .stripe(false)
                                     .bordered(false)
-                                    .with_size(Size::Small)
                                     .scrollbar_visible(true, true),
                             )
                             .into_any_element(),

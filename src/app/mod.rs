@@ -341,9 +341,6 @@ impl Render for SqlerApp {
                                 let tab_id = tab.id.clone();
                                 let tab_active = &tab_id == active;
 
-                                let tab_id_for_click = tab_id.clone();
-                                let tab_id_for_close = tab_id.clone();
-
                                 let mut item = div()
                                     .id(comp_id(["main-tab", &tab_id]))
                                     .flex()
@@ -363,9 +360,12 @@ impl Render for SqlerApp {
                                     .when(!tab_active, |this| {
                                         this.bg(theme.tab_bar).text_color(theme.muted_foreground)
                                     })
-                                    .on_click(cx.listener(move |this, _, _, cx| {
-                                        this.active_tab(&tab_id_for_click, cx);
-                                    }))
+                                    .on_click({
+                                        let tab_id = tab_id.clone();
+                                        cx.listener(move |this, _, _, cx| {
+                                            this.active_tab(&tab_id, cx);
+                                        })
+                                    })
                                     .child(
                                         div()
                                             .flex_1()
@@ -383,9 +383,12 @@ impl Render for SqlerApp {
                                             .compact()
                                             .tab_stop(false)
                                             .icon(icon_close().with_size(Size::Small))
-                                            .on_click(cx.listener(move |this, _, _, cx| {
-                                                this.close_tab(&tab_id_for_close, cx);
-                                            })),
+                                            .on_click({
+                                                let tab_id = tab_id.clone();
+                                                cx.listener(move |this, _, _, cx| {
+                                                    this.close_tab(&tab_id, cx);
+                                                })
+                                            }),
                                     );
                                 }
 
