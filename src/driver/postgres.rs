@@ -334,9 +334,6 @@ fn open_conn(config: &PostgresOptions) -> Result<Client, DriverError> {
     if config.host.trim().is_empty() {
         return Err(DriverError::MissingField("host".into()));
     }
-    if config.port == 0 {
-        return Err(DriverError::InvalidField("port".into()));
-    }
     if config.username.trim().is_empty() {
         return Err(DriverError::MissingField("username".into()));
     }
@@ -352,7 +349,7 @@ fn open_conn(config: &PostgresOptions) -> Result<Client, DriverError> {
 
     let mut pg_config = Config::new();
     pg_config.host(config.host.trim());
-    pg_config.port(config.port);
+    pg_config.port(config.port.parse().unwrap_or(5432));
     pg_config.user(config.username.trim());
     pg_config.password(config.password.as_str());
     pg_config.dbname(config.database.trim());

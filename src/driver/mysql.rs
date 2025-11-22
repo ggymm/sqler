@@ -328,9 +328,6 @@ fn open_conn(config: &MySQLOptions) -> Result<Conn, DriverError> {
     if config.host.trim().is_empty() {
         return Err(DriverError::MissingField("host".into()));
     }
-    if config.port == 0 {
-        return Err(DriverError::InvalidField("port".into()));
-    }
     if config.username.trim().is_empty() {
         return Err(DriverError::MissingField("username".into()));
     }
@@ -343,7 +340,7 @@ fn open_conn(config: &MySQLOptions) -> Result<Conn, DriverError> {
 
     let mut builder = OptsBuilder::new();
     builder = builder.ip_or_hostname(Some(config.host.clone()));
-    builder = builder.tcp_port(config.port);
+    builder = builder.tcp_port(config.port.parse().unwrap_or(3306));
     builder = builder.user(Some(config.username.clone()));
     builder = builder.pass(Some(config.password.clone()));
     builder = builder.db_name(Some(config.database.clone()));

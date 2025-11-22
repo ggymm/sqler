@@ -29,7 +29,7 @@ impl PostgresCreate {
         Self {
             name: cx.new(|cx| InputState::new(window, cx).default_value(&name_val)),
             host: cx.new(|cx| InputState::new(window, cx).default_value(&opts.host)),
-            port: cx.new(|cx| InputState::new(window, cx).default_value(&opts.port.to_string())),
+            port: cx.new(|cx| InputState::new(window, cx).default_value(&opts.port)),
             username: cx.new(|cx| InputState::new(window, cx).default_value(&opts.username)),
             password: cx.new(|cx| InputState::new(window, cx).default_value(&opts.password).masked(true)),
             database: cx.new(|cx| InputState::new(window, cx).default_value(&opts.database)),
@@ -48,7 +48,7 @@ impl PostgresCreate {
 
         PostgresOptions {
             host,
-            port: port.parse().unwrap_or(5432),
+            port,
             username,
             password,
             database,

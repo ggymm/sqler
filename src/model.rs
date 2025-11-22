@@ -196,7 +196,7 @@ impl DataSourceKind {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct MySQLOptions {
     pub host: String,
-    pub port: u16,
+    pub port: String,
     pub username: String,
     pub password: String,
     pub database: String,
@@ -207,7 +207,7 @@ impl Default for MySQLOptions {
     fn default() -> Self {
         Self {
             host: "127.0.0.1".into(),
-            port: 3306,
+            port: "3306".into(),
             username: "root".into(),
             password: "".into(),
             database: String::new(),
@@ -304,7 +304,7 @@ impl SQLiteOptions {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct PostgresOptions {
     pub host: String,
-    pub port: u16,
+    pub port: String,
     pub database: String,
     pub username: String,
     pub password: String,
@@ -315,7 +315,7 @@ impl Default for PostgresOptions {
     fn default() -> Self {
         Self {
             host: "127.0.0.1".into(),
-            port: 5432,
+            port: "5432".into(),
             database: String::new(),
             username: "postgres".into(),
             password: "".into(),
@@ -502,7 +502,7 @@ impl SQLServerOptions {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct RedisOptions {
     pub host: String,
-    pub port: u16,
+    pub port: String,
     pub username: Option<String>,
     pub password: Option<String>,
     pub use_tls: bool,
@@ -512,7 +512,7 @@ impl Default for RedisOptions {
     fn default() -> Self {
         Self {
             host: "127.0.0.1".into(),
-            port: 6379,
+            port: "6379".into(),
             username: None,
             password: None,
             use_tls: false,

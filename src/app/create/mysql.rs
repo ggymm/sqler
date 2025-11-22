@@ -48,7 +48,7 @@ impl MySQLCreate {
 
         MySQLOptions {
             host,
-            port: port.parse().unwrap_or(3306),
+            port,
             username,
             password,
             database,
