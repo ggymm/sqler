@@ -16,13 +16,24 @@ pub struct SQLiteCreate {
 
 impl SQLiteCreate {
     pub fn new(
+        name: Option<&str>,
+        opts: Option<&SQLiteOptions>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
+        let (name_val, filepath_val, password_val) = match opts {
+            Some(opts) => (
+                name.unwrap_or("SQLite数据源").to_string(),
+                opts.filepath.clone(),
+                opts.password.clone().unwrap_or_default(),
+            ),
+            None => ("SQLite数据源".to_string(), String::new(), String::new()),
+        };
+
         Self {
-            name: cx.new(|cx| InputState::new(window, cx).default_value("SQLite数据源")),
-            filepath: cx.new(|cx| InputState::new(window, cx)),
-            password: cx.new(|cx| InputState::new(window, cx).masked(true)),
+            name: cx.new(|cx| InputState::new(window, cx).default_value(&name_val)),
+            filepath: cx.new(|cx| InputState::new(window, cx).default_value(&filepath_val)),
+            password: cx.new(|cx| InputState::new(window, cx).default_value(&password_val).masked(true)),
         }
     }
 

@@ -200,6 +200,8 @@ pub fn render_home(
         .scrollable(Axis::Vertical)
         .children(app.cache.sources().iter().cloned().map(|source| {
             let display = source.display_endpoint();
+
+            let source = source.clone();
             let source_id = source.id.clone();
 
             div()
@@ -224,16 +226,14 @@ pub fn render_home(
                 }))
                 .context_menu({
                     let entity = entity.clone();
-                    let source_id = source_id.clone();
+                    let source = source.clone();
                     move |this, window, _cx| {
-                        this.item(PopupMenuItem::new("查看信息").on_click({
-                            let source_id = source_id.clone();
-                            window.listener_for(&entity, move |this, _, window, cx| {
-                                this.create_tab(&source_id, window, cx);
+                        this.item(PopupMenuItem::new("编辑").on_click({
+                            let source = source.clone();
+                            window.listener_for(&entity, move |this, _, _, cx| {
+                                this.display_create_window(Some(source.clone()), cx);
                             })
                         }))
-                        .separator()
-                        .item(PopupMenuItem::new("编辑"))
                         .separator()
                         .item(PopupMenuItem::new("删除"))
                     }

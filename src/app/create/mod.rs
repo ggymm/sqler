@@ -26,6 +26,7 @@ pub struct CreateWindow {
     kind: Option<DataSourceKind>,
     parent: WeakEntity<SqlerApp>,
     status: Option<CreateStatus>,
+    update_id: Option<String>,
 
     mysql: Entity<mysql::MySQLCreate>,
     oracle: Entity<oracle::OracleCreate>,
@@ -39,6 +40,7 @@ pub struct CreateWindow {
 impl CreateWindow {
     pub fn new(
         parent: WeakEntity<SqlerApp>,
+        source: Option<&DataSource>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -52,18 +54,48 @@ impl CreateWindow {
             }
         });
 
+        let kind;
+        let name;
+        let update_id;
+        let mut mysql_opts = None;
+        let mut sqlite_opts = None;
+        let mut postgres_opts = None;
+        let mut oracle_opts = None;
+        let mut sqlserver_opts = None;
+        let mut redis_opts = None;
+        let mut mongodb_opts = None;
+        if let Some(s) = source.as_ref() {
+            kind = Some(s.kind);
+            name = Some(s.name.as_str());
+            update_id = Some(s.id.clone());
+            match &s.options {
+                DataSourceOptions::MySQL(opts) => mysql_opts = Some(opts),
+                DataSourceOptions::SQLite(opts) => sqlite_opts = Some(opts),
+                DataSourceOptions::Postgres(opts) => postgres_opts = Some(opts),
+                DataSourceOptions::Oracle(opts) => oracle_opts = Some(opts),
+                DataSourceOptions::SQLServer(opts) => sqlserver_opts = Some(opts),
+                DataSourceOptions::Redis(opts) => redis_opts = Some(opts),
+                DataSourceOptions::MongoDB(opts) => mongodb_opts = Some(opts),
+            }
+        } else {
+            kind = None;
+            name = None;
+            update_id = None;
+        }
+
         Self {
-            kind: None,
+            kind,
             parent,
             status: None,
+            update_id,
 
-            mysql: cx.new(|cx| mysql::MySQLCreate::new(window, cx)),
-            oracle: cx.new(|cx| oracle::OracleCreate::new(window, cx)),
-            sqlite: cx.new(|cx| sqlite::SQLiteCreate::new(window, cx)),
-            sqlserver: cx.new(|cx| sqlserver::SQLServerCreate::new(window, cx)),
-            postgres: cx.new(|cx| postgres::PostgresCreate::new(window, cx)),
-            redis: cx.new(|cx| redis::RedisCreate::new(window, cx)),
-            mongodb: cx.new(|cx| mongodb::MongoDBCreate::new(window, cx)),
+            mysql: cx.new(|cx| mysql::MySQLCreate::new(name, mysql_opts, window, cx)),
+            oracle: cx.new(|cx| oracle::OracleCreate::new(name, oracle_opts, window, cx)),
+            sqlite: cx.new(|cx| sqlite::SQLiteCreate::new(name, sqlite_opts, window, cx)),
+            sqlserver: cx.new(|cx| sqlserver::SQLServerCreate::new(name, sqlserver_opts, window, cx)),
+            postgres: cx.new(|cx| postgres::PostgresCreate::new(name, postgres_opts, window, cx)),
+            redis: cx.new(|cx| redis::RedisCreate::new(name, redis_opts, window, cx)),
+            mongodb: cx.new(|cx| mongodb::MongoDBCreate::new(name, mongodb_opts, window, cx)),
         }
     }
 
@@ -176,10 +208,20 @@ impl CreateWindow {
         };
 
         // 保存
-        let source = DataSource::new(name.clone(), kind, options);
         let result = if let Some(parent) = self.parent.upgrade() {
             parent.update(cx, |app, cx| {
-                app.cache.sources_mut().push(source);
+                if let Some(id) = &self.update_id {
+                    // 编辑模式：更新现有数据源
+                    if let Some(source) = app.cache.sources_mut().iter_mut().find(|s| &s.id == id) {
+                        source.name = name;
+                        source.kind = kind;
+                        source.options = options;
+                    }
+                } else {
+                    // 新建模式：添加新数据源
+                    let source = DataSource::new(name, kind, options);
+                    app.cache.sources_mut().push(source);
+                }
                 let result = app.cache.sources_update();
 
                 if result.is_ok() {

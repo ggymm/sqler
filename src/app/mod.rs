@@ -173,6 +173,7 @@ impl SqlerApp {
 
     pub fn display_create_window(
         &mut self,
+        source: Option<DataSource>,
         cx: &mut Context<SqlerApp>,
     ) {
         if let Some(handle) = &self.create_window {
@@ -181,6 +182,12 @@ impl SqlerApp {
             });
             return;
         }
+
+        let title = if source.is_some() {
+            "编辑数据源"
+        } else {
+            "新建数据源"
+        };
 
         let wsize = size(px(640.), px(560.));
         let options = WindowOptions {
@@ -199,13 +206,13 @@ impl SqlerApp {
             let parent = parent.clone();
             let view = app_cx.new(|cx| {
                 // rustfmt::skip
-                CreateWindow::new(parent.clone(), window, cx)
+                CreateWindow::new(parent.clone(), source.as_ref(), window, cx)
             });
             app_cx.new(|cx| Root::new(view, window, cx))
         }) {
             Ok(handle) => {
                 let _ = handle.update(cx, |_, modal_window, _| {
-                    modal_window.set_window_title("新建数据源");
+                    modal_window.set_window_title(title);
                 });
                 self.create_window = Some(handle);
             }
@@ -419,7 +426,7 @@ impl Render for SqlerApp {
                             .gap_5()
                             .child(Button::new("header-new-source").label("新建数据源").outline().on_click(
                                 cx.listener(|this, _, _, cx| {
-                                    this.display_create_window(cx);
+                                    this.display_create_window(None, cx);
                                 }),
                             ))
                             .child(

@@ -44,18 +44,37 @@ pub struct RedisCreate {
 
 impl RedisCreate {
     pub fn new(
+        name: Option<&str>,
+        opts: Option<&RedisOptions>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
         let auths: Vec<SharedString> = RedisAuthMode::all().iter().map(|mode| mode.label().into()).collect();
 
+        let (name_val, host_val, port_val, username_val, password_val) = match opts {
+            Some(opts) => (
+                name.unwrap_or("Redis数据源").to_string(),
+                opts.host.clone(),
+                opts.port.to_string(),
+                opts.username.clone().unwrap_or_default(),
+                opts.password.clone().unwrap_or_default(),
+            ),
+            None => (
+                "Redis数据源".to_string(),
+                "127.0.0.1".to_string(),
+                "6379".to_string(),
+                String::new(),
+                String::new(),
+            ),
+        };
+
         Self {
-            name: cx.new(|cx| InputState::new(window, cx).default_value("Redis数据源")),
-            host: cx.new(|cx| InputState::new(window, cx).default_value("127.0.0.1")),
-            port: cx.new(|cx| InputState::new(window, cx).default_value("6379")),
+            name: cx.new(|cx| InputState::new(window, cx).default_value(&name_val)),
+            host: cx.new(|cx| InputState::new(window, cx).default_value(&host_val)),
+            port: cx.new(|cx| InputState::new(window, cx).default_value(&port_val)),
             auth: cx.new(|cx| SelectState::new(auths, Some(IndexPath::new(0)), window, cx)),
-            username: cx.new(|cx| InputState::new(window, cx)),
-            password: cx.new(|cx| InputState::new(window, cx).masked(true)),
+            username: cx.new(|cx| InputState::new(window, cx).default_value(&username_val)),
+            password: cx.new(|cx| InputState::new(window, cx).default_value(&password_val).masked(true)),
         }
     }
 
