@@ -171,14 +171,6 @@ impl SqlerApp {
         self.create_window = None;
     }
 
-    pub fn close_import_window(&mut self) {
-        self.import_window = None;
-    }
-
-    pub fn close_export_window(&mut self) {
-        self.export_window = None;
-    }
-
     pub fn display_create_window(
         &mut self,
         cx: &mut Context<SqlerApp>,
@@ -205,7 +197,10 @@ impl SqlerApp {
         let parent = cx.weak_entity();
         match cx.open_window(options, move |window, app_cx| {
             let parent = parent.clone();
-            let view = app_cx.new(|cx| CreateWindow::new(parent.clone(), window, cx));
+            let view = app_cx.new(|cx| {
+                // rustfmt::skip
+                CreateWindow::new(parent.clone(), window, cx)
+            });
             app_cx.new(|cx| Root::new(view, window, cx))
         }) {
             Ok(handle) => {
@@ -218,6 +213,10 @@ impl SqlerApp {
                 eprintln!("failed to open create data source window: {err:?}");
             }
         }
+    }
+
+    pub fn close_import_window(&mut self) {
+        self.import_window = None;
     }
 
     pub fn display_import_window(
@@ -247,7 +246,10 @@ impl SqlerApp {
         let parent = cx.weak_entity();
         match cx.open_window(options, move |window, app_cx| {
             let parent = parent.clone();
-            let view = app_cx.new(|cx| ImportWindow::new(meta, tables, parent.clone(), window, cx));
+            let view = app_cx.new(|cx| {
+                // rustfmt::skip
+                ImportWindow::new(meta, tables, parent.clone(), window, cx)
+            });
             app_cx.new(|cx| Root::new(view, window, cx))
         }) {
             Ok(handle) => {
@@ -260,6 +262,10 @@ impl SqlerApp {
                 eprintln!("failed to open import window: {err:?}");
             }
         }
+    }
+
+    pub fn close_export_window(&mut self) {
+        self.export_window = None;
     }
 
     pub fn display_export_window(
@@ -289,7 +295,10 @@ impl SqlerApp {
         let parent = cx.weak_entity();
         match cx.open_window(options, move |window, app_cx| {
             let parent = parent.clone();
-            let view = app_cx.new(|cx| ExportWindow::new(parent.clone(), window, cx));
+            let view = app_cx.new(|cx| {
+                // rustfmt::skip
+                ExportWindow::new(parent.clone(), window, cx)
+            });
             app_cx.new(|cx| Root::new(view, window, cx))
         }) {
             Ok(handle) => {
