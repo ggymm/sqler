@@ -132,26 +132,26 @@ pub enum WorkspaceState {
 
 impl WorkspaceState {
     pub fn new(
-        meta: DataSource,
+        source: DataSource,
         _window: &mut Window,
         cx: &mut Context<SqlerApp>,
     ) -> Self {
         let parent = cx.weak_entity();
-        match meta.kind {
+        match source.kind {
             DataSourceKind::MySQL
             | DataSourceKind::SQLite
             | DataSourceKind::Postgres
             | DataSourceKind::Oracle
             | DataSourceKind::SQLServer => {
-                let view = cx.new(|cx| CommonWorkspace::new(meta, parent.clone(), cx));
+                let view = cx.new(|cx| CommonWorkspace::new(source, parent.clone(), cx));
                 WorkspaceState::Common { view }
             }
             DataSourceKind::Redis => {
-                let view = cx.new(|cx| RedisWorkspace::new(meta, parent.clone(), cx));
+                let view = cx.new(|cx| RedisWorkspace::new(source, parent.clone(), cx));
                 WorkspaceState::Redis { view }
             }
             DataSourceKind::MongoDB => {
-                let view = cx.new(|cx| MongoDBWorkspace::new(meta, parent.clone(), cx));
+                let view = cx.new(|cx| MongoDBWorkspace::new(source, parent.clone(), cx));
                 WorkspaceState::MongoDB { view }
             }
         }

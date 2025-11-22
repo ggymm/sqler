@@ -51,13 +51,13 @@ impl TabState {
     }
 
     fn workspace(
-        meta: DataSource,
+        source: DataSource,
         window: &mut Window,
         cx: &mut Context<SqlerApp>,
     ) -> Self {
-        let id = meta.id.clone();
-        let title = SharedString::from(meta.name.clone());
-        let workspace = WorkspaceState::new(meta, window, cx);
+        let id = source.id.clone();
+        let title = SharedString::from(source.name.clone());
+        let workspace = WorkspaceState::new(source, window, cx);
         Self {
             id,
             view: TabView::Workspace(workspace),
@@ -146,8 +146,8 @@ impl SqlerApp {
             return;
         }
 
-        if let Some(meta) = self.cache.sources().iter().find(|meta| meta.id == tab_id).cloned() {
-            self.tabs.push(TabState::workspace(meta, window, cx));
+        if let Some(source) = self.cache.sources().iter().find(|source| source.id == tab_id).cloned() {
+            self.tabs.push(TabState::workspace(source, window, cx));
             self.active_tab = tab_id.to_string();
             cx.notify();
         }
@@ -228,7 +228,7 @@ impl SqlerApp {
 
     pub fn display_import_window(
         &mut self,
-        meta: DataSource,
+        source: DataSource,
         tables: Vec<SharedString>,
         cx: &mut Context<SqlerApp>,
     ) {
@@ -255,7 +255,7 @@ impl SqlerApp {
             let parent = parent.clone();
             let view = app_cx.new(|cx| {
                 // rustfmt::skip
-                ImportWindow::new(meta, tables, parent.clone(), window, cx)
+                ImportWindow::new(source, tables, parent.clone(), window, cx)
             });
             app_cx.new(|cx| Root::new(view, window, cx))
         }) {
@@ -277,7 +277,7 @@ impl SqlerApp {
 
     pub fn display_export_window(
         &mut self,
-        _meta: DataSource,
+        _source: DataSource,
         _tables: Vec<SharedString>,
         cx: &mut Context<SqlerApp>,
     ) {

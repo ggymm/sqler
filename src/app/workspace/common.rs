@@ -90,7 +90,7 @@ struct QueryContent {
 }
 
 pub struct CommonWorkspace {
-    meta: DataSource,
+    source: DataSource,
     parent: WeakEntity<SqlerApp>,
     session: Option<Box<dyn DatabaseSession>>,
 
@@ -102,7 +102,7 @@ pub struct CommonWorkspace {
 
 impl CommonWorkspace {
     pub fn new(
-        meta: DataSource,
+        source: DataSource,
         parent: WeakEntity<SqlerApp>,
         _cx: &mut Context<Self>,
     ) -> Self {
@@ -110,7 +110,7 @@ impl CommonWorkspace {
         let active_tab = overview.id.clone();
 
         Self {
-            meta,
+            source,
             parent,
             session: None,
 
@@ -154,7 +154,7 @@ impl CommonWorkspace {
 
     fn active_session(&mut self) -> Result<&mut (dyn DatabaseSession + '_), DriverError> {
         if self.session.is_none() {
-            self.session = Some(create_connection(&self.meta.options)?);
+            self.session = Some(create_connection(&self.source.options)?);
         }
 
         match self.session.as_deref_mut() {
@@ -225,7 +225,7 @@ impl CommonWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let tab_id = SharedString::from(format!("common-table-tab-{}-{}", self.meta.id, table));
+        let tab_id = SharedString::from(format!("common-table-tab-{}-{}", self.source.id, table));
 
         // 检查标签页是否已存在
         if let Some(existing) = self.tabs.iter().find(|tab| {
@@ -1040,7 +1040,7 @@ impl CommonWorkspace {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let theme = cx.theme();
-        let overview_fields = self.meta.display_overview();
+        let overview_fields = self.source.display_overview();
 
         let detail_card = div()
             .flex()
@@ -1072,7 +1072,7 @@ impl CommonWorkspace {
                 div()
                     .text_base()
                     .font_semibold()
-                    .child(format!("名称：{}", self.meta.name)),
+                    .child(format!("名称：{}", self.source.name)),
             )
             .child(detail_card)
             .into_any_element()
@@ -1085,7 +1085,7 @@ impl Render for CommonWorkspace {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let id = &self.meta.id;
+        let id = &self.source.id;
         let theme = cx.theme().clone();
         let active = &self.active_tab;
 
@@ -1166,7 +1166,7 @@ impl Render for CommonWorkspace {
 
             tables.push(
                 div()
-                    .id(comp_id(["common-sidebar-item", &self.meta.id, &item]))
+                    .id(comp_id(["common-sidebar-item", &self.source.id, &item]))
                     .px_4()
                     .py_2()
                     .gap_2()
@@ -1238,10 +1238,10 @@ impl Render for CommonWorkspace {
                             .outline()
                             .on_click(cx.listener(|view: &mut Self, _, _, cx| {
                                 if let Some(parent) = view.parent.upgrade() {
-                                    let meta = view.meta.clone();
+                                    let source = view.source.clone();
                                     let tables = view.tables.clone();
                                     let _ = parent.update(cx, |app, cx| {
-                                        app.display_import_window(meta, tables, cx);
+                                        app.display_import_window(source, tables, cx);
                                     });
                                 }
                             })),
@@ -1253,10 +1253,10 @@ impl Render for CommonWorkspace {
                             .outline()
                             .on_click(cx.listener(|view: &mut Self, _, _, cx| {
                                 if let Some(parent) = view.parent.upgrade() {
-                                    let meta = view.meta.clone();
+                                    let source = view.source.clone();
                                     let tables = view.tables.clone();
                                     let _ = parent.update(cx, |app, cx| {
-                                        app.display_export_window(meta, tables, cx);
+                                        app.display_export_window(source, tables, cx);
                                     });
                                 }
                             })),

@@ -145,7 +145,7 @@ enum TableOption {
 }
 
 pub struct ImportWindow {
-    meta: DataSource,
+    source: DataSource,
     parent: WeakEntity<SqlerApp>,
 
     step: ImportStep,
@@ -163,7 +163,7 @@ pub struct ImportWindow {
 
 impl ImportWindow {
     pub fn new(
-        meta: DataSource,
+        source: DataSource,
         tables: Vec<SharedString>,
         parent: WeakEntity<SqlerApp>,
         window: &mut Window,
@@ -183,7 +183,7 @@ impl ImportWindow {
         let import_modes: Vec<SharedString> = ImportMode::all().iter().map(|m| m.label().into()).collect();
 
         Self {
-            meta,
+            source,
             parent,
 
             step: ImportStep::Kind,

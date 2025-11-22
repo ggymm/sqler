@@ -52,7 +52,7 @@ struct CollectionContent {
 }
 
 pub struct MongoDBWorkspace {
-    meta: DataSource,
+    source: DataSource,
     parent: WeakEntity<SqlerApp>,
     session: Option<Box<dyn DatabaseSession>>,
 
@@ -64,7 +64,7 @@ pub struct MongoDBWorkspace {
 
 impl MongoDBWorkspace {
     pub fn new(
-        meta: DataSource,
+        source: DataSource,
         parent: WeakEntity<SqlerApp>,
         _cx: &mut Context<Self>,
     ) -> Self {
@@ -72,7 +72,7 @@ impl MongoDBWorkspace {
         let active_tab = overview.id.clone();
 
         Self {
-            meta,
+            source,
             parent,
             session: None,
 
@@ -116,7 +116,7 @@ impl MongoDBWorkspace {
 
     fn active_session(&mut self) -> Result<&mut (dyn DatabaseSession + '_), DriverError> {
         if self.session.is_none() {
-            self.session = Some(create_connection(&self.meta.options)?);
+            self.session = Some(create_connection(&self.source.options)?);
         }
 
         match self.session.as_deref_mut() {
@@ -158,7 +158,7 @@ impl MongoDBWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let id = SharedString::from(format!("mongodb-tab-collection-{}-{}", self.meta.id, collection));
+        let id = SharedString::from(format!("mongodb-tab-collection-{}-{}", self.source.id, collection));
 
         if let Some(existing) = self.tabs.iter().find(|tab| {
             matches!(
@@ -200,7 +200,7 @@ impl MongoDBWorkspace {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let theme = cx.theme();
-        let overview_fields = self.meta.display_overview();
+        let overview_fields = self.source.display_overview();
 
         let detail_card = div()
             .flex()
@@ -232,7 +232,7 @@ impl MongoDBWorkspace {
                 div()
                     .text_base()
                     .font_semibold()
-                    .child(format!("名称：{}", self.meta.name)),
+                    .child(format!("名称：{}", self.source.name)),
             )
             .child(detail_card)
             .into_any_element()
@@ -324,7 +324,7 @@ impl Render for MongoDBWorkspace {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let id = &self.meta.id;
+        let id = &self.source.id;
         let theme = cx.theme().clone();
         let active = &self.active_tab;
 
@@ -339,7 +339,7 @@ impl Render for MongoDBWorkspace {
                 let active = self.active_collection.as_ref() == Some(&collection);
                 acc.child(
                     div()
-                        .id(comp_id(["mongodb-sidebar-item", &self.meta.id, &collection]))
+                        .id(comp_id(["mongodb-sidebar-item", &self.source.id, &collection]))
                         .px_4()
                         .py_2()
                         .gap_2()
