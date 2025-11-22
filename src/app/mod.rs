@@ -360,12 +360,12 @@ impl Render for SqlerApp {
                                     .when(!tab_active, |this| {
                                         this.bg(theme.tab_bar).text_color(theme.muted_foreground)
                                     })
-                                    .on_click({
+                                    .on_click(cx.listener({
                                         let tab_id = tab_id.clone();
-                                        cx.listener(move |this, _, _, cx| {
+                                        move |this, _, _, cx| {
                                             this.active_tab(&tab_id, cx);
-                                        })
-                                    })
+                                        }
+                                    }))
                                     .child(
                                         div()
                                             .flex_1()
@@ -383,12 +383,12 @@ impl Render for SqlerApp {
                                             .compact()
                                             .tab_stop(false)
                                             .icon(icon_close().with_size(Size::Small))
-                                            .on_click({
+                                            .on_click(cx.listener({
                                                 let tab_id = tab_id.clone();
-                                                cx.listener(move |this, _, _, cx| {
+                                                move |this, _, _, cx| {
                                                     this.close_tab(&tab_id, cx);
-                                                })
-                                            }),
+                                                }
+                                            })),
                                     );
                                 }
 

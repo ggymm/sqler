@@ -337,7 +337,6 @@ impl Render for MongoDBWorkspace {
                 .scrollable(Axis::Vertical),
             |acc, collection| {
                 let active = self.active_collection.as_ref() == Some(&collection);
-                let active_collection = collection.clone();
                 acc.child(
                     div()
                         .id(comp_id(["mongodb-sidebar-item", &self.meta.id, &collection]))
@@ -353,8 +352,11 @@ impl Render for MongoDBWorkspace {
                             |this| this.bg(theme.list_active).font_semibold(),
                             |this| this.hover(|this| this.bg(theme.list_hover)),
                         )
-                        .on_double_click(cx.listener(move |this, _, window, cx| {
-                            this.create_collection_tab(active_collection.clone(), window, cx);
+                        .on_double_click(cx.listener({
+                            let collection = collection.clone();
+                            move |this, _, window, cx| {
+                                this.create_collection_tab(collection.clone(), window, cx);
+                            }
                         }))
                         .child(icon_sheet())
                         .child(collection.clone()),
