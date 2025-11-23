@@ -229,7 +229,6 @@ impl SqlerApp {
     pub fn display_import_window(
         &mut self,
         source: DataSource,
-        tables: Vec<SharedString>,
         cx: &mut Context<SqlerApp>,
     ) {
         if let Some(handle) = &self.import_window {
@@ -255,7 +254,7 @@ impl SqlerApp {
             let parent = parent.clone();
             let view = app_cx.new(|cx| {
                 // rustfmt::skip
-                ImportWindow::new(source, tables, parent.clone(), window, cx)
+                ImportWindow::new(source, parent.clone(), window, cx)
             });
             app_cx.new(|cx| Root::new(view, window, cx))
         }) {
@@ -278,7 +277,6 @@ impl SqlerApp {
     pub fn display_export_window(
         &mut self,
         _source: DataSource,
-        _tables: Vec<SharedString>,
         cx: &mut Context<SqlerApp>,
     ) {
         if let Some(handle) = &self.export_window {

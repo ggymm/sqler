@@ -168,10 +168,19 @@ impl CommonWorkspace {
         cx: &mut Context<Self>,
     ) {
         // 尝试从会话获取表列表
-        let result = self.active_session().and_then(|session| session.tables());
+        let session = match self.active_session() {
+            Ok(_) => self.session.take(),
+            Err(err) => {
+                tracing::error!("获取数据库连接失败: {}", err);
+                return;
+            }
+        };
+        let Some(mut session) = session else {
+            return;
+        };
 
         // 更新本地数据
-        self.tables = match result {
+        self.tables = match session.tables() {
             Ok(tables) => tables.into_iter().map(SharedString::from).collect(),
             Err(err) => {
                 tracing::error!("刷新表列表失败: {}", err);
@@ -368,7 +377,7 @@ impl CommonWorkspace {
                 return;
             }
         };
-        let Some(session) = session else {
+        let Some(mut session) = session else {
             return;
         };
 
@@ -377,9 +386,6 @@ impl CommonWorkspace {
             let result = cx
                 .background_executor()
                 .spawn(async move {
-                    // 使用传递过来的连接
-                    let mut session = session;
-
                     // 查询列名
                     let cols = session.columns(&table)?;
 
@@ -883,7 +889,7 @@ impl CommonWorkspace {
                 return;
             }
         };
-        let Some(session) = session else {
+        let Some(mut session) = session else {
             return;
         };
 
@@ -892,8 +898,6 @@ impl CommonWorkspace {
             let result = cx
                 .background_executor()
                 .spawn(async move {
-                    let mut session = session;
-
                     // 执行SQL查询
                     let query_resp = session.query(QueryReq::Sql { sql, args: Vec::new() })?;
 
@@ -1239,9 +1243,8 @@ impl Render for CommonWorkspace {
                             .on_click(cx.listener(|view: &mut Self, _, _, cx| {
                                 if let Some(parent) = view.parent.upgrade() {
                                     let source = view.source.clone();
-                                    let tables = view.tables.clone();
                                     let _ = parent.update(cx, |app, cx| {
-                                        app.display_import_window(source, tables, cx);
+                                        app.display_import_window(source, cx);
                                     });
                                 }
                             })),
@@ -1254,9 +1257,8 @@ impl Render for CommonWorkspace {
                             .on_click(cx.listener(|view: &mut Self, _, _, cx| {
                                 if let Some(parent) = view.parent.upgrade() {
                                     let source = view.source.clone();
-                                    let tables = view.tables.clone();
                                     let _ = parent.update(cx, |app, cx| {
-                                        app.display_export_window(source, tables, cx);
+                                        app.display_export_window(source, cx);
                                     });
                                 }
                             })),

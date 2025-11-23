@@ -7,11 +7,15 @@ use gpui_component::{
     input::{Input, InputState},
     select::{Select, SelectState},
     switch::Switch,
-    ActiveTheme, IndexPath, Sizable, Size, StyledExt,
+    ActiveTheme, Sizable, Size, StyledExt,
 };
 
 use crate::{
-    app::{comps::DivExt, SqlerApp},
+    app::{
+        comps::{icon_relead, DivExt},
+        SqlerApp,
+    },
+    driver::{create_connection, DatabaseSession, DriverError},
     model::DataSource,
 };
 
@@ -107,14 +111,12 @@ impl ImportMode {
 struct ImportFile {
     path: PathBuf,
     option: TableOption,
-    new_table: Entity<InputState>,
-    exist_table: Entity<SelectState<Vec<SharedString>>>,
+    table: Entity<InputState>,
 }
 
 impl ImportFile {
     fn new(
         path: PathBuf,
-        tables: Vec<SharedString>,
         window: &mut Window,
         cx: &mut App,
     ) -> Self {
@@ -123,8 +125,7 @@ impl ImportFile {
         Self {
             path,
             option: TableOption::NewTable,
-            new_table: cx.new(|cx| InputState::new(window, cx).default_value(&default_name)),
-            exist_table: cx.new(|cx| SelectState::new(tables, None, window, cx)),
+            table: cx.new(|cx| InputState::new(window, cx).default_value(&default_name)),
         }
     }
 
@@ -147,10 +148,10 @@ enum TableOption {
 pub struct ImportWindow {
     source: DataSource,
     parent: WeakEntity<SqlerApp>,
+    session: Option<Box<dyn DatabaseSession>>,
 
     step: ImportStep,
     files: Vec<ImportFile>,
-    tables: Vec<SharedString>,
 
     col_index: Entity<InputState>,
     data_index: Entity<InputState>,
@@ -159,12 +160,12 @@ pub struct ImportWindow {
 
     file_kinds: Entity<SelectState<Vec<SharedString>>>,
     import_modes: Entity<SelectState<Vec<SharedString>>>,
+    current_tables: Entity<SelectState<Vec<SharedString>>>,
 }
 
 impl ImportWindow {
     pub fn new(
         source: DataSource,
-        tables: Vec<SharedString>,
         parent: WeakEntity<SqlerApp>,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -185,19 +186,61 @@ impl ImportWindow {
         Self {
             source,
             parent,
+            session: None,
 
             step: ImportStep::Kind,
             files: Vec::new(),
-            tables: tables.clone(),
 
             col_index: cx.new(|cx| InputState::new(window, cx).default_value("1")),
             data_index: cx.new(|cx| InputState::new(window, cx).default_value("2")),
             row_delimiter: cx.new(|cx| InputState::new(window, cx).default_value("\\n")),
             col_delimiter: cx.new(|cx| InputState::new(window, cx).default_value(",")),
 
-            file_kinds: cx.new(|cx| SelectState::new(file_kinds, Some(IndexPath::new(0)), window, cx)),
-            import_modes: cx.new(|cx| SelectState::new(import_modes, Some(IndexPath::new(0)), window, cx)),
+            file_kinds: cx.new(|cx| SelectState::new(file_kinds, None, window, cx)),
+            import_modes: cx.new(|cx| SelectState::new(import_modes, None, window, cx)),
+            current_tables: cx.new(|cx| SelectState::new(vec![], None, window, cx)),
         }
+    }
+
+    fn active_session(&mut self) -> Result<&mut (dyn DatabaseSession + '_), DriverError> {
+        if self.session.is_none() {
+            self.session = Some(create_connection(&self.source.options)?);
+        }
+
+        match self.session.as_deref_mut() {
+            Some(session) => Ok(session),
+            None => Err(DriverError::Other("数据库连接不可用".into())),
+        }
+    }
+
+    fn reload_tables(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        // 尝试从会话获取表列表
+        let session = match self.active_session() {
+            Ok(_) => self.session.take(),
+            Err(err) => {
+                tracing::error!("获取数据库连接失败: {}", err);
+                return;
+            }
+        };
+        let Some(mut session) = session else {
+            return;
+        };
+
+        // 更新本地数据
+        let tables = match session.tables() {
+            Ok(tables) => tables.into_iter().map(SharedString::from).collect(),
+            Err(err) => {
+                tracing::error!("刷新表列表失败: {}", err);
+                vec![]
+            }
+        };
+        self.current_tables = cx.new(|cx| SelectState::new(tables, None, window, cx));
+
+        cx.notify();
     }
 
     fn choose_files(
@@ -205,7 +248,6 @@ impl ImportWindow {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let tables = self.tables.clone();
         let future = cx.prompt_for_paths(PathPromptOptions {
             files: true,
             multiple: true,
@@ -218,7 +260,7 @@ impl ImportWindow {
                 let _ = cx.update(|window, cx| {
                     let _ = this.update(cx, |this, cx| {
                         for path in paths {
-                            this.files.push(ImportFile::new(path, tables.clone(), window, cx));
+                            this.files.push(ImportFile::new(path, window, cx));
                         }
                     });
                 });
@@ -351,6 +393,17 @@ impl ImportWindow {
             .p_6()
             .col_full()
             .child(
+                div().flex().flex_row().pb_4().child(
+                    Button::new("reload_tables")
+                        .icon(icon_relead().with_size(Size::Small))
+                        .label("刷新表")
+                        .outline()
+                        .on_click(cx.listener(|view: &mut Self, _, window, cx| {
+                            view.reload_tables(window, cx);
+                        })),
+                ),
+            )
+            .child(
                 div()
                     .col_full()
                     .border_1()
@@ -408,9 +461,9 @@ impl ImportWindow {
                                                 .gap_4()
                                                 .child(match file.option {
                                                     TableOption::NewTable => {
-                                                        Input::new(&file.new_table).cleanable(true).into_any_element()
+                                                        Input::new(&file.table).cleanable(true).into_any_element()
                                                     }
-                                                    TableOption::ExistTable => Select::new(&file.exist_table)
+                                                    TableOption::ExistTable => Select::new(&self.current_tables)
                                                         .placeholder("选择表")
                                                         .into_any_element(),
                                                 })
