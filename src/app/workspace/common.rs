@@ -16,7 +16,7 @@ use crate::{
         comps::{
             comp_id, icon_export, icon_import, icon_relead, icon_search, icon_sheet, icon_trash, DataTable, DivExt,
         },
-        SqlerApp,
+        SqlerApp, WindowKind,
     },
     driver::{
         create_connection, DatabaseSession, DriverError, FilterCond, Operator, OrderCond, Paging, QueryReq, QueryResp,
@@ -1244,7 +1244,7 @@ impl Render for CommonWorkspace {
                                 if let Some(parent) = view.parent.upgrade() {
                                     let source = view.source.clone();
                                     let _ = parent.update(cx, |app, cx| {
-                                        app.display_import_window(source, cx);
+                                        app.create_window(WindowKind::Import(source), cx);
                                     });
                                 }
                             })),
@@ -1258,7 +1258,7 @@ impl Render for CommonWorkspace {
                                 if let Some(parent) = view.parent.upgrade() {
                                     let source = view.source.clone();
                                     let _ = parent.update(cx, |app, cx| {
-                                        app.display_export_window(source, cx);
+                                        app.create_window(WindowKind::Export(source), cx);
                                     });
                                 }
                             })),

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use gpui::{prelude::*, *};
 use gpui_component::{
     button::{Button, ButtonVariants},
@@ -20,6 +22,23 @@ mod comps;
 mod create;
 mod transfer;
 mod workspace;
+
+#[derive(Clone)]
+pub enum WindowKind {
+    Create(Option<DataSource>),
+    Import(DataSource),
+    Export(DataSource),
+}
+
+impl WindowKind {
+    fn tag(&self) -> &'static str {
+        match self {
+            WindowKind::Create(_) => "create",
+            WindowKind::Import(_) => "import",
+            WindowKind::Export(_) => "export",
+        }
+    }
+}
 
 pub enum TabView {
     Home,
@@ -72,9 +91,7 @@ pub struct SqlerApp {
     pub active_tab: String,
 
     pub cache: CacheApp,
-    pub create_window: Option<WindowHandle<Root>>,
-    pub import_window: Option<WindowHandle<Root>>,
-    pub export_window: Option<WindowHandle<Root>>,
+    pub windows: HashMap<String, WindowHandle<Root>>,
 }
 
 impl SqlerApp {
@@ -95,9 +112,7 @@ impl SqlerApp {
 
             cache,
 
-            create_window: None,
-            import_window: None,
-            export_window: None,
+            windows: HashMap::new(),
         }
     }
 
@@ -167,155 +182,75 @@ impl SqlerApp {
         cx.notify();
     }
 
-    pub fn close_create_window(&mut self) {
-        self.create_window = None;
-    }
-
-    pub fn display_create_window(
+    pub fn create_window(
         &mut self,
-        source: Option<DataSource>,
+        kind: WindowKind,
         cx: &mut Context<SqlerApp>,
     ) {
-        if let Some(handle) = &self.create_window {
-            let _ = handle.update(cx, |_, create_window, _| {
-                create_window.activate_window();
+        let tag = kind.tag();
+
+        // 1. 检查窗口是否已存在，如果存在则激活
+        if let Some(handle) = self.windows.get(tag) {
+            let _ = handle.update(cx, |_, window, _| {
+                window.activate_window();
             });
             return;
         }
 
-        let title = if source.is_some() {
-            "编辑数据源"
-        } else {
-            "新建数据源"
+        // 2. 确定窗口标题
+        let title = match &kind {
+            WindowKind::Create(Some(_)) => "编辑数据源",
+            WindowKind::Create(None) => "新建数据源",
+            WindowKind::Import(_) => "数据导入",
+            WindowKind::Export(_) => "数据导出",
         };
 
-        let wsize = size(px(640.), px(560.));
+        // 3. 统一的窗口配置（位置大小统一）
+        let wsize = size(px(1280.), px(720.));
         let options = WindowOptions {
-            kind: WindowKind::Floating,
+            kind: gpui::WindowKind::Floating,
             window_bounds: Some(WindowBounds::Windowed(Bounds::centered(None, wsize, cx))),
-            // window_min_size: Some(gpui::Size {
-            //     width: wsize.width,
-            //     height: wsize.height,
-            // }),
             is_minimizable: false,
             ..Default::default()
         };
 
+        // 4. 创建窗口并根据类型构建对应视图
         let parent = cx.weak_entity();
-        match cx.open_window(options, move |window, app_cx| {
+        let window_kind = kind.clone();
+
+        let result = cx.open_window(options, move |window, app_cx| {
             let parent = parent.clone();
-            let view = app_cx.new(|cx| {
-                // rustfmt::skip
-                CreateWindow::new(parent.clone(), source.as_ref(), window, cx)
-            });
+            let view: AnyView = match &window_kind {
+                WindowKind::Create(source) => app_cx
+                    .new(|cx| CreateWindow::new(parent.clone(), source.as_ref(), window, cx))
+                    .into(),
+                WindowKind::Import(source) => app_cx
+                    .new(|cx| ImportWindow::new(source.clone(), parent.clone(), window, cx))
+                    .into(),
+                WindowKind::Export(_source) => app_cx.new(|cx| ExportWindow::new(parent.clone(), window, cx)).into(),
+            };
             app_cx.new(|cx| Root::new(view, window, cx))
-        }) {
+        });
+
+        // 5. 保存窗口句柄并设置标题
+        match result {
             Ok(handle) => {
                 let _ = handle.update(cx, |_, modal_window, _| {
                     modal_window.set_window_title(title);
                 });
-                self.create_window = Some(handle);
+                self.windows.insert(tag.to_string(), handle);
             }
             Err(err) => {
-                eprintln!("failed to open create data source window: {err:?}");
+                eprintln!("failed to open window: {err:?}");
             }
         }
     }
 
-    pub fn close_import_window(&mut self) {
-        self.import_window = None;
-    }
-
-    pub fn display_import_window(
+    pub fn close_window(
         &mut self,
-        source: DataSource,
-        cx: &mut Context<SqlerApp>,
+        tag: &str,
     ) {
-        if let Some(handle) = &self.import_window {
-            let _ = handle.update(cx, |_, import_window, _| {
-                import_window.activate_window();
-            });
-            return;
-        }
-
-        let bounds = Bounds {
-            size: size(px(1280.), px(720.)),
-            origin: point(px(0.), px(0.)),
-        };
-        let options = WindowOptions {
-            kind: WindowKind::Floating,
-            window_bounds: Some(WindowBounds::Windowed(bounds)),
-            is_minimizable: false,
-            ..Default::default()
-        };
-
-        let parent = cx.weak_entity();
-        match cx.open_window(options, move |window, app_cx| {
-            let parent = parent.clone();
-            let view = app_cx.new(|cx| {
-                // rustfmt::skip
-                ImportWindow::new(source, parent.clone(), window, cx)
-            });
-            app_cx.new(|cx| Root::new(view, window, cx))
-        }) {
-            Ok(handle) => {
-                let _ = handle.update(cx, |_, modal_window, _| {
-                    modal_window.set_window_title("数据导入");
-                });
-                self.import_window = Some(handle);
-            }
-            Err(err) => {
-                eprintln!("failed to open import window: {err:?}");
-            }
-        }
-    }
-
-    pub fn close_export_window(&mut self) {
-        self.export_window = None;
-    }
-
-    pub fn display_export_window(
-        &mut self,
-        _source: DataSource,
-        cx: &mut Context<SqlerApp>,
-    ) {
-        if let Some(handle) = &self.export_window {
-            let _ = handle.update(cx, |_, export_window, _| {
-                export_window.activate_window();
-            });
-            return;
-        }
-
-        let bounds = Bounds {
-            size: size(px(1280.), px(720.)),
-            origin: point(px(0.), px(0.)),
-        };
-        let options = WindowOptions {
-            kind: WindowKind::Floating,
-            window_bounds: Some(WindowBounds::Windowed(bounds)),
-            is_minimizable: false,
-            ..Default::default()
-        };
-
-        let parent = cx.weak_entity();
-        match cx.open_window(options, move |window, app_cx| {
-            let parent = parent.clone();
-            let view = app_cx.new(|cx| {
-                // rustfmt::skip
-                ExportWindow::new(parent.clone(), window, cx)
-            });
-            app_cx.new(|cx| Root::new(view, window, cx))
-        }) {
-            Ok(handle) => {
-                let _ = handle.update(cx, |_, modal_window, _| {
-                    modal_window.set_window_title("数据导出");
-                });
-                self.export_window = Some(handle);
-            }
-            Err(err) => {
-                eprintln!("failed to open export window: {err:?}");
-            }
-        }
+        self.windows.remove(tag);
     }
 }
 
@@ -424,7 +359,7 @@ impl Render for SqlerApp {
                             .gap_5()
                             .child(Button::new("header-new-source").label("新建数据源").outline().on_click(
                                 cx.listener(|this, _, _, cx| {
-                                    this.display_create_window(None, cx);
+                                    this.create_window(WindowKind::Create(None), cx);
                                 }),
                             ))
                             .child(

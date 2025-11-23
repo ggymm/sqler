@@ -26,9 +26,8 @@ impl ExportWindow {
         let parent_for_release = parent.clone();
         let _ = cx.on_release(move |_, app| {
             if let Some(parent) = parent_for_release.upgrade() {
-                let _ = parent.update(app, |app, cx| {
-                    app.close_export_window();
-                    cx.notify();
+                let _ = parent.update(app, |app, _| {
+                    app.close_window("export");
                 });
             }
         });
@@ -183,9 +182,8 @@ impl Render for ExportWindow {
                             .outline()
                             .on_click(cx.listener(|this: &mut ExportWindow, _, window, cx| {
                                 if let Some(parent) = this.parent.upgrade() {
-                                    let _ = parent.update(cx, |app, cx| {
-                                        app.close_export_window();
-                                        cx.notify();
+                                    let _ = parent.update(cx, |app, _| {
+                                        app.close_window("export");
                                     });
                                 }
                                 window.remove_window()

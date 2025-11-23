@@ -10,7 +10,7 @@ use gpui_component::{
 use lsp_types::{CompletionContext, CompletionItem, CompletionResponse, CompletionTextEdit, Position, Range, TextEdit};
 
 use crate::{
-    app::{SqlerApp, TabView},
+    app::{SqlerApp, TabView, WindowKind},
     model::{DataSource, DataSourceKind},
 };
 
@@ -231,7 +231,7 @@ pub fn render_home(
                         this.item(PopupMenuItem::new("编辑").on_click({
                             let source = source.clone();
                             window.listener_for(&entity, move |this, _, _, cx| {
-                                this.display_create_window(Some(source.clone()), cx);
+                                this.create_window(WindowKind::Create(Some(source.clone())), cx);
                             })
                         }))
                         .separator()

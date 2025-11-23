@@ -47,9 +47,8 @@ impl CreateWindow {
         let parent_for_release = parent.clone();
         let _ = cx.on_release(move |_, app| {
             if let Some(parent) = parent_for_release.upgrade() {
-                let _ = parent.update(app, |app, cx| {
-                    app.close_create_window();
-                    cx.notify();
+                let _ = parent.update(app, |app, _| {
+                    app.close_window("create");
                 });
             }
         });
@@ -105,9 +104,8 @@ impl CreateWindow {
         cx: &mut Context<Self>,
     ) {
         if let Some(parent) = self.parent.upgrade() {
-            let _ = parent.update(cx, |app, cx| {
-                app.close_create_window();
-                cx.notify();
+            let _ = parent.update(cx, |app, _| {
+                app.close_window("create");
             });
         }
         window.remove_window();
