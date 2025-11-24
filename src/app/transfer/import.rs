@@ -146,8 +146,8 @@ enum TableOption {
 }
 
 pub struct ImportWindow {
-    source: DataSource,
     parent: WeakEntity<SqlerApp>,
+    source: DataSource,
     session: Option<Box<dyn DatabaseSession>>,
 
     step: ImportStep,
@@ -165,8 +165,8 @@ pub struct ImportWindow {
 
 impl ImportWindow {
     pub fn new(
-        source: DataSource,
         parent: WeakEntity<SqlerApp>,
+        source: DataSource,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {

@@ -6,12 +6,17 @@ use gpui_component::{
     ActiveTheme, Sizable, Size, StyledExt,
 };
 
-use crate::app::{comps::DivExt, SqlerApp};
+use crate::{
+    app::{comps::DivExt, SqlerApp},
+    model::DataSource,
+};
 
 use super::TransferKind;
 
 pub struct ExportWindow {
     parent: WeakEntity<SqlerApp>,
+    source: DataSource,
+
     format: Option<TransferKind>,
     file_path: Entity<InputState>,
     table_name: Entity<InputState>,
@@ -20,6 +25,7 @@ pub struct ExportWindow {
 impl ExportWindow {
     pub fn new(
         parent: WeakEntity<SqlerApp>,
+        source: DataSource,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -34,6 +40,8 @@ impl ExportWindow {
 
         Self {
             parent,
+            source,
+
             format: None,
             file_path: cx.new(|cx| InputState::new(window, cx)),
             table_name: cx.new(|cx| InputState::new(window, cx)),

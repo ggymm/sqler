@@ -62,13 +62,6 @@ impl TabState {
         }
     }
 
-    fn is_workspace(
-        &self,
-        id: &str,
-    ) -> bool {
-        matches!(&self.view, TabView::Workspace(_)) && self.id == id
-    }
-
     fn workspace(
         source: DataSource,
         window: &mut Window,
@@ -155,8 +148,11 @@ impl SqlerApp {
         window: &mut Window,
         cx: &mut Context<SqlerApp>,
     ) {
-        if let Some(existing) = self.tabs.iter().find(|tab| tab.is_workspace(tab_id)) {
-            self.active_tab = existing.id.clone();
+        if let Some(exist) = self.tabs.iter().find(|tab| {
+            // rustfmt::skip
+            matches!(&tab.view, TabView::Workspace(_)) && tab.id == tab_id
+        }) {
+            self.active_tab = exist.id.clone();
             cx.notify();
             return;
         }
@@ -182,6 +178,13 @@ impl SqlerApp {
         cx.notify();
     }
 
+    pub fn close_window(
+        &mut self,
+        tag: &str,
+    ) {
+        self.windows.remove(tag);
+    }
+
     pub fn create_window(
         &mut self,
         kind: WindowKind,
@@ -189,7 +192,6 @@ impl SqlerApp {
     ) {
         let tag = kind.tag();
 
-        // 1. 检查窗口是否已存在，如果存在则激活
         if let Some(handle) = self.windows.get(tag) {
             let _ = handle.update(cx, |_, window, _| {
                 window.activate_window();
@@ -197,42 +199,45 @@ impl SqlerApp {
             return;
         }
 
-        // 2. 确定窗口标题
-        let title = match &kind {
+        let title = match kind {
             WindowKind::Create(Some(_)) => "编辑数据源",
             WindowKind::Create(None) => "新建数据源",
             WindowKind::Import(_) => "数据导入",
             WindowKind::Export(_) => "数据导出",
         };
-
-        // 3. 统一的窗口配置（位置大小统一）
-        let wsize = size(px(1280.), px(720.));
+        let bounds = Bounds {
+            size: size(px(1280.), px(720.)),
+            origin: point(px(0.), px(0.)),
+        };
         let options = WindowOptions {
-            kind: gpui::WindowKind::Floating,
-            window_bounds: Some(WindowBounds::Windowed(Bounds::centered(None, wsize, cx))),
+            window_bounds: Some(WindowBounds::Windowed(bounds)),
             is_minimizable: false,
             ..Default::default()
         };
-
-        // 4. 创建窗口并根据类型构建对应视图
         let parent = cx.weak_entity();
-        let window_kind = kind.clone();
-
-        let result = cx.open_window(options, move |window, app_cx| {
-            let parent = parent.clone();
-            let view: AnyView = match &window_kind {
-                WindowKind::Create(source) => app_cx
-                    .new(|cx| CreateWindow::new(parent.clone(), source.as_ref(), window, cx))
+        let result = cx.open_window(options, move |window, cx| {
+            let view: AnyView = match kind {
+                WindowKind::Create(source) => cx
+                    .new(|cx| {
+                        // rustfmt::skip
+                        CreateWindow::new(parent.clone(), source.as_ref(), window, cx)
+                    })
                     .into(),
-                WindowKind::Import(source) => app_cx
-                    .new(|cx| ImportWindow::new(source.clone(), parent.clone(), window, cx))
+                WindowKind::Import(source) => cx
+                    .new(|cx| {
+                        // rustfmt::skip
+                        ImportWindow::new(parent.clone(), source.clone(), window, cx)
+                    })
                     .into(),
-                WindowKind::Export(_source) => app_cx.new(|cx| ExportWindow::new(parent.clone(), window, cx)).into(),
+                WindowKind::Export(source) => cx
+                    .new(|cx| {
+                        // rustfmt::skip
+                        ExportWindow::new(parent.clone(), source.clone(), window, cx)
+                    })
+                    .into(),
             };
-            app_cx.new(|cx| Root::new(view, window, cx))
+            cx.new(|cx| Root::new(view, window, cx))
         });
-
-        // 5. 保存窗口句柄并设置标题
         match result {
             Ok(handle) => {
                 let _ = handle.update(cx, |_, modal_window, _| {
@@ -244,13 +249,6 @@ impl SqlerApp {
                 eprintln!("failed to open window: {err:?}");
             }
         }
-    }
-
-    pub fn close_window(
-        &mut self,
-        tag: &str,
-    ) {
-        self.windows.remove(tag);
     }
 }
 
