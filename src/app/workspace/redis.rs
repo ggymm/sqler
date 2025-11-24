@@ -146,7 +146,7 @@ impl RedisWorkspace {
             .flex()
             .flex_col()
             .gap(px(6.))
-            .rounded_lg()
+            .rounded_md()
             .border_1()
             .border_color(theme.border)
             .bg(theme.secondary)
@@ -212,7 +212,7 @@ impl RedisWorkspace {
                     ),
             )
             .child(
-                div().flex_1().rounded_lg().overflow_hidden().child(
+                div().flex_1().rounded_md().overflow_hidden().child(
                     Table::new(&content.result_table)
                         .stripe(false)
                         .bordered(false)
@@ -275,7 +275,7 @@ impl Render for RedisWorkspace {
                             .gap_2()
                             .border_1()
                             .border_color(theme.border)
-                            .rounded_lg()
+                            .rounded_md()
                             .text_sm()
                             .cursor_pointer()
                             .when(tab_active, |this| {

@@ -340,7 +340,7 @@ impl ImportWindow {
                     .col_full()
                     .border_1()
                     .border_color(theme.border)
-                    .rounded_lg()
+                    .rounded_md()
                     .child(
                         div()
                             .col_full()
@@ -407,7 +407,7 @@ impl ImportWindow {
                     .col_full()
                     .border_1()
                     .border_color(theme.border)
-                    .rounded_lg()
+                    .rounded_md()
                     .child(
                         div()
                             .flex()
@@ -523,7 +523,7 @@ impl ImportWindow {
                     .col_full()
                     .border_1()
                     .border_color(theme.border)
-                    .rounded_lg()
+                    .rounded_md()
                     .child(
                         div()
                             .col_full()

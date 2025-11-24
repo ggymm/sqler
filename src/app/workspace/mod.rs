@@ -211,7 +211,7 @@ pub fn render_home(
                 .p_5()
                 .gap_2()
                 .min_w_64()
-                .rounded_lg()
+                .rounded_md()
                 .bg(theme.secondary)
                 .border_1()
                 .border_color(theme.border)
@@ -255,7 +255,7 @@ pub fn render_home(
                             div()
                                 .w_8()
                                 .h_8()
-                                .child(img(source.kind.image()).size_full().rounded_lg()),
+                                .child(img(source.kind.image()).size_full().rounded_md()),
                         ),
                 )
                 .child(

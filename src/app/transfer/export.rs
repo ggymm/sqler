@@ -109,7 +109,7 @@ impl ExportWindow {
                             .border_1()
                             .when(is_selected, |this| this.border_color(theme.primary))
                             .when(!is_selected, |this| this.border_color(theme.border))
-                            .rounded_lg()
+                            .rounded_md()
                             .cursor_pointer()
                             .id(("export-format-{}", *fmt as u64))
                             .hover(|this| this.bg(theme.list_hover))

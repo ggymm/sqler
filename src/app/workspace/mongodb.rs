@@ -206,7 +206,7 @@ impl MongoDBWorkspace {
             .flex()
             .flex_col()
             .gap(px(6.))
-            .rounded_lg()
+            .rounded_md()
             .border_1()
             .border_color(theme.border)
             .bg(theme.secondary)
@@ -286,7 +286,7 @@ impl MongoDBWorkspace {
             .child(
                 div()
                     .flex_1()
-                    .rounded_lg()
+                    .rounded_md()
                     .overflow_hidden()
                     .child(
                         Table::new(&content.content)
@@ -346,7 +346,7 @@ impl Render for MongoDBWorkspace {
                         .row_full()
                         .items_center()
                         .text_sm()
-                        .rounded_lg()
+                        .rounded_md()
                         .when_else(
                             active,
                             |this| this.bg(theme.list_active).font_semibold(),
@@ -390,7 +390,7 @@ impl Render for MongoDBWorkspace {
                             .gap_2()
                             .border_1()
                             .border_color(theme.border)
-                            .rounded_lg()
+                            .rounded_md()
                             .text_sm()
                             .cursor_pointer()
                             .when(tab_active, |this| {

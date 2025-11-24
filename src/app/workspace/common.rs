@@ -699,7 +699,7 @@ impl CommonWorkspace {
                 div().flex_1().child(
                     Table::new(&tab.datatable)
                         .stripe(false)
-                        .bordered(false)
+                        .bordered(true)
                         .scrollbar_visible(true, true),
                 ),
             )
@@ -756,7 +756,7 @@ impl CommonWorkspace {
                         .border_1()
                         .border_color(theme.border)
                         .shadow_lg()
-                        .rounded_lg()
+                        .rounded_md()
                         .child(
                             div()
                                 .flex()
@@ -1050,7 +1050,7 @@ impl CommonWorkspace {
             .flex()
             .flex_col()
             .gap(px(6.))
-            .rounded_lg()
+            .rounded_md()
             .border_1()
             .border_color(theme.border)
             .bg(theme.secondary)
@@ -1105,19 +1105,18 @@ impl Render for CommonWorkspace {
                 .items_center()
                 .justify_center()
                 .px_2()
+                .py_1()
                 .gap_2()
-                .border_r_1()
+                .border_1()
                 .border_color(theme.border)
+                .rounded_md()
                 .text_sm()
+                .cursor_pointer()
                 .when(tab_active, |this| {
-                    this.pb(px(1.))
-                        .bg(theme.tab_active)
-                        .text_color(theme.tab_active_foreground)
+                    this.bg(theme.tab_active).text_color(theme.tab_active_foreground)
                 })
                 .when(!tab_active, |this| {
-                    this.border_b(px(1.))
-                        .bg(theme.tab_bar)
-                        .text_color(theme.muted_foreground)
+                    this.bg(theme.tab_bar).text_color(theme.muted_foreground)
                 })
                 .on_click(cx.listener({
                     let tab_id = tab.id.clone();
@@ -1128,12 +1127,8 @@ impl Render for CommonWorkspace {
                 }))
                 .child(
                     div()
-                        .flex()
-                        .flex_row()
-                        .h_8()
                         .flex_1()
                         .min_w_0()
-                        .items_center()
                         .overflow_hidden()
                         .whitespace_nowrap()
                         .child(tab.title.clone()),
@@ -1176,7 +1171,7 @@ impl Render for CommonWorkspace {
                     .gap_2()
                     .row_full()
                     .items_center()
-                    .rounded_lg()
+                    .rounded_md()
                     .when_else(
                         active,
                         |this| this.bg(theme.list_active).font_semibold(),
@@ -1290,10 +1285,10 @@ impl Render for CommonWorkspace {
                                         .id(comp_id(["common-tabs", id]))
                                         .flex()
                                         .flex_row()
+                                        .p_1()
+                                        .gap_1()
                                         .min_w_0()
-                                        .border_color(theme.border)
-                                        .children(tabs)
-                                        .child(div().flex_1().border_b_1().border_color(theme.border)),
+                                        .children(tabs),
                                 )
                                 .child(
                                     div().id(comp_id(["common-main", id])).col_full().child(

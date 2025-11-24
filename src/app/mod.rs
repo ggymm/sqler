@@ -193,9 +193,7 @@ impl SqlerApp {
         let tag = kind.tag();
 
         if let Some(handle) = self.windows.get(tag) {
-            if handle.update(cx, |_, window, _| {
-                window.activate_window();
-            }).is_ok() {
+            if handle.update(cx, |_, window, _| window.activate_window()).is_ok() {
                 return;
             }
             self.windows.remove(tag);
@@ -301,7 +299,7 @@ impl Render for SqlerApp {
                                     .gap_2()
                                     .border_1()
                                     .border_color(theme.border)
-                                    .rounded_lg()
+                                    .rounded_md()
                                     .cursor_pointer()
                                     .when(tab_active, |this| {
                                         this.bg(theme.tab_active).text_color(theme.tab_active_foreground)
