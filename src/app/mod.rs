@@ -193,10 +193,12 @@ impl SqlerApp {
         let tag = kind.tag();
 
         if let Some(handle) = self.windows.get(tag) {
-            let _ = handle.update(cx, |_, window, _| {
+            if handle.update(cx, |_, window, _| {
                 window.activate_window();
-            });
-            return;
+            }).is_ok() {
+                return;
+            }
+            self.windows.remove(tag);
         }
 
         let title = match kind {
