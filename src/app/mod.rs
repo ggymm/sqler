@@ -354,7 +354,7 @@ impl Render for SqlerApp {
                         div()
                             .flex()
                             .flex_row()
-                            .gap_5()
+                            .gap_2()
                             .child(Button::new("header-new-source").label("新建数据源").outline().on_click(
                                 cx.listener(|this, _, _, cx| {
                                     this.create_window(WindowKind::Create(None), cx);

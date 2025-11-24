@@ -7,6 +7,7 @@ use gpui_component::{
     resizable::{h_resizable, resizable_panel, v_resizable},
     select::{Select, SelectState},
     table::{Table, TableState},
+    tooltip::Tooltip,
     ActiveTheme, Disableable, IconName, InteractiveElementExt, Sizable, Size, StyledExt,
 };
 use uuid::Uuid;
@@ -712,8 +713,6 @@ impl CommonWorkspace {
                     .gap_2()
                     .h_12()
                     .bg(theme.secondary)
-                    .border_t_1()
-                    .border_color(theme.border)
                     .child(filter_btn)
                     .child(column_btn)
                     .child(div().flex_1())
@@ -967,6 +966,7 @@ impl CommonWorkspace {
         tab: &QueryContent,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        let theme = cx.theme();
         let tab_id = tab.id.clone();
 
         let execute_btn = Button::new(comp_id(["query-execute", &tab_id]))
@@ -1005,6 +1005,8 @@ impl CommonWorkspace {
                                         .p_0()
                                         .h_full()
                                         .appearance(false)
+                                        .text_sm()
+                                        .font_family(theme.mono_font_family.clone())
                                         .focus_bordered(false),
                                 ),
                             )
@@ -1152,7 +1154,6 @@ impl Render for CommonWorkspace {
                 let style = item.style();
                 style.flex_grow = Some(0.);
                 style.flex_shrink = Some(1.);
-                style.flex_basis = Some(Length::Definite(px(120.).into()));
                 style.min_size.width = Some(Length::Definite(px(0.).into()));
             }
 
@@ -1187,7 +1188,11 @@ impl Render for CommonWorkspace {
                             .overflow_hidden()
                             .whitespace_nowrap()
                             .child(item.clone()),
-                    ),
+                    )
+                    .tooltip({
+                        let name = item.clone();
+                        move |window, cx| Tooltip::new(name.clone()).build(window, cx)
+                    }),
             )
         }
 
@@ -1264,8 +1269,8 @@ impl Render for CommonWorkspace {
                     h_resizable(comp_id(["common-content", id]))
                         .child(
                             resizable_panel()
-                                .size(px(200.0))
-                                .size_range(px(100.)..px(320.))
+                                .size(px(240.0))
+                                .size_range(px(100.)..px(360.))
                                 .child(
                                     div()
                                         .id(comp_id(["common-sidebar", id]))
