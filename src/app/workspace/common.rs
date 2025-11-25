@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{rc::Rc, time};
 
 use gpui::{prelude::*, *};
 use gpui_component::{
@@ -8,9 +8,8 @@ use gpui_component::{
     select::{Select, SelectState},
     table::{Table, TableState},
     tooltip::Tooltip,
-    v_flex, ActiveTheme, Disableable, IconName, InteractiveElementExt, Sizable, Size, StyledExt,
+    ActiveTheme, Disableable, IconName, InteractiveElementExt, Sizable, Size, StyledExt,
 };
-use redis::TypedCommands;
 use uuid::Uuid;
 
 use crate::{
@@ -88,13 +87,15 @@ struct DataContent {
 struct QueryResult {
     sql: String,
     error: Option<String>,
+    elapsed: f64,
     datatable: Entity<TableState<DataTable>>,
 }
 
 struct QueryContent {
     id: SharedString,
-    input: Entity<InputState>,
     active: usize,
+    summary: bool,
+    editor: Entity<InputState>,
     results: Vec<QueryResult>,
 }
 
@@ -292,19 +293,19 @@ impl CommonWorkspace {
         cx: &mut Context<Self>,
     ) {
         let (table, mut page, size, total, orders, filters) = {
-            let Some(content) = self.data_content(tab_id) else {
+            let Some(data) = self.data_content(tab_id) else {
                 return;
             };
 
             // 设置表格加载状态
-            content.datatable.update(cx, |t, cx| {
+            data.datatable.update(cx, |t, cx| {
                 t.delegate_mut().update_loading(true);
                 cx.notify();
             });
 
             // 转换排序规则
             let mut orders = Vec::new();
-            for rule in &content.order_rules {
+            for rule in &data.order_rules {
                 // 读取字段名
                 let Some(field) = rule.field.read(cx).selected_value() else {
                     continue;
@@ -324,7 +325,7 @@ impl CommonWorkspace {
 
             // 转换筛选规则
             let mut filters = Vec::new();
-            for rule in &content.query_rules {
+            for rule in &data.query_rules {
                 // 读取字段名
                 let Some(field) = rule.field.read(cx).selected_value() else {
                     continue;
@@ -356,10 +357,10 @@ impl CommonWorkspace {
             }
 
             (
-                content.table.clone(),
-                content.page_no,
-                content.page_size,
-                content.total_rows,
+                data.table.clone(),
+                data.page_no,
+                data.page_size,
+                data.total_rows,
                 orders,
                 filters,
             )
@@ -392,7 +393,7 @@ impl CommonWorkspace {
 
         // 在后台线程执行数据库查询
         cx.spawn_in(window, async move |this, cx| {
-            let result = cx
+            let ret = cx
                 .background_executor()
                 .spawn(async move {
                     // 查询列名
@@ -446,20 +447,19 @@ impl CommonWorkspace {
 
             // 更新 UI
             let _ = cx.update(|_, cx| {
-                let _ = this.update(cx, |this, cx| match result {
+                let _ = this.update(cx, |this, cx| match ret {
                     Ok((data, session)) => {
                         this.session = Some(session);
 
                         let (cols, rows, total) = data;
-                        let Some(content) = this.data_content(&tab_id) else {
+                        let Some(data) = this.data_content(&tab_id) else {
                             return;
                         };
-                        content.page_no = page;
-                        content.page_size = size;
-                        content.total_rows = total;
-                        content.columns = cols.clone();
-
-                        content.datatable.update(cx, |t, cx| {
+                        data.page_no = page;
+                        data.page_size = size;
+                        data.total_rows = total;
+                        data.columns = cols.clone();
+                        data.datatable.update(cx, |t, cx| {
                             t.delegate_mut().update_data(cols, rows);
                             t.delegate_mut().update_loading(false);
                             t.refresh(cx);
@@ -471,10 +471,10 @@ impl CommonWorkspace {
                         tracing::error!("加载数据表失败: {}", err);
                         this.session = None;
 
-                        let Some(content) = this.data_content(&tab_id) else {
+                        let Some(data) = this.data_content(&tab_id) else {
                             return;
                         };
-                        content.datatable.update(cx, |t, cx| {
+                        data.datatable.update(cx, |t, cx| {
                             t.delegate_mut().update_loading(false);
                             cx.notify();
                         });
@@ -502,23 +502,23 @@ impl CommonWorkspace {
             (tab.total_rows + tab.page_size - 1) / tab.page_size
         };
 
-        let filter_btn = Button::new(comp_id(["table-filter", &tab_id]))
+        let filter = Button::new(comp_id(["table-filter", &tab_id]))
             .label("数据筛选")
             .outline()
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
                 move |view: &mut Self, _, _, cx| {
-                    if let Some(content) = view.data_content(&tab_id) {
-                        content.filter_enable = !content.filter_enable;
+                    if let Some(data) = view.data_content(&tab_id) {
+                        data.filter_enable = !data.filter_enable;
                     }
                     cx.notify();
                 }
             }));
-        let column_btn = Button::new(comp_id(["table-column", &tab_id]))
+        let column = Button::new(comp_id(["table-column", &tab_id]))
             .label("字段筛选")
             .outline();
 
-        let page_prev_btn = Button::new(comp_id(["table-page-prev", &tab_id]))
+        let page_prev = Button::new(comp_id(["table-page-prev", &tab_id]))
             .label("上一页")
             .outline()
             .disabled(page == 0)
@@ -526,13 +526,13 @@ impl CommonWorkspace {
                 let tab_id = tab_id.clone();
                 let prev_page = page.saturating_sub(1);
                 move |view: &mut Self, _, window, cx| {
-                    if let Some(content) = view.data_content(&tab_id) {
-                        content.page_no = prev_page;
+                    if let Some(data) = view.data_content(&tab_id) {
+                        data.page_no = prev_page;
                     }
                     view.reload_data_tab(&tab_id, window, cx);
                 }
             }));
-        let page_next_btn = Button::new(comp_id(["table-page-next", &tab_id]))
+        let page_next = Button::new(comp_id(["table-page-next", &tab_id]))
             .label("下一页")
             .outline()
             .disabled(page + 1 >= total_pages)
@@ -540,8 +540,8 @@ impl CommonWorkspace {
                 let tab_id = tab_id.clone();
                 let next_page = page.saturating_add(1);
                 move |view: &mut Self, _, window, cx| {
-                    if let Some(content) = view.data_content(&tab_id) {
-                        content.page_no = next_page;
+                    if let Some(data) = view.data_content(&tab_id) {
+                        data.page_no = next_page;
                     }
                     view.reload_data_tab(&tab_id, window, cx);
                 }
@@ -552,15 +552,15 @@ impl CommonWorkspace {
             .into_iter()
             .map(|op| SharedString::from(op.label().to_string()))
             .collect();
-        let create_order_btn = Button::new(comp_id(["table-order-create", &tab_id]))
+        let create_order = Button::new(comp_id(["table-order-create", &tab_id]))
             .small()
             .icon(IconName::Plus)
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
                 let headers = columns.clone();
                 move |view: &mut Self, _, window, cx| {
-                    if let Some(content) = view.data_content(&tab_id) {
-                        content.order_rules.push(OrderRule {
+                    if let Some(data) = view.data_content(&tab_id) {
+                        data.order_rules.push(OrderRule {
                             id: SharedString::from(Uuid::new_v4().to_string()),
                             field: cx.new(|cx| {
                                 // rustfmt::skip
@@ -575,15 +575,15 @@ impl CommonWorkspace {
                     cx.notify();
                 }
             }));
-        let create_query_btn = Button::new(comp_id(["table-filter-create", &tab_id]))
+        let create_query = Button::new(comp_id(["table-filter-create", &tab_id]))
             .small()
             .icon(IconName::Plus)
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
                 let headers = columns.clone();
                 move |view: &mut Self, _, window, cx| {
-                    if let Some(content) = view.data_content(&tab_id) {
-                        content.query_rules.push(QueryRule {
+                    if let Some(data) = view.data_content(&tab_id) {
+                        data.query_rules.push(QueryRule {
                             id: SharedString::from(Uuid::new_v4().to_string()),
                             field: cx.new(|cx| {
                                 // rustfmt::skip
@@ -599,41 +599,41 @@ impl CommonWorkspace {
                     cx.notify();
                 }
             }));
-        let apply_cond_btn = Button::new(comp_id(["table-filter-apply", &tab_id]))
+        let apply_cond = Button::new(comp_id(["table-filter-apply", &tab_id]))
             .label("应用条件")
             .outline()
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
                 move |view: &mut Self, _, window, cx| {
-                    if let Some(content) = view.data_content(&tab_id) {
-                        content.page_no = 0;
-                        content.filter_enable = false;
+                    if let Some(data) = view.data_content(&tab_id) {
+                        data.page_no = 0;
+                        data.filter_enable = false;
                     }
                     view.reload_data_tab(&tab_id, window, cx);
                 }
             }));
-        let clear_cond_btn = Button::new(comp_id(["table-filter-clear", &tab_id]))
+        let clear_cond = Button::new(comp_id(["table-filter-clear", &tab_id]))
             .label("清除条件")
             .outline()
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
                 move |view: &mut Self, _, _, cx| {
-                    if let Some(content) = view.data_content(&tab_id) {
-                        content.order_rules.clear();
-                        content.query_rules.clear();
+                    if let Some(data) = view.data_content(&tab_id) {
+                        data.order_rules.clear();
+                        data.query_rules.clear();
                     }
                     cx.notify();
                 }
             }));
-        let close_cond_btn = Button::new(comp_id(["table-filter-close", &tab_id]))
+        let close_cond = Button::new(comp_id(["table-filter-close", &tab_id]))
             .small()
             .ghost()
             .icon(IconName::Close)
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
                 move |view: &mut Self, _, _, cx| {
-                    if let Some(content) = view.data_content(&tab_id) {
-                        content.filter_enable = false;
+                    if let Some(data) = view.data_content(&tab_id) {
+                        data.filter_enable = false;
                     }
                     cx.notify();
                 }
@@ -660,8 +660,8 @@ impl CommonWorkspace {
                             .icon(icon_trash())
                             .on_click(cx.listener({
                                 move |view: &mut Self, _, _, cx| {
-                                    if let Some(content) = view.data_content(&tab_id) {
-                                        content.order_rules.retain(|r| &r.id != &rule_id);
+                                    if let Some(data) = view.data_content(&tab_id) {
+                                        data.order_rules.retain(|r| &r.id != &rule_id);
                                     }
                                     cx.notify();
                                 }
@@ -692,8 +692,8 @@ impl CommonWorkspace {
                             .icon(icon_trash())
                             .on_click(cx.listener({
                                 move |view: &mut Self, _, _, cx| {
-                                    if let Some(content) = view.data_content(&tab_id) {
-                                        content.query_rules.retain(|r| &r.id != &rule_id);
+                                    if let Some(data) = view.data_content(&tab_id) {
+                                        data.query_rules.retain(|r| &r.id != &rule_id);
                                     }
                                     cx.notify();
                                 }
@@ -706,12 +706,17 @@ impl CommonWorkspace {
             .relative()
             .col_full()
             .child(
-                div().flex_1().child(
-                    Table::new(&tab.datatable)
-                        .stripe(false)
-                        .bordered(true)
-                        .scrollbar_visible(true, true),
-                ),
+                div()
+                    .flex_1()
+                    .border_y_1()
+                    .border_color(theme.border)
+                    .child(
+                        Table::new(&tab.datatable)
+                            .stripe(false)
+                            .bordered(false)
+                            .scrollbar_visible(true, true),
+                    )
+                    .child(div()),
             )
             .child(
                 div()
@@ -722,8 +727,8 @@ impl CommonWorkspace {
                     .gap_2()
                     .h_12()
                     .bg(theme.secondary)
-                    .child(filter_btn)
-                    .child(column_btn)
+                    .child(filter)
+                    .child(column)
                     .child(div().flex_1())
                     .child(div().text_sm().child(format!(
                         "显示 {} - {} / 共 {} 条",
@@ -736,8 +741,8 @@ impl CommonWorkspace {
                         tab.total_rows
                     )))
                     .child(div().flex_1())
-                    .child(page_prev_btn)
-                    .child(page_next_btn),
+                    .child(page_prev)
+                    .child(page_next),
             )
             .when(tab.filter_enable || tab.columns_enable, |this| {
                 this.child(
@@ -776,7 +781,7 @@ impl CommonWorkspace {
                                 .border_b_1()
                                 .border_color(theme.border)
                                 .child(div().text_base().child("筛选数据"))
-                                .child(close_cond_btn),
+                                .child(close_cond),
                         )
                         .child(
                             div().flex_1().min_h_0().child(
@@ -791,7 +796,7 @@ impl CommonWorkspace {
                                             .gap_4()
                                             .row_full()
                                             .child(div().text_sm().font_semibold().child("排序规则"))
-                                            .child(create_order_btn),
+                                            .child(create_order),
                                     )
                                     .children(orders)
                                     .child(
@@ -799,7 +804,7 @@ impl CommonWorkspace {
                                             .gap_4()
                                             .row_full()
                                             .child(div().text_sm().font_semibold().child("筛选规则"))
-                                            .child(create_query_btn),
+                                            .child(create_query),
                                     )
                                     .children(queries),
                             ),
@@ -815,8 +820,8 @@ impl CommonWorkspace {
                                 .border_t_1()
                                 .border_color(theme.border)
                                 .child(div().flex_1())
-                                .child(clear_cond_btn)
-                                .child(apply_cond_btn),
+                                .child(clear_cond)
+                                .child(apply_cond),
                         ),
                 )
             })
@@ -831,7 +836,7 @@ impl CommonWorkspace {
     ) {
         let tab_id = SharedString::from(format!("common-query-tab-{}", Uuid::new_v4()));
 
-        let prov = Rc::new(EditorComps::new());
+        let lsp = Rc::new(EditorComps::new());
         let editor = cx.new(|cx| {
             let mut editor = InputState::new(window, cx)
                 .code_editor("sql")
@@ -843,7 +848,7 @@ impl CommonWorkspace {
                 })
                 .soft_wrap(false);
 
-            editor.lsp.completion_provider = Some(prov.clone());
+            editor.lsp.completion_provider = Some(lsp.clone());
 
             editor
         });
@@ -853,9 +858,10 @@ impl CommonWorkspace {
             title: SharedString::from("SQL 查询"),
             content: TabContent::Query(QueryContent {
                 id: tab_id.clone(),
-                input: editor,
-                results: Vec::new(),
                 active: 0,
+                summary: true,
+                editor,
+                results: Vec::new(),
             }),
             closable: true,
         });
@@ -876,7 +882,7 @@ impl CommonWorkspace {
             };
 
             let multi_sql: Vec<String> = query
-                .input
+                .editor
                 .read(cx)
                 .text()
                 .to_string()
@@ -896,10 +902,12 @@ impl CommonWorkspace {
                 query.results.push(QueryResult {
                     sql: sql.to_string(),
                     error: None,
+                    elapsed: 0.0,
                     datatable,
                 });
             }
             query.active = 0;
+            query.summary = true;
 
             multi_sql
         };
@@ -919,18 +927,21 @@ impl CommonWorkspace {
 
         // 在后台线程执行查询
         cx.spawn_in(window, async move |this, cx| {
-            let result = cx
+            let ret = cx
                 .background_executor()
                 .spawn(async move {
                     let mut results = Vec::new();
 
                     // 循环执行每条 SQL
                     for (i, sql) in multi_sql.iter().enumerate() {
+                        let start = time::Instant::now();
                         match session.query(QueryReq::Sql {
                             sql: sql.to_string(),
                             args: Vec::new(),
                         }) {
                             Ok(query_resp) => {
+                                let elapsed = start.elapsed().as_secs_f64();
+
                                 // 解析结果
                                 let rows = match query_resp {
                                     QueryResp::Rows(rows) => rows,
@@ -953,12 +964,12 @@ impl CommonWorkspace {
                                     }
                                     table_rows.push(record);
                                 }
-
-                                results.push((i, table_cols, table_rows, None));
+                                results.push((i, table_cols, table_rows, elapsed, None));
                             }
                             Err(err) => {
+                                let elapsed = start.elapsed().as_secs_f64();
                                 tracing::error!("执行SQL失败: {}", err);
-                                results.push((i, Vec::new(), Vec::new(), Some(err.to_string())));
+                                results.push((i, Vec::new(), Vec::new(), elapsed, Some(err.to_string())));
                             }
                         }
                     }
@@ -969,18 +980,19 @@ impl CommonWorkspace {
 
             // 更新UI
             let _ = cx.update(|_, cx| {
-                let _ = this.update(cx, |this, cx| match result {
+                let _ = this.update(cx, |this, cx| match ret {
                     Ok((results, session)) => {
                         this.session = Some(session);
                         let Some(query) = this.query_content(&tab_id) else {
                             return;
                         };
-                        for (i, cols, rows, error) in results {
-                            let Some(result) = query.results.get_mut(i) else {
+                        for (i, cols, rows, elapsed, error) in results {
+                            let Some(ret) = query.results.get_mut(i) else {
                                 continue;
                             };
-                            result.error = error;
-                            result.datatable.update(cx, |t, cx| {
+                            ret.error = error;
+                            ret.elapsed = elapsed;
+                            ret.datatable.update(cx, |t, cx| {
                                 t.delegate_mut().update_data(cols, rows);
                                 t.refresh(cx);
                                 cx.notify();
@@ -1007,9 +1019,31 @@ impl CommonWorkspace {
         let theme = cx.theme();
         let tab_id = tab.id.clone();
 
-        let mut results = Vec::new();
+        let mut results = vec![{
+            let mut item = Button::new(comp_id(["query-result-summary"]))
+                .label("摘要")
+                .small()
+                .when_else(tab.summary, |this| this.outline(), |this| this.ghost())
+                .on_click(cx.listener({
+                    let tab_id = tab_id.clone();
+                    move |view: &mut Self, _, _, cx| {
+                        let Some(query) = view.query_content(&tab_id) else {
+                            return;
+                        };
+                        query.summary = true;
+                        cx.notify();
+                    }
+                }));
+            {
+                let style = item.style();
+                style.flex_grow = Some(0.);
+                style.flex_shrink = Some(1.);
+                style.min_size.width = Some(Length::Definite(px(0.).into()));
+            }
+            item
+        }];
         for (i, _) in tab.results.iter().enumerate() {
-            let active = i == tab.active;
+            let active = !tab.summary && i == tab.active;
 
             let mut item = Button::new(comp_id(["query-result-item", &i.to_string()]))
                 .label(format!("结果 {}", i + 1))
@@ -1021,6 +1055,7 @@ impl CommonWorkspace {
                         let Some(query) = view.query_content(&tab_id) else {
                             return;
                         };
+                        query.summary = false;
                         query.active = i;
                         cx.notify();
                     }
@@ -1034,7 +1069,7 @@ impl CommonWorkspace {
 
             results.push(item);
         }
-        let execute_btn = Button::new(comp_id(["query-execute", &tab_id]))
+        let execute = Button::new(comp_id(["query-execute", &tab_id]))
             .label("执行查询")
             .small()
             .outline()
@@ -1044,6 +1079,47 @@ impl CommonWorkspace {
                     view.reload_query_tab(&tab_id, window, cx);
                 }
             }));
+
+        let summaries: Vec<AnyElement> = tab
+            .results
+            .iter()
+            .enumerate()
+            .map(|(_, ret)| {
+                let time_str = format!("{:.3}s", ret.elapsed);
+
+                div()
+                    .p_4()
+                    .gap_2()
+                    .col_full()
+                    .rounded_md()
+                    .border_1()
+                    .border_color(theme.border)
+                    .bg(theme.secondary)
+                    .child(
+                        div()
+                            .text_color(theme.foreground)
+                            .font_family(theme.mono_font_family.clone())
+                            .child(ret.sql.clone()),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .flex_row()
+                            .items_center()
+                            .gap_2()
+                            .child(div().when_else(
+                                ret.error.is_none(),
+                                |this| this.text_color(theme.success).child("成功"),
+                                |this| this.text_color(theme.danger).child("失败"),
+                            ))
+                            .child(div().text_color(theme.muted_foreground).child(time_str)),
+                    )
+                    .when_some(ret.error.as_ref(), |this, err| {
+                        this.child(div().text_color(theme.danger).child(format!("错误: {}", err)))
+                    })
+                    .into_any_element()
+            })
+            .collect();
 
         div()
             .col_full()
@@ -1055,7 +1131,7 @@ impl CommonWorkspace {
                             .size_range(px(100.)..px(320.))
                             .child(
                                 div().flex_1().child(
-                                    Input::new(&tab.input)
+                                    Input::new(&tab.editor)
                                         .p_0()
                                         .h_full()
                                         .appearance(false)
@@ -1081,43 +1157,36 @@ impl CommonWorkspace {
                                     .border_color(theme.border)
                                     .children(results)
                                     .child(div().flex_1())
-                                    .child(execute_btn),
+                                    .child(execute),
                             )
                             .child(
                                 div()
                                     .id(comp_id(["query-result-content", &tab_id]))
                                     .relative()
                                     .col_full()
-                                    .child(if let Some(result) = tab.results.get(tab.active) {
-                                        if let Some(error) = &result.error {
+                                    .when(tab.summary, |this| {
+                                        this.child(
                                             div()
-                                                .p_4()
-                                                .text_sm()
-                                                .text_color(rgb(0xef4444))
-                                                .child(format!("错误: {}", error))
-                                                .into_any_element()
-                                        } else {
-                                            div()
-                                                .flex_1()
-                                                .child(
-                                                    Table::new(&result.datatable)
+                                                .p_2()
+                                                .gap_2()
+                                                .col_full()
+                                                .scrollable(Axis::Vertical)
+                                                .children(summaries),
+                                        )
+                                    })
+                                    .when_some(
+                                        (!tab.summary).then(|| tab.results.get(tab.active)).flatten(),
+                                        |this, ret| {
+                                            this.child(
+                                                div().flex_1().child(
+                                                    Table::new(&ret.datatable)
                                                         .stripe(false)
                                                         .bordered(false)
                                                         .scrollbar_visible(true, true),
-                                                )
-                                                .into_any_element()
-                                        }
-                                    } else {
-                                        div()
-                                            .flex()
-                                            .items_center()
-                                            .justify_center()
-                                            .col_full()
-                                            .text_sm()
-                                            .text_color(theme.muted_foreground)
-                                            .child("执行查询以查看结果")
-                                            .into_any_element()
-                                    }),
+                                                ),
+                                            )
+                                        },
+                                    ),
                             )
                             .into_any_element(),
                     ),
@@ -1204,9 +1273,9 @@ impl Render for CommonWorkspace {
                 .flex_row()
                 .items_center()
                 .justify_center()
+                .h_7()
                 .px_2()
-                .py_1()
-                .gap_2()
+                .gap_1()
                 .border_1()
                 .border_color(theme.border)
                 .rounded_md()
@@ -1238,8 +1307,6 @@ impl Render for CommonWorkspace {
                     Button::new(comp_id(["common-tabs-close", &tab_id]))
                         .ghost()
                         .xsmall()
-                        .compact()
-                        .tab_stop(false)
                         .icon(IconName::Close)
                         .on_click(cx.listener(move |this, _, _, cx| {
                             this.close_tab(&tab_id, cx);
@@ -1387,7 +1454,8 @@ impl Render for CommonWorkspace {
                                         .id(comp_id(["common-tabs", id]))
                                         .flex()
                                         .flex_row()
-                                        .p_1()
+                                        .px_2()
+                                        .py_1()
                                         .gap_1()
                                         .min_w_0()
                                         .children(tabs),
