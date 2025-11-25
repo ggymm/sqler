@@ -300,7 +300,6 @@ impl Render for SqlerApp {
                                     .border_1()
                                     .border_color(theme.border)
                                     .rounded_md()
-                                    .cursor_pointer()
                                     .when(tab_active, |this| {
                                         this.bg(theme.tab_active).text_color(theme.tab_active_foreground)
                                     })

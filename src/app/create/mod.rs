@@ -303,7 +303,6 @@ impl Render for CreateWindow {
                                     .border_1()
                                     .border_color(theme.border)
                                     .rounded_md()
-                                    .cursor_pointer()
                                     .id(("datasource-type-{}", *kind as u64))
                                     .hover(|this| this.bg(theme.list_hover))
                                     .child(div().w_12().h_12().child(img(kind.image()).size_full().rounded_md()))

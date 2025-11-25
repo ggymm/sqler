@@ -392,7 +392,6 @@ impl Render for MongoDBWorkspace {
                             .border_color(theme.border)
                             .rounded_md()
                             .text_sm()
-                            .cursor_pointer()
                             .when(tab_active, |this| {
                                 this.bg(theme.tab_active).text_color(theme.tab_active_foreground)
                             })

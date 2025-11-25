@@ -8,8 +8,9 @@ use gpui_component::{
     select::{Select, SelectState},
     table::{Table, TableState},
     tooltip::Tooltip,
-    ActiveTheme, Disableable, IconName, InteractiveElementExt, Sizable, Size, StyledExt,
+    v_flex, ActiveTheme, Disableable, IconName, InteractiveElementExt, Sizable, Size, StyledExt,
 };
+use redis::TypedCommands;
 use uuid::Uuid;
 
 use crate::{
@@ -84,10 +85,17 @@ struct DataContent {
     datatable: Entity<TableState<DataTable>>,
 }
 
+struct QueryResult {
+    sql: String,
+    error: Option<String>,
+    datatable: Entity<TableState<DataTable>>,
+}
+
 struct QueryContent {
     id: SharedString,
     input: Entity<InputState>,
-    datatable: Entity<TableState<DataTable>>,
+    active: usize,
+    results: Vec<QueryResult>,
 }
 
 pub struct CommonWorkspace {
@@ -442,17 +450,17 @@ impl CommonWorkspace {
                     Ok((data, session)) => {
                         this.session = Some(session);
 
-                        let (columns, rows, total_rows) = data;
+                        let (cols, rows, total) = data;
                         let Some(content) = this.data_content(&tab_id) else {
                             return;
                         };
                         content.page_no = page;
                         content.page_size = size;
-                        content.total_rows = total_rows;
-                        content.columns = columns.clone();
+                        content.total_rows = total;
+                        content.columns = cols.clone();
 
                         content.datatable.update(cx, |t, cx| {
-                            t.delegate_mut().update_data(columns, rows);
+                            t.delegate_mut().update_data(cols, rows);
                             t.delegate_mut().update_loading(false);
                             t.refresh(cx);
                             cx.notify();
@@ -463,12 +471,13 @@ impl CommonWorkspace {
                         tracing::error!("加载数据表失败: {}", err);
                         this.session = None;
 
-                        if let Some(content) = this.data_content(&tab_id) {
-                            content.datatable.update(cx, |t, cx| {
-                                t.delegate_mut().update_loading(false);
-                                cx.notify();
-                            });
-                        }
+                        let Some(content) = this.data_content(&tab_id) else {
+                            return;
+                        };
+                        content.datatable.update(cx, |t, cx| {
+                            t.delegate_mut().update_loading(false);
+                            cx.notify();
+                        });
                         cx.notify();
                     }
                 });
@@ -845,7 +854,8 @@ impl CommonWorkspace {
             content: TabContent::Query(QueryContent {
                 id: tab_id.clone(),
                 input: editor,
-                datatable: DataTable::new(vec![], Vec::new()).build(window, cx),
+                results: Vec::new(),
+                active: 0,
             }),
             closable: true,
         });
@@ -860,23 +870,38 @@ impl CommonWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let sql = {
+        let multi_sql = {
             let Some(query) = self.query_content(tab_id) else {
                 return;
             };
 
-            let sql = query.input.read(cx).text().to_string();
-            if sql.trim().is_empty() {
+            let multi_sql: Vec<String> = query
+                .input
+                .read(cx)
+                .text()
+                .to_string()
+                .split(';')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect();
+
+            if multi_sql.is_empty() {
                 tracing::warn!("SQL语句为空");
                 return;
             }
 
-            query.datatable.update(cx, |t, cx| {
-                t.delegate_mut().update_loading(true);
-                cx.notify();
-            });
+            query.results.clear();
+            for (_, sql) in multi_sql.iter().enumerate() {
+                let datatable = DataTable::new(vec![], Vec::new()).build(window, cx);
+                query.results.push(QueryResult {
+                    sql: sql.to_string(),
+                    error: None,
+                    datatable,
+                });
+            }
+            query.active = 0;
 
-            sql
+            multi_sql
         };
 
         // 获取数据库连接
@@ -897,46 +922,66 @@ impl CommonWorkspace {
             let result = cx
                 .background_executor()
                 .spawn(async move {
-                    // 执行SQL查询
-                    let query_resp = session.query(QueryReq::Sql { sql, args: Vec::new() })?;
+                    let mut results = Vec::new();
 
-                    // 解析结果
-                    let rows = match query_resp {
-                        QueryResp::Rows(rows) => rows,
-                        _ => Vec::new(),
-                    };
+                    // 循环执行每条 SQL
+                    for (i, sql) in multi_sql.iter().enumerate() {
+                        match session.query(QueryReq::Sql {
+                            sql: sql.to_string(),
+                            args: Vec::new(),
+                        }) {
+                            Ok(query_resp) => {
+                                // 解析结果
+                                let rows = match query_resp {
+                                    QueryResp::Rows(rows) => rows,
+                                    _ => Vec::new(),
+                                };
 
-                    // 提取列名和数据
-                    let table_cols: Vec<SharedString> = if let Some(first_row) = rows.first() {
-                        first_row.keys().map(|k| SharedString::from(k.clone())).collect()
-                    } else {
-                        Vec::new()
-                    };
+                                // 提取列名和数据
+                                let table_cols: Vec<SharedString> = if let Some(first_row) = rows.first() {
+                                    first_row.keys().map(|k| SharedString::from(k.clone())).collect()
+                                } else {
+                                    Vec::new()
+                                };
 
-                    let mut table_rows = Vec::with_capacity(rows.len());
-                    for row in rows {
-                        let mut record = Vec::with_capacity(table_cols.len());
-                        for col in &table_cols {
-                            let value = row.get(col.as_ref()).cloned().unwrap_or_default();
-                            record.push(SharedString::from(value));
+                                let mut table_rows = Vec::with_capacity(rows.len());
+                                for row in rows {
+                                    let mut record = Vec::with_capacity(table_cols.len());
+                                    for col in &table_cols {
+                                        let value = row.get(col.as_ref()).cloned().unwrap_or_default();
+                                        record.push(SharedString::from(value));
+                                    }
+                                    table_rows.push(record);
+                                }
+
+                                results.push((i, table_cols, table_rows, None));
+                            }
+                            Err(err) => {
+                                tracing::error!("执行SQL失败: {}", err);
+                                results.push((i, Vec::new(), Vec::new(), Some(err.to_string())));
+                            }
                         }
-                        table_rows.push(record);
                     }
 
-                    Ok::<_, DriverError>((table_cols, table_rows, session))
+                    Ok::<_, DriverError>((results, session))
                 })
                 .await;
 
             // 更新UI
             let _ = cx.update(|_, cx| {
                 let _ = this.update(cx, |this, cx| match result {
-                    Ok((columns, rows, session)) => {
+                    Ok((results, session)) => {
                         this.session = Some(session);
-
-                        if let Some(query) = this.query_content(&tab_id) {
-                            query.datatable.update(cx, |t, cx| {
-                                t.delegate_mut().update_data(columns, rows);
-                                t.delegate_mut().update_loading(false);
+                        let Some(query) = this.query_content(&tab_id) else {
+                            return;
+                        };
+                        for (i, cols, rows, error) in results {
+                            let Some(result) = query.results.get_mut(i) else {
+                                continue;
+                            };
+                            result.error = error;
+                            result.datatable.update(cx, |t, cx| {
+                                t.delegate_mut().update_data(cols, rows);
                                 t.refresh(cx);
                                 cx.notify();
                             });
@@ -946,13 +991,6 @@ impl CommonWorkspace {
                     Err(err) => {
                         tracing::error!("执行SQL查询失败: {}", err);
                         this.session = None;
-
-                        if let Some(query) = this.query_content(&tab_id) {
-                            query.datatable.update(cx, |t, cx| {
-                                t.delegate_mut().update_loading(false);
-                                cx.notify();
-                            });
-                        }
                         cx.notify();
                     }
                 });
@@ -969,6 +1007,33 @@ impl CommonWorkspace {
         let theme = cx.theme();
         let tab_id = tab.id.clone();
 
+        let mut results = Vec::new();
+        for (i, _) in tab.results.iter().enumerate() {
+            let active = i == tab.active;
+
+            let mut item = Button::new(comp_id(["query-result-item", &i.to_string()]))
+                .label(format!("结果 {}", i + 1))
+                .small()
+                .when_else(active, |this| this.outline(), |this| this.ghost())
+                .on_click(cx.listener({
+                    let tab_id = tab_id.clone();
+                    move |view: &mut Self, _, _, cx| {
+                        let Some(query) = view.query_content(&tab_id) else {
+                            return;
+                        };
+                        query.active = i;
+                        cx.notify();
+                    }
+                }));
+            {
+                let style = item.style();
+                style.flex_grow = Some(0.);
+                style.flex_shrink = Some(1.);
+                style.min_size.width = Some(Length::Definite(px(0.).into()));
+            }
+
+            results.push(item);
+        }
         let execute_btn = Button::new(comp_id(["query-execute", &tab_id]))
             .label("执行查询")
             .small()
@@ -982,17 +1047,6 @@ impl CommonWorkspace {
 
         div()
             .col_full()
-            .child(
-                div()
-                    .flex()
-                    .flex_row()
-                    .items_center()
-                    .h_8()
-                    .px_2()
-                    .gap_2()
-                    .child(execute_btn)
-                    .child(div()),
-            )
             .child(
                 v_resizable(comp_id(["common-content"]))
                     .child(
@@ -1014,12 +1068,56 @@ impl CommonWorkspace {
                     )
                     .child(
                         div()
-                            .flex_1()
+                            .col_full()
                             .child(
-                                Table::new(&tab.datatable)
-                                    .stripe(false)
-                                    .bordered(false)
-                                    .scrollbar_visible(true, true),
+                                div()
+                                    .flex()
+                                    .flex_row()
+                                    .items_center()
+                                    .h_10()
+                                    .p_2()
+                                    .gap_2()
+                                    .border_b_1()
+                                    .border_color(theme.border)
+                                    .children(results)
+                                    .child(div().flex_1())
+                                    .child(execute_btn),
+                            )
+                            .child(
+                                div()
+                                    .id(comp_id(["query-result-content", &tab_id]))
+                                    .relative()
+                                    .col_full()
+                                    .child(if let Some(result) = tab.results.get(tab.active) {
+                                        if let Some(error) = &result.error {
+                                            div()
+                                                .p_4()
+                                                .text_sm()
+                                                .text_color(rgb(0xef4444))
+                                                .child(format!("错误: {}", error))
+                                                .into_any_element()
+                                        } else {
+                                            div()
+                                                .flex_1()
+                                                .child(
+                                                    Table::new(&result.datatable)
+                                                        .stripe(false)
+                                                        .bordered(false)
+                                                        .scrollbar_visible(true, true),
+                                                )
+                                                .into_any_element()
+                                        }
+                                    } else {
+                                        div()
+                                            .flex()
+                                            .items_center()
+                                            .justify_center()
+                                            .col_full()
+                                            .text_sm()
+                                            .text_color(theme.muted_foreground)
+                                            .child("执行查询以查看结果")
+                                            .into_any_element()
+                                    }),
                             )
                             .into_any_element(),
                     ),
@@ -1113,7 +1211,6 @@ impl Render for CommonWorkspace {
                 .border_color(theme.border)
                 .rounded_md()
                 .text_sm()
-                .cursor_pointer()
                 .when(tab_active, |this| {
                     this.bg(theme.tab_active).text_color(theme.tab_active_foreground)
                 })

@@ -215,7 +215,6 @@ pub fn render_home(
                 .bg(theme.secondary)
                 .border_1()
                 .border_color(theme.border)
-                .cursor_pointer()
                 .id(SharedString::from(format!("source-card-{}", source.id)))
                 .hover(|this| this.bg(theme.secondary_hover))
                 .on_double_click(cx.listener({
