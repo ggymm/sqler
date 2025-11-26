@@ -331,8 +331,11 @@ impl ImportWindow {
                 Button::new("choose-files")
                     .label("选择文件")
                     .outline()
-                    .on_click(cx.listener(|this: &mut ImportWindow, _, window, cx| {
-                        this.choose_files(window, cx);
+                    .on_click(cx.listener({
+                        // rustfmt::skip
+                        |this: &mut ImportWindow, _, window, cx| {
+                            this.choose_files(window, cx);
+                        }
                     })),
             )
             .child(
@@ -397,8 +400,11 @@ impl ImportWindow {
                         .icon(icon_relead().with_size(Size::Small))
                         .label("刷新表")
                         .outline()
-                        .on_click(cx.listener(|view: &mut Self, _, window, cx| {
-                            view.reload_tables(window, cx);
+                        .on_click(cx.listener({
+                            // rustfmt::skip
+                            |view: &mut Self, _, window, cx| {
+                                view.reload_tables(window, cx);
+                            }
                         })),
                 ),
             )
@@ -631,13 +637,16 @@ impl Render for ImportWindow {
                         Button::new("import-cancel")
                             .label("取消")
                             .outline()
-                            .on_click(cx.listener(|this: &mut ImportWindow, _, window, cx| {
-                                if let Some(parent) = this.parent.upgrade() {
-                                    let _ = parent.update(cx, |app, _| {
-                                        app.close_window("import");
-                                    });
+                            .on_click(cx.listener({
+                                // rustfmt::skip
+                                |this: &mut ImportWindow, _, window, cx| {
+                                    if let Some(parent) = this.parent.upgrade() {
+                                        let _ = parent.update(cx, |app, _| {
+                                            app.close_window("import");
+                                        });
+                                    }
+                                    window.remove_window();
                                 }
-                                window.remove_window();
                             })),
                     )
                     .child(div().flex_1())
@@ -645,10 +654,13 @@ impl Render for ImportWindow {
                         Button::new("import-prev-step")
                             .label("上一步")
                             .outline()
-                            .on_click(cx.listener(|this: &mut ImportWindow, _, _, cx| {
-                                if let Some(prev) = this.step.prev() {
-                                    this.step = prev;
-                                    cx.notify();
+                            .on_click(cx.listener({
+                                // rustfmt::skip
+                                |this: &mut ImportWindow, _, _, cx| {
+                                    if let Some(prev) = this.step.prev() {
+                                        this.step = prev;
+                                        cx.notify();
+                                    }
                                 }
                             })),
                     )
@@ -656,10 +668,13 @@ impl Render for ImportWindow {
                         Button::new("import-next-step")
                             .label("下一步")
                             .outline()
-                            .on_click(cx.listener(|this: &mut ImportWindow, _, _, cx| {
-                                if let Some(next) = this.step.next() {
-                                    this.step = next;
-                                    cx.notify();
+                            .on_click(cx.listener({
+                                // rustfmt::skip
+                                |this: &mut ImportWindow, _, _, cx| {
+                                    if let Some(next) = this.step.next() {
+                                        this.step = next;
+                                        cx.notify();
+                                    }
                                 }
                             })),
                     )
@@ -667,8 +682,11 @@ impl Render for ImportWindow {
                         Button::new("import-start")
                             .label("开始导入")
                             .outline()
-                            .on_click(cx.listener(|_this: &mut ImportWindow, _, _, _cx| {
-                                // 导入逻辑将在后续实现
+                            .on_click(cx.listener({
+                                // rustfmt::skip
+                                |_this: &mut ImportWindow, _, _, _cx| {
+                                    // 导入逻辑将在后续实现
+                                }
                             })),
                     ),
             )

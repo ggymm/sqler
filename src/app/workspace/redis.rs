@@ -365,8 +365,11 @@ impl Render for RedisWorkspace {
                             .icon(icon_search().with_size(Size::Small))
                             .label("新建命令")
                             .outline()
-                            .on_click(cx.listener(|view: &mut Self, _, window, cx| {
-                                view.create_command_tab(window, cx);
+                            .on_click(cx.listener({
+                                // rustfmt::skip
+                                |view: &mut Self, _, window, cx| {
+                                    view.create_command_tab(window, cx);
+                                }
                             })),
                     ),
             )

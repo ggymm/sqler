@@ -475,8 +475,11 @@ impl Render for MongoDBWorkspace {
                             .icon(icon_relead().with_size(Size::Small))
                             .label("刷新集合")
                             .outline()
-                            .on_click(cx.listener(|view: &mut Self, _, _, cx| {
-                                view.reload_collections(cx);
+                            .on_click(cx.listener({
+                                // rustfmt::skip
+                                |view: &mut Self, _, _, cx| {
+                                    view.reload_collections(cx);
+                                }
                             })),
                     )
                     .child(

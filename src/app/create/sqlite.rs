@@ -98,8 +98,11 @@ impl Render for SQLiteCreate {
                             .items_center()
                             .child(Input::new(&self.filepath).cleanable(true))
                             .child(Button::new("sqlite-choose-file").label("选择文件").outline().on_click(
-                                cx.listener(|this: &mut SQLiteCreate, _, window, cx| {
-                                    this.choose_file(window, cx);
+                                cx.listener({
+                                    // rustfmt::skip
+                                    |this: &mut SQLiteCreate, _, window, cx| {
+                                        this.choose_file(window, cx);
+                                    }
                                 }),
                             )),
                     ),

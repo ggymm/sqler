@@ -348,8 +348,11 @@ impl Render for CreateWindow {
                         Button::new("datasource-check-connection")
                             .label("测试连接")
                             .outline()
-                            .on_click(cx.listener(|this: &mut CreateWindow, _, window, cx| {
-                                this.check_conn(window, cx);
+                            .on_click(cx.listener({
+                                // rustfmt::skip
+                                |this: &mut CreateWindow, _, window, cx| {
+                                    this.check_conn(window, cx);
+                                }
                             })),
                     )
                     .child(
@@ -362,9 +365,12 @@ impl Render for CreateWindow {
                                 Button::new("datasource-create-back")
                                     .label("上一步")
                                     .outline()
-                                    .on_click(cx.listener(|this: &mut CreateWindow, _, _, cx| {
-                                        if this.kind.take().is_some() {
-                                            cx.notify();
+                                    .on_click(cx.listener({
+                                        // rustfmt::skip
+                                        |this: &mut CreateWindow, _, _, cx| {
+                                            if this.kind.take().is_some() {
+                                                cx.notify();
+                                            }
                                         }
                                     })),
                             )
@@ -372,16 +378,22 @@ impl Render for CreateWindow {
                                 Button::new("datasource-create-cancel")
                                     .label("取消")
                                     .outline()
-                                    .on_click(cx.listener(|this: &mut CreateWindow, _, window, cx| {
-                                        this.cancel(window, cx);
+                                    .on_click(cx.listener({
+                                        // rustfmt::skip
+                                        |this: &mut CreateWindow, _, window, cx| {
+                                            this.cancel(window, cx);
+                                        }
                                     })),
                             )
                             .child(
                                 Button::new("datasource-create-confirm")
                                     .label("保存")
                                     .outline()
-                                    .on_click(cx.listener(|this: &mut CreateWindow, _, window, cx| {
-                                        this.create_conn(window, cx);
+                                    .on_click(cx.listener({
+                                        // rustfmt::skip
+                                        |this: &mut CreateWindow, _, window, cx| {
+                                            this.create_conn(window, cx);
+                                        }
                                     })),
                             ),
                     )

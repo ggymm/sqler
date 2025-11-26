@@ -187,13 +187,16 @@ impl Render for ExportWindow {
                         Button::new("transfer-cancel")
                             .label("取消")
                             .outline()
-                            .on_click(cx.listener(|this: &mut ExportWindow, _, window, cx| {
-                                if let Some(parent) = this.parent.upgrade() {
-                                    let _ = parent.update(cx, |app, _| {
-                                        app.close_window("export");
-                                    });
+                            .on_click(cx.listener({
+                                // rustfmt::skip
+                                |this: &mut ExportWindow, _, window, cx| {
+                                    if let Some(parent) = this.parent.upgrade() {
+                                        let _ = parent.update(cx, |app, _| {
+                                            app.close_window("export");
+                                        });
+                                    }
+                                    window.remove_window()
                                 }
-                                window.remove_window()
                             })),
                     ),
             )

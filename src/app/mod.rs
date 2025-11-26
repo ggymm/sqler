@@ -355,8 +355,11 @@ impl Render for SqlerApp {
                             .flex_row()
                             .gap_2()
                             .child(Button::new("header-new-source").label("新建数据源").outline().on_click(
-                                cx.listener(|this, _, _, cx| {
-                                    this.create_window(WindowKind::Create(None), cx);
+                                cx.listener({
+                                    // rustfmt::skip
+                                    |this, _, _, cx| {
+                                        this.create_window(WindowKind::Create(None), cx);
+                                    }
                                 }),
                             ))
                             .child(
@@ -367,8 +370,11 @@ impl Render for SqlerApp {
                                         "切换到暗色"
                                     })
                                     .outline()
-                                    .on_click(cx.listener(|this, _, window, cx| {
-                                        this.toggle_theme(window, cx);
+                                    .on_click(cx.listener({
+                                        // rustfmt::skip
+                                        |this, _, window, cx| {
+                                            this.toggle_theme(window, cx);
+                                        }
                                     })),
                             ),
                     ),
