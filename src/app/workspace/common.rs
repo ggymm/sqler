@@ -23,7 +23,7 @@ use crate::{
         create_connection, DatabaseSession, DriverError, FilterCond, Operator, OrderCond, Paging, QueryReq, QueryResp,
         ValueCond,
     },
-    model::DataSource,
+    model::{DataSource, SavedQuery},
 };
 
 use super::EditorComps;
@@ -100,14 +100,18 @@ struct QueryContent {
 }
 
 pub struct CommonWorkspace {
-    source: DataSource,
     parent: WeakEntity<SqlerApp>,
+
+    source: DataSource,
     session: Option<Box<dyn DatabaseSession>>,
 
     tabs: Vec<TabItem>,
     active_tab: SharedString,
+
     tables: Vec<SharedString>,
-    active_table: Option<SharedString>,
+    queries: Vec<SavedQuery>,
+    tables_expanded: bool,
+    queries_expanded: bool,
 }
 
 impl CommonWorkspace {
@@ -120,46 +124,19 @@ impl CommonWorkspace {
         let active_tab = overview.id.clone();
 
         Self {
-            source,
             parent,
+
+            source,
             session: None,
 
             tabs: vec![overview],
             active_tab,
+
             tables: vec![],
-            active_table: None,
+            queries: vec![],
+            tables_expanded: true,
+            queries_expanded: true,
         }
-    }
-
-    fn close_tab(
-        &mut self,
-        tab_id: &SharedString,
-        cx: &mut Context<Self>,
-    ) {
-        if let Some(i) = self.tabs.iter().position(|tab| &tab.id == tab_id && tab.closable) {
-            let was_active = self.tabs[i].id == self.active_tab;
-            self.tabs.remove(i);
-            if was_active {
-                if let Some(tab) = self.tabs.get(i.min(self.tabs.len().saturating_sub(1))) {
-                    self.active_tab = tab.id.clone();
-                    self.active_table = Some(tab.title.clone());
-                } else {
-                    self.active_table = None;
-                }
-            }
-            cx.notify();
-        }
-    }
-
-    fn active_tab(
-        &mut self,
-        id: SharedString,
-        title: SharedString,
-        cx: &mut Context<Self>,
-    ) {
-        self.active_tab = id;
-        self.active_table = Some(title);
-        cx.notify();
     }
 
     fn active_session(&mut self) -> Result<&mut (dyn DatabaseSession + '_), DriverError> {
@@ -201,7 +178,6 @@ impl CommonWorkspace {
             }
         };
         self.active_tab = TabItem::overview().id;
-        self.active_table = None;
 
         // 清除失效的标签页
         self.tabs.retain(|tab| match &tab.content {
@@ -254,7 +230,6 @@ impl CommonWorkspace {
             )
         }) {
             self.active_tab = existing.id.clone();
-            self.active_table = Some(table.clone());
             cx.notify();
             return;
         }
@@ -279,7 +254,6 @@ impl CommonWorkspace {
             closable: true,
         });
         self.active_tab = tab_id.clone();
-        self.active_table = Some(table.clone());
         cx.notify();
 
         // 异步加载数据
@@ -866,7 +840,6 @@ impl CommonWorkspace {
             closable: true,
         });
         self.active_tab = tab_id;
-        self.active_table = Some(SharedString::from("SQL查询"));
         cx.notify();
     }
 
@@ -1250,6 +1223,146 @@ impl CommonWorkspace {
             .child(detail_card)
             .into_any_element()
     }
+
+    fn render_query_section(
+        &self,
+        cx: &Context<Self>,
+    ) -> Vec<impl IntoElement> {
+        let theme = cx.theme();
+
+        let mut elements = vec![
+            // 查询分类节点
+            div()
+                .id("queries-category")
+                .flex()
+                .flex_row()
+                .items_center()
+                .px_2()
+                .py_2()
+                .gap_2()
+                .rounded_md()
+                .hover(|this| this.bg(theme.list_hover))
+                .on_click(cx.listener(|this, _, _, cx| {
+                    this.queries_expanded = !this.queries_expanded;
+                    cx.notify();
+                }))
+                .child(if self.queries_expanded {
+                    IconName::ChevronDown
+                } else {
+                    IconName::ChevronRight
+                })
+                .child(icon_search())
+                .child(div().text_sm().font_semibold().child("查询")),
+        ];
+
+        // 查询列表（展开时）
+        if self.queries_expanded {
+            for query in &self.queries {
+                let query_name = query.name.clone();
+
+                elements.push(
+                    div()
+                        .id(comp_id(["query-item", &query_name]))
+                        .pl_6()
+                        .pr_2()
+                        .py_2()
+                        .gap_2()
+                        .row_full()
+                        .items_center()
+                        .rounded_md()
+                        .hover(|this| this.bg(theme.list_hover))
+                        .on_double_click(cx.listener({
+                            let _query_name = query_name.clone();
+                            move |this, _, window, cx| {
+                                this.create_query_tab(window, cx);
+                            }
+                        }))
+                        .child(icon_search().with_size(Size::Small))
+                        .child(
+                            div()
+                                .text_sm()
+                                .overflow_hidden()
+                                .whitespace_nowrap()
+                                .child(query_name.clone()),
+                        ),
+                );
+            }
+        }
+
+        elements
+    }
+
+    fn render_table_section(
+        &self,
+        cx: &Context<Self>,
+    ) -> Vec<impl IntoElement> {
+        let theme = cx.theme();
+
+        let mut elements = vec![
+            // 表分类节点
+            div()
+                .id("tables-category")
+                .flex()
+                .flex_row()
+                .items_center()
+                .px_2()
+                .py_2()
+                .gap_2()
+                .rounded_md()
+                .hover(|this| this.bg(theme.list_hover))
+                .on_click(cx.listener(|this, _, _, cx| {
+                    this.tables_expanded = !this.tables_expanded;
+                    cx.notify();
+                }))
+                .child(if self.tables_expanded {
+                    IconName::ChevronDown
+                } else {
+                    IconName::ChevronRight
+                })
+                .child(icon_sheet())
+                .child(div().text_sm().font_semibold().child("表")),
+        ];
+
+        // 表列表（展开时）
+        if self.tables_expanded {
+            for table in &self.tables {
+                let table_name = table.clone();
+
+                elements.push(
+                    div()
+                        .id(comp_id(["table-item", &table_name]))
+                        .pl_6()
+                        .pr_2()
+                        .py_2()
+                        .gap_2()
+                        .row_full()
+                        .items_center()
+                        .rounded_md()
+                        .hover(|this| this.bg(theme.list_hover))
+                        .on_double_click(cx.listener({
+                            let table_name = table_name.clone();
+                            move |this, _, window, cx| {
+                                this.create_data_tab(table_name.clone(), window, cx);
+                            }
+                        }))
+                        .tooltip({
+                            let name = table.clone();
+                            move |window, cx| Tooltip::new(name.clone()).build(window, cx)
+                        })
+                        .child(icon_sheet().with_size(Size::Small))
+                        .child(
+                            div()
+                                .text_sm()
+                                .overflow_hidden()
+                                .whitespace_nowrap()
+                                .child(table_name.clone()),
+                        ),
+                );
+            }
+        }
+
+        elements
+    }
 }
 
 impl Render for CommonWorkspace {
@@ -1288,9 +1401,9 @@ impl Render for CommonWorkspace {
                 })
                 .on_click(cx.listener({
                     let tab_id = tab.id.clone();
-                    let tab_title = tab.title.clone();
                     move |this, _, _, cx| {
-                        this.active_tab(tab_id.clone(), tab_title.clone(), cx);
+                        this.active_tab = tab_id.clone();
+                        cx.notify();
                     }
                 }))
                 .child(
@@ -1308,8 +1421,18 @@ impl Render for CommonWorkspace {
                         .ghost()
                         .xsmall()
                         .icon(IconName::Close)
-                        .on_click(cx.listener(move |this, _, _, cx| {
-                            this.close_tab(&tab_id, cx);
+                        .on_click(cx.listener({
+                            let tab_id = tab_id.clone();
+                            move |this, _, _, cx| {
+                                let Some(i) = this.tabs.iter().position(|tab| {
+                                    // rustfmt::skip
+                                    &tab.id == &tab_id && tab.closable
+                                }) else {
+                                    return;
+                                };
+                                this.tabs.remove(i);
+                                cx.notify();
+                            }
                         })),
                 );
             }
@@ -1322,42 +1445,6 @@ impl Render for CommonWorkspace {
             }
 
             tabs.push(item)
-        }
-        let mut tables = Vec::new();
-        for item in self.tables.iter() {
-            let active = self.active_table.as_ref() == Some(&item);
-            let active_table = item.clone();
-
-            tables.push(
-                div()
-                    .id(comp_id(["common-sidebar-item", &self.source.id, &item]))
-                    .px_4()
-                    .py_2()
-                    .gap_2()
-                    .row_full()
-                    .items_center()
-                    .rounded_md()
-                    .when_else(
-                        active,
-                        |this| this.bg(theme.list_active).font_semibold(),
-                        |this| this.hover(|this| this.bg(theme.list_hover)),
-                    )
-                    .on_double_click(cx.listener(move |this, _, window, cx| {
-                        this.create_data_tab(active_table.clone(), window, cx);
-                    }))
-                    .child(icon_sheet())
-                    .child(
-                        div()
-                            .text_sm()
-                            .overflow_hidden()
-                            .whitespace_nowrap()
-                            .child(item.clone()),
-                    )
-                    .tooltip({
-                        let name = item.clone();
-                        move |window, cx| Tooltip::new(name.clone()).build(window, cx)
-                    }),
-            )
         }
 
         div()
@@ -1442,7 +1529,8 @@ impl Render for CommonWorkspace {
                                         .gap_2()
                                         .col_full()
                                         .scrollable(Axis::Vertical)
-                                        .children(tables),
+                                        .children(self.render_query_section(cx))
+                                        .children(self.render_table_section(cx)),
                                 )
                                 .child(div()),
                         )
