@@ -30,11 +30,11 @@
 1. 注册本地资源加载器 `FsAssets` (从 `assets/` 目录加载图标等资源)
 2. 初始化 GPUI 框架和组件库
 3. **日志系统初始化** (`init_runtime()`):
-   - 日志目录: `~/.sqler/logs/`
-   - 文件滚动: 每天轮转
-   - 文件命名: `sqler.log`
-   - 日志级别: debug (开发模式) / info (发布模式)
-   - 双重输出: 终端 (带颜色) + 文件 (无颜色)
+    - 日志目录: `~/.sqler/logs/`
+    - 文件滚动: 每天轮转
+    - 文件命名: `sqler.log`
+    - 日志级别: debug (开发模式) / info (发布模式)
+    - 双重输出: 终端 (带颜色) + 文件 (无颜色)
 4. 配置全局主题 (字号 14pt，滚动条悬停显示)
 5. 创建主窗口 (1280x800，居中显示)
 6. 挂载 `SqlerApp` 作为根视图
@@ -212,6 +212,7 @@ pub enum CreateStatus {
 4. `create_conn()`: 保存数据源到缓存
 
 **窗口配置**:
+
 - 尺寸: 640x560
 - 位置: 自动居中 (`Bounds::centered`)
 - 类型: 浮动窗口 (WindowKind::Floating)
@@ -248,15 +249,15 @@ pub enum CreateStatus {
 
 **支持的数据库类型** (每个独立模块):
 
-| 模块             | 数据库        | 行数 | 状态   |
-|----------------|------------|------|------|
-| `mysql.rs`     | MySQL      | 87   | ✅ 完整 |
-| `postgres.rs`  | PostgreSQL | 87   | ✅ 完整 |
-| `sqlite.rs`    | SQLite     | 114  | ✅ 完整 |
-| `oracle.rs`    | Oracle     | 71   | ✅ 完整 |
-| `sqlserver.rs` | SQL Server | 78   | ✅ 完整 |
-| `redis.rs`     | Redis      | 128  | ✅ 完整 |
-| `mongodb.rs`   | MongoDB    | 95   | ✅ 完整 |
+| 模块             | 数据库        | 行数  | 状态   |
+|----------------|------------|-----|------|
+| `mysql.rs`     | MySQL      | 87  | ✅ 完整 |
+| `postgres.rs`  | PostgreSQL | 87  | ✅ 完整 |
+| `sqlite.rs`    | SQLite     | 114 | ✅ 完整 |
+| `oracle.rs`    | Oracle     | 71  | ✅ 完整 |
+| `sqlserver.rs` | SQL Server | 78  | ✅ 完整 |
+| `redis.rs`     | Redis      | 128 | ✅ 完整 |
+| `mongodb.rs`   | MongoDB    | 95  | ✅ 完整 |
 
 **表单特点**:
 
@@ -586,6 +587,7 @@ struct CollectionContent {
 **职责**: 数据导入/导出功能
 
 **模块组成** (`mod.rs`, 43 行):
+
 - `ImportWindow`: 数据导入窗口
 - `ExportWindow`: 数据导出窗口
 - `TransferKind` 枚举: CSV / JSON / SQL
@@ -617,12 +619,14 @@ pub struct ImportWindow {
 ```
 
 **导入步骤** (`ImportStep` 枚举):
+
 1. **Kind**: 文件类型与参数配置
 2. **Files**: 选择待导入文件
 3. **Table**: 配置源文件与目标表映射
 4. **Import**: 选择导入模式并执行
 
 **导入模式** (`ImportMode` 枚举):
+
 - Replace: 替换 - 清空表后导入新数据
 - Append: 追加 - 在表末尾追加新数据
 - Update: 更新 - 更新已存在的数据
@@ -630,6 +634,7 @@ pub struct ImportWindow {
 - AppendNoUpdate: 追加不更新 - 仅追加不存在的数据
 
 **ImportFile 结构**:
+
 ```rust
 struct ImportFile {
     path: PathBuf,                                         // 文件路径
@@ -640,12 +645,14 @@ struct ImportFile {
 ```
 
 **窗口配置**:
+
 - 尺寸: 1280x720
 - 位置: (0, 0) 固定左上角
 - 类型: 浮动窗口
 - 标题: "数据导入"
 
 **核心功能**:
+
 1. ✅ 步骤式导入流程 UI
 2. ✅ 文件选择器集成 (`prompt_for_paths`)
 3. ✅ CSV 参数配置（字段行、分隔符等）
@@ -669,12 +676,14 @@ pub struct ExportWindow {
 ```
 
 **窗口配置**:
+
 - 尺寸: 1280x720
 - 位置: (0, 0) 固定左上角
 - 类型: 浮动窗口
 - 标题: "数据导出"
 
 **核心功能**:
+
 1. ✅ 格式选择 UI（CSV / JSON / SQL，卡片式选择）
 2. ✅ 源表名称输入
 3. ✅ 目标文件路径输入
@@ -685,11 +694,13 @@ pub struct ExportWindow {
 ##### TransferKind 枚举
 
 **支持的格式**:
+
 - CSV: 逗号分隔值文件，适用于表格数据
 - JSON: JSON 格式文件，适用于结构化数据
 - SQL: SQL 脚本文件，包含完整的建表和插入语句
 
 **方法**:
+
 - `all()`: 返回所有格式
 - `label()`: 返回格式标签
 - `description()`: 返回格式描述
@@ -820,13 +831,13 @@ pub trait DatabaseSession: Send {
 
 **查询条件类型**:
 
-| 类型           | 字段                                              | 说明    |
-|--------------|-------------------------------------------------|-------|
-| `FilterCond` | `{field, operator, value}`                      | 筛选条件  |
-| `OrderCond`  | `{field, ascending}`                            | 排序规则  |
-| `Paging`     | `{size, number}`                                | 分页参数  |
+| 类型           | 字段                                                                  | 说明    |
+|--------------|---------------------------------------------------------------------|-------|
+| `FilterCond` | `{field, operator, value}`                                          | 筛选条件  |
+| `OrderCond`  | `{field, ascending}`                                                | 排序规则  |
+| `Paging`     | `{page, size}`                                                      | 分页参数  |
 | `Operator`   | Equal, NotEqual, GreaterThan, LessThan, Like, In, Between, IsNull 等 | 比较操作符 |
-| `ValueCond`  | Null, Bool, String, Number, List, Range         | 条件值   |
+| `ValueCond`  | Null, Bool, String, Number, List, Range                             | 条件值   |
 
 **数据源类型** (`DataSourceKind`, 按标准顺序):
 
@@ -857,25 +868,25 @@ pub struct DataSource {
 
 **全局函数**:
 
-| 函数                        | 参数                   | 返回                                              | 说明           |
-|---------------------------|----------------------|-------------------------------------------------|--------------|
+| 函数                        | 参数                   | 返回                                              | 说明          |
+|---------------------------|----------------------|-------------------------------------------------|-------------|
 | `get_column_kinds(kind)`  | `DataSourceKind`     | `Vec<ColumnKind>`                               | 获取数据库支持的列类型 |
-| `check_connection(opts)`  | `&DataSourceOptions` | `Result<(), DriverError>`                       | 测试连接         |
-| `create_connection(opts)` | `&DataSourceOptions` | `Result<Box<dyn DatabaseSession>, DriverError>` | 创建会话         |
-| `validate_sql(sql)`       | `&str`               | `Result<(), DriverError>`                       | 验证 SQL 非空    |
+| `check_connection(opts)`  | `&DataSourceOptions` | `Result<(), DriverError>`                       | 测试连接        |
+| `create_connection(opts)` | `&DataSourceOptions` | `Result<Box<dyn DatabaseSession>, DriverError>` | 创建会话        |
+| `validate_sql(sql)`       | `&str`               | `Result<(), DriverError>`                       | 验证 SQL 非空   |
 
 ---
 
 #### 4.2 驱动实现状态
 
-| 驱动             | 行数  | 查询              | 写操作                    | tables()           | columns()            | 状态        |
-|----------------|-----|-----------------|------------------------|--------------------|----------------------|-----------|
-| **MySQL**      | 412 | ✅ SQL + Builder | ✅ INSERT/UPDATE/DELETE | ✅ SHOW TABLES      | ✅ SHOW COLUMNS FROM  | 全功能       |
-| **PostgreSQL** | 448 | ✅ SQL + Builder | ✅ SQL方式                | ✅ pg_tables        | ✅ information_schema | 全功能       |
-| **SQLite**     | 395 | ✅ SQL + Builder | ✅ SQL方式                | ✅ sqlite_master    | ✅ PRAGMA table_info  | 全功能       |
-| **MongoDB**    | 307 | ✅ Document查询    | ✅ INSERT/UPDATE/DELETE | ✅ list_collections | ❌ 返回错误               | 文档型       |
-| **Redis**      | 277 | ✅ Command执行     | ✅ Command方式            | ❌ 返回错误             | ❌ 返回错误               | 键值型       |
-| **SQL Server** | 93  | ❌ 占位实现          | ❌ 占位实现                 | ❌ 占位实现             | ❌ 占位实现               | **未实现**   |
+| 驱动             | 行数  | 查询              | 写操作                    | tables()           | columns()            | 状态      |
+|----------------|-----|-----------------|------------------------|--------------------|----------------------|---------|
+| **MySQL**      | 412 | ✅ SQL + Builder | ✅ INSERT/UPDATE/DELETE | ✅ SHOW TABLES      | ✅ SHOW COLUMNS FROM  | 全功能     |
+| **PostgreSQL** | 448 | ✅ SQL + Builder | ✅ SQL方式                | ✅ pg_tables        | ✅ information_schema | 全功能     |
+| **SQLite**     | 395 | ✅ SQL + Builder | ✅ SQL方式                | ✅ sqlite_master    | ✅ PRAGMA table_info  | 全功能     |
+| **MongoDB**    | 307 | ✅ Document查询    | ✅ INSERT/UPDATE/DELETE | ✅ list_collections | ❌ 返回错误               | 文档型     |
+| **Redis**      | 277 | ✅ Command执行     | ✅ Command方式            | ❌ 返回错误             | ❌ 返回错误               | 键值型     |
+| **SQL Server** | 93  | ❌ 占位实现          | ❌ 占位实现                 | ❌ 占位实现             | ❌ 占位实现               | **未实现** |
 | **Oracle**     | 1   | -               | -                      | -                  | -                    | **仅注释** |
 
 ---
@@ -899,7 +910,7 @@ fn columns(&mut self, table: &str) -> Result<Vec<String>, DriverError> {
     let sql = format!("SHOW COLUMNS FROM `{}`", table.replace('`', "``"));
     let rows: Vec<mysql::Row> = self.conn.query(&sql)?;
 
-    let mut columns = Vec::new();
+    let mut columns = vec![];
     for row in rows {
         if let Some(value) = row.get(0) {
             columns.push(mysql_value_to_string(value));
@@ -937,7 +948,7 @@ fn columns(&mut self, table: &str) -> Result<Vec<String>, DriverError> {
                ORDER BY ordinal_position";
     let rows = self.client.query(sql, &[&table])?;
 
-    let mut columns = Vec::new();
+    let mut columns = vec![];
     for row in rows {
         let column_name: String = row.get(0);
         columns.push(column_name);
@@ -972,7 +983,7 @@ fn columns(&mut self, table: &str) -> Result<Vec<String>, DriverError> {
     let sql = format!("PRAGMA table_info(\"{}\")", table.replace('"', "\"\""));
     let mut stmt = self.conn.prepare(&sql)?;
 
-    let mut columns = Vec::new();
+    let mut columns = vec![];
     let rows = stmt.query_map([], |row| row.get::<_, String>(1))?;
 
     for row in rows {
@@ -1134,6 +1145,7 @@ pub enum DataSourceOptions {
 **输出目录**: `/docs/testdata/output/` (11 个 CSV 文件)
 
 **生成的表** (电商业务模型):
+
 1. `category.csv` - 商品分类 (113 KB)
 2. `customer.csv` - 客户信息 (95 KB)
 3. `customer_address.csv` - 客户地址 (95 KB)
@@ -1155,9 +1167,15 @@ pub enum DataSourceOptions {
 **内容**: SQL 关键字和函数的文档说明，用于 SQL 编辑器的代码提示和自动补全
 
 **格式**:
+
 ```json
 {
-  "keywords": ["SELECT", "FROM", "WHERE", ...],
+  "keywords": [
+    "SELECT",
+    "FROM",
+    "WHERE",
+    ...
+  ],
   "functions": {
     "COUNT": "返回匹配条件的行数",
     "SUM": "计算数值列的总和",
@@ -1173,16 +1191,19 @@ pub enum DataSourceOptions {
 **设计**: 使用 `HashMap<String, WindowHandle<Root>>` 管理浮动窗口
 
 **优势**:
+
 1. **自动去重**: 同一类型窗口只能打开一个
 2. **统一管理**: 所有浮动窗口集中管理
 3. **清晰的生命周期**: 窗口关闭时从 HashMap 中移除
 
 **窗口类型**:
+
 - `"create"`: 新建数据源窗口
 - `"import-{uuid}"`: 数据导入窗口（每个数据源独立）
 - `"export-{uuid}"`: 数据导出窗口（每个数据源独立）
 
 **实现**:
+
 ```rust
 // 创建窗口（自动去重）
 pub fn create_window(&mut self, key: String, window: WindowHandle<Root>) {
@@ -1442,11 +1463,13 @@ pub fn close_window(&mut self, key: &str) {
 ### 6. 窗口管理设计
 
 **HashMap 去重机制**:
+
 - 使用 `HashMap<String, WindowHandle<Root>>` 管理浮动窗口
 - 同一类型窗口只能打开一个
 - 窗口关闭时自动从 HashMap 中移除
 
 **窗口键命名规则**:
+
 - 新建数据源窗口: `"create"`
 - 数据导入窗口: `"import-{uuid}"`
 - 数据导出窗口: `"export-{uuid}"`
@@ -1454,21 +1477,25 @@ pub fn close_window(&mut self, key: &str) {
 ### 7. 缓存系统设计
 
 **单一数据源原则**:
+
 - `SqlerApp` 直接使用 `cache.sources()` 获取数据源
 - 消除数据重复，无需手动同步
 - 编译器保证数据一致性
 
 **零成本抽象**:
+
 - `sources()` 返回 `&[DataSource]` 避免克隆
 - 只读访问零开销
 - 需要修改时使用 `sources_mut()`
 
 **分离存储**:
+
 - `sources.db`: AES-256-GCM 加密（保护敏感信息）
 - `tables.json` / `queries.json`: 明文 JSON（缓存数据）
 - ⚠️ 密钥和 Nonce 硬编码，生产环境应从环境变量读取
 
 **懒加载**:
+
 - 按需创建 `cache/{uuid}/` 目录
 - 文件不存在返回空列表，不阻塞系统
 
@@ -1487,27 +1514,29 @@ pub fn close_window(&mut self, key: &str) {
 
 ## 代码统计
 
-| 模块分类       | 文件数 | 代码行数  | 占比   |
-|------------|-----|-------|------|
-| app/       | 18  | 5,061 | 61.3% |
-| driver/    | 8   | 2,236 | 27.1% |
-| cache/     | 1   | 165   | 2.0%  |
-| model.rs   | 1   | 674   | 8.2%  |
-| main.rs    | 1   | 124   | 1.5%  |
-| **总计**     | 29  | **8,262** | 100%  |
+| 模块分类     | 文件数 | 代码行数      | 占比    |
+|----------|-----|-----------|-------|
+| app/     | 18  | 5,061     | 61.3% |
+| driver/  | 8   | 2,236     | 27.1% |
+| cache/   | 1   | 165       | 2.0%  |
+| model.rs | 1   | 674       | 8.2%  |
+| main.rs  | 1   | 124       | 1.5%  |
+| **总计**   | 29  | **8,262** | 100%  |
 
 **app/ 模块细分**:
+
 - `workspace/`: 2,479 行 (30.0%)
-  - `common.rs`: 1,318 行 (最大单文件)
-  - `mongodb.rs`: 503 行
-  - `redis.rs`: 387 行
-  - `mod.rs`: 271 行
+    - `common.rs`: 1,318 行 (最大单文件)
+    - `mongodb.rs`: 503 行
+    - `redis.rs`: 387 行
+    - `mod.rs`: 271 行
 - `create/`: 1,071 行 (13.0%)
 - `transfer/`: 921 行 (11.1%)
 - `comps/`: 201 行 (2.4%)
 - `mod.rs`: 389 行 (4.7%)
 
 **driver/ 模块细分**:
+
 - `postgres.rs`: 448 行
 - `mysql.rs`: 412 行
 - `sqlite.rs`: 395 行
@@ -1518,6 +1547,7 @@ pub fn close_window(&mut self, key: &str) {
 - `oracle.rs`: 1 行 (仅注释)
 
 **空模块**:
+
 - `codegen/mod.rs` - 占位 (1 行)
 - `update/mod.rs` - 占位 (1 行)
 
@@ -1599,6 +1629,7 @@ pub fn close_window(&mut self, key: &str) {
 ## 版本历史
 
 **v2 (2025-01-24)**:
+
 - 更新代码总行数: 7,752 → 8,262 (+510 行)
 - `common.rs`: 1,058 → 1,318 (+260 行)
 - TabContent 结构扩展 (新增 Query 和 Struct)
@@ -1610,6 +1641,7 @@ pub fn close_window(&mut self, key: &str) {
 - 更新驱动实现状态和行数
 
 **v1 (2025-01-17)**:
+
 - 初始版本，基于实际代码详细记录所有文件行数和实现细节
 
 **最后更新**: 2025-01-24 (基于代码库深度探索全面更新)

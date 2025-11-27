@@ -63,7 +63,7 @@ impl CacheApp {
             let decrypted = Self::decrypt(&encrypted)?;
             serde_json::from_slice(&decrypted)?
         } else {
-            Vec::new()
+            vec![]
         };
 
         Ok(Self {
@@ -94,7 +94,7 @@ impl CacheApp {
     ) -> Result<Vec<TableInfo>, CacheError> {
         let path = self.sources_cache.join(uuid).join(TABLES_FILE);
         if !path.exists() {
-            return Ok(Vec::new());
+            return Ok(vec![]);
         }
 
         let data = fs::read(&path)?;
@@ -124,7 +124,7 @@ impl CacheApp {
     ) -> Result<Vec<SavedQuery>, CacheError> {
         let path = self.sources_cache.join(uuid).join(QUERIES_FILE);
         if !path.exists() {
-            return Ok(Vec::new());
+            return Ok(vec![]);
         }
 
         let data = fs::read(&path)?;

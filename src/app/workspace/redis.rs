@@ -118,7 +118,7 @@ impl RedisWorkspace {
     ) {
         let tab_id = SharedString::from(format!("redis-tab-command-{}", Uuid::new_v4()));
         let command_input = cx.new(|cx| InputState::new(window, cx));
-        let result_table = DataTable::new(vec![], Vec::new()).build(window, cx);
+        let result_table = DataTable::new(vec![], vec![]).build(window, cx);
 
         self.tabs.push(TabItem {
             id: tab_id.clone(),

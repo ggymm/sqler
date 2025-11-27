@@ -48,7 +48,7 @@ impl AssetSource for FsAssets {
         &self,
         _path: &str,
     ) -> Result<Vec<SharedString>> {
-        Ok(Vec::new())
+        Ok(vec![])
     }
 }
 

@@ -105,7 +105,7 @@ impl DatabaseSession for MongoSession {
                     .run()
                     .map_err(|err| DriverError::Other(format!("执行查询失败: {}", err)))?;
 
-                let mut docs = Vec::new();
+                let mut docs = vec![];
                 for doc in cursor {
                     let doc = doc.map_err(|err| DriverError::Other(format!("读取结果失败: {}", err)))?;
                     docs.push(
@@ -286,7 +286,7 @@ fn build_uri(config: &MongoDBOptions) -> Result<String, DriverError> {
         .collect::<Result<Vec<_>, _>>()?;
     uri.push_str(&hosts.join(","));
 
-    let mut params = Vec::new();
+    let mut params = vec![];
     if let Some(auth) = &config.auth_source.as_deref().filter(|s| !s.is_empty()) {
         params.push(format!("authSource={}", auth));
     }

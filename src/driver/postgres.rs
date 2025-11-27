@@ -89,11 +89,11 @@ impl DatabaseSession for PostgresSession {
                     format_columns(&columns),
                     table.replace('"', "\"\"")
                 );
-                let mut params = Vec::new();
+                let mut params = vec![];
                 let mut param_index = 1;
 
                 if !filters.is_empty() {
-                    let mut clauses = Vec::new();
+                    let mut clauses = vec![];
                     for filter in &filters {
                         let field = format!("\"{}\"", filter.field.replace('"', "\"\""));
                         match filter.operator {
@@ -214,7 +214,7 @@ impl DatabaseSession for PostgresSession {
             .query_raw(&sql, param_refs)
             .map_err(|err| DriverError::Other(format!("执行查询失败: {}", err)))?;
 
-        let mut records = Vec::new();
+        let mut records = vec![];
         let mut count = 0;
         while let Some(row) = iter
             .next()
@@ -303,7 +303,7 @@ impl DatabaseSession for PostgresSession {
             .query(sql, &[])
             .map_err(|err| DriverError::Other(format!("查询表列表失败: {}", err)))?;
 
-        let mut tables = Vec::new();
+        let mut tables = vec![];
         for row in rows {
             let table_name: String = row.get(0);
             tables.push(table_name);
@@ -321,7 +321,7 @@ impl DatabaseSession for PostgresSession {
             .query(sql, &[&table])
             .map_err(|err| DriverError::Other(format!("查询列信息失败: {}", err)))?;
 
-        let mut columns = Vec::new();
+        let mut columns = vec![];
         for row in rows {
             let column_name: String = row.get(0);
             columns.push(column_name);

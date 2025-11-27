@@ -23,7 +23,7 @@ use crate::{
         create_connection, DatabaseSession, DriverError, FilterCond, Operator, OrderCond, Paging, QueryReq, QueryResp,
         ValueCond,
     },
-    model::DataSource,
+    model::{DataSource, TableInfo},
 };
 
 use super::EditorComps;
@@ -72,15 +72,14 @@ struct OrderRule {
 
 struct DataContent {
     id: SharedString,
-    table: SharedString,
     page_no: usize,
-    page_size: usize,
-    total_rows: usize,
+    rows_count: usize,
     order_rules: Vec<OrderRule>,
     query_rules: Vec<QueryRule>,
     filter_enable: bool,
     columns: Vec<SharedString>,
     columns_enable: bool,
+    table: SharedString,
     datatable: Entity<TableState<DataTable>>,
 }
 
@@ -105,9 +104,9 @@ pub struct CommonWorkspace {
     session: Option<Box<dyn DatabaseSession>>,
 
     tabs: Vec<TabItem>,
-    active_tab: SharedString,
-    tables: Vec<SharedString>,
-    active_table: Option<SharedString>,
+    active_tab: usize,
+    tables: Vec<TableInfo>,
+    active_table: Option<usize>,
 }
 
 impl CommonWorkspace {
@@ -116,50 +115,16 @@ impl CommonWorkspace {
         parent: WeakEntity<SqlerApp>,
         _cx: &mut Context<Self>,
     ) -> Self {
-        let overview = TabItem::overview();
-        let active_tab = overview.id.clone();
-
         Self {
             source,
             parent,
             session: None,
 
-            tabs: vec![overview],
-            active_tab,
+            tabs: vec![TabItem::overview()],
+            active_tab: 0,
             tables: vec![],
             active_table: None,
         }
-    }
-
-    fn close_tab(
-        &mut self,
-        tab_id: &SharedString,
-        cx: &mut Context<Self>,
-    ) {
-        if let Some(i) = self.tabs.iter().position(|tab| &tab.id == tab_id && tab.closable) {
-            let was_active = self.tabs[i].id == self.active_tab;
-            self.tabs.remove(i);
-            if was_active {
-                if let Some(tab) = self.tabs.get(i.min(self.tabs.len().saturating_sub(1))) {
-                    self.active_tab = tab.id.clone();
-                    self.active_table = Some(tab.title.clone());
-                } else {
-                    self.active_table = None;
-                }
-            }
-            cx.notify();
-        }
-    }
-
-    fn active_tab(
-        &mut self,
-        id: SharedString,
-        title: SharedString,
-        cx: &mut Context<Self>,
-    ) {
-        self.active_tab = id;
-        self.active_table = Some(title);
-        cx.notify();
     }
 
     fn active_session(&mut self) -> Result<&mut (dyn DatabaseSession + '_), DriverError> {
@@ -177,7 +142,6 @@ impl CommonWorkspace {
         &mut self,
         cx: &mut Context<Self>,
     ) {
-        // 尝试从会话获取表列表
         let session = match self.active_session() {
             Ok(_) => self.session.take(),
             Err(err) => {
@@ -189,9 +153,17 @@ impl CommonWorkspace {
             return;
         };
 
-        // 更新本地数据
+        // 更新数据
         self.tables = match session.tables() {
-            Ok(tables) => tables.into_iter().map(SharedString::from).collect(),
+            Ok(tables) => tables
+                .into_iter()
+                .map(|name| TableInfo {
+                    name,
+                    row_count: None,
+                    size_bytes: None,
+                    last_accessed: None,
+                })
+                .collect(),
             Err(err) => {
                 tracing::error!("刷新表列表失败: {}", err);
                 if !self.tables.is_empty() {
@@ -200,12 +172,24 @@ impl CommonWorkspace {
                 vec![]
             }
         };
-        self.active_tab = TabItem::overview().id;
+        // self.active_tab = 0;
         self.active_table = None;
+
+        // 更新缓存
+        if let Some(parent) = self.parent.upgrade() {
+            let _ = parent.update(cx, |app, _| {
+                if let Err(err) = app.cache.tables_update(&self.source.id, &self.tables) {
+                    tracing::error!("更新表缓存失败: {}", err);
+                }
+            });
+        }
 
         // 清除失效的标签页
         self.tabs.retain(|tab| match &tab.content {
-            TabContent::Data(tab) => self.tables.iter().any(|t| t == &tab.table),
+            TabContent::Data(tab) => self.tables.iter().any({
+                // rustfmt::skip
+                |t| t.name == tab.table.as_ref()
+            }),
             _ => true,
         });
 
@@ -216,11 +200,14 @@ impl CommonWorkspace {
         &mut self,
         tab_id: &SharedString,
     ) -> Option<&mut DataContent> {
-        self.tabs.iter_mut().find(|tab| tab.id == *tab_id).and_then(|item| {
-            if let TabContent::Data(tab) = &mut item.content {
-                Some(tab)
-            } else {
-                None
+        self.tabs.iter_mut().find(|tab| tab.id == *tab_id).and_then({
+            // rustfmt::skip
+            |item| {
+                if let TabContent::Data(tab) = &mut item.content {
+                    Some(tab)
+                } else {
+                    None
+                }
             }
         })
     }
@@ -229,11 +216,14 @@ impl CommonWorkspace {
         &mut self,
         tab_id: &SharedString,
     ) -> Option<&mut QueryContent> {
-        self.tabs.iter_mut().find(|tab| tab.id == *tab_id).and_then(|item| {
-            if let TabContent::Query(tab) = &mut item.content {
-                Some(tab)
-            } else {
-                None
+        self.tabs.iter_mut().find(|tab| tab.id == *tab_id).and_then({
+            // rustfmt::skip
+            |item| {
+                if let TabContent::Query(tab) = &mut item.content {
+                    Some(tab)
+                } else {
+                    None
+                }
             }
         })
     }
@@ -244,17 +234,16 @@ impl CommonWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let tab_id = SharedString::from(format!("common-table-tab-{}-{}", self.source.id, table));
+        let tab_id = SharedString::from(format!("common-data-tab-{}-{}", self.source.id, table));
 
         // 检查标签页是否已存在
-        if let Some(existing) = self.tabs.iter().find(|tab| {
+        if let Some(index) = self.tabs.iter().position(|tab| {
             matches!(
                 &tab.content,
                 TabContent::Data(current) if current.id == tab_id
             )
         }) {
-            self.active_tab = existing.id.clone();
-            self.active_table = Some(table.clone());
+            self.active_tab = index;
             cx.notify();
             return;
         }
@@ -265,21 +254,19 @@ impl CommonWorkspace {
             title: table.clone(),
             content: TabContent::Data(DataContent {
                 id: tab_id.clone(),
-                table: table.clone(),
-                columns: vec![],
                 page_no: 0,
-                page_size: PAGE_SIZE,
-                total_rows: 0,
-                query_rules: Vec::new(),
-                order_rules: Vec::new(),
+                rows_count: 0,
+                query_rules: vec![],
+                order_rules: vec![],
                 filter_enable: false,
+                columns: vec![],
                 columns_enable: false,
-                datatable: DataTable::new(vec![], Vec::new()).build(window, cx),
+                table: table.clone(),
+                datatable: DataTable::new(vec![], vec![]).build(window, cx),
             }),
             closable: true,
         });
-        self.active_tab = tab_id.clone();
-        self.active_table = Some(table.clone());
+        self.active_tab = self.tabs.len() - 1;
         cx.notify();
 
         // 异步加载数据
@@ -292,7 +279,7 @@ impl CommonWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let (table, mut page, size, total, orders, filters) = {
+        let (table, page, orders, filters) = {
             let Some(data) = self.data_content(tab_id) else {
                 return;
             };
@@ -304,7 +291,7 @@ impl CommonWorkspace {
             });
 
             // 转换排序规则
-            let mut orders = Vec::new();
+            let mut orders = vec![];
             for rule in &data.order_rules {
                 // 读取字段名
                 let Some(field) = rule.field.read(cx).selected_value() else {
@@ -324,7 +311,7 @@ impl CommonWorkspace {
             }
 
             // 转换筛选规则
-            let mut filters = Vec::new();
+            let mut filters = vec![];
             for rule in &data.query_rules {
                 // 读取字段名
                 let Some(field) = rule.field.read(cx).selected_value() else {
@@ -356,28 +343,8 @@ impl CommonWorkspace {
                 });
             }
 
-            (
-                data.table.clone(),
-                data.page_no,
-                data.page_size,
-                data.total_rows,
-                orders,
-                filters,
-            )
+            (data.table.clone(), data.page_no, orders, filters)
         };
-
-        // 确定页码
-        let max_page = if total == 0 {
-            0
-        } else {
-            (total.saturating_sub(1)) / size
-        };
-        if page > max_page {
-            page = max_page;
-        }
-
-        // 设置分页
-        let paging = Paging::new(size, page);
 
         let tab_id = tab_id.clone();
         let session = match self.active_session() {
@@ -399,34 +366,17 @@ impl CommonWorkspace {
                     // 查询列名
                     let cols = session.columns(&table)?;
 
-                    // 查询总数
-                    let count_resp = session.query(QueryReq::Builder {
-                        table: table.to_string(),
-                        columns: vec!["COUNT(*)".to_string()],
-                        paging: None,
-                        orders: Vec::new(),
-                        filters: filters.clone(),
-                    })?;
-                    let total_count = match count_resp {
-                        QueryResp::Rows(count_rows) => count_rows
-                            .first()
-                            .and_then(|row| row.values().next())
-                            .map(|s| super::parse_count(s.as_str()))
-                            .unwrap_or(0),
-                        _ => 0,
-                    };
-
                     // 查询数据
                     let query_resp = session.query(QueryReq::Builder {
                         table: table.to_string(),
-                        columns: Vec::new(),
-                        paging: Some(paging),
+                        columns: vec![],
+                        paging: Some(Paging::new(page, PAGE_SIZE)),
                         orders,
                         filters,
                     })?;
                     let rows = match query_resp {
                         QueryResp::Rows(rows) => rows,
-                        _ => Vec::new(),
+                        _ => vec![],
                     };
 
                     // 构建渲染数据
@@ -441,7 +391,7 @@ impl CommonWorkspace {
                         table_rows.push(record);
                     }
 
-                    Ok::<_, DriverError>(((table_cols, table_rows, total_count), session))
+                    Ok::<_, DriverError>(((table_cols, table_rows), session))
                 })
                 .await;
 
@@ -451,13 +401,12 @@ impl CommonWorkspace {
                     Ok((data, session)) => {
                         this.session = Some(session);
 
-                        let (cols, rows, total) = data;
+                        let (cols, rows) = data;
                         let Some(data) = this.data_content(&tab_id) else {
                             return;
                         };
                         data.page_no = page;
-                        data.page_size = size;
-                        data.total_rows = total;
+                        data.rows_count = rows.len();
                         data.columns = cols.clone();
                         data.datatable.update(cx, |t, cx| {
                             t.delegate_mut().update_data(cols, rows);
@@ -494,13 +443,8 @@ impl CommonWorkspace {
         let theme = cx.theme().clone();
         let tab_id = tab.id.clone();
 
-        let page = tab.page_no;
-        let columns = &tab.columns;
-        let total_pages = if tab.total_rows == 0 {
-            1
-        } else {
-            (tab.total_rows + tab.page_size - 1) / tab.page_size
-        };
+        let page_no = tab.page_no;
+        let rows_count = tab.rows_count;
 
         let filter = Button::new(comp_id(["table-filter", &tab_id]))
             .label("数据筛选")
@@ -521,10 +465,10 @@ impl CommonWorkspace {
         let page_prev = Button::new(comp_id(["table-page-prev", &tab_id]))
             .label("上一页")
             .outline()
-            .disabled(page == 0)
+            .disabled(page_no == 0)
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
-                let prev_page = page.saturating_sub(1);
+                let prev_page = page_no.saturating_sub(1);
                 move |view: &mut Self, _, window, cx| {
                     if let Some(data) = view.data_content(&tab_id) {
                         data.page_no = prev_page;
@@ -535,10 +479,10 @@ impl CommonWorkspace {
         let page_next = Button::new(comp_id(["table-page-next", &tab_id]))
             .label("下一页")
             .outline()
-            .disabled(page + 1 >= total_pages)
+            .disabled(rows_count == 0)
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
-                let next_page = page.saturating_add(1);
+                let next_page = page_no.saturating_add(1);
                 move |view: &mut Self, _, window, cx| {
                     if let Some(data) = view.data_content(&tab_id) {
                         data.page_no = next_page;
@@ -557,14 +501,14 @@ impl CommonWorkspace {
             .icon(IconName::Plus)
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
-                let headers = columns.clone();
+                let columns = tab.columns.clone();
                 move |view: &mut Self, _, window, cx| {
                     if let Some(data) = view.data_content(&tab_id) {
                         data.order_rules.push(OrderRule {
                             id: SharedString::from(Uuid::new_v4().to_string()),
                             field: cx.new(|cx| {
                                 // rustfmt::skip
-                                SelectState::new(headers.clone(), None, window, cx)
+                                SelectState::new(columns.clone(), None, window, cx)
                             }),
                             order: cx.new(|cx| {
                                 // rustfmt::skip
@@ -580,14 +524,14 @@ impl CommonWorkspace {
             .icon(IconName::Plus)
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
-                let headers = columns.clone();
+                let columns = tab.columns.clone();
                 move |view: &mut Self, _, window, cx| {
                     if let Some(data) = view.data_content(&tab_id) {
                         data.query_rules.push(QueryRule {
                             id: SharedString::from(Uuid::new_v4().to_string()),
                             field: cx.new(|cx| {
                                 // rustfmt::skip
-                                SelectState::new(headers.clone(), None, window, cx)
+                                SelectState::new(columns.clone(), None, window, cx)
                             }),
                             operator: cx.new(|cx| {
                                 // rustfmt::skip
@@ -639,12 +583,10 @@ impl CommonWorkspace {
                 }
             }));
 
-        let mut orders = Vec::new();
+        let mut orders = vec![];
         for order in tab.order_rules.iter() {
             let tab_id = tab_id.clone();
             let rule_id = order.id.clone();
-            let rule_field = Select::new(&order.field).small().placeholder("");
-            let rule_order = Select::new(&order.order).small().placeholder("");
             orders.push(
                 div()
                     .flex()
@@ -652,13 +594,14 @@ impl CommonWorkspace {
                     .items_center()
                     .gap_2()
                     .w_full()
-                    .child(div().w_48().child(rule_field))
-                    .child(div().w_48().child(rule_order))
+                    .child(div().w_48().child(Select::new(&order.field).small().placeholder("")))
+                    .child(div().w_48().child(Select::new(&order.order).small().placeholder("")))
                     .child(
                         Button::new(comp_id(["table-order-remove", &rule_id]))
                             .ghost()
                             .icon(icon_trash())
                             .on_click(cx.listener({
+                                // rustfmt::skip
                                 move |view: &mut Self, _, _, cx| {
                                     if let Some(data) = view.data_content(&tab_id) {
                                         data.order_rules.retain(|r| &r.id != &rule_id);
@@ -669,13 +612,10 @@ impl CommonWorkspace {
                     ),
             )
         }
-        let mut queries = Vec::new();
+        let mut queries = vec![];
         for query in tab.query_rules.iter() {
             let tab_id = tab_id.clone();
             let rule_id = query.id.clone();
-            let rule_field = Select::new(&query.field).small().placeholder("");
-            let rule_operator = Select::new(&query.operator).small().placeholder("");
-
             queries.push(
                 div()
                     .flex()
@@ -683,14 +623,15 @@ impl CommonWorkspace {
                     .items_center()
                     .gap_2()
                     .w_full()
-                    .child(div().w_48().child(rule_field))
-                    .child(div().w_48().child(rule_operator))
+                    .child(div().w_48().child(Select::new(&query.field).small().placeholder("")))
+                    .child(div().w_48().child(Select::new(&query.operator).small().placeholder("")))
                     .child(div().flex_1().child(Input::new(&query.value).small()))
                     .child(
                         Button::new(comp_id(["table-filter-remove", &rule_id]))
                             .ghost()
                             .icon(icon_trash())
                             .on_click(cx.listener({
+                                // rustfmt::skip
                                 move |view: &mut Self, _, _, cx| {
                                     if let Some(data) = view.data_content(&tab_id) {
                                         data.query_rules.retain(|r| &r.id != &rule_id);
@@ -730,18 +671,8 @@ impl CommonWorkspace {
                     .child(filter)
                     .child(column)
                     .child(div().flex_1())
-                    .child(div().text_sm().child(format!(
-                        "显示 {} - {} / 共 {} 条",
-                        if tab.total_rows == 0 {
-                            0
-                        } else {
-                            page * tab.page_size + 1
-                        },
-                        ((page + 1) * tab.page_size).min(tab.total_rows),
-                        tab.total_rows
-                    )))
-                    .child(div().flex_1())
                     .child(page_prev)
+                    .child(div().text_sm().child(format!("第 {} 页", page_no + 1)))
                     .child(page_next),
             )
             .when(tab.filter_enable || tab.columns_enable, |this| {
@@ -861,12 +792,11 @@ impl CommonWorkspace {
                 active: 0,
                 summary: true,
                 editor,
-                results: Vec::new(),
+                results: vec![],
             }),
             closable: true,
         });
-        self.active_tab = tab_id;
-        self.active_table = Some(SharedString::from("SQL查询"));
+        self.active_tab = self.tabs.len() - 1;
         cx.notify();
     }
 
@@ -898,7 +828,7 @@ impl CommonWorkspace {
 
             query.results.clear();
             for (_, sql) in multi_sql.iter().enumerate() {
-                let datatable = DataTable::new(vec![], Vec::new()).build(window, cx);
+                let datatable = DataTable::new(vec![], vec![]).build(window, cx);
                 query.results.push(QueryResult {
                     sql: sql.to_string(),
                     error: None,
@@ -930,14 +860,14 @@ impl CommonWorkspace {
             let ret = cx
                 .background_executor()
                 .spawn(async move {
-                    let mut results = Vec::new();
+                    let mut results = vec![];
 
                     // 循环执行每条 SQL
                     for (i, sql) in multi_sql.iter().enumerate() {
                         let start = time::Instant::now();
                         match session.query(QueryReq::Sql {
                             sql: sql.to_string(),
-                            args: Vec::new(),
+                            args: vec![],
                         }) {
                             Ok(query_resp) => {
                                 let elapsed = start.elapsed().as_secs_f64();
@@ -945,14 +875,14 @@ impl CommonWorkspace {
                                 // 解析结果
                                 let rows = match query_resp {
                                     QueryResp::Rows(rows) => rows,
-                                    _ => Vec::new(),
+                                    _ => vec![],
                                 };
 
                                 // 提取列名和数据
                                 let table_cols: Vec<SharedString> = if let Some(first_row) = rows.first() {
                                     first_row.keys().map(|k| SharedString::from(k.clone())).collect()
                                 } else {
-                                    Vec::new()
+                                    vec![]
                                 };
 
                                 let mut table_rows = Vec::with_capacity(rows.len());
@@ -969,7 +899,7 @@ impl CommonWorkspace {
                             Err(err) => {
                                 let elapsed = start.elapsed().as_secs_f64();
                                 tracing::error!("执行SQL失败: {}", err);
-                                results.push((i, Vec::new(), Vec::new(), elapsed, Some(err.to_string())));
+                                results.push((i, vec![], vec![], elapsed, Some(err.to_string())));
                             }
                         }
                     }
@@ -1260,12 +1190,12 @@ impl Render for CommonWorkspace {
     ) -> impl IntoElement {
         let id = &self.source.id;
         let theme = cx.theme().clone();
-        let active = &self.active_tab;
+        let active_tab_index = self.active_tab;
 
-        let mut tabs = Vec::new();
-        for tab in self.tabs.iter() {
+        let mut tabs = vec![];
+        for (i, tab) in self.tabs.iter().enumerate() {
             let tab_id = tab.id.clone();
-            let tab_active = &tab_id == active;
+            let tab_active = i == active_tab_index;
 
             let mut item = div()
                 .id(comp_id(["common-tabs-item", &tab_id]))
@@ -1273,7 +1203,7 @@ impl Render for CommonWorkspace {
                 .flex_row()
                 .items_center()
                 .justify_center()
-                .h_7()
+                .h_8()
                 .px_2()
                 .gap_1()
                 .border_1()
@@ -1287,10 +1217,12 @@ impl Render for CommonWorkspace {
                     this.bg(theme.tab_bar).text_color(theme.muted_foreground)
                 })
                 .on_click(cx.listener({
-                    let tab_id = tab.id.clone();
-                    let tab_title = tab.title.clone();
+                    // rustfmt::skip
                     move |this, _, _, cx| {
-                        this.active_tab(tab_id.clone(), tab_title.clone(), cx);
+                        if i < this.tabs.len() {
+                            this.active_tab = i;
+                            cx.notify();
+                        }
                     }
                 }))
                 .child(
@@ -1308,8 +1240,19 @@ impl Render for CommonWorkspace {
                         .ghost()
                         .xsmall()
                         .icon(IconName::Close)
-                        .on_click(cx.listener(move |this, _, _, cx| {
-                            this.close_tab(&tab_id, cx);
+                        .on_click(cx.listener({
+                            // rustfmt::skip
+                            move |this, _, _, cx| {
+                                let Some(i) = this.tabs.iter().position(|tab| &tab.id == &tab_id) else {
+                                    return;
+                                };
+                                let was_active = i == this.active_tab;
+                                this.tabs.remove(i);
+                                if was_active && !this.tabs.is_empty() {
+                                    this.active_tab = i.min(this.tabs.len().saturating_sub(1));
+                                }
+                                cx.notify();
+                            }
                         })),
                 );
             }
@@ -1323,27 +1266,40 @@ impl Render for CommonWorkspace {
 
             tabs.push(item)
         }
-        let mut tables = Vec::new();
-        for item in self.tables.iter() {
-            let active = self.active_table.as_ref() == Some(&item);
-            let active_table = item.clone();
+        let mut tables = vec![];
+        for (i, item) in self.tables.iter().enumerate() {
+            let active = self.active_table == Some(i);
+            let table_name = SharedString::from(item.name.clone());
 
             tables.push(
                 div()
-                    .id(comp_id(["common-sidebar-item", &self.source.id, &item]))
+                    .id(comp_id(["common-tables-item", &self.source.id, &item.name]))
                     .pl_4()
                     .pr_6()
                     .py_2()
                     .gap_2()
                     .row_full()
                     .items_center()
+                    .rounded_md()
                     .when_else(
                         active,
-                        |this| this.bg(theme.list_active).font_semibold(),
+                        |this| this.bg(theme.list_active),
                         |this| this.hover(|this| this.bg(theme.list_hover)),
                     )
-                    .on_double_click(cx.listener(move |this, _, window, cx| {
-                        this.create_data_tab(active_table.clone(), window, cx);
+                    .on_click(cx.listener({
+                        // rustfmt::skip
+                        move |this, _, _, cx| {
+                            if i < this.tables.len() {
+                                this.active_table = Some(i);
+                                cx.notify();
+                            }
+                        }
+                    }))
+                    .on_double_click(cx.listener({
+                        let table_name = table_name.clone();
+                        move |this, _, window, cx| {
+                            this.create_data_tab(table_name.clone(), window, cx);
+                        }
                     }))
                     .child(icon_sheet())
                     .child(
@@ -1351,10 +1307,10 @@ impl Render for CommonWorkspace {
                             .text_sm()
                             .overflow_hidden()
                             .whitespace_nowrap()
-                            .child(item.clone()),
+                            .child(item.name.clone()),
                     )
                     .tooltip({
-                        let name = item.clone();
+                        let name = item.name.clone();
                         move |window, cx| Tooltip::new(name.clone()).build(window, cx)
                     }),
             )
@@ -1452,7 +1408,7 @@ impl Render for CommonWorkspace {
                                 .size_range(px(100.)..px(360.))
                                 .child(
                                     div()
-                                        .id(comp_id(["common-sidebar", id]))
+                                        .id(comp_id(["common-tables", id]))
                                         .p_2()
                                         .gap_2()
                                         .col_full()
@@ -1475,21 +1431,14 @@ impl Render for CommonWorkspace {
                                         .min_w_0()
                                         .children(tabs),
                                 )
-                                .child(
-                                    div().id(comp_id(["common-main", id])).col_full().child(
-                                        match self
-                                            .tabs
-                                            .iter()
-                                            .find(|tab| tab.id == self.active_tab)
-                                            .map(|tab| &tab.content)
-                                        {
-                                            Some(TabContent::Data(tab)) => self.render_data_tab(tab, cx),
-                                            Some(TabContent::Query(tab)) => self.render_query_tab(tab, cx),
-                                            Some(TabContent::Struct()) => self.render_struct_tab(cx),
-                                            Some(TabContent::Overview) | None => self.render_overview_tab(cx),
-                                        },
-                                    ),
-                                )
+                                .child(div().id(comp_id(["common-main", id])).col_full().child(
+                                    match self.tabs.get(self.active_tab).map(|tab| &tab.content) {
+                                        Some(TabContent::Data(tab)) => self.render_data_tab(tab, cx),
+                                        Some(TabContent::Query(tab)) => self.render_query_tab(tab, cx),
+                                        Some(TabContent::Struct()) => self.render_struct_tab(cx),
+                                        Some(TabContent::Overview) | None => self.render_overview_tab(cx),
+                                    },
+                                ))
                                 .into_any_element(),
                         ),
                 ),

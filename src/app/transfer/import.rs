@@ -188,7 +188,7 @@ impl ImportWindow {
             session: None,
 
             step: ImportStep::Kind,
-            files: Vec::new(),
+            files: vec![],
 
             col_index: cx.new(|cx| InputState::new(window, cx).default_value("1")),
             data_index: cx.new(|cx| InputState::new(window, cx).default_value("2")),

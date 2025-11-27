@@ -44,10 +44,10 @@ impl DatabaseSession for SQLiteConnection {
                     format_columns(&columns),
                     table.replace('"', "\"\"")
                 );
-                let mut params = Vec::new();
+                let mut params = vec![];
 
                 if !filters.is_empty() {
-                    let mut clauses = Vec::new();
+                    let mut clauses = vec![];
                     for filter in &filters {
                         let field = format!("\"{}\"", filter.field.replace('"', "\"\""));
                         match filter.operator {
@@ -148,7 +148,7 @@ impl DatabaseSession for SQLiteConnection {
             .query(&param_refs[..])
             .map_err(|err| DriverError::Other(format!("执行查询失败: {}", err)))?;
 
-        let mut records = Vec::new();
+        let mut records = vec![];
         let mut count = 0;
         while let Some(row) = rows
             .next()
@@ -245,7 +245,7 @@ impl DatabaseSession for SQLiteConnection {
             .prepare(sql)
             .map_err(|err| DriverError::Other(format!("查询表列表失败: {}", err)))?;
 
-        let mut tables = Vec::new();
+        let mut tables = vec![];
         let rows = stmt
             .query_map([], |row| row.get::<_, String>(0))
             .map_err(|err| DriverError::Other(format!("查询表列表失败: {}", err)))?;
@@ -266,7 +266,7 @@ impl DatabaseSession for SQLiteConnection {
             .prepare(&sql)
             .map_err(|err| DriverError::Other(format!("查询列信息失败: {}", err)))?;
 
-        let mut columns = Vec::new();
+        let mut columns = vec![];
         let rows = stmt
             .query_map([], |row| row.get::<_, String>(1))
             .map_err(|err| DriverError::Other(format!("查询列信息失败: {}", err)))?;

@@ -21,24 +21,24 @@ mod sqlserver;
 
 #[derive(Clone, Debug)]
 pub struct Paging {
+    pub page: usize,
     pub size: usize,
-    pub number: usize,
 }
 
 impl Paging {
     pub fn new(
+        page: usize,
         size: usize,
-        number: usize,
     ) -> Self {
-        Self { size, number }
-    }
-
-    pub fn offset(&self) -> usize {
-        self.number * self.size
+        Self { page, size }
     }
 
     pub fn limit(&self) -> usize {
         self.size
+    }
+
+    pub fn offset(&self) -> usize {
+        self.page * self.size
     }
 }
 

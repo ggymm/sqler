@@ -173,7 +173,7 @@ impl MongoDBWorkspace {
         }
 
         let filter_input = cx.new(|cx| InputState::new(window, cx));
-        let content = DataTable::new(vec![], Vec::new()).build(window, cx);
+        let content = DataTable::new(vec![], vec![]).build(window, cx);
 
         self.tabs.push(TabItem {
             id: id.clone(),
