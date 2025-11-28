@@ -40,16 +40,16 @@ impl WindowKind {
     }
 }
 
-pub enum TabView {
+enum TabView {
     Home,
     Workspace(WorkspaceState),
 }
 
-pub struct TabState {
-    pub id: String,
-    pub view: TabView,
-    pub title: SharedString,
-    pub closable: bool,
+struct TabState {
+    id: String,
+    view: TabView,
+    title: SharedString,
+    closable: bool,
 }
 
 impl TabState {
@@ -80,11 +80,11 @@ impl TabState {
 }
 
 pub struct SqlerApp {
-    pub tabs: Vec<TabState>,
-    pub active_tab: String,
+    tabs: Vec<TabState>,
+    active_tab: String,
 
-    pub cache: CacheApp,
-    pub windows: HashMap<String, WindowHandle<Root>>,
+    cache: CacheApp,
+    windows: HashMap<String, WindowHandle<Root>>,
 }
 
 impl SqlerApp {
@@ -157,11 +157,12 @@ impl SqlerApp {
             return;
         }
 
-        if let Some(source) = self.cache.sources().iter().find(|source| source.id == tab_id).cloned() {
-            self.tabs.push(TabState::workspace(source, window, cx));
-            self.active_tab = tab_id.to_string();
-            cx.notify();
-        }
+        let Some(source) = self.cache.sources().iter().find(|source| source.id == tab_id).cloned() else {
+            return;
+        };
+        self.tabs.push(TabState::workspace(source, window, cx));
+        self.active_tab = tab_id.to_string();
+        cx.notify();
     }
 
     pub fn toggle_theme(

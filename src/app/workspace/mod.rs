@@ -13,10 +13,6 @@ use crate::{
     model::{DataSource, DataSourceKind},
 };
 
-use common::CommonWorkspace;
-use mongodb::MongoDBWorkspace;
-use redis::RedisWorkspace;
-
 mod common;
 mod mongodb;
 mod redis;
@@ -94,16 +90,13 @@ impl CompletionProvider for EditorComps {
                 .take(10)
                 .map(|item| {
                     let mut item = item.clone();
-                    // 使用 text_edit 明确指定替换范围
-                    let range = Range {
-                        start: start_pos,
-                        end: end_pos,
-                    };
-                    let edit = TextEdit {
-                        range,
+                    item.text_edit = Some(CompletionTextEdit::Edit(TextEdit {
+                        range: Range {
+                            start: start_pos,
+                            end: end_pos,
+                        },
                         new_text: item.label.clone(),
-                    };
-                    item.text_edit = Some(CompletionTextEdit::Edit(edit));
+                    }));
                     item.filter_text = Some(word.clone());
                     item
                 })
@@ -124,9 +117,9 @@ impl CompletionProvider for EditorComps {
 }
 
 pub enum WorkspaceState {
-    Common { view: Entity<CommonWorkspace> },
-    Redis { view: Entity<RedisWorkspace> },
-    MongoDB { view: Entity<MongoDBWorkspace> },
+    Common { view: Entity<common::CommonWorkspace> },
+    Redis { view: Entity<redis::RedisWorkspace> },
+    MongoDB { view: Entity<mongodb::MongoDBWorkspace> },
 }
 
 impl WorkspaceState {
@@ -141,18 +134,40 @@ impl WorkspaceState {
             | DataSourceKind::SQLite
             | DataSourceKind::Postgres
             | DataSourceKind::Oracle
-            | DataSourceKind::SQLServer => {
-                let view = cx.new(|cx| CommonWorkspace::new(source, parent.clone(), cx));
-                WorkspaceState::Common { view }
-            }
-            DataSourceKind::Redis => {
-                let view = cx.new(|cx| RedisWorkspace::new(source, parent.clone(), cx));
-                WorkspaceState::Redis { view }
-            }
-            DataSourceKind::MongoDB => {
-                let view = cx.new(|cx| MongoDBWorkspace::new(source, parent.clone(), cx));
-                WorkspaceState::MongoDB { view }
-            }
+            | DataSourceKind::SQLServer => WorkspaceState::Common {
+                view: cx.new(|_| common::CommonWorkspace {
+                    source,
+                    parent,
+                    session: None,
+
+                    tabs: vec![common::TabState::overview()],
+                    active_tab: 0,
+                    tables: vec![],
+                    active_table: None,
+                }),
+            },
+            DataSourceKind::Redis => WorkspaceState::Redis {
+                view: cx.new(|_| redis::RedisWorkspace {
+                    source,
+                    parent,
+                    session: None,
+
+                    tabs: vec![redis::TabItem::overview()],
+                    active_tab: SharedString::from(""),
+                }),
+            },
+            DataSourceKind::MongoDB => WorkspaceState::MongoDB {
+                view: cx.new(|_| mongodb::MongoDBWorkspace {
+                    source,
+                    parent,
+                    session: None,
+
+                    tabs: vec![mongodb::TabItem::overview()],
+                    active_tab: SharedString::from(""),
+                    collections: vec![],
+                    active_collection: None,
+                }),
+            },
         }
     }
 

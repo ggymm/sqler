@@ -21,8 +21,8 @@ mod sqlserver;
 
 #[derive(Clone, Debug)]
 pub struct Paging {
-    pub page: usize,
-    pub size: usize,
+    page: usize,
+    size: usize,
 }
 
 impl Paging {

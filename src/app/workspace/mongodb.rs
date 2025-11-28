@@ -18,7 +18,7 @@ use crate::{
 
 const PAGE_SIZE: usize = 100;
 
-struct TabItem {
+pub struct TabItem {
     id: SharedString,
     title: SharedString,
     content: TabContent,
@@ -26,7 +26,7 @@ struct TabItem {
 }
 
 impl TabItem {
-    fn overview() -> Self {
+    pub fn overview() -> Self {
         Self {
             id: SharedString::from("mongodb-overview-tab"),
             title: SharedString::from("概览"),
@@ -52,37 +52,17 @@ struct CollectionContent {
 }
 
 pub struct MongoDBWorkspace {
-    source: DataSource,
-    parent: WeakEntity<SqlerApp>,
-    session: Option<Box<dyn DatabaseSession>>,
+    pub source: DataSource,
+    pub parent: WeakEntity<SqlerApp>,
+    pub session: Option<Box<dyn DatabaseSession>>,
 
-    tabs: Vec<TabItem>,
-    active_tab: SharedString,
-    collections: Vec<SharedString>,
-    active_collection: Option<SharedString>,
+    pub tabs: Vec<TabItem>,
+    pub active_tab: SharedString,
+    pub collections: Vec<SharedString>,
+    pub active_collection: Option<SharedString>,
 }
 
 impl MongoDBWorkspace {
-    pub fn new(
-        source: DataSource,
-        parent: WeakEntity<SqlerApp>,
-        _cx: &mut Context<Self>,
-    ) -> Self {
-        let overview = TabItem::overview();
-        let active_tab = overview.id.clone();
-
-        Self {
-            source,
-            parent,
-            session: None,
-
-            tabs: vec![overview],
-            active_tab,
-            collections: vec![],
-            active_collection: None,
-        }
-    }
-
     fn close_tab(
         &mut self,
         tab_id: &SharedString,

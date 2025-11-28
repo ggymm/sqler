@@ -17,7 +17,7 @@ use crate::{
     model::DataSource,
 };
 
-struct TabItem {
+pub struct TabItem {
     id: SharedString,
     title: SharedString,
     content: TabContent,
@@ -25,7 +25,7 @@ struct TabItem {
 }
 
 impl TabItem {
-    fn overview() -> Self {
+    pub fn overview() -> Self {
         Self {
             id: SharedString::from("redis-overview-tab"),
             title: SharedString::from("概览"),
@@ -47,33 +47,15 @@ struct CommandContent {
 }
 
 pub struct RedisWorkspace {
-    source: DataSource,
-    parent: WeakEntity<SqlerApp>,
-    session: Option<Box<dyn DatabaseSession>>,
+    pub source: DataSource,
+    pub parent: WeakEntity<SqlerApp>,
+    pub session: Option<Box<dyn DatabaseSession>>,
 
-    tabs: Vec<TabItem>,
-    active_tab: SharedString,
+    pub tabs: Vec<TabItem>,
+    pub active_tab: SharedString,
 }
 
 impl RedisWorkspace {
-    pub fn new(
-        source: DataSource,
-        parent: WeakEntity<SqlerApp>,
-        _cx: &mut Context<Self>,
-    ) -> Self {
-        let overview = TabItem::overview();
-        let active_tab = overview.id.clone();
-
-        Self {
-            source,
-            parent,
-            session: None,
-
-            tabs: vec![overview],
-            active_tab,
-        }
-    }
-
     fn close_tab(
         &mut self,
         tab_id: &SharedString,

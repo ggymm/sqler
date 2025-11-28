@@ -32,101 +32,43 @@ const PAGE_SIZE: usize = 500;
 const ORDER_ASC: &str = "升序";
 const ORDER_DESC: &str = "降序";
 
-struct TabItem {
-    id: SharedString,
-    title: SharedString,
-    content: TabContent,
-    closable: bool,
-}
-
-impl TabItem {
-    fn overview() -> Self {
-        Self {
-            id: SharedString::from("common-overview-tab"),
-            title: SharedString::from("概览"),
-            content: TabContent::Overview,
-            closable: false,
-        }
-    }
-}
-
-enum TabContent {
+enum TabView {
     Data(DataContent),
     Query(QueryContent),
     Struct(),
     Overview,
 }
 
-struct QueryRule {
+pub struct TabState {
     id: SharedString,
-    value: Entity<InputState>,
-    field: Entity<SelectState<Vec<SharedString>>>,
-    operator: Entity<SelectState<Vec<SharedString>>>,
+    title: SharedString,
+    content: TabView,
+    closable: bool,
 }
 
-struct OrderRule {
-    id: SharedString,
-    field: Entity<SelectState<Vec<SharedString>>>,
-    order: Entity<SelectState<Vec<SharedString>>>,
-}
-
-struct DataContent {
-    id: SharedString,
-    page_no: usize,
-    rows_count: usize,
-    order_rules: Vec<OrderRule>,
-    query_rules: Vec<QueryRule>,
-    filter_enable: bool,
-    columns: Vec<SharedString>,
-    columns_enable: bool,
-    table: SharedString,
-    datatable: Entity<TableState<DataTable>>,
-}
-
-struct QueryResult {
-    sql: String,
-    error: Option<String>,
-    elapsed: f64,
-    datatable: Entity<TableState<DataTable>>,
-}
-
-struct QueryContent {
-    id: SharedString,
-    active: usize,
-    summary: bool,
-    editor: Entity<InputState>,
-    results: Vec<QueryResult>,
+impl TabState {
+    pub fn overview() -> Self {
+        Self {
+            id: SharedString::from("common-overview-tab"),
+            title: SharedString::from("概览"),
+            content: TabView::Overview,
+            closable: false,
+        }
+    }
 }
 
 pub struct CommonWorkspace {
-    source: DataSource,
-    parent: WeakEntity<SqlerApp>,
-    session: Option<Box<dyn DatabaseSession>>,
+    pub source: DataSource,
+    pub parent: WeakEntity<SqlerApp>,
+    pub session: Option<Box<dyn DatabaseSession>>,
 
-    tabs: Vec<TabItem>,
-    active_tab: usize,
-    tables: Vec<TableInfo>,
-    active_table: Option<usize>,
+    pub tabs: Vec<TabState>,
+    pub active_tab: usize,
+    pub tables: Vec<TableInfo>,
+    pub active_table: Option<usize>,
 }
 
 impl CommonWorkspace {
-    pub fn new(
-        source: DataSource,
-        parent: WeakEntity<SqlerApp>,
-        _cx: &mut Context<Self>,
-    ) -> Self {
-        Self {
-            source,
-            parent,
-            session: None,
-
-            tabs: vec![TabItem::overview()],
-            active_tab: 0,
-            tables: vec![],
-            active_table: None,
-        }
-    }
-
     fn active_session(&mut self) -> Result<&mut (dyn DatabaseSession + '_), DriverError> {
         if self.session.is_none() {
             self.session = Some(create_connection(&self.source.options)?);
@@ -186,7 +128,7 @@ impl CommonWorkspace {
 
         // 清除失效的标签页
         self.tabs.retain(|tab| match &tab.content {
-            TabContent::Data(tab) => self.tables.iter().any({
+            TabView::Data(tab) => self.tables.iter().any({
                 // rustfmt::skip
                 |t| t.name == tab.table.as_ref()
             }),
@@ -203,7 +145,7 @@ impl CommonWorkspace {
         self.tabs.iter_mut().find(|tab| tab.id == *tab_id).and_then({
             // rustfmt::skip
             |item| {
-                if let TabContent::Data(tab) = &mut item.content {
+                if let TabView::Data(tab) = &mut item.content {
                     Some(tab)
                 } else {
                     None
@@ -219,7 +161,7 @@ impl CommonWorkspace {
         self.tabs.iter_mut().find(|tab| tab.id == *tab_id).and_then({
             // rustfmt::skip
             |item| {
-                if let TabContent::Query(tab) = &mut item.content {
+                if let TabView::Query(tab) = &mut item.content {
                     Some(tab)
                 } else {
                     None
@@ -240,7 +182,7 @@ impl CommonWorkspace {
         if let Some(index) = self.tabs.iter().position(|tab| {
             matches!(
                 &tab.content,
-                TabContent::Data(current) if current.id == tab_id
+                TabView::Data(current) if current.id == tab_id
             )
         }) {
             self.active_tab = index;
@@ -249,10 +191,10 @@ impl CommonWorkspace {
         }
 
         // 新建标签页
-        self.tabs.push(TabItem {
+        self.tabs.push(TabState {
             id: tab_id.clone(),
             title: table.clone(),
-            content: TabContent::Data(DataContent {
+            content: TabView::Data(DataContent {
                 id: tab_id.clone(),
                 page_no: 0,
                 rows_count: 0,
@@ -784,10 +726,10 @@ impl CommonWorkspace {
             editor
         });
         // 新建标签页
-        self.tabs.push(TabItem {
+        self.tabs.push(TabState {
             id: tab_id.clone(),
             title: SharedString::from("SQL 查询"),
-            content: TabContent::Query(QueryContent {
+            content: TabView::Query(QueryContent {
                 id: tab_id.clone(),
                 active: 0,
                 summary: true,
@@ -1433,10 +1375,10 @@ impl Render for CommonWorkspace {
                                 )
                                 .child(div().id(comp_id(["common-main", id])).col_full().child(
                                     match self.tabs.get(self.active_tab).map(|tab| &tab.content) {
-                                        Some(TabContent::Data(tab)) => self.render_data_tab(tab, cx),
-                                        Some(TabContent::Query(tab)) => self.render_query_tab(tab, cx),
-                                        Some(TabContent::Struct()) => self.render_struct_tab(cx),
-                                        Some(TabContent::Overview) | None => self.render_overview_tab(cx),
+                                        Some(TabView::Data(tab)) => self.render_data_tab(tab, cx),
+                                        Some(TabView::Query(tab)) => self.render_query_tab(tab, cx),
+                                        Some(TabView::Struct()) => self.render_struct_tab(cx),
+                                        Some(TabView::Overview) | None => self.render_overview_tab(cx),
                                     },
                                 ))
                                 .into_any_element(),
@@ -1444,4 +1386,45 @@ impl Render for CommonWorkspace {
                 ),
             )
     }
+}
+
+struct QueryRule {
+    id: SharedString,
+    value: Entity<InputState>,
+    field: Entity<SelectState<Vec<SharedString>>>,
+    operator: Entity<SelectState<Vec<SharedString>>>,
+}
+
+struct OrderRule {
+    id: SharedString,
+    field: Entity<SelectState<Vec<SharedString>>>,
+    order: Entity<SelectState<Vec<SharedString>>>,
+}
+
+struct DataContent {
+    id: SharedString,
+    page_no: usize,
+    rows_count: usize,
+    order_rules: Vec<OrderRule>,
+    query_rules: Vec<QueryRule>,
+    filter_enable: bool,
+    columns: Vec<SharedString>,
+    columns_enable: bool,
+    table: SharedString,
+    datatable: Entity<TableState<DataTable>>,
+}
+
+struct QueryResult {
+    sql: String,
+    error: Option<String>,
+    elapsed: f64,
+    datatable: Entity<TableState<DataTable>>,
+}
+
+struct QueryContent {
+    id: SharedString,
+    active: usize,
+    summary: bool,
+    editor: Entity<InputState>,
+    results: Vec<QueryResult>,
 }
