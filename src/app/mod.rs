@@ -157,7 +157,7 @@ impl SqlerApp {
             return;
         }
 
-        let Some(source) = self.cache.sources().iter().find(|source| source.id == tab_id).cloned() else {
+        let Some(source) = self.cache.sources().iter().find(|s| s.id == tab_id).cloned() else {
             return;
         };
         self.tabs.push(TabState::workspace(source, window, cx));
