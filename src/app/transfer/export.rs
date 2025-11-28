@@ -8,6 +8,7 @@ use gpui_component::{
 
 use crate::{
     app::{comps::DivExt, SqlerApp},
+    cache::SharedStore,
     model::DataSource,
 };
 
@@ -15,6 +16,7 @@ use super::TransferKind;
 
 pub struct ExportWindow {
     parent: WeakEntity<SqlerApp>,
+    cache: SharedStore,
     source: DataSource,
 
     format: Option<TransferKind>,
@@ -24,6 +26,7 @@ pub struct ExportWindow {
 
 impl ExportWindow {
     pub fn new(
+        cache: SharedStore,
         parent: WeakEntity<SqlerApp>,
         source: DataSource,
         window: &mut Window,
@@ -40,6 +43,7 @@ impl ExportWindow {
 
         Self {
             parent,
+            cache,
             source,
 
             format: None,

@@ -15,6 +15,7 @@ use crate::{
         comps::{icon_relead, DivExt},
         SqlerApp,
     },
+    cache::SharedStore,
     driver::{create_connection, DatabaseSession, DriverError},
     model::DataSource,
 };
@@ -146,7 +147,9 @@ enum TableOption {
 }
 
 pub struct ImportWindow {
+    cache: SharedStore,
     parent: WeakEntity<SqlerApp>,
+
     source: DataSource,
     session: Option<Box<dyn DatabaseSession>>,
 
@@ -165,6 +168,7 @@ pub struct ImportWindow {
 
 impl ImportWindow {
     pub fn new(
+        cache: SharedStore,
         parent: WeakEntity<SqlerApp>,
         source: DataSource,
         window: &mut Window,
@@ -185,6 +189,7 @@ impl ImportWindow {
         Self {
             source,
             parent,
+            cache,
             session: None,
 
             step: ImportStep::Kind,

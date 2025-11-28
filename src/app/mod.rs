@@ -7,14 +7,15 @@ use gpui_component::{
     ActiveTheme, Root, Sizable, Size,
 };
 
+use crate::cache::AppCache;
 use crate::{
     app::{
         comps::{comp_id, icon_close},
         create::CreateWindow,
         transfer::{ExportWindow, ImportWindow},
-        workspace::WorkspaceState,
+        workspace::Workspace,
     },
-    cache::CacheApp,
+    cache::SharedStore,
     model::DataSource,
 };
 
@@ -40,50 +41,23 @@ impl WindowKind {
     }
 }
 
-enum TabView {
+enum TabContent {
     Home,
-    Workspace(WorkspaceState),
+    Workspace(Workspace),
 }
 
-struct TabState {
+struct TabContext {
     id: String,
-    view: TabView,
     title: SharedString,
+    content: TabContent,
     closable: bool,
 }
 
-impl TabState {
-    fn home() -> Self {
-        Self {
-            id: "home".to_string(),
-            view: TabView::Home,
-            title: SharedString::from("首页"),
-            closable: false,
-        }
-    }
-
-    fn workspace(
-        source: DataSource,
-        window: &mut Window,
-        cx: &mut Context<SqlerApp>,
-    ) -> Self {
-        let id = source.id.clone();
-        let title = SharedString::from(source.name.clone());
-        let workspace = WorkspaceState::new(source, window, cx);
-        Self {
-            id,
-            view: TabView::Workspace(workspace),
-            title,
-            closable: true,
-        }
-    }
-}
-
 pub struct SqlerApp {
-    tabs: Vec<TabState>,
+    tabs: Vec<TabContext>,
     active_tab: String,
 
-    cache: CacheApp,
+    cache: SharedStore,
     windows: HashMap<String, WindowHandle<Root>>,
 }
 
@@ -94,17 +68,21 @@ impl SqlerApp {
     ) -> Self {
         Theme::change(ThemeMode::Light, None, cx);
 
-        let cache = match CacheApp::init() {
+        let cache = match AppCache::init_shared() {
             Ok(cache) => cache,
             Err(e) => panic!("{}", e),
         };
 
         Self {
-            tabs: vec![TabState::home()],
+            tabs: vec![TabContext {
+                id: "home".to_string(),
+                content: TabContent::Home,
+                title: SharedString::from("首页"),
+                closable: false,
+            }],
             active_tab: "home".to_string(),
 
             cache,
-
             windows: HashMap::new(),
         }
     }
@@ -114,21 +92,22 @@ impl SqlerApp {
         tab_id: &str,
         cx: &mut Context<SqlerApp>,
     ) {
-        if let Some(index) = self.tabs.iter().position(|tab| tab.id == tab_id) {
-            if !self.tabs[index].closable {
-                return;
-            }
-            self.tabs.remove(index);
-            if self.tabs.is_empty() {
-                return;
-            }
-
-            if self.active_tab == tab_id {
-                let fallback = if index == 0 { 0 } else { index - 1 };
-                self.active_tab = self.tabs[fallback].id.clone();
-            }
-            cx.notify();
+        let Some(index) = self.tabs.iter().position(|tab| tab.id == tab_id) else {
+            return;
+        };
+        if !self.tabs[index].closable {
+            return;
         }
+        self.tabs.remove(index);
+        if self.tabs.is_empty() {
+            return;
+        }
+
+        if self.active_tab == tab_id {
+            let fallback = if index == 0 { 0 } else { index - 1 };
+            self.active_tab = self.tabs[fallback].id.clone();
+        }
+        cx.notify();
     }
 
     pub fn active_tab(
@@ -145,22 +124,38 @@ impl SqlerApp {
     pub fn create_tab(
         &mut self,
         tab_id: &str,
-        window: &mut Window,
+        _window: &mut Window,
         cx: &mut Context<SqlerApp>,
     ) {
         if let Some(exist) = self.tabs.iter().find(|tab| {
             // rustfmt::skip
-            matches!(&tab.view, TabView::Workspace(_)) && tab.id == tab_id
+            matches!(&tab.content, TabContent::Workspace(_)) && tab.id == tab_id
         }) {
             self.active_tab = exist.id.clone();
             cx.notify();
             return;
         }
 
-        let Some(source) = self.cache.sources().iter().find(|s| s.id == tab_id).cloned() else {
+        let source = {
+            let cache = self.cache.read().unwrap();
+            cache.sources().iter().find(|s| s.id == tab_id).cloned()
+        };
+        let Some(source) = source else {
             return;
         };
-        self.tabs.push(TabState::workspace(source, window, cx));
+
+        // 在调用 TabState::workspace 之前获取 cache，避免嵌套借用
+        let id = source.id.clone();
+        let title = SharedString::from(source.name.clone());
+        let cache = self.cache.clone();
+        let workspace = TabContent::Workspace(Workspace::new(cache, source, cx));
+
+        self.tabs.push(TabContext {
+            id,
+            title,
+            content: workspace,
+            closable: true,
+        });
         self.active_tab = tab_id.to_string();
         cx.notify();
     }
@@ -216,24 +211,25 @@ impl SqlerApp {
             ..Default::default()
         };
         let parent = cx.weak_entity();
+        let cache = self.cache.clone();
         let result = cx.open_window(options, move |window, cx| {
             let view: AnyView = match kind {
                 WindowKind::Create(source) => cx
                     .new(|cx| {
                         // rustfmt::skip
-                        CreateWindow::new(parent.clone(), source.as_ref(), window, cx)
+                        CreateWindow::new(cache.clone(), parent.clone(), source.as_ref(), window, cx)
                     })
                     .into(),
                 WindowKind::Import(source) => cx
                     .new(|cx| {
                         // rustfmt::skip
-                        ImportWindow::new(parent.clone(), source.clone(), window, cx)
+                        ImportWindow::new(cache.clone(), parent.clone(), source.clone(), window, cx)
                     })
                     .into(),
                 WindowKind::Export(source) => cx
                     .new(|cx| {
                         // rustfmt::skip
-                        ExportWindow::new(parent.clone(), source.clone(), window, cx)
+                        ExportWindow::new(cache.clone(), parent.clone(), source.clone(), window, cx)
                     })
                     .into(),
             };

@@ -9,7 +9,8 @@ use gpui_component::{
 use lsp_types::{CompletionContext, CompletionItem, CompletionResponse, CompletionTextEdit, Position, Range, TextEdit};
 
 use crate::{
-    app::{SqlerApp, TabView, WindowKind},
+    app::{SqlerApp, TabContent, WindowKind},
+    cache::SharedStore,
     model::{DataSource, DataSourceKind},
 };
 
@@ -116,50 +117,62 @@ impl CompletionProvider for EditorComps {
     }
 }
 
-pub enum WorkspaceState {
+pub enum Workspace {
     Common { view: Entity<common::CommonWorkspace> },
     Redis { view: Entity<redis::RedisWorkspace> },
     MongoDB { view: Entity<mongodb::MongoDBWorkspace> },
 }
 
-impl WorkspaceState {
+impl Workspace {
     pub fn new(
+        cache: SharedStore,
         source: DataSource,
-        _window: &mut Window,
         cx: &mut Context<SqlerApp>,
     ) -> Self {
         let parent = cx.weak_entity();
+
         match source.kind {
             DataSourceKind::MySQL
             | DataSourceKind::SQLite
             | DataSourceKind::Postgres
             | DataSourceKind::Oracle
-            | DataSourceKind::SQLServer => WorkspaceState::Common {
-                view: cx.new(|_| common::CommonWorkspace {
-                    source,
-                    parent,
-                    session: None,
+            | DataSourceKind::SQLServer => {
+                let tables = {
+                    let cache = cache.read().unwrap();
+                    cache.tables(&source.id).unwrap_or_default()
+                };
 
-                    tabs: vec![common::TabState::overview()],
-                    active_tab: 0,
-                    tables: vec![],
-                    active_table: None,
-                }),
-            },
-            DataSourceKind::Redis => WorkspaceState::Redis {
+                Workspace::Common {
+                    view: cx.new(|_| common::CommonWorkspace {
+                        cache,
+                        parent,
+
+                        source,
+                        session: None,
+
+                        tabs: vec![common::TabContext::overview()],
+                        active_tab: 0,
+                        tables,
+                        active_table: None,
+                    }),
+                }
+            }
+            DataSourceKind::Redis => Workspace::Redis {
                 view: cx.new(|_| redis::RedisWorkspace {
-                    source,
                     parent,
+
+                    source,
                     session: None,
 
                     tabs: vec![redis::TabItem::overview()],
                     active_tab: SharedString::from(""),
                 }),
             },
-            DataSourceKind::MongoDB => WorkspaceState::MongoDB {
+            DataSourceKind::MongoDB => Workspace::MongoDB {
                 view: cx.new(|_| mongodb::MongoDBWorkspace {
-                    source,
                     parent,
+
+                    source,
                     session: None,
 
                     tabs: vec![mongodb::TabItem::overview()],
@@ -173,9 +186,9 @@ impl WorkspaceState {
 
     pub fn render(&self) -> AnyElement {
         match self {
-            WorkspaceState::Common { view } => view.clone().into_any_element(),
-            WorkspaceState::Redis { view } => view.clone().into_any_element(),
-            WorkspaceState::MongoDB { view } => view.clone().into_any_element(),
+            Workspace::Common { view } => view.clone().into_any_element(),
+            Workspace::Redis { view } => view.clone().into_any_element(),
+            Workspace::MongoDB { view } => view.clone().into_any_element(),
         }
     }
 }
@@ -186,9 +199,9 @@ pub fn render(
     cx: &mut Context<SqlerApp>,
 ) -> AnyElement {
     if let Some(tab) = app.tabs.iter_mut().find(|tab| tab.id == app.active_tab) {
-        match &mut tab.view {
-            TabView::Home => render_home(app, cx),
-            TabView::Workspace(state) => state.render(),
+        match &mut tab.content {
+            TabContent::Home => render_home(app, cx),
+            TabContent::Workspace(state) => state.render(),
         }
     } else {
         div().child("未找到可渲染的标签页").into_any_element()
@@ -212,73 +225,80 @@ pub fn render_home(
         .min_w_0()
         .min_h_0()
         .scrollable(Axis::Vertical)
-        .children(app.cache.sources().iter().cloned().map(|source| {
-            let display = source.display_endpoint();
+        .children(
+            {
+                let cache = app.cache.read().unwrap();
+                cache.sources().iter().cloned().collect::<Vec<_>>()
+            }
+            .into_iter()
+            .map(|source| {
+                let display = source.display_endpoint();
 
-            let source = source.clone();
-            let source_id = source.id.clone();
+                let source = source.clone();
+                let source_id = source.id.clone();
 
-            div()
-                .flex()
-                .flex_1()
-                .flex_col()
-                .p_5()
-                .gap_2()
-                .min_w_64()
-                .rounded_md()
-                .bg(theme.secondary)
-                .border_1()
-                .border_color(theme.border)
-                .id(SharedString::from(format!("source-card-{}", source.id)))
-                .hover(|this| this.bg(theme.secondary_hover))
-                .on_double_click(cx.listener({
-                    let source_id = source_id.clone();
-                    move |this, _, window, cx| {
-                        this.create_tab(&source_id, window, cx);
-                    }
-                }))
-                .context_menu({
-                    let entity = entity.clone();
-                    let source = source.clone();
-                    move |this, window, _cx| {
-                        this.item(PopupMenuItem::new("编辑").on_click({
-                            let source = source.clone();
-                            window.listener_for(&entity, move |this, _, _, cx| {
-                                this.create_window(WindowKind::Create(Some(source.clone())), cx);
-                            })
-                        }))
-                        .separator()
-                        .item(PopupMenuItem::new("删除"))
-                    }
-                })
-                .child(
-                    div()
-                        .flex()
-                        .flex_row()
-                        .items_center()
-                        .justify_between()
-                        .child(
-                            div()
-                                .flex_1()
-                                .font_semibold()
-                                .text_color(theme.foreground)
-                                .child(source.name),
-                        )
-                        .child(
-                            div()
-                                .w_8()
-                                .h_8()
-                                .child(img(source.kind.image()).size_full().rounded_md()),
-                        ),
-                )
-                .child(
-                    div()
-                        .text_sm()
-                        .overflow_hidden()
-                        .whitespace_nowrap()
-                        .text_color(theme.muted_foreground)
-                        .child(display),
-                )
-        }))
+                div()
+                    .flex()
+                    .flex_1()
+                    .flex_col()
+                    .p_5()
+                    .gap_2()
+                    .min_w_64()
+                    .rounded_md()
+                    .bg(theme.secondary)
+                    .border_1()
+                    .border_color(theme.border)
+                    .id(SharedString::from(format!("source-card-{}", source.id)))
+                    .hover(|this| this.bg(theme.secondary_hover))
+                    .on_double_click(cx.listener({
+                        let source_id = source_id.clone();
+                        move |this, _, window, cx| {
+                            this.create_tab(&source_id, window, cx);
+                        }
+                    }))
+                    .context_menu({
+                        let entity = entity.clone();
+                        let source = source.clone();
+                        move |this, window, _cx| {
+                            this.item(PopupMenuItem::new("编辑").on_click({
+                                let source = source.clone();
+                                window.listener_for(&entity, move |this, _, _, cx| {
+                                    this.create_window(WindowKind::Create(Some(source.clone())), cx);
+                                })
+                            }))
+                            .separator()
+                            .item(PopupMenuItem::new("删除"))
+                        }
+                    })
+                    .child(
+                        div()
+                            .flex()
+                            .flex_row()
+                            .items_center()
+                            .justify_between()
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .font_semibold()
+                                    .text_color(theme.foreground)
+                                    .child(source.name),
+                            )
+                            .child(
+                                div()
+                                    .w_8()
+                                    .h_8()
+                                    .child(img(source.kind.image()).size_full().rounded_md()),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .text_sm()
+                            .overflow_hidden()
+                            .whitespace_nowrap()
+                            .text_color(theme.muted_foreground)
+                            .child(display),
+                    )
+            }),
+        )
         .into_any_element()
 }

@@ -1,4 +1,8 @@
-use std::{fs, io, path::PathBuf};
+use std::{
+    fs, io,
+    path::PathBuf,
+    sync::{Arc, RwLock},
+};
 
 use aes_gcm::{
     aead::{Aead, KeyInit},
@@ -8,6 +12,8 @@ use dirs::home_dir;
 use thiserror::Error;
 
 use crate::model::{DataSource, SavedQuery, TableInfo};
+
+pub type SharedStore = Arc<RwLock<AppCache>>;
 
 const ENCRYPTION_KEY: [u8; 32] = [
     0x7f, 0x3e, 0x9a, 0x5c, 0x2b, 0x8f, 0x1d, 0x6e, 0x4a, 0x0c, 0x7b, 0x9f, 0x3d, 0x5a, 0x8e, 0x2c, 0x1f, 0x6b, 0x4d,
@@ -40,13 +46,13 @@ pub enum CacheError {
     DirectoryNotFound,
 }
 
-pub struct CacheApp {
+pub struct AppCache {
     sources: Vec<DataSource>,
     sources_path: PathBuf,
     sources_cache: PathBuf,
 }
 
-impl CacheApp {
+impl AppCache {
     pub fn init() -> Result<Self, CacheError> {
         let root_dir = home_dir()
             .map(|home| home.join(ROOT_DIR))
@@ -71,6 +77,11 @@ impl CacheApp {
             sources_path,
             sources_cache,
         })
+    }
+
+    pub fn init_shared() -> Result<SharedStore, CacheError> {
+        let cache = Self::init()?;
+        Ok(Arc::new(RwLock::new(cache)))
     }
 
     pub fn sources(&self) -> &[DataSource] {

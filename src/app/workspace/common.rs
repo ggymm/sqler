@@ -19,6 +19,7 @@ use crate::{
         },
         SqlerApp, WindowKind,
     },
+    cache::SharedStore,
     driver::{
         create_connection, DatabaseSession, DriverError, FilterCond, Operator, OrderCond, Paging, QueryReq, QueryResp,
         ValueCond,
@@ -32,37 +33,39 @@ const PAGE_SIZE: usize = 500;
 const ORDER_ASC: &str = "升序";
 const ORDER_DESC: &str = "降序";
 
-enum TabView {
+enum TabContent {
     Data(DataContent),
     Query(QueryContent),
     Struct(),
     Overview,
 }
 
-pub struct TabState {
+pub struct TabContext {
     id: SharedString,
     title: SharedString,
-    content: TabView,
+    content: TabContent,
     closable: bool,
 }
 
-impl TabState {
+impl TabContext {
     pub fn overview() -> Self {
         Self {
             id: SharedString::from("common-overview-tab"),
             title: SharedString::from("概览"),
-            content: TabView::Overview,
+            content: TabContent::Overview,
             closable: false,
         }
     }
 }
 
 pub struct CommonWorkspace {
-    pub source: DataSource,
+    pub cache: SharedStore,
     pub parent: WeakEntity<SqlerApp>,
+
+    pub source: DataSource,
     pub session: Option<Box<dyn DatabaseSession>>,
 
-    pub tabs: Vec<TabState>,
+    pub tabs: Vec<TabContext>,
     pub active_tab: usize,
     pub tables: Vec<TableInfo>,
     pub active_table: Option<usize>,
@@ -117,18 +120,17 @@ impl CommonWorkspace {
         // self.active_tab = 0;
         self.active_table = None;
 
-        // 更新缓存
-        if let Some(parent) = self.parent.upgrade() {
-            let _ = parent.update(cx, |app, _| {
-                if let Err(err) = app.cache.tables_update(&self.source.id, &self.tables) {
-                    tracing::error!("更新表缓存失败: {}", err);
-                }
-            });
+        {
+            // 更新缓存
+            let cache = self.cache.write().unwrap();
+            if let Err(err) = cache.tables_update(&self.source.id, &self.tables) {
+                tracing::error!("更新表缓存失败: {}", err);
+            }
         }
 
         // 清除失效的标签页
         self.tabs.retain(|tab| match &tab.content {
-            TabView::Data(tab) => self.tables.iter().any({
+            TabContent::Data(tab) => self.tables.iter().any({
                 // rustfmt::skip
                 |t| t.name == tab.table.as_ref()
             }),
@@ -145,7 +147,7 @@ impl CommonWorkspace {
         self.tabs.iter_mut().find(|tab| tab.id == *tab_id).and_then({
             // rustfmt::skip
             |item| {
-                if let TabView::Data(tab) = &mut item.content {
+                if let TabContent::Data(tab) = &mut item.content {
                     Some(tab)
                 } else {
                     None
@@ -161,7 +163,7 @@ impl CommonWorkspace {
         self.tabs.iter_mut().find(|tab| tab.id == *tab_id).and_then({
             // rustfmt::skip
             |item| {
-                if let TabView::Query(tab) = &mut item.content {
+                if let TabContent::Query(tab) = &mut item.content {
                     Some(tab)
                 } else {
                     None
@@ -182,7 +184,7 @@ impl CommonWorkspace {
         if let Some(index) = self.tabs.iter().position(|tab| {
             matches!(
                 &tab.content,
-                TabView::Data(current) if current.id == tab_id
+                TabContent::Data(current) if current.id == tab_id
             )
         }) {
             self.active_tab = index;
@@ -191,10 +193,10 @@ impl CommonWorkspace {
         }
 
         // 新建标签页
-        self.tabs.push(TabState {
+        self.tabs.push(TabContext {
             id: tab_id.clone(),
             title: table.clone(),
-            content: TabView::Data(DataContent {
+            content: TabContent::Data(DataContent {
                 id: tab_id.clone(),
                 page_no: 0,
                 rows_count: 0,
@@ -726,10 +728,10 @@ impl CommonWorkspace {
             editor
         });
         // 新建标签页
-        self.tabs.push(TabState {
+        self.tabs.push(TabContext {
             id: tab_id.clone(),
             title: SharedString::from("SQL 查询"),
-            content: TabView::Query(QueryContent {
+            content: TabContent::Query(QueryContent {
                 id: tab_id.clone(),
                 active: 0,
                 summary: true,
@@ -1375,10 +1377,10 @@ impl Render for CommonWorkspace {
                                 )
                                 .child(div().id(comp_id(["common-main", id])).col_full().child(
                                     match self.tabs.get(self.active_tab).map(|tab| &tab.content) {
-                                        Some(TabView::Data(tab)) => self.render_data_tab(tab, cx),
-                                        Some(TabView::Query(tab)) => self.render_query_tab(tab, cx),
-                                        Some(TabView::Struct()) => self.render_struct_tab(cx),
-                                        Some(TabView::Overview) | None => self.render_overview_tab(cx),
+                                        Some(TabContent::Data(tab)) => self.render_data_tab(tab, cx),
+                                        Some(TabContent::Query(tab)) => self.render_query_tab(tab, cx),
+                                        Some(TabContent::Struct()) => self.render_struct_tab(cx),
+                                        Some(TabContent::Overview) | None => self.render_overview_tab(cx),
                                     },
                                 ))
                                 .into_any_element(),

@@ -3,6 +3,7 @@ use gpui_component::{button::Button, ActiveTheme, StyledExt};
 
 use crate::{
     app::{comps::DivExt, SqlerApp},
+    cache::SharedStore,
     driver::check_connection,
     model::{DataSource, DataSourceKind, DataSourceOptions},
 };
@@ -23,10 +24,13 @@ pub enum CreateStatus {
 }
 
 pub struct CreateWindow {
-    kind: Option<DataSourceKind>,
+    cache: SharedStore,
     parent: WeakEntity<SqlerApp>,
-    status: Option<CreateStatus>,
+
+    kind: Option<DataSourceKind>,
     update_id: Option<String>,
+
+    status: Option<CreateStatus>,
 
     mysql: Entity<mysql::MySQLCreate>,
     oracle: Entity<oracle::OracleCreate>,
@@ -39,6 +43,7 @@ pub struct CreateWindow {
 
 impl CreateWindow {
     pub fn new(
+        cache: SharedStore,
         parent: WeakEntity<SqlerApp>,
         source: Option<&DataSource>,
         window: &mut Window,
@@ -85,6 +90,7 @@ impl CreateWindow {
         Self {
             kind,
             parent,
+            cache,
             status: None,
             update_id,
 
@@ -206,31 +212,30 @@ impl CreateWindow {
         };
 
         // 保存
-        let result = if let Some(parent) = self.parent.upgrade() {
-            parent.update(cx, |app, cx| {
-                if let Some(id) = &self.update_id {
-                    // 编辑模式：更新现有数据源
-                    if let Some(source) = app.cache.sources_mut().iter_mut().find(|s| &s.id == id) {
-                        source.name = name;
-                        source.kind = kind;
-                        source.options = options;
-                    }
-                } else {
-                    // 新建模式：添加新数据源
-                    let source = DataSource::new(name, kind, options);
-                    app.cache.sources_mut().push(source);
-                }
-                let result = app.cache.sources_update();
-
-                if result.is_ok() {
-                    cx.notify();
-                }
-
-                result
-            })
-        } else {
-            return;
+        let result = {
+            let mut cache = self.cache.write().unwrap();
+            if let Some(id) = &self.update_id {
+                // 编辑模式：更新现有数据源
+                let Some(source) = cache.sources_mut().iter_mut().find(|s| &s.id == id) else {
+                    return;
+                };
+                source.name = name;
+                source.kind = kind;
+                source.options = options;
+            } else {
+                // 新建模式：添加新数据源
+                let source = DataSource::new(name, kind, options);
+                cache.sources_mut().push(source);
+            }
+            cache.sources_update()
         };
+
+        if let Some(parent) = self.parent.upgrade() {
+            let _ = parent.update(cx, |_app, cx| {
+                cx.notify();
+            });
+        }
+
         match result {
             Ok(()) => {
                 self.cancel(window, cx);
