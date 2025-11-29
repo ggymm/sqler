@@ -10,6 +10,7 @@ gpui-component = { version = "0.4.2", features = ["tree-sitter-languages"] }
 dirs = "6"
 uuid = "1"
 aes-gcm = "0.10"
+indexmap = "2"
 lsp-types = "0.97.0"
 thiserror = "2"
 

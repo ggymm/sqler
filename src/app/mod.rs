@@ -6,6 +6,7 @@ use gpui_component::{
     theme::{Theme, ThemeMode},
     ActiveTheme, Root, Sizable, Size,
 };
+use indexmap::IndexMap;
 
 use crate::{
     app::{
@@ -53,7 +54,7 @@ struct TabContext {
 }
 
 pub struct SqlerApp {
-    tabs: Vec<TabContext>,
+    tabs: IndexMap<String, TabContext>,
     active_tab: String,
 
     cache: ArcCache,
@@ -72,13 +73,19 @@ impl SqlerApp {
             Err(e) => panic!("{}", e),
         };
 
-        Self {
-            tabs: vec![TabContext {
+        let mut tabs = IndexMap::new();
+        tabs.insert(
+            "home".to_string(),
+            TabContext {
                 id: "home".to_string(),
                 content: TabContent::Home,
                 title: SharedString::from("首页"),
                 closable: false,
-            }],
+            },
+        );
+
+        Self {
+            tabs,
             active_tab: "home".to_string(),
 
             cache,
@@ -91,20 +98,20 @@ impl SqlerApp {
         tab_id: &str,
         cx: &mut Context<SqlerApp>,
     ) {
-        let Some(index) = self.tabs.iter().position(|tab| tab.id == tab_id) else {
+        let Some(i) = self.tabs.get_index_of(tab_id) else {
             return;
         };
-        if !self.tabs[index].closable {
+        if !self.tabs.get_index(i).unwrap().1.closable {
             return;
         }
-        self.tabs.remove(index);
+        self.tabs.shift_remove(tab_id);
         if self.tabs.is_empty() {
             return;
         }
 
         if self.active_tab == tab_id {
-            let fallback = if index == 0 { 0 } else { index - 1 };
-            self.active_tab = self.tabs[fallback].id.clone();
+            let fallback = if i == 0 { 0 } else { i - 1 };
+            self.active_tab = self.tabs.get_index(fallback).unwrap().0.clone();
         }
         cx.notify();
     }
@@ -114,7 +121,7 @@ impl SqlerApp {
         tab_id: &str,
         cx: &mut Context<SqlerApp>,
     ) {
-        if self.tabs.iter().any(|tab| tab.id == tab_id) {
+        if self.tabs.contains_key(tab_id) {
             self.active_tab = tab_id.to_string();
             cx.notify();
         }
@@ -126,13 +133,12 @@ impl SqlerApp {
         _window: &mut Window,
         cx: &mut Context<SqlerApp>,
     ) {
-        if let Some(exist) = self.tabs.iter().find(|tab| {
-            // rustfmt::skip
-            matches!(&tab.content, TabContent::Workspace(_)) && tab.id == tab_id
-        }) {
-            self.active_tab = exist.id.clone();
-            cx.notify();
-            return;
+        if let Some(exist) = self.tabs.get(tab_id) {
+            if matches!(&exist.content, TabContent::Workspace(_)) {
+                self.active_tab = exist.id.clone();
+                cx.notify();
+                return;
+            }
         }
 
         let source = {
@@ -143,18 +149,20 @@ impl SqlerApp {
             return;
         };
 
-        // 在调用 TabState::workspace 之前获取 cache，避免嵌套借用
         let id = source.id.clone();
         let title = SharedString::from(source.name.clone());
         let cache = self.cache.clone();
         let workspace = TabContent::Workspace(Workspace::new(cache, source, cx));
 
-        self.tabs.push(TabContext {
-            id,
-            title,
-            content: workspace,
-            closable: true,
-        });
+        self.tabs.insert(
+            id.clone(),
+            TabContext {
+                id,
+                title,
+                content: workspace,
+                closable: true,
+            },
+        );
         self.active_tab = tab_id.to_string();
         cx.notify();
     }
@@ -261,7 +269,7 @@ impl Render for SqlerApp {
         let active = &self.active_tab;
 
         let mut tabs = vec![];
-        for (_, tab) in self.tabs.iter().enumerate() {
+        for (_, tab) in self.tabs.values().enumerate() {
             let tab_id = tab.id.clone();
             let tab_active = &tab_id == active;
 

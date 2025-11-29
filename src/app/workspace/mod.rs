@@ -194,7 +194,7 @@ pub fn render(
     _window: &mut Window,
     cx: &mut Context<SqlerApp>,
 ) -> AnyElement {
-    if let Some(tab) = app.tabs.iter_mut().find(|tab| tab.id == app.active_tab) {
+    if let Some(tab) = app.tabs.get_mut(&app.active_tab) {
         match &mut tab.content {
             TabContent::Home => render_home(app, cx),
             TabContent::Workspace(state) => state.render(),

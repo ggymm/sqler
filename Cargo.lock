@@ -6256,6 +6256,7 @@ dependencies = [
  "dirs 6.0.0",
  "gpui",
  "gpui-component",
+ "indexmap",
  "lsp-types",
  "mongodb",
  "mysql",
