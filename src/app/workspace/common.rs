@@ -10,6 +10,7 @@ use gpui_component::{
     tooltip::Tooltip,
     ActiveTheme, Disableable, IconName, InteractiveElementExt, Sizable, Size, StyledExt,
 };
+use indexmap::IndexMap;
 use uuid::Uuid;
 
 use crate::{
@@ -65,8 +66,8 @@ pub struct CommonWorkspace {
     pub source: DataSource,
     pub session: Option<Box<dyn DatabaseSession>>,
 
-    pub tabs: Vec<TabContext>,
-    pub active_tab: usize,
+    pub tabs: IndexMap<SharedString, TabContext>,
+    pub active_tab: SharedString,
     pub tables: Vec<TableInfo>,
     pub active_table: Option<usize>,
 }
@@ -121,7 +122,7 @@ impl CommonWorkspace {
         self.active_table = None;
 
         // 清除失效的标签页
-        self.tabs.retain(|tab| match &tab.content {
+        self.tabs.retain(|_, tab| match &tab.content {
             TabContent::Data(tab) => self.tables.iter().any({
                 // rustfmt::skip
                 |t| t.name == tab.table.as_ref()
@@ -143,7 +144,7 @@ impl CommonWorkspace {
         &mut self,
         tab_id: &SharedString,
     ) -> Option<&mut DataContent> {
-        self.tabs.iter_mut().find(|tab| tab.id == *tab_id).and_then({
+        self.tabs.get_mut(tab_id).and_then({
             // rustfmt::skip
             |item| {
                 if let TabContent::Data(tab) = &mut item.content {
@@ -159,7 +160,7 @@ impl CommonWorkspace {
         &mut self,
         tab_id: &SharedString,
     ) -> Option<&mut QueryContent> {
-        self.tabs.iter_mut().find(|tab| tab.id == *tab_id).and_then({
+        self.tabs.get_mut(tab_id).and_then({
             // rustfmt::skip
             |item| {
                 if let TabContent::Query(tab) = &mut item.content {
@@ -180,36 +181,36 @@ impl CommonWorkspace {
         let tab_id = SharedString::from(format!("common-data-tab-{}-{}", self.source.id, table));
 
         // 检查标签页是否已存在
-        if let Some(index) = self.tabs.iter().position(|tab| {
-            matches!(
-                &tab.content,
-                TabContent::Data(current) if current.id == tab_id
-            )
-        }) {
-            self.active_tab = index;
-            cx.notify();
-            return;
+        if let Some(tab) = self.tabs.get(&tab_id) {
+            if matches!(&tab.content, TabContent::Data(current) if current.id == tab_id) {
+                self.active_tab = tab_id.clone();
+                cx.notify();
+                return;
+            }
         }
 
         // 新建标签页
-        self.tabs.push(TabContext {
-            id: tab_id.clone(),
-            title: table.clone(),
-            content: TabContent::Data(DataContent {
+        self.tabs.insert(
+            tab_id.clone(),
+            TabContext {
                 id: tab_id.clone(),
-                page_no: 0,
-                rows_count: 0,
-                query_rules: vec![],
-                order_rules: vec![],
-                filter_enable: false,
-                columns: vec![],
-                columns_enable: false,
-                table: table.clone(),
-                datatable: DataTable::new(vec![], vec![]).build(window, cx),
-            }),
-            closable: true,
-        });
-        self.active_tab = self.tabs.len() - 1;
+                title: table.clone(),
+                content: TabContent::Data(DataContent {
+                    id: tab_id.clone(),
+                    page_no: 0,
+                    rows_count: 0,
+                    query_rules: vec![],
+                    order_rules: vec![],
+                    filter_enable: false,
+                    columns: vec![],
+                    columns_enable: false,
+                    table: table.clone(),
+                    datatable: DataTable::new(vec![], vec![]).build(window, cx),
+                }),
+                closable: true,
+            },
+        );
+        self.active_tab = tab_id.clone();
         cx.notify();
 
         // 异步加载数据
@@ -727,19 +728,22 @@ impl CommonWorkspace {
             editor
         });
         // 新建标签页
-        self.tabs.push(TabContext {
-            id: tab_id.clone(),
-            title: SharedString::from("SQL 查询"),
-            content: TabContent::Query(QueryContent {
+        self.tabs.insert(
+            tab_id.clone(),
+            TabContext {
                 id: tab_id.clone(),
-                active: 0,
-                summary: true,
-                editor,
-                results: vec![],
-            }),
-            closable: true,
-        });
-        self.active_tab = self.tabs.len() - 1;
+                title: SharedString::from("SQL 查询"),
+                content: TabContent::Query(QueryContent {
+                    id: tab_id.clone(),
+                    active: 0,
+                    summary: true,
+                    editor,
+                    results: vec![],
+                }),
+                closable: true,
+            },
+        );
+        self.active_tab = tab_id.clone();
         cx.notify();
     }
 
@@ -1131,12 +1135,12 @@ impl Render for CommonWorkspace {
     ) -> impl IntoElement {
         let id = &self.source.id;
         let theme = cx.theme().clone();
-        let active_tab_index = self.active_tab;
+        let active_tab_id = self.active_tab.clone();
 
         let mut tabs = vec![];
-        for (i, tab) in self.tabs.iter().enumerate() {
+        for (_, tab) in self.tabs.values().enumerate() {
             let tab_id = tab.id.clone();
-            let tab_active = i == active_tab_index;
+            let tab_active = tab_id == active_tab_id;
 
             let mut item = div()
                 .id(comp_id(["common-tabs-item", &tab_id]))
@@ -1158,10 +1162,11 @@ impl Render for CommonWorkspace {
                     this.bg(theme.tab_bar).text_color(theme.muted_foreground)
                 })
                 .on_click(cx.listener({
+                    let tab_id = tab_id.clone();
                     // rustfmt::skip
                     move |this, _, _, cx| {
-                        if i < this.tabs.len() {
-                            this.active_tab = i;
+                        if this.tabs.contains_key(&tab_id) {
+                            this.active_tab = tab_id.clone();
                             cx.notify();
                         }
                     }
@@ -1182,15 +1187,17 @@ impl Render for CommonWorkspace {
                         .xsmall()
                         .icon(IconName::Close)
                         .on_click(cx.listener({
+                            let tab_id = tab_id.clone();
                             // rustfmt::skip
                             move |this, _, _, cx| {
-                                let Some(i) = this.tabs.iter().position(|tab| &tab.id == &tab_id) else {
+                                let Some(i) = this.tabs.get_index_of(&tab_id) else {
                                     return;
                                 };
-                                let was_active = i == this.active_tab;
-                                this.tabs.remove(i);
+                                let was_active = &this.active_tab == &tab_id;
+                                this.tabs.shift_remove(&tab_id);
                                 if was_active && !this.tabs.is_empty() {
-                                    this.active_tab = i.min(this.tabs.len().saturating_sub(1));
+                                    let fallback = if i == 0 { 0 } else { i - 1 };
+                                    this.active_tab = this.tabs.get_index(fallback).unwrap().0.clone();
                                 }
                                 cx.notify();
                             }
@@ -1373,7 +1380,7 @@ impl Render for CommonWorkspace {
                                         .children(tabs),
                                 )
                                 .child(div().id(comp_id(["common-main", id])).col_full().child(
-                                    match self.tabs.get(self.active_tab).map(|tab| &tab.content) {
+                                    match self.tabs.get(&self.active_tab).map(|tab| &tab.content) {
                                         Some(TabContent::Data(tab)) => self.render_data_tab(tab, cx),
                                         Some(TabContent::Query(tab)) => self.render_query_tab(tab, cx),
                                         Some(TabContent::Struct()) => self.render_struct_tab(cx),

@@ -6,6 +6,7 @@ use gpui_component::{
     menu::{ContextMenuExt, PopupMenuItem},
     ActiveTheme, InteractiveElementExt, Rope, StyledExt,
 };
+use indexmap::IndexMap;
 use lsp_types::{CompletionContext, CompletionItem, CompletionResponse, CompletionTextEdit, Position, Range, TextEdit};
 
 use crate::{
@@ -127,6 +128,7 @@ impl Workspace {
     ) -> Self {
         let parent = cx.weak_entity();
 
+        let mut tabs = IndexMap::new();
         match source.kind {
             DataSourceKind::MySQL
             | DataSourceKind::SQLite
@@ -137,19 +139,22 @@ impl Workspace {
                     let cache = cache.read().unwrap();
                     cache.tables(&source.id).unwrap_or_default()
                 };
-
                 Workspace::Common {
-                    view: cx.new(|_| common::CommonWorkspace {
-                        cache,
-                        parent,
+                    view: cx.new(|_| {
+                        let active_tab = SharedString::from("common-overview-tab");
+                        tabs.insert(active_tab.clone(), common::TabContext::overview());
+                        common::CommonWorkspace {
+                            cache,
+                            parent,
 
-                        source,
-                        session: None,
+                            source,
+                            session: None,
 
-                        tabs: vec![common::TabContext::overview()],
-                        active_tab: 0,
-                        tables,
-                        active_table: None,
+                            tabs,
+                            active_tab,
+                            tables,
+                            active_table: None,
+                        }
                     }),
                 }
             }
