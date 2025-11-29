@@ -7,7 +7,6 @@ use gpui_component::{
     ActiveTheme, Root, Sizable, Size,
 };
 
-use crate::cache::AppCache;
 use crate::{
     app::{
         comps::{comp_id, icon_close},
@@ -15,7 +14,7 @@ use crate::{
         transfer::{ExportWindowBuilder, ImportWindowBuilder},
         workspace::Workspace,
     },
-    cache::ArcCache,
+    cache::{AppCache, ArcCache},
     model::DataSource,
 };
 
@@ -260,6 +259,96 @@ impl Render for SqlerApp {
     ) -> impl IntoElement {
         let theme = cx.theme();
         let active = &self.active_tab;
+
+        let mut tabs = vec![];
+        for (_, tab) in self.tabs.iter().enumerate() {
+            let tab_id = tab.id.clone();
+            let tab_active = &tab_id == active;
+
+            let mut item = div()
+                .id(comp_id(["main-tab", &tab_id]))
+                .flex()
+                .flex_row()
+                .items_center()
+                .justify_center()
+                .px_3()
+                .py_1()
+                .gap_2()
+                .border_1()
+                .border_color(theme.border)
+                .rounded_md()
+                .when(tab_active, |this| {
+                    this.bg(theme.tab_active).text_color(theme.tab_active_foreground)
+                })
+                .when(!tab_active, |this| {
+                    this.bg(theme.tab_bar).text_color(theme.muted_foreground)
+                })
+                .on_click(cx.listener({
+                    let tab_id = tab_id.clone();
+                    move |this, _, _, cx| {
+                        this.active_tab(&tab_id, cx);
+                    }
+                }))
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .overflow_hidden()
+                        .whitespace_nowrap()
+                        .child(tab.title.clone()),
+                );
+
+            if tab.closable {
+                item = item.child(
+                    Button::new(comp_id(["close-tab", &tab_id]))
+                        .ghost()
+                        .xsmall()
+                        .compact()
+                        .tab_stop(false)
+                        .icon(icon_close().with_size(Size::Small))
+                        .on_click(cx.listener({
+                            let tab_id = tab_id.clone();
+                            move |this, _, _, cx| {
+                                this.close_tab(&tab_id, cx);
+                            }
+                        })),
+                );
+            }
+
+            {
+                let style = item.style();
+                style.flex_grow = Some(0.);
+                style.flex_shrink = Some(1.);
+                style.flex_basis = Some(Length::Definite(px(200.).into()));
+                style.min_size.width = Some(Length::Definite(px(0.).into()));
+            }
+
+            tabs.push(item)
+        }
+
+        let create = Button::new("create-source")
+            .label("新建数据源")
+            .outline()
+            .on_click(cx.listener({
+                // rustfmt::skip
+                |this, _, _, cx| {
+                    this.create_window(WindowKind::Create(None), cx);
+                }
+            }));
+        let toggle = Button::new("toggle-theme")
+            .label(if theme.is_dark() {
+                "切换到亮色"
+            } else {
+                "切换到暗色"
+            })
+            .outline()
+            .on_click(cx.listener({
+                // rustfmt::skip
+                |this, _, window, cx| {
+                    this.toggle_theme(window, cx);
+                }
+            }));
+
         div()
             .flex()
             .flex_col()
@@ -278,106 +367,16 @@ impl Render for SqlerApp {
                     .border_color(theme.border)
                     .child(
                         div()
+                            .id("main-tabs")
                             .flex()
                             .flex_1()
                             .flex_row()
                             .px_2()
                             .gap_2()
                             .min_w_0()
-                            .children(self.tabs.iter().map(|tab| {
-                                let tab_id = tab.id.clone();
-                                let tab_active = &tab_id == active;
-
-                                let mut item = div()
-                                    .id(comp_id(["main-tab", &tab_id]))
-                                    .flex()
-                                    .flex_row()
-                                    .items_center()
-                                    .justify_center()
-                                    .px_3()
-                                    .py_1()
-                                    .gap_2()
-                                    .border_1()
-                                    .border_color(theme.border)
-                                    .rounded_md()
-                                    .when(tab_active, |this| {
-                                        this.bg(theme.tab_active).text_color(theme.tab_active_foreground)
-                                    })
-                                    .when(!tab_active, |this| {
-                                        this.bg(theme.tab_bar).text_color(theme.muted_foreground)
-                                    })
-                                    .on_click(cx.listener({
-                                        let tab_id = tab_id.clone();
-                                        move |this, _, _, cx| {
-                                            this.active_tab(&tab_id, cx);
-                                        }
-                                    }))
-                                    .child(
-                                        div()
-                                            .flex_1()
-                                            .min_w_0()
-                                            .overflow_hidden()
-                                            .whitespace_nowrap()
-                                            .child(tab.title.clone()),
-                                    );
-
-                                if tab.closable {
-                                    item = item.child(
-                                        Button::new(comp_id(["close-tab", &tab_id]))
-                                            .ghost()
-                                            .xsmall()
-                                            .compact()
-                                            .tab_stop(false)
-                                            .icon(icon_close().with_size(Size::Small))
-                                            .on_click(cx.listener({
-                                                let tab_id = tab_id.clone();
-                                                move |this, _, _, cx| {
-                                                    this.close_tab(&tab_id, cx);
-                                                }
-                                            })),
-                                    );
-                                }
-
-                                {
-                                    let style = item.style();
-                                    style.flex_grow = Some(0.);
-                                    style.flex_shrink = Some(1.);
-                                    style.flex_basis = Some(Length::Definite(px(200.).into()));
-                                    style.min_size.width = Some(Length::Definite(px(0.).into()));
-                                }
-
-                                item.into_any_element()
-                            })),
+                            .children(tabs),
                     )
-                    .child(
-                        div()
-                            .flex()
-                            .flex_row()
-                            .gap_2()
-                            .child(Button::new("header-new-source").label("新建数据源").outline().on_click(
-                                cx.listener({
-                                    // rustfmt::skip
-                                    |this, _, _, cx| {
-                                        this.create_window(WindowKind::Create(None), cx);
-                                    }
-                                }),
-                            ))
-                            .child(
-                                Button::new("toggle-theme")
-                                    .label(if theme.is_dark() {
-                                        "切换到亮色"
-                                    } else {
-                                        "切换到暗色"
-                                    })
-                                    .outline()
-                                    .on_click(cx.listener({
-                                        // rustfmt::skip
-                                        |this, _, window, cx| {
-                                            this.toggle_theme(window, cx);
-                                        }
-                                    })),
-                            ),
-                    ),
+                    .child(div().flex().flex_row().gap_2().child(create).child(toggle)),
             )
             .child(
                 div()

@@ -120,14 +120,6 @@ impl CommonWorkspace {
         // self.active_tab = 0;
         self.active_table = None;
 
-        {
-            // 更新缓存
-            let cache = self.cache.write().unwrap();
-            if let Err(err) = cache.tables_update(&self.source.id, &self.tables) {
-                tracing::error!("更新表缓存失败: {}", err);
-            }
-        }
-
         // 清除失效的标签页
         self.tabs.retain(|tab| match &tab.content {
             TabContent::Data(tab) => self.tables.iter().any({
@@ -137,6 +129,13 @@ impl CommonWorkspace {
             _ => true,
         });
 
+        {
+            // 更新缓存
+            let cache = self.cache.write().unwrap();
+            if let Err(err) = cache.tables_update(&self.source.id, &self.tables) {
+                tracing::error!("更新表缓存失败: {}", err);
+            }
+        }
         cx.notify();
     }
 
@@ -805,8 +804,6 @@ impl CommonWorkspace {
                 .background_executor()
                 .spawn(async move {
                     let mut results = vec![];
-
-                    // 循环执行每条 SQL
                     for (i, sql) in multi_sql.iter().enumerate() {
                         let start = time::Instant::now();
                         match session.query(QueryReq::Sql {
@@ -1348,7 +1345,7 @@ impl Render for CommonWorkspace {
                     h_resizable(comp_id(["common-content", id]))
                         .child(
                             resizable_panel()
-                                .size(px(240.0))
+                                .size(px(240.))
                                 .size_range(px(100.)..px(360.))
                                 .child(
                                     div()
