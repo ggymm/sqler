@@ -19,7 +19,7 @@ use crate::{
         },
         SqlerApp, WindowKind,
     },
-    cache::SharedStore,
+    cache::ArcCache,
     driver::{
         create_connection, DatabaseSession, DriverError, FilterCond, Operator, OrderCond, Paging, QueryReq, QueryResp,
         ValueCond,
@@ -59,7 +59,7 @@ impl TabContext {
 }
 
 pub struct CommonWorkspace {
-    pub cache: SharedStore,
+    pub cache: ArcCache,
     pub parent: WeakEntity<SqlerApp>,
 
     pub source: DataSource,

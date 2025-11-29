@@ -11,11 +11,11 @@ use crate::cache::AppCache;
 use crate::{
     app::{
         comps::{comp_id, icon_close},
-        create::CreateWindow,
-        transfer::{ExportWindow, ImportWindow},
+        create::CreateWindowBuilder,
+        transfer::{ExportWindowBuilder, ImportWindowBuilder},
         workspace::Workspace,
     },
-    cache::SharedStore,
+    cache::ArcCache,
     model::DataSource,
 };
 
@@ -57,7 +57,7 @@ pub struct SqlerApp {
     tabs: Vec<TabContext>,
     active_tab: String,
 
-    cache: SharedStore,
+    cache: ArcCache,
     windows: HashMap<String, WindowHandle<Root>>,
 }
 
@@ -68,7 +68,7 @@ impl SqlerApp {
     ) -> Self {
         Theme::change(ThemeMode::Light, None, cx);
 
-        let cache = match AppCache::init_shared() {
+        let cache = match AppCache::init() {
             Ok(cache) => cache,
             Err(e) => panic!("{}", e),
         };
@@ -210,28 +210,31 @@ impl SqlerApp {
             is_minimizable: false,
             ..Default::default()
         };
-        let parent = cx.weak_entity();
         let cache = self.cache.clone();
+        let parent = cx.weak_entity();
         let result = cx.open_window(options, move |window, cx| {
             let view: AnyView = match kind {
-                WindowKind::Create(source) => cx
-                    .new(|cx| {
-                        // rustfmt::skip
-                        CreateWindow::new(cache.clone(), parent.clone(), source.as_ref(), window, cx)
-                    })
-                    .into(),
-                WindowKind::Import(source) => cx
-                    .new(|cx| {
-                        // rustfmt::skip
-                        ImportWindow::new(cache.clone(), parent.clone(), source.clone(), window, cx)
-                    })
-                    .into(),
-                WindowKind::Export(source) => cx
-                    .new(|cx| {
-                        // rustfmt::skip
-                        ExportWindow::new(cache.clone(), parent.clone(), source.clone(), window, cx)
-                    })
-                    .into(),
+                WindowKind::Create(source) => {
+                    let builder = CreateWindowBuilder::new()
+                        .cache(cache.clone())
+                        .source(source)
+                        .parent(parent.clone());
+                    cx.new(|cx| builder.build(window, cx)).into()
+                }
+                WindowKind::Import(source) => {
+                    let builder = ImportWindowBuilder::new()
+                        .cache(cache.clone())
+                        .source(source)
+                        .parent(parent.clone());
+                    cx.new(|cx| builder.build(window, cx)).into()
+                }
+                WindowKind::Export(source) => {
+                    let builder = ExportWindowBuilder::new()
+                        .cache(cache.clone())
+                        .source(source)
+                        .parent(parent.clone());
+                    cx.new(|cx| builder.build(window, cx)).into()
+                }
             };
             cx.new(|cx| Root::new(view, window, cx))
         });

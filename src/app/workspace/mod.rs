@@ -10,17 +10,13 @@ use lsp_types::{CompletionContext, CompletionItem, CompletionResponse, Completio
 
 use crate::{
     app::{SqlerApp, TabContent, WindowKind},
-    cache::SharedStore,
+    cache::ArcCache,
     model::{DataSource, DataSourceKind},
 };
 
 mod common;
 mod mongodb;
 mod redis;
-
-pub fn parse_count(value: &str) -> usize {
-    value.parse::<usize>().unwrap_or(0)
-}
 
 pub fn parse_position(
     text: &str,
@@ -125,7 +121,7 @@ pub enum Workspace {
 
 impl Workspace {
     pub fn new(
-        cache: SharedStore,
+        cache: ArcCache,
         source: DataSource,
         cx: &mut Context<SqlerApp>,
     ) -> Self {

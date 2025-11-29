@@ -8,15 +8,16 @@ use gpui_component::{
 
 use crate::{
     app::{comps::DivExt, SqlerApp},
-    cache::SharedStore,
+    cache::ArcCache,
     model::DataSource,
 };
 
 use super::TransferKind;
 
 pub struct ExportWindow {
+    cache: ArcCache,
     parent: WeakEntity<SqlerApp>,
-    cache: SharedStore,
+
     source: DataSource,
 
     format: Option<TransferKind>,
@@ -24,14 +25,54 @@ pub struct ExportWindow {
     table_name: Entity<InputState>,
 }
 
-impl ExportWindow {
-    pub fn new(
-        cache: SharedStore,
-        parent: WeakEntity<SqlerApp>,
-        source: DataSource,
-        window: &mut Window,
-        cx: &mut Context<Self>,
+pub struct ExportWindowBuilder {
+    cache: Option<ArcCache>,
+    source: Option<DataSource>,
+    parent: Option<WeakEntity<SqlerApp>>,
+}
+
+impl ExportWindowBuilder {
+    pub fn new() -> Self {
+        Self {
+            cache: None,
+            source: None,
+            parent: None,
+        }
+    }
+
+    pub fn cache(
+        mut self,
+        cache: ArcCache,
     ) -> Self {
+        self.cache = Some(cache);
+        self
+    }
+
+    pub fn source(
+        mut self,
+        source: DataSource,
+    ) -> Self {
+        self.source = Some(source);
+        self
+    }
+
+    pub fn parent(
+        mut self,
+        parent: WeakEntity<SqlerApp>,
+    ) -> Self {
+        self.parent = Some(parent);
+        self
+    }
+
+    pub fn build(
+        self,
+        window: &mut Window,
+        cx: &mut Context<ExportWindow>,
+    ) -> ExportWindow {
+        let cache = self.cache.unwrap();
+        let source = self.source.unwrap();
+        let parent = self.parent.unwrap();
+
         let parent_for_release = parent.clone();
         let _ = cx.on_release(move |_, app| {
             if let Some(parent) = parent_for_release.upgrade() {
@@ -41,7 +82,7 @@ impl ExportWindow {
             }
         });
 
-        Self {
+        ExportWindow {
             parent,
             cache,
             source,
@@ -51,7 +92,9 @@ impl ExportWindow {
             table_name: cx.new(|cx| InputState::new(window, cx)),
         }
     }
+}
 
+impl ExportWindow {
     fn select_format(
         &mut self,
         format: TransferKind,

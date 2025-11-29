@@ -3,7 +3,7 @@ use gpui_component::{button::Button, ActiveTheme, StyledExt};
 
 use crate::{
     app::{comps::DivExt, SqlerApp},
-    cache::SharedStore,
+    cache::ArcCache,
     driver::check_connection,
     model::{DataSource, DataSourceKind, DataSourceOptions},
 };
@@ -17,20 +17,19 @@ mod sqlite;
 mod sqlserver;
 
 #[derive(Clone, Debug)]
-pub enum CreateStatus {
+pub enum DataSourceStatus {
     Testing,
     Error(String),
     Success(String),
 }
 
 pub struct CreateWindow {
-    cache: SharedStore,
+    cache: ArcCache,
     parent: WeakEntity<SqlerApp>,
-
+    
     kind: Option<DataSourceKind>,
-    update_id: Option<String>,
-
-    status: Option<CreateStatus>,
+    status: Option<DataSourceStatus>,
+    source_id: Option<String>,
 
     mysql: Entity<mysql::MySQLCreate>,
     oracle: Entity<oracle::OracleCreate>,
@@ -41,14 +40,53 @@ pub struct CreateWindow {
     mongodb: Entity<mongodb::MongoDBCreate>,
 }
 
-impl CreateWindow {
-    pub fn new(
-        cache: SharedStore,
-        parent: WeakEntity<SqlerApp>,
-        source: Option<&DataSource>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
+pub struct CreateWindowBuilder {
+    cache: Option<ArcCache>,
+    source: Option<DataSource>,
+    parent: Option<WeakEntity<SqlerApp>>,
+}
+
+impl CreateWindowBuilder {
+    pub fn new() -> Self {
+        Self {
+            cache: None,
+            source: None,
+            parent: None,
+        }
+    }
+
+    pub fn cache(
+        mut self,
+        cache: ArcCache,
     ) -> Self {
+        self.cache = Some(cache);
+        self
+    }
+
+    pub fn source(
+        mut self,
+        source: Option<DataSource>,
+    ) -> Self {
+        self.source = source;
+        self
+    }
+
+    pub fn parent(
+        mut self,
+        parent: WeakEntity<SqlerApp>,
+    ) -> Self {
+        self.parent = Some(parent);
+        self
+    }
+
+    pub fn build(
+        self,
+        window: &mut Window,
+        cx: &mut Context<CreateWindow>,
+    ) -> CreateWindow {
+        let cache = self.cache.unwrap();
+        let parent = self.parent.unwrap();
+
         let parent_for_release = parent.clone();
         let _ = cx.on_release(move |_, app| {
             if let Some(parent) = parent_for_release.upgrade() {
@@ -60,7 +98,7 @@ impl CreateWindow {
 
         let kind;
         let name;
-        let update_id;
+        let source_id;
         let mut mysql_opts = None;
         let mut sqlite_opts = None;
         let mut postgres_opts = None;
@@ -68,10 +106,10 @@ impl CreateWindow {
         let mut sqlserver_opts = None;
         let mut redis_opts = None;
         let mut mongodb_opts = None;
-        if let Some(s) = source.as_ref() {
+        if let Some(s) = self.source.as_ref() {
             kind = Some(s.kind);
             name = Some(s.name.as_str());
-            update_id = Some(s.id.clone());
+            source_id = Some(s.id.clone());
             match &s.options {
                 DataSourceOptions::MySQL(opts) => mysql_opts = Some(opts),
                 DataSourceOptions::SQLite(opts) => sqlite_opts = Some(opts),
@@ -84,15 +122,16 @@ impl CreateWindow {
         } else {
             kind = None;
             name = None;
-            update_id = None;
+            source_id = None;
         }
 
-        Self {
-            kind,
-            parent,
+        CreateWindow {
             cache,
+            parent,
+
+            kind,
             status: None,
-            update_id,
+            source_id,
 
             mysql: cx.new(|cx| mysql::MySQLCreate::new(name, mysql_opts, window, cx)),
             oracle: cx.new(|cx| oracle::OracleCreate::new(name, oracle_opts, window, cx)),
@@ -103,7 +142,9 @@ impl CreateWindow {
             mongodb: cx.new(|cx| mongodb::MongoDBCreate::new(name, mongodb_opts, window, cx)),
         }
     }
+}
 
+impl CreateWindow {
     fn cancel(
         &self,
         window: &mut Window,
@@ -123,7 +164,7 @@ impl CreateWindow {
         cx: &mut Context<Self>,
     ) {
         let Some(kind) = self.kind else {
-            self.status = Some(CreateStatus::Error("请先选择数据源类型".to_string()));
+            self.status = Some(DataSourceStatus::Error("请先选择数据源类型".to_string()));
             cx.notify();
             return;
         };
@@ -133,12 +174,12 @@ impl CreateWindow {
             DataSourceKind::SQLite => DataSourceOptions::SQLite(self.sqlite.read(cx).options(cx)),
             DataSourceKind::Postgres => DataSourceOptions::Postgres(self.postgres.read(cx).options(cx)),
             DataSourceKind::Oracle => {
-                self.status = Some(CreateStatus::Error("Oracle 驱动暂未实现".to_string()));
+                self.status = Some(DataSourceStatus::Error("Oracle 驱动暂未实现".to_string()));
                 cx.notify();
                 return;
             }
             DataSourceKind::SQLServer => {
-                self.status = Some(CreateStatus::Error("SQL Server 驱动暂未实现".to_string()));
+                self.status = Some(DataSourceStatus::Error("SQL Server 驱动暂未实现".to_string()));
                 cx.notify();
                 return;
             }
@@ -146,7 +187,7 @@ impl CreateWindow {
             DataSourceKind::MongoDB => DataSourceOptions::MongoDB(self.mongodb.read(cx).options(cx)),
         };
 
-        self.status = Some(CreateStatus::Testing);
+        self.status = Some(DataSourceStatus::Testing);
         cx.notify();
 
         cx.spawn_in(window, async move |this, cx| {
@@ -159,10 +200,10 @@ impl CreateWindow {
                 let _ = this.update(cx, |this, cx| {
                     match result {
                         Ok(_) => {
-                            this.status = Some(CreateStatus::Success("连接成功".to_string()));
+                            this.status = Some(DataSourceStatus::Success("连接成功".to_string()));
                         }
                         Err(e) => {
-                            this.status = Some(CreateStatus::Error(format!("{}", e)));
+                            this.status = Some(DataSourceStatus::Error(format!("{}", e)));
                         }
                     }
                     cx.notify();
@@ -178,7 +219,7 @@ impl CreateWindow {
         cx: &mut Context<Self>,
     ) {
         let Some(kind) = self.kind else {
-            self.status = Some(CreateStatus::Error("请先选择数据源类型".to_string()));
+            self.status = Some(DataSourceStatus::Error("请先选择数据源类型".to_string()));
             cx.notify();
             return;
         };
@@ -198,12 +239,12 @@ impl CreateWindow {
             DataSourceKind::SQLite => DataSourceOptions::SQLite(self.sqlite.read(cx).options(cx)),
             DataSourceKind::Postgres => DataSourceOptions::Postgres(self.postgres.read(cx).options(cx)),
             DataSourceKind::Oracle => {
-                self.status = Some(CreateStatus::Error("Oracle 驱动暂未实现".to_string()));
+                self.status = Some(DataSourceStatus::Error("Oracle 驱动暂未实现".to_string()));
                 cx.notify();
                 return;
             }
             DataSourceKind::SQLServer => {
-                self.status = Some(CreateStatus::Error("SQL Server 驱动暂未实现".to_string()));
+                self.status = Some(DataSourceStatus::Error("SQL Server 驱动暂未实现".to_string()));
                 cx.notify();
                 return;
             }
@@ -214,7 +255,7 @@ impl CreateWindow {
         // 保存
         let result = {
             let mut cache = self.cache.write().unwrap();
-            if let Some(id) = &self.update_id {
+            if let Some(id) = &self.source_id {
                 // 编辑模式：更新现有数据源
                 let Some(source) = cache.sources_mut().iter_mut().find(|s| &s.id == id) else {
                     return;
@@ -241,7 +282,7 @@ impl CreateWindow {
                 self.cancel(window, cx);
             }
             Err(e) => {
-                self.status = Some(CreateStatus::Error(format!("保存失败: {}", e)));
+                self.status = Some(DataSourceStatus::Error(format!("保存失败: {}", e)));
                 cx.notify();
             }
         }
@@ -404,9 +445,9 @@ impl Render for CreateWindow {
                     )
                     .children(status.as_ref().map(|s| {
                         let (bg, fg, message) = match s {
-                            CreateStatus::Testing => (theme.info, theme.info_foreground, "测试连接...".to_string()),
-                            CreateStatus::Success(msg) => (theme.success, theme.success_foreground, msg.clone()),
-                            CreateStatus::Error(msg) => (theme.danger, theme.danger_foreground, msg.clone()),
+                            DataSourceStatus::Testing => (theme.info, theme.info_foreground, "测试连接...".to_string()),
+                            DataSourceStatus::Success(msg) => (theme.success, theme.success_foreground, msg.clone()),
+                            DataSourceStatus::Error(msg) => (theme.danger, theme.danger_foreground, msg.clone()),
                         };
 
                         div()

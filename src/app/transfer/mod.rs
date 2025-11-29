@@ -1,8 +1,8 @@
 mod export;
 mod import;
 
-pub use export::ExportWindow;
-pub use import::ImportWindow;
+pub use export::ExportWindowBuilder;
+pub use import::ImportWindowBuilder;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TransferKind {

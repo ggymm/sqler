@@ -15,7 +15,7 @@ use crate::{
         comps::{icon_relead, DivExt},
         SqlerApp,
     },
-    cache::SharedStore,
+    cache::ArcCache,
     driver::{create_connection, DatabaseSession, DriverError},
     model::DataSource,
 };
@@ -147,7 +147,7 @@ enum TableOption {
 }
 
 pub struct ImportWindow {
-    cache: SharedStore,
+    cache: ArcCache,
     parent: WeakEntity<SqlerApp>,
 
     source: DataSource,
@@ -166,14 +166,54 @@ pub struct ImportWindow {
     current_tables: Entity<SelectState<Vec<SharedString>>>,
 }
 
-impl ImportWindow {
-    pub fn new(
-        cache: SharedStore,
-        parent: WeakEntity<SqlerApp>,
-        source: DataSource,
-        window: &mut Window,
-        cx: &mut Context<Self>,
+pub struct ImportWindowBuilder {
+    cache: Option<ArcCache>,
+    source: Option<DataSource>,
+    parent: Option<WeakEntity<SqlerApp>>,
+}
+
+impl ImportWindowBuilder {
+    pub fn new() -> Self {
+        Self {
+            cache: None,
+            source: None,
+            parent: None,
+        }
+    }
+
+    pub fn cache(
+        mut self,
+        cache: ArcCache,
     ) -> Self {
+        self.cache = Some(cache);
+        self
+    }
+
+    pub fn source(
+        mut self,
+        source: DataSource,
+    ) -> Self {
+        self.source = Some(source);
+        self
+    }
+
+    pub fn parent(
+        mut self,
+        parent: WeakEntity<SqlerApp>,
+    ) -> Self {
+        self.parent = Some(parent);
+        self
+    }
+
+    pub fn build(
+        self,
+        window: &mut Window,
+        cx: &mut Context<ImportWindow>,
+    ) -> ImportWindow {
+        let cache = self.cache.unwrap();
+        let source = self.source.unwrap();
+        let parent = self.parent.unwrap();
+
         let parent_for_release = parent.clone();
         let _ = cx.on_release(move |_, app| {
             if let Some(parent) = parent_for_release.upgrade() {
@@ -186,10 +226,11 @@ impl ImportWindow {
         let file_kinds: Vec<SharedString> = TransferKind::all().iter().map(|f| f.label().into()).collect();
         let import_modes: Vec<SharedString> = ImportMode::all().iter().map(|m| m.label().into()).collect();
 
-        Self {
-            source,
-            parent,
+        ImportWindow {
             cache,
+            parent,
+            
+            source,
             session: None,
 
             step: ImportStep::Kind,
@@ -205,7 +246,9 @@ impl ImportWindow {
             current_tables: cx.new(|cx| SelectState::new(vec![], None, window, cx)),
         }
     }
+}
 
+impl ImportWindow {
     fn active_session(&mut self) -> Result<&mut (dyn DatabaseSession + '_), DriverError> {
         if self.session.is_none() {
             self.session = Some(create_connection(&self.source.options)?);
