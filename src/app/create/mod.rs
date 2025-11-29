@@ -1,5 +1,10 @@
 use gpui::{prelude::*, *};
-use gpui_component::{button::Button, ActiveTheme, StyledExt};
+use gpui_component::{
+    button::Button,
+    form::{field, Form},
+    input::{Input, InputState},
+    ActiveTheme, Sizable, Size, StyledExt,
+};
 
 use crate::{
     app::{comps::DivExt, SqlerApp},
@@ -26,7 +31,8 @@ pub enum DataSourceStatus {
 pub struct CreateWindow {
     cache: ArcCache,
     parent: WeakEntity<SqlerApp>,
-    
+
+    name: Entity<InputState>,
     kind: Option<DataSourceKind>,
     status: Option<DataSourceStatus>,
     source_id: Option<String>,
@@ -108,7 +114,7 @@ impl CreateWindowBuilder {
         let mut mongodb_opts = None;
         if let Some(s) = self.source.as_ref() {
             kind = Some(s.kind);
-            name = Some(s.name.as_str());
+            name = s.name.clone();
             source_id = Some(s.id.clone());
             match &s.options {
                 DataSourceOptions::MySQL(opts) => mysql_opts = Some(opts),
@@ -121,7 +127,7 @@ impl CreateWindowBuilder {
             }
         } else {
             kind = None;
-            name = None;
+            name = "新建数据源".to_string();
             source_id = None;
         }
 
@@ -129,17 +135,18 @@ impl CreateWindowBuilder {
             cache,
             parent,
 
+            name: cx.new(|cx| InputState::new(window, cx).default_value(&name)),
             kind,
             status: None,
             source_id,
 
-            mysql: cx.new(|cx| mysql::MySQLCreate::new(name, mysql_opts, window, cx)),
-            oracle: cx.new(|cx| oracle::OracleCreate::new(name, oracle_opts, window, cx)),
-            sqlite: cx.new(|cx| sqlite::SQLiteCreate::new(name, sqlite_opts, window, cx)),
-            sqlserver: cx.new(|cx| sqlserver::SQLServerCreate::new(name, sqlserver_opts, window, cx)),
-            postgres: cx.new(|cx| postgres::PostgresCreate::new(name, postgres_opts, window, cx)),
-            redis: cx.new(|cx| redis::RedisCreate::new(name, redis_opts, window, cx)),
-            mongodb: cx.new(|cx| mongodb::MongoDBCreate::new(name, mongodb_opts, window, cx)),
+            mysql: cx.new(|cx| mysql::MySQLCreate::new(mysql_opts, window, cx)),
+            oracle: cx.new(|cx| oracle::OracleCreate::new(oracle_opts, window, cx)),
+            sqlite: cx.new(|cx| sqlite::SQLiteCreate::new(sqlite_opts, window, cx)),
+            sqlserver: cx.new(|cx| sqlserver::SQLServerCreate::new(sqlserver_opts, window, cx)),
+            postgres: cx.new(|cx| postgres::PostgresCreate::new(postgres_opts, window, cx)),
+            redis: cx.new(|cx| redis::RedisCreate::new(redis_opts, window, cx)),
+            mongodb: cx.new(|cx| mongodb::MongoDBCreate::new(mongodb_opts, window, cx)),
         }
     }
 }
@@ -225,15 +232,7 @@ impl CreateWindow {
         };
 
         // 构建
-        let name = match kind {
-            DataSourceKind::MySQL => self.mysql.read(cx).name.read(cx).value().to_string(),
-            DataSourceKind::SQLite => self.sqlite.read(cx).name.read(cx).value().to_string(),
-            DataSourceKind::Postgres => self.postgres.read(cx).name.read(cx).value().to_string(),
-            DataSourceKind::Oracle => self.oracle.read(cx).name.read(cx).value().to_string(),
-            DataSourceKind::SQLServer => self.sqlserver.read(cx).name.read(cx).value().to_string(),
-            DataSourceKind::Redis => self.redis.read(cx).name.read(cx).value().to_string(),
-            DataSourceKind::MongoDB => self.mongodb.read(cx).name.read(cx).value().to_string(),
-        };
+        let name = self.name.read(cx).value().to_string();
         let options = match kind {
             DataSourceKind::MySQL => DataSourceOptions::MySQL(self.mysql.read(cx).options(cx)),
             DataSourceKind::SQLite => DataSourceOptions::SQLite(self.sqlite.read(cx).options(cx)),
@@ -318,64 +317,72 @@ impl Render for CreateWindow {
                     })),
             )
             .child(
-                div().id("datasource-create").col_full().child(match kind {
-                    Some(kind) => div()
-                        .p_6()
-                        .gap_5()
-                        .col_full()
-                        .scrollable(Axis::Vertical)
-                        .child(match kind {
-                            DataSourceKind::MySQL => self.mysql.clone().into_any_element(),
-                            DataSourceKind::SQLite => self.sqlite.clone().into_any_element(),
-                            DataSourceKind::Postgres => self.postgres.clone().into_any_element(),
-                            DataSourceKind::Oracle => self.oracle.clone().into_any_element(),
-                            DataSourceKind::SQLServer => self.sqlserver.clone().into_any_element(),
-                            DataSourceKind::Redis => self.redis.clone().into_any_element(),
-                            DataSourceKind::MongoDB => self.mongodb.clone().into_any_element(),
-                        }),
-                    None => div().p_6().gap_5().col_full().scrollable(Axis::Vertical).children(
-                        DataSourceKind::all()
-                            .iter()
-                            .map(|kind| {
-                                div()
-                                    .flex()
-                                    .flex_row()
-                                    .items_center()
-                                    .p_4()
-                                    .gap_4()
-                                    .h_20()
-                                    .w_full()
-                                    .bg(theme.list)
-                                    .border_1()
-                                    .border_color(theme.border)
-                                    .rounded_md()
-                                    .id(("datasource-type-{}", *kind as u64))
-                                    .hover(|this| this.bg(theme.list_hover))
-                                    .child(div().w_12().h_12().child(img(kind.image()).size_full().rounded_md()))
-                                    .child(
-                                        div()
-                                            .flex()
-                                            .flex_1()
-                                            .flex_col()
-                                            .items_start()
-                                            .justify_center()
-                                            .child(div().text_base().font_semibold().child(kind.label()))
-                                            .child(div().text_sm().child(kind.description())),
-                                    )
-                                    .on_click(cx.listener({
-                                        move |this: &mut CreateWindow, _, _, cx| {
-                                            if this.kind != Some(*kind) {
-                                                this.kind = Some(*kind);
-                                                this.status = None;
-                                                cx.notify();
+                div().id("datasource-create").col_full().child(
+                    div().p_6().col_full().scrollable(Axis::Vertical).child(match kind {
+                        Some(kind) => div()
+                            .flex()
+                            .flex_col()
+                            .gap_4()
+                            .child(
+                                Form::vertical()
+                                    .layout(Axis::Horizontal)
+                                    .with_size(Size::Large)
+                                    .label_width(px(80.))
+                                    .child(field().label("名称").child(Input::new(&self.name).cleanable(true))),
+                            )
+                            .child(match kind {
+                                DataSourceKind::MySQL => self.mysql.clone().into_any_element(),
+                                DataSourceKind::SQLite => self.sqlite.clone().into_any_element(),
+                                DataSourceKind::Postgres => self.postgres.clone().into_any_element(),
+                                DataSourceKind::Oracle => self.oracle.clone().into_any_element(),
+                                DataSourceKind::SQLServer => self.sqlserver.clone().into_any_element(),
+                                DataSourceKind::Redis => self.redis.clone().into_any_element(),
+                                DataSourceKind::MongoDB => self.mongodb.clone().into_any_element(),
+                            }),
+                        None => div().flex().flex_col().gap_5().children(
+                            DataSourceKind::all()
+                                .iter()
+                                .map(|kind| {
+                                    div()
+                                        .flex()
+                                        .flex_row()
+                                        .items_center()
+                                        .p_4()
+                                        .gap_4()
+                                        .h_20()
+                                        .w_full()
+                                        .bg(theme.list)
+                                        .border_1()
+                                        .border_color(theme.border)
+                                        .rounded_md()
+                                        .id(("datasource-type-{}", *kind as u64))
+                                        .hover(|this| this.bg(theme.list_hover))
+                                        .child(div().w_12().h_12().child(img(kind.image()).size_full().rounded_md()))
+                                        .child(
+                                            div()
+                                                .flex()
+                                                .flex_1()
+                                                .flex_col()
+                                                .items_start()
+                                                .justify_center()
+                                                .child(div().text_base().font_semibold().child(kind.label()))
+                                                .child(div().text_sm().child(kind.description())),
+                                        )
+                                        .on_click(cx.listener({
+                                            move |this: &mut CreateWindow, _, _, cx| {
+                                                if this.kind != Some(*kind) {
+                                                    this.kind = Some(*kind);
+                                                    this.status = None;
+                                                    cx.notify();
+                                                }
                                             }
-                                        }
-                                    }))
-                                    .into_any_element()
-                            })
-                            .collect::<Vec<_>>(),
-                    ),
-                }),
+                                        }))
+                                        .into_any_element()
+                                })
+                                .collect::<Vec<_>>(),
+                        ),
+                    }),
+                ),
             )
             .child(
                 div()

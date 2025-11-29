@@ -34,7 +34,6 @@ impl RedisAuthMode {
 }
 
 pub struct RedisCreate {
-    pub name: Entity<InputState>,
     pub host: Entity<InputState>,
     pub port: Entity<InputState>,
     pub auth: Entity<SelectState<Vec<SharedString>>>,
@@ -44,17 +43,14 @@ pub struct RedisCreate {
 
 impl RedisCreate {
     pub fn new(
-        name: Option<&str>,
         opts: Option<&RedisOptions>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
         let auths: Vec<SharedString> = RedisAuthMode::all().iter().map(|mode| mode.label().into()).collect();
         let opts = opts.cloned().unwrap_or_default();
-        let name_val = name.unwrap_or("Redis数据源").to_string();
 
         Self {
-            name: cx.new(|cx| InputState::new(window, cx).default_value(&name_val)),
             host: cx.new(|cx| InputState::new(window, cx).default_value(&opts.host)),
             port: cx.new(|cx| InputState::new(window, cx).default_value(&opts.port)),
             auth: cx.new(|cx| SelectState::new(auths, Some(IndexPath::new(0)), window, cx)),
@@ -104,25 +100,22 @@ impl Render for RedisCreate {
             .map(|s| s.as_ref() == RedisAuthMode::UsernamePassword.label())
             .unwrap_or(false);
 
-        div().flex().flex_col().gap_4().child(
-            Form::vertical()
-                .layout(Axis::Horizontal)
-                .with_size(Size::Large)
-                .label_width(px(80.))
-                .child(field().label("名称").child(Input::new(&self.name).cleanable(true)))
-                .child(field().label("主机").child(Input::new(&self.host).cleanable(true)))
-                .child(field().label("端口").child(Input::new(&self.port).cleanable(true)))
-                .child(field().label("认证模式").child(Select::new(&self.auth)))
-                .when(show_username, |form| {
-                    form.child(field().label("账号").child(Input::new(&self.username).cleanable(true)))
-                })
-                .when(show_username || show_password, |form| {
-                    form.child(
-                        field()
-                            .label("密码")
-                            .child(Input::new(&self.password).mask_toggle().cleanable(true)),
-                    )
-                }),
-        )
+        Form::vertical()
+            .layout(Axis::Horizontal)
+            .with_size(Size::Large)
+            .label_width(px(80.))
+            .child(field().label("主机").child(Input::new(&self.host).cleanable(true)))
+            .child(field().label("端口").child(Input::new(&self.port).cleanable(true)))
+            .child(field().label("认证模式").child(Select::new(&self.auth)))
+            .when(show_username, |form| {
+                form.child(field().label("账号").child(Input::new(&self.username).cleanable(true)))
+            })
+            .when(show_username || show_password, |form| {
+                form.child(
+                    field()
+                        .label("密码")
+                        .child(Input::new(&self.password).mask_toggle().cleanable(true)),
+                )
+            })
     }
 }

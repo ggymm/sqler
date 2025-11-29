@@ -229,7 +229,7 @@ impl ImportWindowBuilder {
         ImportWindow {
             cache,
             parent,
-            
+
             source,
             session: None,
 
