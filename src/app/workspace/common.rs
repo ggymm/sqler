@@ -99,18 +99,25 @@ impl CommonWorkspace {
 
         // 更新数据
         self.tables = match session.tables() {
-            Ok(tables) => tables
-                .into_iter()
-                .map(|name| {
-                    let info = TableInfo {
+            Ok(tables) => {
+                let infos: Vec<TableInfo> = tables
+                    .iter()
+                    .map(|name| TableInfo {
                         name: name.clone(),
                         row_count: None,
                         size_bytes: None,
                         last_accessed: None,
-                    };
-                    (name, info)
-                })
-                .collect(),
+                    })
+                    .collect();
+
+                {
+                    let cache = self.cache.write().unwrap();
+                    if let Err(err) = cache.tables_update(&self.source.id, &infos) {
+                        tracing::error!("更新表缓存失败: {}", err);
+                    }
+                }
+                infos.into_iter().map(|info| (info.name.clone(), info)).collect()
+            }
             Err(err) => {
                 tracing::error!("刷新表列表失败: {}", err);
                 if !self.tables.is_empty() {
@@ -127,15 +134,6 @@ impl CommonWorkspace {
             TabContent::Data(tab) => self.tables.contains_key(tab.table.as_ref()),
             _ => true,
         });
-
-        {
-            // 更新缓存
-            let cache = self.cache.write().unwrap();
-            let tables: Vec<TableInfo> = self.tables.values().cloned().collect();
-            if let Err(err) = cache.tables_update(&self.source.id, &tables) {
-                tracing::error!("更新表缓存失败: {}", err);
-            }
-        }
         cx.notify();
     }
 

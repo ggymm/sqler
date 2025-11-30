@@ -205,7 +205,7 @@ impl SqlerApp {
         };
         let bounds = Bounds {
             size: size(px(1280.), px(720.)),
-            origin: point(px(0.), px(0.)),
+            origin: point(px(0.), px(20.)),
         };
         let options = WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(bounds)),
