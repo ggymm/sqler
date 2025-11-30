@@ -386,7 +386,8 @@ impl CommonWorkspace {
         let rows_count = tab.rows_count;
 
         let filter = Button::new(comp_id(["table-filter", &tab_id]))
-            .label("数据筛选")
+            .label("筛选数据")
+            .small()
             .outline()
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
@@ -398,11 +399,26 @@ impl CommonWorkspace {
                 }
             }));
         let column = Button::new(comp_id(["table-column", &tab_id]))
-            .label("字段筛选")
+            .label("筛选字段")
+            .small()
             .outline();
+        let schema = Button::new(comp_id(["table-schema", &tab_id]))
+            .label("展示表结构")
+            .small()
+            .outline()
+            .on_click(cx.listener({
+                let tab_id = tab_id.clone();
+                move |view: &mut Self, _, _, cx| {
+                    if let Some(data) = view.data_content(&tab_id) {
+                        data.filter_enable = !data.filter_enable;
+                    }
+                    cx.notify();
+                }
+            }));
 
         let page_prev = Button::new(comp_id(["table-page-prev", &tab_id]))
             .label("上一页")
+            .small()
             .outline()
             .disabled(page_no == 0)
             .on_click(cx.listener({
@@ -417,6 +433,7 @@ impl CommonWorkspace {
             }));
         let page_next = Button::new(comp_id(["table-page-next", &tab_id]))
             .label("下一页")
+            .small()
             .outline()
             .disabled(rows_count == 0)
             .on_click(cx.listener({
@@ -609,6 +626,7 @@ impl CommonWorkspace {
                     .bg(theme.secondary)
                     .child(filter)
                     .child(column)
+                    .child(schema)
                     .child(div().flex_1())
                     .child(page_prev)
                     .child(div().text_sm().child(format!("第 {} 页", page_no + 1)))
