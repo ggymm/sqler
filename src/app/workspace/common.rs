@@ -42,7 +42,6 @@ enum TabContent {
 }
 
 pub struct TabContext {
-    id: SharedString,
     title: SharedString,
     content: TabContent,
     closable: bool,
@@ -51,7 +50,6 @@ pub struct TabContext {
 impl TabContext {
     pub fn overview() -> Self {
         Self {
-            id: SharedString::from("common-overview-tab"),
             title: SharedString::from("概览"),
             content: TabContent::Overview,
             closable: false,
@@ -66,8 +64,8 @@ pub struct CommonWorkspace {
     pub source: DataSource,
     pub session: Option<Box<dyn DatabaseSession>>,
 
-    pub tabs: IndexMap<SharedString, TabContext>,
-    pub active_tab: SharedString,
+    pub tabs: IndexMap<String, TabContext>,
+    pub active_tab: String,
     pub tables: Vec<TableInfo>,
     pub active_table: Option<usize>,
 }
@@ -142,10 +140,9 @@ impl CommonWorkspace {
 
     fn data_content(
         &mut self,
-        tab_id: &SharedString,
+        tab_id: &String,
     ) -> Option<&mut DataContent> {
         self.tabs.get_mut(tab_id).and_then({
-            // rustfmt::skip
             |item| {
                 if let TabContent::Data(tab) = &mut item.content {
                     Some(tab)
@@ -158,10 +155,9 @@ impl CommonWorkspace {
 
     fn query_content(
         &mut self,
-        tab_id: &SharedString,
+        tab_id: &String,
     ) -> Option<&mut QueryContent> {
         self.tabs.get_mut(tab_id).and_then({
-            // rustfmt::skip
             |item| {
                 if let TabContent::Query(tab) = &mut item.content {
                     Some(tab)
@@ -178,22 +174,22 @@ impl CommonWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let tab_id = SharedString::from(format!("common-data-tab-{}-{}", self.source.id, table));
-
-        // 检查标签页是否已存在
-        if let Some(tab) = self.tabs.get(&tab_id) {
-            if matches!(&tab.content, TabContent::Data(current) if current.id == tab_id) {
-                self.active_tab = tab_id.clone();
+        for (id, tab) in &self.tabs {
+            let TabContent::Data(data) = &tab.content else {
+                continue;
+            };
+            if data.table == table {
+                self.active_tab = id.clone();
                 cx.notify();
                 return;
             }
         }
+        let tab_id = Uuid::new_v4().to_string();
 
         // 新建标签页
         self.tabs.insert(
             tab_id.clone(),
             TabContext {
-                id: tab_id.clone(),
                 title: table.clone(),
                 content: TabContent::Data(DataContent {
                     id: tab_id.clone(),
@@ -219,7 +215,7 @@ impl CommonWorkspace {
 
     fn reload_data_tab(
         &mut self,
-        tab_id: &SharedString,
+        tab_id: &String,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -449,7 +445,7 @@ impl CommonWorkspace {
                 move |view: &mut Self, _, window, cx| {
                     if let Some(data) = view.data_content(&tab_id) {
                         data.order_rules.push(OrderRule {
-                            id: SharedString::from(Uuid::new_v4().to_string()),
+                            id: Uuid::new_v4().to_string(),
                             field: cx.new(|cx| {
                                 // rustfmt::skip
                                 SelectState::new(columns.clone(), None, window, cx)
@@ -472,7 +468,7 @@ impl CommonWorkspace {
                 move |view: &mut Self, _, window, cx| {
                     if let Some(data) = view.data_content(&tab_id) {
                         data.query_rules.push(QueryRule {
-                            id: SharedString::from(Uuid::new_v4().to_string()),
+                            id: Uuid::new_v4().to_string(),
                             field: cx.new(|cx| {
                                 // rustfmt::skip
                                 SelectState::new(columns.clone(), None, window, cx)
@@ -709,7 +705,7 @@ impl CommonWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let tab_id = SharedString::from(format!("common-query-tab-{}", Uuid::new_v4()));
+        let tab_id = Uuid::new_v4().to_string();
 
         let lsp = Rc::new(EditorComps::new());
         let editor = cx.new(|cx| {
@@ -727,11 +723,11 @@ impl CommonWorkspace {
 
             editor
         });
+
         // 新建标签页
         self.tabs.insert(
             tab_id.clone(),
             TabContext {
-                id: tab_id.clone(),
                 title: SharedString::from("SQL 查询"),
                 content: TabContent::Query(QueryContent {
                     id: tab_id.clone(),
@@ -749,7 +745,7 @@ impl CommonWorkspace {
 
     fn reload_query_tab(
         &mut self,
-        tab_id: &SharedString,
+        tab_id: &String,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -1138,9 +1134,8 @@ impl Render for CommonWorkspace {
         let active_tab_id = self.active_tab.clone();
 
         let mut tabs = vec![];
-        for (_, tab) in self.tabs.values().enumerate() {
-            let tab_id = tab.id.clone();
-            let tab_active = tab_id == active_tab_id;
+        for (tab_id, tab) in &self.tabs {
+            let tab_active = tab_id == &active_tab_id;
 
             let mut item = div()
                 .id(comp_id(["common-tabs-item", &tab_id]))
@@ -1395,20 +1390,20 @@ impl Render for CommonWorkspace {
 }
 
 struct QueryRule {
-    id: SharedString,
+    id: String,
     value: Entity<InputState>,
     field: Entity<SelectState<Vec<SharedString>>>,
     operator: Entity<SelectState<Vec<SharedString>>>,
 }
 
 struct OrderRule {
-    id: SharedString,
+    id: String,
     field: Entity<SelectState<Vec<SharedString>>>,
     order: Entity<SelectState<Vec<SharedString>>>,
 }
 
 struct DataContent {
-    id: SharedString,
+    id: String,
     page_no: usize,
     rows_count: usize,
     order_rules: Vec<OrderRule>,
@@ -1428,7 +1423,7 @@ struct QueryResult {
 }
 
 struct QueryContent {
-    id: SharedString,
+    id: String,
     active: usize,
     summary: bool,
     editor: Entity<InputState>,

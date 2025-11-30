@@ -141,7 +141,7 @@ impl Workspace {
                 };
                 Workspace::Common {
                     view: cx.new(|_| {
-                        let active_tab = SharedString::from("common-overview-tab");
+                        let active_tab = "overview".to_string();
                         tabs.insert(active_tab.clone(), common::TabContext::overview());
                         common::CommonWorkspace {
                             cache,
