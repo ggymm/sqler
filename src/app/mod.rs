@@ -47,7 +47,6 @@ enum TabContent {
 }
 
 struct TabContext {
-    id: String,
     title: SharedString,
     content: TabContent,
     closable: bool,
@@ -77,7 +76,6 @@ impl SqlerApp {
         tabs.insert(
             "home".to_string(),
             TabContext {
-                id: "home".to_string(),
                 content: TabContent::Home,
                 title: SharedString::from("首页"),
                 closable: false,
@@ -133,12 +131,10 @@ impl SqlerApp {
         _window: &mut Window,
         cx: &mut Context<SqlerApp>,
     ) {
-        if let Some(exist) = self.tabs.get(tab_id) {
-            if matches!(&exist.content, TabContent::Workspace(_)) {
-                self.active_tab = exist.id.clone();
-                cx.notify();
-                return;
-            }
+        if self.tabs.contains_key(tab_id) {
+            self.active_tab = tab_id.to_string();
+            cx.notify();
+            return;
         }
 
         let source = {
@@ -157,7 +153,6 @@ impl SqlerApp {
         self.tabs.insert(
             id.clone(),
             TabContext {
-                id,
                 title,
                 content: workspace,
                 closable: true,
@@ -269,9 +264,8 @@ impl Render for SqlerApp {
         let active = &self.active_tab;
 
         let mut tabs = vec![];
-        for (_, tab) in self.tabs.values().enumerate() {
-            let tab_id = tab.id.clone();
-            let tab_active = &tab_id == active;
+        for (tab_id, tab) in &self.tabs {
+            let tab_active = tab_id == active;
 
             let mut item = div()
                 .id(comp_id(["main-tab", &tab_id]))
