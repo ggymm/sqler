@@ -264,11 +264,11 @@ impl Render for SqlerApp {
         let active = &self.active_tab;
 
         let mut tabs = vec![];
-        for (tab_id, tab) in &self.tabs {
-            let tab_active = tab_id == active;
+        for (id, tab) in &self.tabs {
+            let tab_active = id == active;
 
             let mut item = div()
-                .id(comp_id(["main-tab", &tab_id]))
+                .id(comp_id(["main-tab", &id]))
                 .flex()
                 .flex_row()
                 .items_center()
@@ -286,7 +286,7 @@ impl Render for SqlerApp {
                     this.bg(theme.tab_bar).text_color(theme.muted_foreground)
                 })
                 .on_click(cx.listener({
-                    let tab_id = tab_id.clone();
+                    let tab_id = id.clone();
                     move |this, _, _, cx| {
                         this.active_tab(&tab_id, cx);
                     }
@@ -302,14 +302,14 @@ impl Render for SqlerApp {
 
             if tab.closable {
                 item = item.child(
-                    Button::new(comp_id(["close-tab", &tab_id]))
+                    Button::new(comp_id(["close-tab", &id]))
                         .ghost()
                         .xsmall()
                         .compact()
                         .tab_stop(false)
                         .icon(icon_close().with_size(Size::Small))
                         .on_click(cx.listener({
-                            let tab_id = tab_id.clone();
+                            let tab_id = id.clone();
                             move |this, _, _, cx| {
                                 this.close_tab(&tab_id, cx);
                             }

@@ -66,8 +66,8 @@ pub struct CommonWorkspace {
 
     pub tabs: IndexMap<String, TabContext>,
     pub active_tab: String,
-    pub tables: Vec<TableInfo>,
-    pub active_table: Option<usize>,
+    pub tables: IndexMap<String, TableInfo>,
+    pub active_table: Option<String>,
 }
 
 impl CommonWorkspace {
@@ -101,11 +101,14 @@ impl CommonWorkspace {
         self.tables = match session.tables() {
             Ok(tables) => tables
                 .into_iter()
-                .map(|name| TableInfo {
-                    name,
-                    row_count: None,
-                    size_bytes: None,
-                    last_accessed: None,
+                .map(|name| {
+                    let info = TableInfo {
+                        name: name.clone(),
+                        row_count: None,
+                        size_bytes: None,
+                        last_accessed: None,
+                    };
+                    (name, info)
                 })
                 .collect(),
             Err(err) => {
@@ -113,7 +116,7 @@ impl CommonWorkspace {
                 if !self.tables.is_empty() {
                     return;
                 }
-                vec![]
+                IndexMap::new()
             }
         };
         // self.active_tab = 0;
@@ -121,17 +124,15 @@ impl CommonWorkspace {
 
         // 清除失效的标签页
         self.tabs.retain(|_, tab| match &tab.content {
-            TabContent::Data(tab) => self.tables.iter().any({
-                // rustfmt::skip
-                |t| t.name == tab.table.as_ref()
-            }),
+            TabContent::Data(tab) => self.tables.contains_key(tab.table.as_ref()),
             _ => true,
         });
 
         {
             // 更新缓存
             let cache = self.cache.write().unwrap();
-            if let Err(err) = cache.tables_update(&self.source.id, &self.tables) {
+            let tables: Vec<TableInfo> = self.tables.values().cloned().collect();
+            if let Err(err) = cache.tables_update(&self.source.id, &tables) {
                 tracing::error!("更新表缓存失败: {}", err);
             }
         }
@@ -170,7 +171,7 @@ impl CommonWorkspace {
 
     fn create_data_tab(
         &mut self,
-        table: SharedString,
+        table: String,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -178,7 +179,7 @@ impl CommonWorkspace {
             let TabContent::Data(data) = &tab.content else {
                 continue;
             };
-            if data.table == table {
+            if data.table.as_ref() == table.as_str() {
                 self.active_tab = id.clone();
                 cx.notify();
                 return;
@@ -190,7 +191,7 @@ impl CommonWorkspace {
         self.tabs.insert(
             tab_id.clone(),
             TabContext {
-                title: table.clone(),
+                title: SharedString::from(table.clone()),
                 content: TabContent::Data(DataContent {
                     id: tab_id.clone(),
                     page_no: 0,
@@ -200,7 +201,7 @@ impl CommonWorkspace {
                     filter_enable: false,
                     columns: vec![],
                     columns_enable: false,
-                    table: table.clone(),
+                    table: SharedString::from(table),
                     datatable: DataTable::new(vec![], vec![]).build(window, cx),
                 }),
                 closable: true,
@@ -1129,16 +1130,15 @@ impl Render for CommonWorkspace {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let id = &self.source.id;
         let theme = cx.theme().clone();
-        let active_tab_id = self.active_tab.clone();
+        let active_tab = self.active_tab.clone();
 
         let mut tabs = vec![];
-        for (tab_id, tab) in &self.tabs {
-            let tab_active = tab_id == &active_tab_id;
+        for (id, tab) in &self.tabs {
+            let tab_active = id == &active_tab;
 
             let mut item = div()
-                .id(comp_id(["common-tabs-item", &tab_id]))
+                .id(comp_id(["common-tabs-item", &id]))
                 .flex()
                 .flex_row()
                 .items_center()
@@ -1157,7 +1157,7 @@ impl Render for CommonWorkspace {
                     this.bg(theme.tab_bar).text_color(theme.muted_foreground)
                 })
                 .on_click(cx.listener({
-                    let tab_id = tab_id.clone();
+                    let tab_id = id.clone();
                     // rustfmt::skip
                     move |this, _, _, cx| {
                         if this.tabs.contains_key(&tab_id) {
@@ -1177,12 +1177,12 @@ impl Render for CommonWorkspace {
 
             if tab.closable {
                 item = item.child(
-                    Button::new(comp_id(["common-tabs-close", &tab_id]))
+                    Button::new(comp_id(["common-tabs-close", &id]))
                         .ghost()
                         .xsmall()
                         .icon(IconName::Close)
                         .on_click(cx.listener({
-                            let tab_id = tab_id.clone();
+                            let tab_id = id.clone();
                             // rustfmt::skip
                             move |this, _, _, cx| {
                                 let Some(i) = this.tabs.get_index_of(&tab_id) else {
@@ -1210,55 +1210,52 @@ impl Render for CommonWorkspace {
             tabs.push(item)
         }
         let mut tables = vec![];
-        for (i, item) in self.tables.iter().enumerate() {
-            let active = self.active_table == Some(i);
-            let table_name = SharedString::from(item.name.clone());
+        for (name, table) in &self.tables {
+            let active = self.active_table.as_ref() == Some(name);
 
-            tables.push(
-                div()
-                    .id(comp_id(["common-tables-item", &self.source.id, &item.name]))
-                    .pl_4()
-                    .pr_6()
-                    .py_2()
-                    .gap_2()
-                    .row_full()
-                    .items_center()
-                    .rounded_md()
-                    .when_else(
-                        active,
-                        |this| this.bg(theme.list_active),
-                        |this| this.hover(|this| this.bg(theme.list_hover)),
-                    )
-                    .on_click(cx.listener({
-                        // rustfmt::skip
-                        move |this, _, _, cx| {
-                            if i < this.tables.len() {
-                                this.active_table = Some(i);
-                                cx.notify();
-                            }
-                        }
-                    }))
-                    .on_double_click(cx.listener({
-                        let table_name = table_name.clone();
-                        move |this, _, window, cx| {
-                            this.create_data_tab(table_name.clone(), window, cx);
-                        }
-                    }))
-                    .child(icon_sheet())
-                    .child(
-                        div()
-                            .text_sm()
-                            .overflow_hidden()
-                            .whitespace_nowrap()
-                            .child(item.name.clone()),
-                    )
-                    .tooltip({
-                        let name = item.name.clone();
-                        move |window, cx| Tooltip::new(name.clone()).build(window, cx)
-                    }),
-            )
+            let item = div()
+                .id(comp_id(["common-tables-item", &self.source.id, &table.name]))
+                .pl_4()
+                .pr_6()
+                .py_2()
+                .gap_2()
+                .row_full()
+                .items_center()
+                .rounded_md()
+                .when_else(
+                    active,
+                    |this| this.bg(theme.list_active),
+                    |this| this.hover(|this| this.bg(theme.list_hover)),
+                )
+                .on_click(cx.listener({
+                    let name = name.clone();
+                    move |this, _, _, cx| {
+                        this.active_table = Some(name.clone());
+                        cx.notify();
+                    }
+                }))
+                .on_double_click(cx.listener({
+                    let name = name.clone();
+                    move |this, _, window, cx| {
+                        this.create_data_tab(name.clone(), window, cx);
+                    }
+                }))
+                .child(icon_sheet())
+                .child(
+                    div()
+                        .text_sm()
+                        .overflow_hidden()
+                        .whitespace_nowrap()
+                        .child(table.name.clone()),
+                )
+                .tooltip({
+                    let name = table.name.clone();
+                    move |window, cx| Tooltip::new(name.clone()).build(window, cx)
+                });
+            tables.push(item)
         }
 
+        let id = &self.source.id;
         div()
             .id(comp_id(["common", id]))
             .col_full()

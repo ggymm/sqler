@@ -136,8 +136,14 @@ impl Workspace {
             | DataSourceKind::Oracle
             | DataSourceKind::SQLServer => {
                 let tables = {
-                    let cache = cache.read().unwrap();
-                    cache.tables(&source.id).unwrap_or_default()
+                    cache
+                        .read()
+                        .unwrap()
+                        .tables(&source.id)
+                        .unwrap_or_default()
+                        .into_iter()
+                        .map(|t| (t.name.clone(), t))
+                        .collect()
                 };
                 Workspace::Common {
                     view: cx.new(|_| {
