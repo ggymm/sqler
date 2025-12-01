@@ -6,6 +6,7 @@ use gpui_component::{
     input::{Input, InputState, TabSize},
     resizable::{h_resizable, resizable_panel, v_resizable},
     select::{Select, SelectState},
+    sheet::Sheet,
     table::{Table, TableState},
     tooltip::Tooltip,
     ActiveTheme, Disableable, IconName, InteractiveElementExt, Sizable, Size, StyledExt,
@@ -35,8 +36,8 @@ const ORDER_ASC: &str = "升序";
 const ORDER_DESC: &str = "降序";
 
 enum TabContent {
-    Data(DataContent),
     Query(QueryContent),
+    Table(TableContent),
     Struct(),
     Overview,
 }
@@ -131,25 +132,10 @@ impl CommonWorkspace {
 
         // 清除失效的标签页
         self.tabs.retain(|_, tab| match &tab.content {
-            TabContent::Data(tab) => self.tables.contains_key(tab.table.as_ref()),
+            TabContent::Table(tab) => self.tables.contains_key(tab.table.as_ref()),
             _ => true,
         });
         cx.notify();
-    }
-
-    fn data_content(
-        &mut self,
-        tab_id: &String,
-    ) -> Option<&mut DataContent> {
-        self.tabs.get_mut(tab_id).and_then({
-            |item| {
-                if let TabContent::Data(tab) = &mut item.content {
-                    Some(tab)
-                } else {
-                    None
-                }
-            }
-        })
     }
 
     fn query_content(
@@ -167,554 +153,19 @@ impl CommonWorkspace {
         })
     }
 
-    fn create_data_tab(
-        &mut self,
-        table: String,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        for (id, tab) in &self.tabs {
-            let TabContent::Data(data) = &tab.content else {
-                continue;
-            };
-            if data.table.as_ref() == table.as_str() {
-                self.active_tab = id.clone();
-                cx.notify();
-                return;
-            }
-        }
-        let tab_id = Uuid::new_v4().to_string();
-
-        // 新建标签页
-        self.tabs.insert(
-            tab_id.clone(),
-            TabContext {
-                title: SharedString::from(table.clone()),
-                content: TabContent::Data(DataContent {
-                    id: tab_id.clone(),
-                    page_no: 0,
-                    rows_count: 0,
-                    query_rules: vec![],
-                    order_rules: vec![],
-                    filter_enable: false,
-                    columns: vec![],
-                    columns_enable: false,
-                    table: SharedString::from(table),
-                    datatable: DataTable::new(vec![], vec![]).build(window, cx),
-                }),
-                closable: true,
-            },
-        );
-        self.active_tab = tab_id.clone();
-        cx.notify();
-
-        // 异步加载数据
-        self.reload_data_tab(&tab_id, window, cx);
-    }
-
-    fn reload_data_tab(
+    fn table_content(
         &mut self,
         tab_id: &String,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let (table, page, orders, filters) = {
-            let Some(data) = self.data_content(tab_id) else {
-                return;
-            };
-
-            // 设置表格加载状态
-            data.datatable.update(cx, |t, cx| {
-                t.delegate_mut().update_loading(true);
-                cx.notify();
-            });
-
-            // 转换排序规则
-            let mut orders = vec![];
-            for rule in &data.order_rules {
-                // 读取字段名
-                let Some(field) = rule.field.read(cx).selected_value() else {
-                    continue;
-                };
-
-                // 读取排序方式
-                let Some(order) = rule.order.read(cx).selected_value() else {
-                    continue;
-                };
-                let ascending = order.as_ref() == ORDER_ASC;
-
-                orders.push(OrderCond {
-                    field: field.to_string(),
-                    ascending,
-                });
-            }
-
-            // 转换筛选规则
-            let mut filters = vec![];
-            for rule in &data.query_rules {
-                // 读取字段名
-                let Some(field) = rule.field.read(cx).selected_value() else {
-                    continue;
-                };
-
-                // 读取操作符
-                let Some(operator_label) = rule.operator.read(cx).selected_value() else {
-                    continue;
-                };
-                let operator = Operator::from_label(operator_label.as_ref());
-
-                // 读取值
-                let input = rule.value.read(cx).text().to_string();
-                if input.trim().is_empty() && !matches!(operator, Operator::IsNull | Operator::IsNotNull) {
-                    continue;
+    ) -> Option<&mut TableContent> {
+        self.tabs.get_mut(tab_id).and_then({
+            |item| {
+                if let TabContent::Table(tab) = &mut item.content {
+                    Some(tab)
+                } else {
+                    None
                 }
-
-                // 构建条件值
-                let value = match operator {
-                    Operator::IsNull | Operator::IsNotNull => ValueCond::Null,
-                    _ => ValueCond::String(input),
-                };
-
-                filters.push(FilterCond {
-                    field: field.to_string(),
-                    operator,
-                    value,
-                });
             }
-
-            (data.table.clone(), data.page_no, orders, filters)
-        };
-
-        let tab_id = tab_id.clone();
-        let session = match self.active_session() {
-            Ok(_) => self.session.take(),
-            Err(err) => {
-                tracing::error!("获取数据库连接失败: {}", err);
-                return;
-            }
-        };
-        let Some(mut session) = session else {
-            return;
-        };
-
-        // 在后台线程执行数据库查询
-        cx.spawn_in(window, async move |this, cx| {
-            let ret = cx
-                .background_executor()
-                .spawn(async move {
-                    // 查询列名
-                    let cols = session.columns(&table)?;
-
-                    // 查询数据
-                    let query_resp = session.query(QueryReq::Builder {
-                        table: table.to_string(),
-                        columns: vec![],
-                        paging: Some(Paging::new(page, PAGE_SIZE)),
-                        orders,
-                        filters,
-                    })?;
-                    let rows = match query_resp {
-                        QueryResp::Rows(rows) => rows,
-                        _ => vec![],
-                    };
-
-                    // 构建渲染数据
-                    let table_cols: Vec<SharedString> = cols.iter().map(|s| SharedString::from(s.clone())).collect();
-                    let mut table_rows = Vec::with_capacity(rows.len());
-                    for row in rows {
-                        let mut record = Vec::with_capacity(cols.len());
-                        for name in &cols {
-                            let value = row.get(name).cloned().unwrap_or_default();
-                            record.push(SharedString::from(value));
-                        }
-                        table_rows.push(record);
-                    }
-
-                    Ok::<_, DriverError>(((table_cols, table_rows), session))
-                })
-                .await;
-
-            // 更新 UI
-            let _ = cx.update(|_, cx| {
-                let _ = this.update(cx, |this, cx| match ret {
-                    Ok((data, session)) => {
-                        this.session = Some(session);
-
-                        let (cols, rows) = data;
-                        let Some(data) = this.data_content(&tab_id) else {
-                            return;
-                        };
-                        data.page_no = page;
-                        data.rows_count = rows.len();
-                        data.columns = cols.clone();
-                        data.datatable.update(cx, |t, cx| {
-                            t.delegate_mut().update_data(cols, rows);
-                            t.delegate_mut().update_loading(false);
-                            t.refresh(cx);
-                            cx.notify();
-                        });
-                        cx.notify();
-                    }
-                    Err(err) => {
-                        tracing::error!("加载数据表失败: {}", err);
-                        this.session = None;
-
-                        let Some(data) = this.data_content(&tab_id) else {
-                            return;
-                        };
-                        data.datatable.update(cx, |t, cx| {
-                            t.delegate_mut().update_loading(false);
-                            cx.notify();
-                        });
-                        cx.notify();
-                    }
-                });
-            });
         })
-        .detach();
-    }
-
-    fn render_data_tab(
-        &self,
-        tab: &DataContent,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
-        let theme = cx.theme().clone();
-        let tab_id = tab.id.clone();
-
-        let page_no = tab.page_no;
-        let rows_count = tab.rows_count;
-
-        let filter = Button::new(comp_id(["table-filter", &tab_id]))
-            .label("筛选数据")
-            .small()
-            .outline()
-            .on_click(cx.listener({
-                let tab_id = tab_id.clone();
-                move |view: &mut Self, _, _, cx| {
-                    if let Some(data) = view.data_content(&tab_id) {
-                        data.filter_enable = !data.filter_enable;
-                    }
-                    cx.notify();
-                }
-            }));
-        let column = Button::new(comp_id(["table-column", &tab_id]))
-            .label("筛选字段")
-            .small()
-            .outline();
-        let schema = Button::new(comp_id(["table-schema", &tab_id]))
-            .label("展示表结构")
-            .small()
-            .outline()
-            .on_click(cx.listener({
-                let tab_id = tab_id.clone();
-                move |view: &mut Self, _, _, cx| {
-                    if let Some(data) = view.data_content(&tab_id) {
-                        data.filter_enable = !data.filter_enable;
-                    }
-                    cx.notify();
-                }
-            }));
-
-        let page_prev = Button::new(comp_id(["table-page-prev", &tab_id]))
-            .label("上一页")
-            .small()
-            .outline()
-            .disabled(page_no == 0)
-            .on_click(cx.listener({
-                let tab_id = tab_id.clone();
-                let prev_page = page_no.saturating_sub(1);
-                move |view: &mut Self, _, window, cx| {
-                    if let Some(data) = view.data_content(&tab_id) {
-                        data.page_no = prev_page;
-                    }
-                    view.reload_data_tab(&tab_id, window, cx);
-                }
-            }));
-        let page_next = Button::new(comp_id(["table-page-next", &tab_id]))
-            .label("下一页")
-            .small()
-            .outline()
-            .disabled(rows_count == 0)
-            .on_click(cx.listener({
-                let tab_id = tab_id.clone();
-                let next_page = page_no.saturating_add(1);
-                move |view: &mut Self, _, window, cx| {
-                    if let Some(data) = view.data_content(&tab_id) {
-                        data.page_no = next_page;
-                    }
-                    view.reload_data_tab(&tab_id, window, cx);
-                }
-            }));
-
-        let order_ops = vec![SharedString::from(ORDER_ASC), SharedString::from(ORDER_DESC)];
-        let filter_ops: Vec<SharedString> = Operator::all()
-            .into_iter()
-            .map(|op| SharedString::from(op.label().to_string()))
-            .collect();
-        let create_order = Button::new(comp_id(["table-order-create", &tab_id]))
-            .small()
-            .icon(IconName::Plus)
-            .on_click(cx.listener({
-                let tab_id = tab_id.clone();
-                let columns = tab.columns.clone();
-                move |view: &mut Self, _, window, cx| {
-                    if let Some(data) = view.data_content(&tab_id) {
-                        data.order_rules.push(OrderRule {
-                            id: Uuid::new_v4().to_string(),
-                            field: cx.new(|cx| {
-                                // rustfmt::skip
-                                SelectState::new(columns.clone(), None, window, cx)
-                            }),
-                            order: cx.new(|cx| {
-                                // rustfmt::skip
-                                SelectState::new(order_ops.clone(), None, window, cx)
-                            }),
-                        });
-                    }
-                    cx.notify();
-                }
-            }));
-        let create_query = Button::new(comp_id(["table-filter-create", &tab_id]))
-            .small()
-            .icon(IconName::Plus)
-            .on_click(cx.listener({
-                let tab_id = tab_id.clone();
-                let columns = tab.columns.clone();
-                move |view: &mut Self, _, window, cx| {
-                    if let Some(data) = view.data_content(&tab_id) {
-                        data.query_rules.push(QueryRule {
-                            id: Uuid::new_v4().to_string(),
-                            field: cx.new(|cx| {
-                                // rustfmt::skip
-                                SelectState::new(columns.clone(), None, window, cx)
-                            }),
-                            operator: cx.new(|cx| {
-                                // rustfmt::skip
-                                SelectState::new(filter_ops.clone(), None, window, cx)
-                            }),
-                            value: cx.new(|cx| InputState::new(window, cx)),
-                        });
-                    }
-                    cx.notify();
-                }
-            }));
-        let apply_cond = Button::new(comp_id(["table-filter-apply", &tab_id]))
-            .label("应用条件")
-            .outline()
-            .on_click(cx.listener({
-                let tab_id = tab_id.clone();
-                move |view: &mut Self, _, window, cx| {
-                    if let Some(data) = view.data_content(&tab_id) {
-                        data.page_no = 0;
-                        data.filter_enable = false;
-                    }
-                    view.reload_data_tab(&tab_id, window, cx);
-                }
-            }));
-        let clear_cond = Button::new(comp_id(["table-filter-clear", &tab_id]))
-            .label("清除条件")
-            .outline()
-            .on_click(cx.listener({
-                let tab_id = tab_id.clone();
-                move |view: &mut Self, _, _, cx| {
-                    if let Some(data) = view.data_content(&tab_id) {
-                        data.order_rules.clear();
-                        data.query_rules.clear();
-                    }
-                    cx.notify();
-                }
-            }));
-        let close_cond = Button::new(comp_id(["table-filter-close", &tab_id]))
-            .small()
-            .ghost()
-            .icon(IconName::Close)
-            .on_click(cx.listener({
-                let tab_id = tab_id.clone();
-                move |view: &mut Self, _, _, cx| {
-                    if let Some(data) = view.data_content(&tab_id) {
-                        data.filter_enable = false;
-                    }
-                    cx.notify();
-                }
-            }));
-
-        let mut orders = vec![];
-        for order in tab.order_rules.iter() {
-            let tab_id = tab_id.clone();
-            let rule_id = order.id.clone();
-            orders.push(
-                div()
-                    .flex()
-                    .flex_row()
-                    .items_center()
-                    .gap_2()
-                    .w_full()
-                    .child(div().w_48().child(Select::new(&order.field).small().placeholder("")))
-                    .child(div().w_48().child(Select::new(&order.order).small().placeholder("")))
-                    .child(
-                        Button::new(comp_id(["table-order-remove", &rule_id]))
-                            .ghost()
-                            .icon(icon_trash())
-                            .on_click(cx.listener({
-                                // rustfmt::skip
-                                move |view: &mut Self, _, _, cx| {
-                                    if let Some(data) = view.data_content(&tab_id) {
-                                        data.order_rules.retain(|r| &r.id != &rule_id);
-                                    }
-                                    cx.notify();
-                                }
-                            })),
-                    ),
-            )
-        }
-        let mut queries = vec![];
-        for query in tab.query_rules.iter() {
-            let tab_id = tab_id.clone();
-            let rule_id = query.id.clone();
-            queries.push(
-                div()
-                    .flex()
-                    .flex_row()
-                    .items_center()
-                    .gap_2()
-                    .w_full()
-                    .child(div().w_48().child(Select::new(&query.field).small().placeholder("")))
-                    .child(div().w_48().child(Select::new(&query.operator).small().placeholder("")))
-                    .child(div().flex_1().child(Input::new(&query.value).small()))
-                    .child(
-                        Button::new(comp_id(["table-filter-remove", &rule_id]))
-                            .ghost()
-                            .icon(icon_trash())
-                            .on_click(cx.listener({
-                                // rustfmt::skip
-                                move |view: &mut Self, _, _, cx| {
-                                    if let Some(data) = view.data_content(&tab_id) {
-                                        data.query_rules.retain(|r| &r.id != &rule_id);
-                                    }
-                                    cx.notify();
-                                }
-                            })),
-                    ),
-            )
-        }
-
-        div()
-            .relative()
-            .col_full()
-            .child(
-                div()
-                    .flex_1()
-                    .border_y_1()
-                    .border_color(theme.border)
-                    .child(
-                        Table::new(&tab.datatable)
-                            .stripe(false)
-                            .bordered(false)
-                            .scrollbar_visible(true, true),
-                    )
-                    .child(div()),
-            )
-            .child(
-                div()
-                    .flex()
-                    .flex_row()
-                    .items_center()
-                    .p_2()
-                    .gap_2()
-                    .h_12()
-                    .bg(theme.secondary)
-                    .child(filter)
-                    .child(column)
-                    .child(schema)
-                    .child(div().flex_1())
-                    .child(page_prev)
-                    .child(div().text_sm().child(format!("第 {} 页", page_no + 1)))
-                    .child(page_next),
-            )
-            .when(tab.filter_enable || tab.columns_enable, |this| {
-                this.child(
-                    div()
-                        .id("overlay")
-                        .top_0()
-                        .left_0()
-                        .right_0()
-                        .bottom_0()
-                        .occlude()
-                        .absolute(),
-                )
-            })
-            .when(tab.filter_enable, |this| {
-                this.child(
-                    div()
-                        .col_full()
-                        .absolute()
-                        .w_2_3()
-                        .h_2_3()
-                        .top_0()
-                        .left_1_6()
-                        .bg(theme.background)
-                        .border_1()
-                        .border_color(theme.border)
-                        .shadow_lg()
-                        .rounded_md()
-                        .child(
-                            div()
-                                .flex()
-                                .flex_row()
-                                .items_center()
-                                .justify_between()
-                                .px_4()
-                                .py_2()
-                                .border_b_1()
-                                .border_color(theme.border)
-                                .child(div().text_base().child("筛选数据"))
-                                .child(close_cond),
-                        )
-                        .child(
-                            div().flex_1().min_h_0().child(
-                                div()
-                                    .px_4()
-                                    .py_2()
-                                    .gap_2()
-                                    .col_full()
-                                    .scrollable(Axis::Vertical)
-                                    .child(
-                                        div()
-                                            .gap_4()
-                                            .row_full()
-                                            .child(div().text_sm().font_semibold().child("排序规则"))
-                                            .child(create_order),
-                                    )
-                                    .children(orders)
-                                    .child(
-                                        div()
-                                            .gap_4()
-                                            .row_full()
-                                            .child(div().text_sm().font_semibold().child("筛选规则"))
-                                            .child(create_query),
-                                    )
-                                    .children(queries),
-                            ),
-                        )
-                        .child(
-                            div()
-                                .flex()
-                                .flex_row()
-                                .items_center()
-                                .px_4()
-                                .py_2()
-                                .gap_2()
-                                .border_t_1()
-                                .border_color(theme.border)
-                                .child(div().flex_1())
-                                .child(clear_cond)
-                                .child(apply_cond),
-                        ),
-                )
-            })
-            .when(tab.columns_enable, |this| this.child(div()))
-            .into_any_element()
     }
 
     fn create_query_tab(
@@ -767,11 +218,11 @@ impl CommonWorkspace {
         cx: &mut Context<Self>,
     ) {
         let multi_sql = {
-            let Some(query) = self.query_content(tab_id) else {
+            let Some(content) = self.query_content(tab_id) else {
                 return;
             };
 
-            let multi_sql: Vec<String> = query
+            let multi_sql: Vec<String> = content
                 .editor
                 .read(cx)
                 .text()
@@ -786,18 +237,18 @@ impl CommonWorkspace {
                 return;
             }
 
-            query.results.clear();
+            content.results.clear();
             for (_, sql) in multi_sql.iter().enumerate() {
                 let datatable = DataTable::new(vec![], vec![]).build(window, cx);
-                query.results.push(QueryResult {
+                content.results.push(QueryResult {
                     sql: sql.to_string(),
                     error: None,
                     elapsed: 0.0,
                     datatable,
                 });
             }
-            query.active = 0;
-            query.summary = true;
+            content.active = 0;
+            content.summary = true;
 
             multi_sql
         };
@@ -871,11 +322,11 @@ impl CommonWorkspace {
                 let _ = this.update(cx, |this, cx| match ret {
                     Ok((results, session)) => {
                         this.session = Some(session);
-                        let Some(query) = this.query_content(&tab_id) else {
+                        let Some(content) = this.query_content(&tab_id) else {
                             return;
                         };
                         for (i, cols, rows, elapsed, error) in results {
-                            let Some(ret) = query.results.get_mut(i) else {
+                            let Some(ret) = content.results.get_mut(i) else {
                                 continue;
                             };
                             ret.error = error;
@@ -902,6 +353,7 @@ impl CommonWorkspace {
     fn render_query_tab(
         &self,
         tab: &QueryContent,
+        _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let theme = cx.theme();
@@ -915,10 +367,10 @@ impl CommonWorkspace {
                 .on_click(cx.listener({
                     let tab_id = tab_id.clone();
                     move |view: &mut Self, _, _, cx| {
-                        let Some(query) = view.query_content(&tab_id) else {
+                        let Some(content) = view.query_content(&tab_id) else {
                             return;
                         };
-                        query.summary = true;
+                        content.summary = true;
                         cx.notify();
                     }
                 }));
@@ -940,11 +392,11 @@ impl CommonWorkspace {
                 .on_click(cx.listener({
                     let tab_id = tab_id.clone();
                     move |view: &mut Self, _, _, cx| {
-                        let Some(query) = view.query_content(&tab_id) else {
+                        let Some(content) = view.query_content(&tab_id) else {
                             return;
                         };
-                        query.summary = false;
-                        query.active = i;
+                        content.active = i;
+                        content.summary = false;
                         cx.notify();
                     }
                 }));
@@ -1082,6 +534,500 @@ impl CommonWorkspace {
             .into_any_element()
     }
 
+    fn create_table_tab(
+        &mut self,
+        table: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        for (id, tab) in &self.tabs {
+            let TabContent::Table(data) = &tab.content else {
+                continue;
+            };
+            if data.table.as_ref() == table.as_str() {
+                self.active_tab = id.clone();
+                cx.notify();
+                return;
+            }
+        }
+        let tab_id = Uuid::new_v4().to_string();
+
+        // 新建标签页
+        self.tabs.insert(
+            tab_id.clone(),
+            TabContext {
+                title: SharedString::from(table.clone()),
+                content: TabContent::Table(TableContent {
+                    id: tab_id.clone(),
+                    page_no: 0,
+                    rows_count: 0,
+                    query_rules: vec![],
+                    order_rules: vec![],
+                    filter_enable: false,
+                    columns: vec![],
+                    columns_enable: false,
+                    table: SharedString::from(table),
+                    datatable: DataTable::new(vec![], vec![]).build(window, cx),
+                }),
+                closable: true,
+            },
+        );
+        self.active_tab = tab_id.clone();
+        cx.notify();
+
+        // 异步加载数据
+        self.reload_table_tab(&tab_id, window, cx);
+    }
+
+    fn reload_table_tab(
+        &mut self,
+        tab_id: &String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let (table, page, orders, filters) = {
+            let Some(content) = self.table_content(tab_id) else {
+                return;
+            };
+
+            // 设置表格加载状态
+            content.datatable.update(cx, |t, cx| {
+                t.delegate_mut().update_loading(true);
+                cx.notify();
+            });
+
+            // 转换排序规则
+            let mut orders = vec![];
+            for rule in &content.order_rules {
+                // 读取字段名
+                let Some(field) = rule.field.read(cx).selected_value() else {
+                    continue;
+                };
+
+                // 读取排序方式
+                let Some(order) = rule.order.read(cx).selected_value() else {
+                    continue;
+                };
+                let ascending = order.as_ref() == ORDER_ASC;
+
+                orders.push(OrderCond {
+                    field: field.to_string(),
+                    ascending,
+                });
+            }
+
+            // 转换筛选规则
+            let mut filters = vec![];
+            for rule in &content.query_rules {
+                // 读取字段名
+                let Some(field) = rule.field.read(cx).selected_value() else {
+                    continue;
+                };
+
+                // 读取操作符
+                let Some(operator_label) = rule.operator.read(cx).selected_value() else {
+                    continue;
+                };
+                let operator = Operator::from_label(operator_label.as_ref());
+
+                // 读取值
+                let input = rule.value.read(cx).text().to_string();
+                if input.trim().is_empty() && !matches!(operator, Operator::IsNull | Operator::IsNotNull) {
+                    continue;
+                }
+
+                // 构建条件值
+                let value = match operator {
+                    Operator::IsNull | Operator::IsNotNull => ValueCond::Null,
+                    _ => ValueCond::String(input),
+                };
+
+                filters.push(FilterCond {
+                    field: field.to_string(),
+                    operator,
+                    value,
+                });
+            }
+
+            (content.table.clone(), content.page_no, orders, filters)
+        };
+
+        let tab_id = tab_id.clone();
+        let session = match self.active_session() {
+            Ok(_) => self.session.take(),
+            Err(err) => {
+                tracing::error!("获取数据库连接失败: {}", err);
+                return;
+            }
+        };
+        let Some(mut session) = session else {
+            return;
+        };
+
+        // 在后台线程执行数据库查询
+        cx.spawn_in(window, async move |this, cx| {
+            let ret = cx
+                .background_executor()
+                .spawn(async move {
+                    // 查询列名
+                    let cols = session.columns(&table)?;
+
+                    // 查询数据
+                    let query_resp = session.query(QueryReq::Builder {
+                        table: table.to_string(),
+                        columns: vec![],
+                        paging: Some(Paging::new(page, PAGE_SIZE)),
+                        orders,
+                        filters,
+                    })?;
+                    let rows = match query_resp {
+                        QueryResp::Rows(rows) => rows,
+                        _ => vec![],
+                    };
+
+                    // 构建渲染数据
+                    let table_cols: Vec<SharedString> = cols.iter().map(|s| SharedString::from(s.clone())).collect();
+                    let mut table_rows = Vec::with_capacity(rows.len());
+                    for row in rows {
+                        let mut record = Vec::with_capacity(cols.len());
+                        for name in &cols {
+                            let value = row.get(name).cloned().unwrap_or_default();
+                            record.push(SharedString::from(value));
+                        }
+                        table_rows.push(record);
+                    }
+
+                    Ok::<_, DriverError>(((table_cols, table_rows), session))
+                })
+                .await;
+
+            // 更新 UI
+            let _ = cx.update(|_, cx| {
+                let _ = this.update(cx, |this, cx| match ret {
+                    Ok((data, session)) => {
+                        this.session = Some(session);
+
+                        let (cols, rows) = data;
+                        let Some(content) = this.table_content(&tab_id) else {
+                            return;
+                        };
+                        content.page_no = page;
+                        content.rows_count = rows.len();
+                        content.columns = cols.clone();
+                        content.datatable.update(cx, |t, cx| {
+                            t.delegate_mut().update_data(cols, rows);
+                            t.delegate_mut().update_loading(false);
+                            t.refresh(cx);
+                            cx.notify();
+                        });
+                        cx.notify();
+                    }
+                    Err(err) => {
+                        tracing::error!("加载数据表失败: {}", err);
+                        this.session = None;
+
+                        let Some(content) = this.table_content(&tab_id) else {
+                            return;
+                        };
+                        content.datatable.update(cx, |t, cx| {
+                            t.delegate_mut().update_loading(false);
+                            cx.notify();
+                        });
+                        cx.notify();
+                    }
+                });
+            });
+        })
+        .detach();
+    }
+
+    fn render_table_tab(
+        &self,
+        tab: &TableContent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let theme = cx.theme().clone();
+        let tab_id = tab.id.clone();
+
+        let page_no = tab.page_no;
+        let rows_count = tab.rows_count;
+
+        let filter = Button::new(comp_id(["table-filter", &tab_id]))
+            .label("筛选数据")
+            .small()
+            .outline()
+            .on_click(cx.listener({
+                let tab_id = tab_id.clone();
+                move |view: &mut Self, _, _, cx| {
+                    if let Some(content) = view.table_content(&tab_id) {
+                        content.filter_enable = !content.filter_enable;
+                    }
+                    cx.notify();
+                }
+            }));
+        let column = Button::new(comp_id(["table-column", &tab_id]))
+            .label("筛选字段")
+            .small()
+            .outline();
+        let schema = Button::new(comp_id(["table-schema", &tab_id]))
+            .label("展示表结构")
+            .small()
+            .outline();
+
+        let page_prev = Button::new(comp_id(["table-page-prev", &tab_id]))
+            .label("上一页")
+            .small()
+            .outline()
+            .disabled(page_no == 0)
+            .on_click(cx.listener({
+                let tab_id = tab_id.clone();
+                let prev_page = page_no.saturating_sub(1);
+                move |view: &mut Self, _, window, cx| {
+                    if let Some(content) = view.table_content(&tab_id) {
+                        content.page_no = prev_page;
+                    }
+                    view.reload_table_tab(&tab_id, window, cx);
+                }
+            }));
+        let page_next = Button::new(comp_id(["table-page-next", &tab_id]))
+            .label("下一页")
+            .small()
+            .outline()
+            .disabled(rows_count == 0)
+            .on_click(cx.listener({
+                let tab_id = tab_id.clone();
+                let next_page = page_no.saturating_add(1);
+                move |view: &mut Self, _, window, cx| {
+                    if let Some(content) = view.table_content(&tab_id) {
+                        content.page_no = next_page;
+                    }
+                    view.reload_table_tab(&tab_id, window, cx);
+                }
+            }));
+
+        let order_ops = vec![SharedString::from(ORDER_ASC), SharedString::from(ORDER_DESC)];
+        let filter_ops: Vec<SharedString> = Operator::all()
+            .into_iter()
+            .map(|op| SharedString::from(op.label().to_string()))
+            .collect();
+        let apply_cond = Button::new(comp_id(["table-filter-apply", &tab_id]))
+            .label("应用条件")
+            .outline()
+            .on_click(cx.listener({
+                let tab_id = tab_id.clone();
+                move |view: &mut Self, _, window, cx| {
+                    if let Some(content) = view.table_content(&tab_id) {
+                        content.page_no = 0;
+                        content.filter_enable = false;
+                    }
+                    view.reload_table_tab(&tab_id, window, cx);
+                }
+            }));
+        let clear_cond = Button::new(comp_id(["table-filter-clear", &tab_id]))
+            .label("清除条件")
+            .outline()
+            .on_click(cx.listener({
+                let tab_id = tab_id.clone();
+                move |view: &mut Self, _, _, cx| {
+                    if let Some(content) = view.table_content(&tab_id) {
+                        content.order_rules.clear();
+                        content.query_rules.clear();
+                    }
+                    cx.notify();
+                }
+            }));
+        let create_order = Button::new(comp_id(["table-order-create", &tab_id]))
+            .small()
+            .icon(IconName::Plus)
+            .on_click(cx.listener({
+                let tab_id = tab_id.clone();
+                let columns = tab.columns.clone();
+                move |view: &mut Self, _, window, cx| {
+                    if let Some(content) = view.table_content(&tab_id) {
+                        content.order_rules.push(OrderRule {
+                            id: Uuid::new_v4().to_string(),
+                            field: cx.new(|cx| {
+                                // rustfmt::skip
+                                SelectState::new(columns.clone(), None, window, cx)
+                            }),
+                            order: cx.new(|cx| {
+                                // rustfmt::skip
+                                SelectState::new(order_ops.clone(), None, window, cx)
+                            }),
+                        });
+                    }
+                    cx.notify();
+                }
+            }));
+        let create_query = Button::new(comp_id(["table-filter-create", &tab_id]))
+            .small()
+            .icon(IconName::Plus)
+            .on_click(cx.listener({
+                let tab_id = tab_id.clone();
+                let columns = tab.columns.clone();
+                move |view: &mut Self, _, window, cx| {
+                    if let Some(content) = view.table_content(&tab_id) {
+                        content.query_rules.push(QueryRule {
+                            id: Uuid::new_v4().to_string(),
+                            field: cx.new(|cx| {
+                                // rustfmt::skip
+                                SelectState::new(columns.clone(), None, window, cx)
+                            }),
+                            operator: cx.new(|cx| {
+                                // rustfmt::skip
+                                SelectState::new(filter_ops.clone(), None, window, cx)
+                            }),
+                            value: cx.new(|cx| {
+                                // rustfmt::skip
+                                InputState::new(window, cx)
+                            }),
+                        });
+                    }
+                    cx.notify();
+                }
+            }));
+
+        let mut orders = vec![];
+        for order in tab.order_rules.iter() {
+            let tab_id = tab_id.clone();
+            let rule_id = order.id.clone();
+            orders.push(
+                div()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .gap_2()
+                    .w_full()
+                    .child(div().w_48().child(Select::new(&order.field).small().placeholder("")))
+                    .child(div().w_48().child(Select::new(&order.order).small().placeholder("")))
+                    .child(
+                        Button::new(comp_id(["table-order-remove", &rule_id]))
+                            .ghost()
+                            .icon(icon_trash())
+                            .on_click(cx.listener({
+                                move |view: &mut Self, _, _, cx| {
+                                    if let Some(content) = view.table_content(&tab_id) {
+                                        content.order_rules.retain(|r| &r.id != &rule_id);
+                                    }
+                                    cx.notify();
+                                }
+                            })),
+                    ),
+            )
+        }
+        let mut queries = vec![];
+        for query in tab.query_rules.iter() {
+            let tab_id = tab_id.clone();
+            let rule_id = query.id.clone();
+            queries.push(
+                div()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .gap_2()
+                    .w_full()
+                    .child(div().w_48().child(Select::new(&query.field).small().placeholder("")))
+                    .child(div().w_48().child(Select::new(&query.operator).small().placeholder("")))
+                    .child(div().flex_1().child(Input::new(&query.value).small()))
+                    .child(
+                        Button::new(comp_id(["table-filter-remove", &rule_id]))
+                            .ghost()
+                            .icon(icon_trash())
+                            .on_click(cx.listener({
+                                move |view: &mut Self, _, _, cx| {
+                                    if let Some(content) = view.table_content(&tab_id) {
+                                        content.query_rules.retain(|r| &r.id != &rule_id);
+                                    }
+                                    cx.notify();
+                                }
+                            })),
+                    ),
+            )
+        }
+
+        div()
+            .relative()
+            .col_full()
+            .child(
+                div()
+                    .flex_1()
+                    .border_y_1()
+                    .border_color(theme.border)
+                    .child(
+                        Table::new(&tab.datatable)
+                            .stripe(false)
+                            .bordered(false)
+                            .scrollbar_visible(true, true),
+                    )
+                    .child(div()),
+            )
+            .child(
+                div()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .p_2()
+                    .gap_2()
+                    .h_12()
+                    .bg(theme.secondary)
+                    .child(filter)
+                    .child(column)
+                    .child(schema)
+                    .child(div().flex_1())
+                    .child(page_prev)
+                    .child(div().text_sm().child(format!("第 {} 页", page_no + 1)))
+                    .child(page_next),
+            )
+            .when(tab.filter_enable, |this| {
+                this.child(
+                    Sheet::new(window, cx)
+                        .title("筛选数据")
+                        .w_1_2()
+                        .h_full()
+                        .on_close(cx.listener({
+                            let tab_id = tab_id.clone();
+                            move |view: &mut Self, _, _, cx| {
+                                if let Some(content) = view.table_content(&tab_id) {
+                                    content.filter_enable = false;
+                                }
+                                cx.notify();
+                            }
+                        }))
+                        .gap_2()
+                        .child(
+                            div()
+                                .gap_4()
+                                .row_full()
+                                .child(div().text_sm().font_semibold().child("排序规则"))
+                                .child(create_order),
+                        )
+                        .children(orders)
+                        .child(
+                            div()
+                                .gap_4()
+                                .row_full()
+                                .child(div().text_sm().font_semibold().child("筛选规则"))
+                                .child(create_query),
+                        )
+                        .children(queries)
+                        .footer(
+                            div()
+                                .flex()
+                                .flex_row()
+                                .items_center()
+                                .gap_2()
+                                .w_full()
+                                .child(div().flex_1())
+                                .child(clear_cond)
+                                .child(apply_cond),
+                        ),
+                )
+            })
+            .when(tab.columns_enable, |this| this.child(div()))
+            .into_any_element()
+    }
+
     fn _create_struct_tab(
         &mut self,
         _window: &mut Window,
@@ -1143,7 +1089,7 @@ impl CommonWorkspace {
 impl Render for CommonWorkspace {
     fn render(
         &mut self,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let theme = cx.theme().clone();
@@ -1253,7 +1199,7 @@ impl Render for CommonWorkspace {
                 .on_double_click(cx.listener({
                     let name = name.clone();
                     move |this, _, window, cx| {
-                        this.create_data_tab(name.clone(), window, cx);
+                        this.create_table_tab(name.clone(), window, cx);
                     }
                 }))
                 .child(icon_sheet())
@@ -1389,8 +1335,8 @@ impl Render for CommonWorkspace {
                                 )
                                 .child(div().id(comp_id(["common-main", id])).col_full().child(
                                     match self.tabs.get(&self.active_tab).map(|tab| &tab.content) {
-                                        Some(TabContent::Data(tab)) => self.render_data_tab(tab, cx),
-                                        Some(TabContent::Query(tab)) => self.render_query_tab(tab, cx),
+                                        Some(TabContent::Query(tab)) => self.render_query_tab(tab, window, cx),
+                                        Some(TabContent::Table(tab)) => self.render_table_tab(tab, window, cx),
                                         Some(TabContent::Struct()) => self.render_struct_tab(cx),
                                         Some(TabContent::Overview) | None => self.render_overview_tab(cx),
                                     },
@@ -1415,19 +1361,6 @@ struct OrderRule {
     order: Entity<SelectState<Vec<SharedString>>>,
 }
 
-struct DataContent {
-    id: String,
-    page_no: usize,
-    rows_count: usize,
-    order_rules: Vec<OrderRule>,
-    query_rules: Vec<QueryRule>,
-    filter_enable: bool,
-    columns: Vec<SharedString>,
-    columns_enable: bool,
-    table: SharedString,
-    datatable: Entity<TableState<DataTable>>,
-}
-
 struct QueryResult {
     sql: String,
     error: Option<String>,
@@ -1441,4 +1374,17 @@ struct QueryContent {
     summary: bool,
     editor: Entity<InputState>,
     results: Vec<QueryResult>,
+}
+
+struct TableContent {
+    id: String,
+    page_no: usize,
+    rows_count: usize,
+    order_rules: Vec<OrderRule>,
+    query_rules: Vec<QueryRule>,
+    filter_enable: bool,
+    columns: Vec<SharedString>,
+    columns_enable: bool,
+    table: SharedString,
+    datatable: Entity<TableState<DataTable>>,
 }
