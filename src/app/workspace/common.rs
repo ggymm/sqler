@@ -466,75 +466,71 @@ impl CommonWorkspace {
             })
             .collect();
 
-        div()
-            .col_full()
+        v_resizable(comp_id(["common-content"]))
             .child(
-                v_resizable(comp_id(["common-content"]))
+                resizable_panel()
+                    .size(px(180.0))
+                    .size_range(px(100.)..px(320.))
                     .child(
-                        resizable_panel()
-                            .size(px(180.0))
-                            .size_range(px(100.)..px(320.))
-                            .child(
-                                div().flex_1().child(
-                                    Input::new(&tab.editor)
-                                        .p_0()
-                                        .h_full()
-                                        .appearance(false)
-                                        .text_sm()
-                                        .font_family(theme.mono_font_family.clone())
-                                        .focus_bordered(false),
-                                ),
-                            )
-                            .child(div()),
+                        div().flex_1().child(
+                            Input::new(&tab.editor)
+                                .p_0()
+                                .h_full()
+                                .appearance(false)
+                                .text_sm()
+                                .font_family(theme.mono_font_family.clone())
+                                .focus_bordered(false),
+                        ),
+                    )
+                    .child(div()),
+            )
+            .child(
+                div()
+                    .col_full()
+                    .child(
+                        div()
+                            .flex()
+                            .flex_row()
+                            .items_center()
+                            .h_10()
+                            .p_2()
+                            .gap_2()
+                            .border_b_1()
+                            .border_color(theme.border)
+                            .children(results)
+                            .child(div().flex_1())
+                            .child(execute),
                     )
                     .child(
                         div()
+                            .id(comp_id(["query-result-content", &tab_id]))
+                            .relative()
                             .col_full()
-                            .child(
-                                div()
-                                    .flex()
-                                    .flex_row()
-                                    .items_center()
-                                    .h_10()
-                                    .p_2()
-                                    .gap_2()
-                                    .border_b_1()
-                                    .border_color(theme.border)
-                                    .children(results)
-                                    .child(div().flex_1())
-                                    .child(execute),
-                            )
-                            .child(
-                                div()
-                                    .id(comp_id(["query-result-content", &tab_id]))
-                                    .relative()
-                                    .col_full()
-                                    .when(tab.summary, |this| {
-                                        this.child(
-                                            div()
-                                                .p_2()
-                                                .gap_2()
-                                                .col_full()
-                                                .scrollable(Axis::Vertical)
-                                                .children(summaries),
-                                        )
-                                    })
-                                    .when_some(
-                                        (!tab.summary).then(|| tab.results.get(tab.active)).flatten(),
-                                        |this, ret| {
-                                            this.child(
-                                                div().flex_1().child(
-                                                    Table::new(&ret.datatable)
-                                                        .stripe(false)
-                                                        .bordered(false)
-                                                        .scrollbar_visible(true, true),
-                                                ),
-                                            )
-                                        },
-                                    ),
-                            )
-                            .into_any_element(),
-                    ),
+                            .when(tab.summary, |this| {
+                                this.child(
+                                    div()
+                                        .p_2()
+                                        .gap_2()
+                                        .col_full()
+                                        .scrollable(Axis::Vertical)
+                                        .children(summaries),
+                                )
+                            })
+                            .when_some(
+                                (!tab.summary).then(|| tab.results.get(tab.active)).flatten(),
+                                |this, ret| {
+                                    this.child(
+                                        div().flex_1().child(
+                                            Table::new(&ret.datatable)
+                                                .stripe(false)
+                                                .bordered(false)
+                                                .scrollbar_visible(true, true),
+                                        ),
+                                    )
+                                },
+                            ),
+                    )
+                    .into_any_element(),
             )
             .into_any_element()
     }
