@@ -38,7 +38,7 @@ const ORDER_DESC: &str = "降序";
 enum TabContent {
     Query(QueryContent),
     Table(TableContent),
-    Struct(),
+    Schema(SchemaContent),
     Overview,
 }
 
@@ -160,6 +160,21 @@ impl CommonWorkspace {
         self.tabs.get_mut(tab_id).and_then({
             |item| {
                 if let TabContent::Table(tab) = &mut item.content {
+                    Some(tab)
+                } else {
+                    None
+                }
+            }
+        })
+    }
+
+    fn schema_content(
+        &mut self,
+        tab_id: &String,
+    ) -> Option<&mut SchemaContent> {
+        self.tabs.get_mut(tab_id).and_then({
+            |item| {
+                if let TabContent::Schema(tab) = &mut item.content {
                     Some(tab)
                 } else {
                     None
@@ -768,16 +783,10 @@ impl CommonWorkspace {
             }));
         let column = Button::new(comp_id(["table-column", &tab_id]))
             .label("筛选字段")
-            .small()
-            .outline();
-        let schema = Button::new(comp_id(["table-schema", &tab_id]))
-            .label("展示表结构")
-            .small()
             .outline();
 
         let page_prev = Button::new(comp_id(["table-page-prev", &tab_id]))
             .label("上一页")
-            .small()
             .outline()
             .disabled(page_no == 0)
             .on_click(cx.listener({
@@ -792,7 +801,6 @@ impl CommonWorkspace {
             }));
         let page_next = Button::new(comp_id(["table-page-next", &tab_id]))
             .label("下一页")
-            .small()
             .outline()
             .disabled(rows_count == 0)
             .on_click(cx.listener({
@@ -973,18 +981,19 @@ impl CommonWorkspace {
                     .bg(theme.secondary)
                     .child(filter)
                     .child(column)
-                    .child(schema)
                     .child(div().flex_1())
                     .child(page_prev)
                     .child(div().text_sm().child(format!("第 {} 页", page_no + 1)))
                     .child(page_next),
             )
             .when(tab.filter_enable, |this| {
+                let viewport_size = window.viewport_size();
+                let sheet_size = viewport_size.width / 2.0;
                 this.child(
                     Sheet::new(window, cx)
                         .title("筛选数据")
-                        .w_1_2()
-                        .h_full()
+                        .size(sheet_size)
+                        .margin_top(px(0.))
                         .on_close(cx.listener({
                             let tab_id = tab_id.clone();
                             move |view: &mut Self, _, _, cx| {
@@ -999,7 +1008,7 @@ impl CommonWorkspace {
                             div()
                                 .gap_4()
                                 .row_full()
-                                .child(div().text_sm().font_semibold().child("排序规则"))
+                                .child(div().text_sm().child("排序规则"))
                                 .child(create_order),
                         )
                         .children(orders)
@@ -1007,7 +1016,7 @@ impl CommonWorkspace {
                             div()
                                 .gap_4()
                                 .row_full()
-                                .child(div().text_sm().font_semibold().child("筛选规则"))
+                                .child(div().text_sm().child("筛选规则"))
                                 .child(create_query),
                         )
                         .children(queries)
@@ -1028,15 +1037,17 @@ impl CommonWorkspace {
             .into_any_element()
     }
 
-    fn _create_struct_tab(
+    fn create_schema_tab(
         &mut self,
         _window: &mut Window,
         _cx: &mut Context<Self>,
     ) {
     }
 
-    fn render_struct_tab(
+    fn render_schema_tab(
         &self,
+        _tab: &SchemaContent,
+        _window: &mut Window,
         _cx: &mut Context<Self>,
     ) -> AnyElement {
         div().into_any_element()
@@ -1299,6 +1310,25 @@ impl Render for CommonWorkspace {
                                     }
                                 }
                             })),
+                    )
+                    .child(div().flex_1())
+                    .child(
+                        Button::new(comp_id(["common-header-schema", id]))
+                            .icon(icon_export().with_size(Size::Small))
+                            .label("编辑表结构")
+                            .outline()
+                            .disabled(self.active_table.is_none())
+                            .on_click(cx.listener({
+                                // rustfmt::skip
+                                |view: &mut Self, _, _, cx| {
+                                    if let Some(parent) = view.parent.upgrade() {
+                                        let source = view.source.clone();
+                                        let _ = parent.update(cx, |app, cx| {
+                                            app.create_window(WindowKind::Export(source), cx);
+                                        });
+                                    }
+                                }
+                            })),
                     ),
             )
             .child(
@@ -1337,7 +1367,7 @@ impl Render for CommonWorkspace {
                                     match self.tabs.get(&self.active_tab).map(|tab| &tab.content) {
                                         Some(TabContent::Query(tab)) => self.render_query_tab(tab, window, cx),
                                         Some(TabContent::Table(tab)) => self.render_table_tab(tab, window, cx),
-                                        Some(TabContent::Struct()) => self.render_struct_tab(cx),
+                                        Some(TabContent::Schema(tab)) => self.render_schema_tab(tab, window, cx),
                                         Some(TabContent::Overview) | None => self.render_overview_tab(cx),
                                     },
                                 ))
@@ -1388,3 +1418,5 @@ struct TableContent {
     table: SharedString,
     datatable: Entity<TableState<DataTable>>,
 }
+
+struct SchemaContent {}
