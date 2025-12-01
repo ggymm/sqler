@@ -262,31 +262,10 @@ impl ImportWindow {
 
     fn reload_tables(
         &mut self,
-        window: &mut Window,
+        _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        // 尝试从会话获取表列表
-        let session = match self.active_session() {
-            Ok(_) => self.session.take(),
-            Err(err) => {
-                tracing::error!("获取数据库连接失败: {}", err);
-                return;
-            }
-        };
-        let Some(mut session) = session else {
-            return;
-        };
-
-        // 更新本地数据
-        let tables = match session.tables() {
-            Ok(tables) => tables.into_iter().map(SharedString::from).collect(),
-            Err(err) => {
-                tracing::error!("刷新表列表失败: {}", err);
-                vec![]
-            }
-        };
-        self.current_tables = cx.new(|cx| SelectState::new(tables, None, window, cx));
-
+        // TODO
         cx.notify();
     }
 

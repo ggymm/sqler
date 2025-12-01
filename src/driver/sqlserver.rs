@@ -1,4 +1,4 @@
-use crate::model::{ColumnKind, SQLServerOptions};
+use crate::model::{ColumnInfo, ColumnKind, SQLServerOptions, TableInfo};
 
 use super::{
     DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp, UpdateReq, UpdateResp,
@@ -39,14 +39,14 @@ impl DatabaseSession for SqlServerConnection {
         Err(DriverError::Other("SQL Server 删除暂未实现".into()))
     }
 
-    fn tables(&mut self) -> Result<Vec<String>, DriverError> {
+    fn tables(&mut self) -> Result<Vec<TableInfo>, DriverError> {
         Err(DriverError::Other("SQL Server 查询表列表暂未实现".into()))
     }
 
     fn columns(
         &mut self,
         _table: &str,
-    ) -> Result<Vec<String>, DriverError> {
+    ) -> Result<Vec<ColumnInfo>, DriverError> {
         Err(DriverError::Other("SQL Server 查询列信息暂未实现".into()))
     }
 }

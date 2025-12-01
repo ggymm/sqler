@@ -2,11 +2,11 @@ use std::collections::HashMap;
 
 use postgres::{fallible_iterator::FallibleIterator, types::Type, Client, Config, Error as PostgresError, NoTls};
 
-use crate::model::{ColumnKind, PostgresOptions};
+use crate::model::{ColumnInfo, ColumnKind, PostgresOptions, TableInfo};
 
 use super::{
-    validate_sql, DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, Operator, QueryReq, QueryResp,
-    UpdateReq, UpdateResp, ValueCond,
+    escape_quote, validate_sql, DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, Operator, QueryReq,
+    QueryResp, UpdateReq, UpdateResp, ValueCond,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -84,18 +84,14 @@ impl DatabaseSession for PostgresSession {
                 orders,
                 filters,
             } => {
-                let mut sql = format!(
-                    "SELECT {} FROM \"{}\"",
-                    format_columns(&columns),
-                    table.replace('"', "\"\"")
-                );
+                let mut sql = format!("SELECT {} FROM \"{}\"", format_columns(&columns), escape_quote(&table));
                 let mut params = vec![];
                 let mut param_index = 1;
 
                 if !filters.is_empty() {
                     let mut clauses = vec![];
                     for filter in &filters {
-                        let field = format!("\"{}\"", filter.field.replace('"', "\"\""));
+                        let field = format!("\"{}\"", escape_quote(&filter.field));
                         match filter.operator {
                             Operator::IsNull => clauses.push(format!("{} IS NULL", field)),
                             Operator::IsNotNull => clauses.push(format!("{} IS NOT NULL", field)),
@@ -178,7 +174,7 @@ impl DatabaseSession for PostgresSession {
                         .map(|ord| {
                             format!(
                                 "\"{}\" {}",
-                                ord.field.replace('"', "\"\""),
+                                escape_quote(&ord.field),
                                 if ord.ascending { "ASC" } else { "DESC" }
                             )
                         })
@@ -296,8 +292,14 @@ impl DatabaseSession for PostgresSession {
         }
     }
 
-    fn tables(&mut self) -> Result<Vec<String>, DriverError> {
-        let sql = "SELECT tablename FROM pg_tables WHERE schemaname = 'public'";
+    fn tables(&mut self) -> Result<Vec<TableInfo>, DriverError> {
+        let sql = "SELECT
+            t.tablename,
+            s.n_live_tup,
+            pg_total_relation_size(quote_ident(t.schemaname)||'.'||quote_ident(t.tablename))
+        FROM pg_tables t
+        LEFT JOIN pg_stat_user_tables s ON t.tablename = s.relname
+        WHERE t.schemaname = 'public'";
         let rows = self
             .client
             .query(sql, &[])
@@ -305,8 +307,16 @@ impl DatabaseSession for PostgresSession {
 
         let mut tables = vec![];
         for row in rows {
-            let table_name: String = row.get(0);
-            tables.push(table_name);
+            let name: String = row.get(0);
+            let row_count: Option<i64> = row.get(1);
+            let size_bytes: Option<i64> = row.get(2);
+
+            tables.push(TableInfo {
+                name,
+                row_count: row_count.map(|n| n as u64),
+                size_bytes: size_bytes.map(|n| n as u64),
+                last_accessed: None,
+            });
         }
         Ok(tables)
     }
@@ -314,8 +324,34 @@ impl DatabaseSession for PostgresSession {
     fn columns(
         &mut self,
         table: &str,
-    ) -> Result<Vec<String>, DriverError> {
-        let sql = "SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1 ORDER BY ordinal_position";
+    ) -> Result<Vec<ColumnInfo>, DriverError> {
+        let sql = "SELECT
+            c.column_name,
+            c.data_type,
+            c.is_nullable,
+            c.column_default,
+            c.character_maximum_length,
+            CASE WHEN pk.column_name IS NOT NULL THEN true ELSE false END as is_primary_key,
+            COALESCE(pgd.description, '') as comment
+        FROM information_schema.columns c
+        LEFT JOIN (
+            SELECT ku.column_name
+            FROM information_schema.table_constraints tc
+            JOIN information_schema.key_column_usage ku
+                ON tc.constraint_name = ku.constraint_name
+                AND tc.table_schema = ku.table_schema
+            WHERE tc.constraint_type = 'PRIMARY KEY'
+                AND tc.table_schema = 'public'
+                AND tc.table_name = $1
+        ) pk ON c.column_name = pk.column_name
+        LEFT JOIN pg_catalog.pg_statio_all_tables st
+            ON st.schemaname = c.table_schema AND st.relname = c.table_name
+        LEFT JOIN pg_catalog.pg_description pgd
+            ON pgd.objoid = st.relid
+            AND pgd.objsubid = c.ordinal_position
+        WHERE c.table_schema = 'public' AND c.table_name = $1
+        ORDER BY c.ordinal_position";
+
         let rows = self
             .client
             .query(sql, &[&table])
@@ -323,8 +359,30 @@ impl DatabaseSession for PostgresSession {
 
         let mut columns = vec![];
         for row in rows {
-            let column_name: String = row.get(0);
-            columns.push(column_name);
+            let name: String = row.get(0);
+            let data_type: String = row.get(1);
+            let is_nullable: String = row.get(2);
+            let nullable = is_nullable.to_uppercase() == "YES";
+            let default_value: Option<String> = row.get(3);
+            let max_length: Option<i32> = row.get(4);
+            let is_primary_key: bool = row.get(5);
+            let comment: String = row.get(6);
+
+            let auto_increment = default_value
+                .as_ref()
+                .map(|d| d.starts_with("nextval("))
+                .unwrap_or(false);
+
+            columns.push(ColumnInfo {
+                name,
+                kind: data_type,
+                comment,
+                nullable,
+                primary_key: is_primary_key,
+                default_value: default_value.unwrap_or_default(),
+                max_length: max_length.map(|n| n as u64).unwrap_or(0),
+                auto_increment,
+            });
         }
         Ok(columns)
     }
@@ -432,10 +490,8 @@ fn format_columns(columns: &[String]) -> String {
         .iter()
         .map(|c| {
             if keywords.contains(&c.trim().to_uppercase().as_str()) {
-                // SQL 关键字，添加双引号转义
-                format!("\"{}\"", c.replace('"', "\"\""))
+                format!("\"{}\"", escape_quote(c))
             } else {
-                // 普通列名或表达式，不转义
                 c.to_string()
             }
         })

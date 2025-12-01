@@ -1,15 +1,13 @@
 use gpui::{prelude::*, *};
 use gpui_component::{
     button::{Button, ButtonVariants},
-    input::{Input, InputState},
     resizable::{h_resizable, resizable_panel},
-    table::{Table, TableState},
-    ActiveTheme, Disableable, InteractiveElementExt, Sizable, Size, StyledExt,
+    ActiveTheme, Sizable, Size, StyledExt,
 };
 
 use crate::{
     app::{
-        comps::{comp_id, icon_close, icon_relead, icon_search, icon_sheet, DataTable, DivExt},
+        comps::{comp_id, icon_close, icon_sheet, DivExt},
         SqlerApp,
     },
     driver::{create_connection, DatabaseSession, DriverError},
@@ -37,18 +35,7 @@ impl TabItem {
 }
 
 enum TabContent {
-    Collection(CollectionContent),
     Overview,
-}
-
-struct CollectionContent {
-    id: SharedString,
-    collection: SharedString,
-    filter_input: Entity<InputState>,
-    content: Entity<TableState<DataTable>>,
-    page_no: usize,
-    page_size: usize,
-    total_docs: usize,
 }
 
 pub struct MongoDBWorkspace {
@@ -105,76 +92,6 @@ impl MongoDBWorkspace {
         }
     }
 
-    fn reload_collections(
-        &mut self,
-        cx: &mut Context<Self>,
-    ) {
-        let result = self.active_session().and_then(|session| session.tables());
-
-        self.collections = match result {
-            Ok(collections) => collections.into_iter().map(SharedString::from).collect(),
-            Err(err) => {
-                eprintln!("刷新集合列表失败: {}", err);
-                if !self.collections.is_empty() {
-                    return;
-                }
-                vec![]
-            }
-        };
-        self.active_tab = TabItem::overview().id;
-        self.active_collection = None;
-
-        self.tabs.retain(|tab| match &tab.content {
-            TabContent::Collection(tab) => self.collections.iter().any(|c| c == &tab.collection),
-            _ => true,
-        });
-
-        cx.notify();
-    }
-
-    fn create_collection_tab(
-        &mut self,
-        collection: SharedString,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let id = SharedString::from(format!("mongodb-tab-collection-{}-{}", self.source.id, collection));
-
-        if let Some(existing) = self.tabs.iter().find(|tab| {
-            matches!(
-                &tab.content,
-                TabContent::Collection(current) if current.id == id
-            )
-        }) {
-            self.active_tab = existing.id.clone();
-            self.active_collection = Some(collection.clone());
-            cx.notify();
-            return;
-        }
-
-        let filter_input = cx.new(|cx| InputState::new(window, cx));
-        let content = DataTable::new(vec![], vec![]).build(window, cx);
-
-        self.tabs.push(TabItem {
-            id: id.clone(),
-            title: collection.clone(),
-            content: TabContent::Collection(CollectionContent {
-                id: id.clone(),
-                collection: collection.clone(),
-                filter_input,
-                content,
-                page_no: 0,
-                page_size: PAGE_SIZE,
-                total_docs: 0,
-            }),
-            closable: true,
-        });
-
-        self.active_tab = id.clone();
-        self.active_collection = Some(collection.clone());
-        cx.notify();
-    }
-
     fn render_overview_tab(
         &self,
         cx: &mut Context<Self>,
@@ -217,85 +134,6 @@ impl MongoDBWorkspace {
             .child(detail_card)
             .into_any_element()
     }
-
-    fn render_collection_tab(
-        &self,
-        content: &CollectionContent,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
-        let _theme = cx.theme().clone();
-        let tab_id = content.id.clone();
-
-        let total_pages = if content.total_docs == 0 {
-            1
-        } else {
-            (content.total_docs + content.page_size - 1) / content.page_size
-        };
-        let current_page = content.page_no;
-        let start_doc = current_page * content.page_size + 1;
-        let end_doc = ((current_page + 1) * content.page_size).min(content.total_docs);
-
-        let filter_btn = Button::new(comp_id(["mongodb-apply-filter", &tab_id]))
-            .label("应用筛选")
-            .outline();
-
-        let page_prev_btn = Button::new(comp_id(["mongodb-page-prev", &tab_id]))
-            .label("上一页")
-            .outline()
-            .disabled(current_page == 0);
-
-        let page_next_btn = Button::new(comp_id(["mongodb-page-next", &tab_id]))
-            .label("下一页")
-            .outline()
-            .disabled(current_page + 1 >= total_pages);
-
-        div()
-            .flex()
-            .flex_1()
-            .flex_col()
-            .gap_2()
-            .child(
-                div()
-                    .flex()
-                    .flex_row()
-                    .items_center()
-                    .gap_2()
-                    .child(div().flex_1().child(Input::new(&content.filter_input)))
-                    .child(filter_btn),
-            )
-            .child(
-                div()
-                    .flex_1()
-                    .rounded_md()
-                    .overflow_hidden()
-                    .child(
-                        Table::new(&content.content)
-                            .stripe(false)
-                            .bordered(false)
-                            .with_size(Size::Small)
-                            .scrollbar_visible(true, true),
-                    )
-                    .child(div()),
-            )
-            .child(
-                div()
-                    .flex()
-                    .flex_row()
-                    .items_center()
-                    .gap_2()
-                    .child(div().flex_1())
-                    .child(div().text_sm().child(format!(
-                        "显示 {} - {} / 共 {} 条",
-                        if content.total_docs == 0 { 0 } else { start_doc },
-                        end_doc,
-                        content.total_docs
-                    )))
-                    .child(div().flex_1())
-                    .child(page_prev_btn)
-                    .child(page_next_btn),
-            )
-            .into_any_element()
-    }
 }
 
 impl Render for MongoDBWorkspace {
@@ -332,12 +170,6 @@ impl Render for MongoDBWorkspace {
                             |this| this.bg(theme.list_active).font_semibold(),
                             |this| this.hover(|this| this.bg(theme.list_hover)),
                         )
-                        .on_double_click(cx.listener({
-                            let collection = collection.clone();
-                            move |this, _, window, cx| {
-                                this.create_collection_tab(collection.clone(), window, cx);
-                            }
-                        }))
                         .child(icon_sheet())
                         .child(collection.clone()),
                 )
@@ -430,7 +262,6 @@ impl Render for MongoDBWorkspace {
                             .find(|tab| tab.id == self.active_tab)
                             .map(|tab| &tab.content)
                         {
-                            Some(TabContent::Collection(content)) => self.render_collection_tab(content, cx),
                             Some(TabContent::Overview) | None => self.render_overview_tab(cx),
                         },
                     )
@@ -438,48 +269,17 @@ impl Render for MongoDBWorkspace {
             )
             .into_any_element();
 
-        div()
-            .id(comp_id(["mongodb", id]))
-            .col_full()
-            .child(
-                div()
-                    .id(comp_id(["mongodb-header", id]))
-                    .flex()
-                    .flex_row()
-                    .p_4()
-                    .gap_2()
-                    .border_b_1()
-                    .border_color(theme.border)
+        div().id(comp_id(["mongodb", id])).col_full().child(
+            div().id(comp_id(["mongodb-content", id])).col_full().child(
+                h_resizable(comp_id(["mongodb-content", id]))
                     .child(
-                        Button::new(comp_id(["mongodb-header-refresh", id]))
-                            .icon(icon_relead().with_size(Size::Small))
-                            .label("刷新集合")
-                            .outline()
-                            .on_click(cx.listener({
-                                // rustfmt::skip
-                                |view: &mut Self, _, _, cx| {
-                                    view.reload_collections(cx);
-                                }
-                            })),
+                        resizable_panel()
+                            .size(px(200.0))
+                            .size_range(px(100.)..px(400.))
+                            .child(sidebar),
                     )
-                    .child(
-                        Button::new(comp_id(["mongodb-header-query", id]))
-                            .icon(icon_search().with_size(Size::Small))
-                            .label("新建查询")
-                            .outline(),
-                    ),
-            )
-            .child(
-                div().id(comp_id(["mongodb-content", id])).col_full().child(
-                    h_resizable(comp_id(["mongodb-content", id]))
-                        .child(
-                            resizable_panel()
-                                .size(px(200.0))
-                                .size_range(px(100.)..px(400.))
-                                .child(sidebar),
-                        )
-                        .child(container),
-                ),
-            )
+                    .child(container),
+            ),
+        )
     }
 }

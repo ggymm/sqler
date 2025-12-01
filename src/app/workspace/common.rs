@@ -101,23 +101,13 @@ impl CommonWorkspace {
         // 更新数据
         self.tables = match session.tables() {
             Ok(tables) => {
-                let infos: Vec<TableInfo> = tables
-                    .iter()
-                    .map(|name| TableInfo {
-                        name: name.clone(),
-                        row_count: None,
-                        size_bytes: None,
-                        last_accessed: None,
-                    })
-                    .collect();
-
                 {
                     let cache = self.cache.write().unwrap();
-                    if let Err(err) = cache.tables_update(&self.source.id, &infos) {
+                    if let Err(err) = cache.tables_update(&self.source.id, &tables) {
                         tracing::error!("更新表缓存失败: {}", err);
                     }
                 }
-                infos.into_iter().map(|info| (info.name.clone(), info)).collect()
+                tables.into_iter().map(|info| (info.name.clone(), info)).collect()
             }
             Err(err) => {
                 tracing::error!("刷新表列表失败: {}", err);
@@ -701,17 +691,23 @@ impl CommonWorkspace {
                     };
 
                     // 构建渲染数据
-                    let table_cols: Vec<SharedString> = cols.iter().map(|s| SharedString::from(s.clone())).collect();
                     let mut table_rows = Vec::with_capacity(rows.len());
                     for row in rows {
                         let mut record = Vec::with_capacity(cols.len());
-                        for name in &cols {
-                            let value = row.get(name).cloned().unwrap_or_default();
+                        for col in &cols {
+                            let value = row.get(&col.name).cloned().unwrap_or_default();
                             record.push(SharedString::from(value));
                         }
                         table_rows.push(record);
                     }
 
+                    let table_cols: Vec<SharedString> = cols
+                        .iter()
+                        .map(|c| {
+                            // rustfmt::skip
+                            SharedString::from(c.name.clone())
+                        })
+                        .collect();
                     Ok::<_, DriverError>(((table_cols, table_rows), session))
                 })
                 .await;
@@ -770,7 +766,6 @@ impl CommonWorkspace {
 
         let filter = Button::new(comp_id(["table-filter", &tab_id]))
             .label("筛选数据")
-            .small()
             .outline()
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();

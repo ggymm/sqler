@@ -2,11 +2,11 @@ use std::collections::HashMap;
 
 use mysql::{prelude::Queryable, Conn, Opts, OptsBuilder, SslOpts, Value};
 
-use crate::model::{ColumnKind, MySQLOptions};
+use crate::model::{ColumnInfo, ColumnKind, MySQLOptions, TableInfo};
 
 use super::{
-    validate_sql, DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, Operator, QueryReq, QueryResp,
-    UpdateReq, UpdateResp, ValueCond,
+    escape_backtick, validate_sql, DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, Operator,
+    QueryReq, QueryResp, UpdateReq, UpdateResp, ValueCond,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -87,18 +87,14 @@ impl DatabaseSession for MySQLSession {
                 orders,
                 filters,
             } => {
-                let mut sql = format!(
-                    "SELECT {} FROM `{}`",
-                    format_columns(&columns),
-                    table.replace('`', "``")
-                );
+                let mut sql = format!("SELECT {} FROM `{}`", format_columns(&columns), escape_backtick(&table));
                 let mut params: Vec<Value> = vec![];
 
                 // WHERE 子句
                 if !filters.is_empty() {
                     let mut clauses = vec![];
                     for filter in &filters {
-                        let field = format!("`{}`", filter.field.replace('`', "``"));
+                        let field = format!("`{}`", escape_backtick(&filter.field));
                         match filter.operator {
                             Operator::IsNull => clauses.push(format!("{} IS NULL", field)),
                             Operator::IsNotNull => clauses.push(format!("{} IS NOT NULL", field)),
@@ -165,7 +161,7 @@ impl DatabaseSession for MySQLSession {
                         .map(|ord| {
                             format!(
                                 "`{}` {}",
-                                ord.field.replace('`', "``"),
+                                escape_backtick(&ord.field),
                                 if ord.ascending { "ASC" } else { "DESC" }
                             )
                         })
@@ -286,8 +282,8 @@ impl DatabaseSession for MySQLSession {
         }
     }
 
-    fn tables(&mut self) -> Result<Vec<String>, DriverError> {
-        let sql = "SHOW TABLES";
+    fn tables(&mut self) -> Result<Vec<TableInfo>, DriverError> {
+        let sql = "SHOW TABLE STATUS";
         let rows: Vec<mysql::Row> = self
             .conn
             .query(sql)
@@ -295,10 +291,19 @@ impl DatabaseSession for MySQLSession {
 
         let mut tables = vec![];
         for row in rows {
-            let raw_values = row.unwrap();
-            if let Some(value) = raw_values.get(0) {
-                tables.push(parse_value(value.clone()));
-            }
+            let name: String = row
+                .get("Name")
+                .ok_or_else(|| DriverError::Other("缺少 Name 字段".into()))?;
+
+            let row_count: Option<u64> = row.get("Rows");
+            let size_bytes: Option<u64> = row.get("Data_length");
+
+            tables.push(TableInfo {
+                name,
+                row_count,
+                size_bytes,
+                last_accessed: None,
+            });
         }
         Ok(tables)
     }
@@ -306,8 +311,8 @@ impl DatabaseSession for MySQLSession {
     fn columns(
         &mut self,
         table: &str,
-    ) -> Result<Vec<String>, DriverError> {
-        let sql = format!("SHOW COLUMNS FROM `{}`", table.replace('`', "``"));
+    ) -> Result<Vec<ColumnInfo>, DriverError> {
+        let sql = format!("SHOW FULL COLUMNS FROM `{}`", escape_backtick(table));
         let rows: Vec<mysql::Row> = self
             .conn
             .query(&sql)
@@ -315,10 +320,37 @@ impl DatabaseSession for MySQLSession {
 
         let mut columns = vec![];
         for row in rows {
-            let raw_values = row.unwrap();
-            if let Some(value) = raw_values.get(0) {
-                columns.push(parse_value(value.clone()));
+            let name: String = row
+                .get("Field")
+                .ok_or_else(|| DriverError::Other("缺少 Field 字段".into()))?;
+
+            let mut col = ColumnInfo {
+                name,
+                kind: String::new(),
+                comment: String::new(),
+                nullable: false,
+                primary_key: false,
+                default_value: String::new(),
+                max_length: 0,
+                auto_increment: false,
+            };
+
+            // 批量获取并设置字段值
+            for field in ["Type", "Null", "Key", "Extra", "Default", "Comment"] {
+                let value = row.get::<Value, _>(field).unwrap_or(Value::NULL);
+                let parsed = parse_value(value);
+                match field {
+                    "Key" => col.primary_key = parsed == "PRI",
+                    "Null" => col.nullable = parsed.to_uppercase() == "YES",
+                    "Extra" => col.auto_increment = parsed.contains("auto_increment"),
+                    "Type" => col.kind = parsed,
+                    "Comment" => col.comment = parsed,
+                    "Default" => col.default_value = parsed,
+                    _ => {}
+                }
             }
+
+            columns.push(col);
         }
         Ok(columns)
     }
@@ -348,7 +380,6 @@ fn open_conn(config: &MySQLOptions) -> Result<Conn, DriverError> {
     if config.use_tls {
         builder = builder.ssl_opts(Some(SslOpts::default()));
     }
-
     let opts = Opts::from(builder);
     Conn::new(opts).map_err(|err| DriverError::Other(format!("连接失败: {}", err)))
 }
@@ -400,10 +431,8 @@ fn format_columns(columns: &[String]) -> String {
         .iter()
         .map(|c| {
             if keywords.contains(&c.trim().to_uppercase().as_str()) {
-                // SQL 关键字，添加反引号转义
-                format!("`{}`", c.replace('`', "``"))
+                format!("`{}`", escape_backtick(c))
             } else {
-                // 普通列名或表达式，不转义
                 c.to_string()
             }
         })

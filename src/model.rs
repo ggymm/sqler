@@ -10,6 +10,18 @@ pub struct TableInfo {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ColumnInfo {
+    pub name: String,
+    pub kind: String,
+    pub comment: String,
+    pub nullable: bool,
+    pub primary_key: bool,
+    pub default_value: String,
+    pub max_length: u64,
+    pub auto_increment: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SavedQuery {
     pub name: String,
     pub content: String,
@@ -584,7 +596,7 @@ impl Default for MongoDBOptions {
 impl MongoDBOptions {
     pub fn endpoint(&self) -> String {
         if let Some(uri) = &self.connection_string {
-            return Self::sanitize_uri(uri);
+            return uri.into();
         }
 
         if self.hosts.is_empty() {
@@ -613,7 +625,7 @@ impl MongoDBOptions {
         let mut fields = vec![];
 
         if let Some(uri) = &self.connection_string {
-            fields.push(("连接字符串", Self::sanitize_uri(uri)));
+            fields.push(("连接字符串", uri.into()));
         } else if !self.hosts.is_empty() {
             let hosts = self
                 .hosts
@@ -641,24 +653,6 @@ impl MongoDBOptions {
             },
         ));
         fields
-    }
-
-    fn sanitize_uri(raw: &str) -> String {
-        let trimmed = raw.trim();
-        if trimmed.is_empty() {
-            return "mongodb://<未配置主机>".into();
-        }
-
-        if let Some(scheme_end) = trimmed.find("://") {
-            let scheme = &trimmed[..scheme_end];
-            let rest = &trimmed[scheme_end + 3..];
-            if let Some(at) = rest.find('@') {
-                let after = &rest[at + 1..];
-                return format!("{}://{}", scheme, after);
-            }
-        }
-
-        trimmed.to_string()
     }
 }
 

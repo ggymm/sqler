@@ -1,7 +1,7 @@
 use redis::{Client, Connection, Value};
 use serde_json::{Map as JsonMap, Number, Value as JsonValue};
 
-use crate::model::{ColumnKind, RedisOptions};
+use crate::model::{ColumnInfo, ColumnKind, RedisOptions, TableInfo};
 
 use super::{
     DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp, UpdateReq, UpdateResp,
@@ -91,14 +91,14 @@ impl DatabaseSession for RedisConnection {
         }
     }
 
-    fn tables(&mut self) -> Result<Vec<String>, DriverError> {
+    fn tables(&mut self) -> Result<Vec<TableInfo>, DriverError> {
         Err(DriverError::Other("Redis 不支持表列表查询".into()))
     }
 
     fn columns(
         &mut self,
         _table: &str,
-    ) -> Result<Vec<String>, DriverError> {
+    ) -> Result<Vec<ColumnInfo>, DriverError> {
         Err(DriverError::Other("Redis 作为键值数据库不支持列结构查询".into()))
     }
 }

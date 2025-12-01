@@ -2,11 +2,11 @@ use std::{collections::HashMap, fs, path::Path};
 
 use rusqlite::{types::ValueRef, Connection, OpenFlags};
 
-use crate::model::{ColumnKind, SQLiteOptions};
+use crate::model::{ColumnInfo, ColumnKind, SQLiteOptions, TableInfo};
 
 use super::{
-    validate_sql, DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, Operator, QueryReq, QueryResp,
-    UpdateReq, UpdateResp, ValueCond,
+    escape_quote, validate_sql, DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, Operator, QueryReq,
+    QueryResp, UpdateReq, UpdateResp, ValueCond,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -39,17 +39,13 @@ impl DatabaseSession for SQLiteConnection {
                 orders,
                 filters,
             } => {
-                let mut sql = format!(
-                    "SELECT {} FROM \"{}\"",
-                    format_columns(&columns),
-                    table.replace('"', "\"\"")
-                );
+                let mut sql = format!("SELECT {} FROM \"{}\"", format_columns(&columns), escape_quote(&table));
                 let mut params = vec![];
 
                 if !filters.is_empty() {
                     let mut clauses = vec![];
                     for filter in &filters {
-                        let field = format!("\"{}\"", filter.field.replace('"', "\"\""));
+                        let field = format!("\"{}\"", escape_quote(&filter.field));
                         match filter.operator {
                             Operator::IsNull => clauses.push(format!("{} IS NULL", field)),
                             Operator::IsNotNull => clauses.push(format!("{} IS NOT NULL", field)),
@@ -113,7 +109,7 @@ impl DatabaseSession for SQLiteConnection {
                         .map(|ord| {
                             format!(
                                 "\"{}\" {}",
-                                ord.field.replace('"', "\"\""),
+                                escape_quote(&ord.field),
                                 if ord.ascending { "ASC" } else { "DESC" }
                             )
                         })
@@ -238,7 +234,7 @@ impl DatabaseSession for SQLiteConnection {
         }
     }
 
-    fn tables(&mut self) -> Result<Vec<String>, DriverError> {
+    fn tables(&mut self) -> Result<Vec<TableInfo>, DriverError> {
         let sql = "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name";
         let mut stmt = self
             .conn
@@ -251,7 +247,24 @@ impl DatabaseSession for SQLiteConnection {
             .map_err(|err| DriverError::Other(format!("查询表列表失败: {}", err)))?;
 
         for row in rows {
-            tables.push(row.map_err(|err| DriverError::Other(format!("读取表名失败: {}", err)))?);
+            let name = row.map_err(|err| DriverError::Other(format!("读取表名失败: {}", err)))?;
+
+            let row_count = self
+                .conn
+                .query_row(
+                    &format!("SELECT COUNT(*) FROM \"{}\"", escape_quote(&name)),
+                    [],
+                    |row| row.get::<_, i64>(0),
+                )
+                .ok()
+                .map(|n| n as u64);
+
+            tables.push(TableInfo {
+                name,
+                row_count,
+                size_bytes: None,
+                last_accessed: None,
+            });
         }
         Ok(tables)
     }
@@ -259,8 +272,8 @@ impl DatabaseSession for SQLiteConnection {
     fn columns(
         &mut self,
         table: &str,
-    ) -> Result<Vec<String>, DriverError> {
-        let sql = format!("PRAGMA table_info(\"{}\")", table.replace('"', "\"\""));
+    ) -> Result<Vec<ColumnInfo>, DriverError> {
+        let sql = format!("PRAGMA table_info(\"{}\")", escape_quote(table));
         let mut stmt = self
             .conn
             .prepare(&sql)
@@ -268,11 +281,31 @@ impl DatabaseSession for SQLiteConnection {
 
         let mut columns = vec![];
         let rows = stmt
-            .query_map([], |row| row.get::<_, String>(1))
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, i32>(3)?,
+                    row.get::<_, Option<String>>(4)?,
+                    row.get::<_, i32>(5)?,
+                ))
+            })
             .map_err(|err| DriverError::Other(format!("查询列信息失败: {}", err)))?;
 
         for row in rows {
-            columns.push(row.map_err(|err| DriverError::Other(format!("读取列名失败: {}", err)))?);
+            let (name, data_type, notnull, default_value, pk) =
+                row.map_err(|err| DriverError::Other(format!("读取列信息失败: {}", err)))?;
+
+            columns.push(ColumnInfo {
+                name,
+                kind: data_type,
+                comment: String::new(),
+                nullable: notnull == 0,
+                primary_key: pk > 0,
+                default_value: default_value.unwrap_or_default(),
+                max_length: 0,
+                auto_increment: false,
+            });
         }
         Ok(columns)
     }
@@ -383,10 +416,8 @@ fn format_columns(columns: &[String]) -> String {
         .iter()
         .map(|c| {
             if keywords.contains(&c.trim().to_uppercase().as_str()) {
-                // SQL 关键字，添加双引号转义
-                format!("\"{}\"", c.replace('"', "\"\""))
+                format!("\"{}\"", escape_quote(c))
             } else {
-                // 普通列名或表达式，不转义
                 c.to_string()
             }
         })

@@ -3,7 +3,7 @@ use mongodb::{
     sync::Client,
 };
 
-use crate::model::{ColumnKind, MongoDBHost, MongoDBOptions};
+use crate::model::{ColumnInfo, ColumnKind, MongoDBHost, MongoDBOptions, TableInfo};
 
 use super::{
     DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp, UpdateReq, UpdateResp,
@@ -207,19 +207,30 @@ impl DatabaseSession for MongoSession {
         }
     }
 
-    fn tables(&mut self) -> Result<Vec<String>, DriverError> {
+    fn tables(&mut self) -> Result<Vec<TableInfo>, DriverError> {
         let db = self.client.database(&self.default_db);
         let collection_names = db
             .list_collection_names()
             .run()
             .map_err(|err| DriverError::Other(format!("查询集合列表失败: {}", err)))?;
-        Ok(collection_names)
+
+        let tables = collection_names
+            .into_iter()
+            .map(|name| TableInfo {
+                name,
+                row_count: None,
+                size_bytes: None,
+                last_accessed: None,
+            })
+            .collect();
+
+        Ok(tables)
     }
 
     fn columns(
         &mut self,
         _table: &str,
-    ) -> Result<Vec<String>, DriverError> {
+    ) -> Result<Vec<ColumnInfo>, DriverError> {
         Err(DriverError::Other("MongoDB 作为文档数据库不支持固定列结构查询".into()))
     }
 }

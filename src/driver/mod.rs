@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde_json::Value;
 
-use crate::model::{ColumnKind, DataSourceKind, DataSourceOptions};
+use crate::model::{ColumnInfo, ColumnKind, DataSourceKind, DataSourceOptions, TableInfo};
 
 pub use mongodb::MongoDBDriver;
 pub use mysql::MySQLDriver;
@@ -248,15 +248,15 @@ pub trait DatabaseSession: Send {
         request: DeleteReq,
     ) -> Result<UpdateResp, DriverError>;
 
-    fn tables(&mut self) -> Result<Vec<String>, DriverError>;
+    fn tables(&mut self) -> Result<Vec<TableInfo>, DriverError>;
 
     fn columns(
         &mut self,
         table: &str,
-    ) -> Result<Vec<String>, DriverError>;
+    ) -> Result<Vec<ColumnInfo>, DriverError>;
 }
 
-pub fn get_datatypes(kind: DataSourceKind) -> Vec<ColumnKind> {
+pub fn supp_kinds(kind: DataSourceKind) -> Vec<ColumnKind> {
     match kind {
         DataSourceKind::MySQL => MySQLDriver.supp_kinds(),
         DataSourceKind::SQLite => SQLiteDriver.supp_kinds(),
@@ -297,6 +297,14 @@ pub fn validate_sql(sql: &str) -> Result<(), DriverError> {
         return Err(DriverError::InvalidField("sql".into()));
     }
     Ok(())
+}
+
+pub fn escape_quote(s: &str) -> String {
+    s.replace('"', "\"\"")
+}
+
+pub fn escape_backtick(s: &str) -> String {
+    s.replace('`', "``")
 }
 
 #[cfg(test)]
