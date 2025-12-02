@@ -4,15 +4,15 @@ use gpui::{prelude::*, *};
 use gpui_component::{
     button::{Button, ButtonVariants},
     input::{Input, InputState, TabSize},
-    menu::{ContextMenuExt, PopupMenuItem},
+    menu::ContextMenuExt,
     resizable::{h_resizable, resizable_panel, v_resizable},
     select::{Select, SelectState},
     sheet::Sheet,
     table::{Table, TableState},
-    tooltip::Tooltip,
     ActiveTheme, Disableable, IconName, InteractiveElementExt, Sizable, Size, StyledExt,
 };
 use indexmap::IndexMap;
+use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
@@ -73,6 +73,21 @@ pub struct CommonWorkspace {
 }
 
 impl CommonWorkspace {
+    fn table_action(
+        &mut self,
+        a: &TableAction,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        match a.op {
+            TableOp::Open => self.create_table_tab(a.table.clone(), window, cx),
+            TableOp::Schema => self.create_schema_tab(a.table.clone(), window, cx),
+            TableOp::Create | TableOp::Import | TableOp::Export => {
+                // TODO: 暂不实现
+            }
+        }
+    }
+
     fn active_session(&mut self) -> Result<&mut (dyn DatabaseSession + '_), DriverError> {
         if self.session.is_none() {
             self.session = Some(create_connection(&self.source.options)?);
@@ -1465,18 +1480,67 @@ impl Render for CommonWorkspace {
                         .overflow_hidden()
                         .whitespace_nowrap()
                         .child(table.name.clone()),
-                )
-                .tooltip({
-                    let name = table.name.clone();
-                    move |window, cx| Tooltip::new(name.clone()).build(window, cx)
-                });
+                );
             tables.push(item)
         }
 
         let id = &self.source.id;
+        let sidebar = div()
+            .id(comp_id(["common-tables", id]))
+            .p_2()
+            .gap_2()
+            .col_full()
+            .scrollable(Axis::Vertical)
+            .context_menu({
+                let view = cx.entity().clone();
+                move |this, _, cx| {
+                    let Some(table) = view.read(cx).active_table.clone() else {
+                        return this;
+                    };
+                    this.menu(
+                        "新建表",
+                        Box::new(TableAction {
+                            op: TableOp::Create,
+                            table: table.clone(),
+                        }),
+                    )
+                    .separator()
+                    .menu(
+                        "打开表",
+                        Box::new(TableAction {
+                            op: TableOp::Open,
+                            table: table.clone(),
+                        }),
+                    )
+                    .menu(
+                        "设计表",
+                        Box::new(TableAction {
+                            op: TableOp::Schema,
+                            table: table.clone(),
+                        }),
+                    )
+                    .separator()
+                    .menu(
+                        "导入向导",
+                        Box::new(TableAction {
+                            op: TableOp::Import,
+                            table: table.clone(),
+                        }),
+                    )
+                    .menu(
+                        "导出向导",
+                        Box::new(TableAction {
+                            op: TableOp::Export,
+                            table: table.clone(),
+                        }),
+                    )
+                }
+            })
+            .children(tables);
         div()
             .id(comp_id(["common", id]))
             .col_full()
+            .on_action(cx.listener(Self::table_action))
             .child(
                 div()
                     .id(comp_id(["common-header", id]))
@@ -1564,29 +1628,7 @@ impl Render for CommonWorkspace {
                             resizable_panel()
                                 .size(px(240.))
                                 .size_range(px(100.)..px(360.))
-                                .child(
-                                    div()
-                                        .id(comp_id(["common-tables", id]))
-                                        .p_2()
-                                        .gap_2()
-                                        .col_full()
-                                        .scrollable(Axis::Vertical)
-                                        .context_menu({
-                                            let view = cx.entity().clone();
-                                            move |this, window, cx| {
-                                                let Some(table) = view.read(cx).active_table.clone() else {
-                                                    return this;
-                                                };
-                                                this.item(PopupMenuItem::new("查看表结构").on_click({
-                                                    window.listener_for(&view, move |this, _, window, cx| {
-                                                        this.create_schema_tab(table.clone(), window, cx);
-                                                    })
-                                                }))
-                                            }
-                                        })
-                                        .children(tables),
-                                )
-                                .child(div()),
+                                .child(sidebar),
                         )
                         .child(
                             div()
@@ -1615,6 +1657,24 @@ impl Render for CommonWorkspace {
                 ),
             )
     }
+}
+
+#[derive(Clone, PartialEq, Eq, Deserialize)]
+enum TableOp {
+    Create, // 新建表
+
+    Open,   // 打开表（查看数据）
+    Schema, // 设计表（查看结构）
+
+    Import, // 导入向导
+    Export, // 导出向导
+}
+
+#[derive(Action, Clone, PartialEq, Eq, Deserialize)]
+#[action(namespace = common_workspace, no_json)]
+struct TableAction {
+    op: TableOp,
+    table: String,
 }
 
 struct QueryRule {
