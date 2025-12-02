@@ -377,7 +377,7 @@ impl CommonWorkspace {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let theme = cx.theme();
-        let tab_id = tab.id.clone();
+        let tab_id = &tab.id;
 
         let mut results = vec![{
             let mut item = Button::new(comp_id(["query-result-summary"]))
@@ -556,17 +556,12 @@ impl CommonWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        for (id, tab) in &self.tabs {
-            let TabContent::Table(data) = &tab.content else {
-                continue;
-            };
-            if data.table.as_ref() == table.as_str() {
-                self.active_tab = id.clone();
-                cx.notify();
-                return;
-            }
+        let tab_id = format!("{}_table", table);
+        if self.tabs.contains_key(&tab_id) {
+            self.active_tab = tab_id;
+            cx.notify();
+            return;
         }
-        let tab_id = Uuid::new_v4().to_string();
 
         // 新建标签页
         self.tabs.insert(
@@ -770,7 +765,7 @@ impl CommonWorkspace {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let theme = cx.theme().clone();
-        let tab_id = tab.id.clone();
+        let tab_id = &tab.id;
 
         let page_no = tab.page_no;
         let rows_count = tab.rows_count;
@@ -1049,17 +1044,12 @@ impl CommonWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        for (id, tab) in &self.tabs {
-            let TabContent::Schema(data) = &tab.content else {
-                continue;
-            };
-            if data.table.as_ref() == table.as_str() {
-                self.active_tab = id.clone();
-                cx.notify();
-                return;
-            }
+        let tab_id = format!("{}_schema", table);
+        if self.tabs.contains_key(&tab_id) {
+            self.active_tab = tab_id;
+            cx.notify();
+            return;
         }
-        let tab_id = Uuid::new_v4().to_string();
 
         // 新建标签页
         self.tabs.insert(
@@ -1185,7 +1175,7 @@ impl CommonWorkspace {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let theme = cx.theme().clone();
-        let tab_id = tab.id.clone();
+        let tab_id = &tab.id;
 
         v_resizable(comp_id(["schema-content", &tab_id]))
             .child(
