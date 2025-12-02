@@ -4,6 +4,7 @@ use gpui::{prelude::*, *};
 use gpui_component::{
     button::{Button, ButtonVariants},
     input::{Input, InputState, TabSize},
+    menu::{ContextMenuExt, PopupMenuItem},
     resizable::{h_resizable, resizable_panel, v_resizable},
     select::{Select, SelectState},
     sheet::Sheet,
@@ -26,7 +27,7 @@ use crate::{
         create_connection, DatabaseSession, DriverError, FilterCond, Operator, OrderCond, Paging, QueryReq, QueryResp,
         ValueCond,
     },
-    model::{DataSource, TableInfo},
+    model::{ColumnInfo, DataSource, TableInfo},
 };
 
 use super::EditorComps;
@@ -117,7 +118,6 @@ impl CommonWorkspace {
                 IndexMap::new()
             }
         };
-        // self.active_tab = 0;
         self.active_table = None;
 
         // 清除失效的标签页
@@ -469,7 +469,7 @@ impl CommonWorkspace {
         v_resizable(comp_id(["common-content"]))
             .child(
                 resizable_panel()
-                    .size(px(180.0))
+                    .size(px(240.0))
                     .size_range(px(100.)..px(320.))
                     .child(
                         div().flex_1().child(
@@ -1030,18 +1030,262 @@ impl CommonWorkspace {
 
     fn create_schema_tab(
         &mut self,
-        _window: &mut Window,
-        _cx: &mut Context<Self>,
+        table: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
     ) {
+        for (id, tab) in &self.tabs {
+            let TabContent::Schema(data) = &tab.content else {
+                continue;
+            };
+            if data.table.as_ref() == table.as_str() {
+                self.active_tab = id.clone();
+                cx.notify();
+                return;
+            }
+        }
+        let tab_id = Uuid::new_v4().to_string();
+
+        // 新建标签页
+        self.tabs.insert(
+            tab_id.clone(),
+            TabContext {
+                title: SharedString::from(format!("表结构: {}", table)),
+                content: TabContent::Schema(SchemaContent {
+                    id: tab_id.clone(),
+                    table: SharedString::from(table.clone()),
+                    columns: vec![],
+                    datatable: DataTable::new(vec![], vec![]).build(window, cx),
+                }),
+                closable: true,
+            },
+        );
+        self.active_tab = tab_id.clone();
+        cx.notify();
+
+        // 异步加载数据
+        self.reload_schema_tab(&tab_id, window, cx);
+    }
+
+    fn reload_schema_tab(
+        &mut self,
+        tab_id: &String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let table = {
+            let Some(content) = self.schema_content(tab_id) else {
+                return;
+            };
+
+            // 设置表格加载状态
+            content.datatable.update(cx, |t, cx| {
+                t.delegate_mut().update_loading(true);
+                cx.notify();
+            });
+
+            content.table.clone()
+        };
+
+        let tab_id = tab_id.clone();
+        let session = match self.active_session() {
+            Ok(_) => self.session.take(),
+            Err(err) => {
+                tracing::error!("获取数据库连接失败: {}", err);
+                return;
+            }
+        };
+        let Some(mut session) = session else {
+            return;
+        };
+
+        // 在后台线程执行数据库查询
+        cx.spawn_in(window, async move |this, cx| {
+            let ret = cx
+                .background_executor()
+                .spawn(async move {
+                    // 查询列信息
+                    let columns = session.columns(&table)?;
+                    Ok::<_, DriverError>((columns, session))
+                })
+                .await;
+
+            // 更新 UI
+            let _ = cx.update(|_, cx| {
+                let _ = this.update(cx, |this, cx| match ret {
+                    Ok((columns, session)) => {
+                        this.session = Some(session);
+
+                        let Some(content) = this.schema_content(&tab_id) else {
+                            return;
+                        };
+
+                        // 构建表格数据
+                        let table_cols = vec![
+                            SharedString::from("列名"),
+                            SharedString::from("数据类型"),
+                            SharedString::from("注释"),
+                        ];
+                        let mut table_rows = Vec::with_capacity(columns.len());
+                        for col in &columns {
+                            table_rows.push(vec![
+                                SharedString::from(col.name.clone()),
+                                SharedString::from(col.kind.clone()),
+                                SharedString::from(col.comment.clone()),
+                            ]);
+                        }
+
+                        content.columns = columns;
+                        content.datatable.update(cx, |t, cx| {
+                            t.delegate_mut().update_data(table_cols, table_rows);
+                            t.delegate_mut().update_loading(false);
+                            t.refresh(cx);
+                            cx.notify();
+                        });
+                        cx.notify();
+                    }
+                    Err(err) => {
+                        tracing::error!("加载表结构失败: {}", err);
+                        this.session = None;
+
+                        let Some(content) = this.schema_content(&tab_id) else {
+                            return;
+                        };
+                        content.datatable.update(cx, |t, cx| {
+                            t.delegate_mut().update_loading(false);
+                            cx.notify();
+                        });
+                        cx.notify();
+                    }
+                });
+            });
+        })
+        .detach();
     }
 
     fn render_schema_tab(
         &self,
-        _tab: &SchemaContent,
+        tab: &SchemaContent,
         _window: &mut Window,
-        _cx: &mut Context<Self>,
+        cx: &mut Context<Self>,
     ) -> AnyElement {
-        div().into_any_element()
+        let theme = cx.theme().clone();
+        let tab_id = tab.id.clone();
+
+        v_resizable(comp_id(["schema-content", &tab_id]))
+            .child(
+                resizable_panel()
+                    .size(px(240.0))
+                    .size_range(px(100.)..px(400.))
+                    .child(
+                        div().flex_1().border_b_1().border_color(theme.border).child(
+                            Table::new(&tab.datatable)
+                                .stripe(false)
+                                .bordered(false)
+                                .scrollbar_visible(true, true),
+                        ),
+                    )
+                    .child(div()),
+            )
+            .child(
+                div()
+                    .col_full()
+                    .p_4()
+                    .gap_4()
+                    .scrollable(Axis::Vertical)
+                    .child(div().text_base().font_semibold().child("扩展属性"))
+                    .when(tab.columns.is_empty(), |this| {
+                        this.child(div().text_sm().text_color(theme.muted_foreground).child("暂无列信息"))
+                    })
+                    .children(tab.columns.iter().map(|col| {
+                        div()
+                            .p_4()
+                            .gap_3()
+                            .col_full()
+                            .rounded_md()
+                            .border_1()
+                            .border_color(theme.border)
+                            .bg(theme.secondary)
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .font_semibold()
+                                    .text_color(theme.foreground)
+                                    .child(col.name.clone()),
+                            )
+                            .child(
+                                div()
+                                    .flex()
+                                    .flex_row()
+                                    .justify_between()
+                                    .text_sm()
+                                    .child(div().text_color(theme.muted_foreground).child("可空"))
+                                    .child(div().text_color(theme.foreground).child(if col.nullable {
+                                        "是"
+                                    } else {
+                                        "否"
+                                    })),
+                            )
+                            .child(
+                                div()
+                                    .flex()
+                                    .flex_row()
+                                    .justify_between()
+                                    .text_sm()
+                                    .child(div().text_color(theme.muted_foreground).child("主键"))
+                                    .child(div().text_color(theme.foreground).child(if col.primary_key {
+                                        "是"
+                                    } else {
+                                        "否"
+                                    })),
+                            )
+                            .child(
+                                div()
+                                    .flex()
+                                    .flex_row()
+                                    .justify_between()
+                                    .text_sm()
+                                    .child(div().text_color(theme.muted_foreground).child("自增"))
+                                    .child(div().text_color(theme.foreground).child(if col.auto_increment {
+                                        "是"
+                                    } else {
+                                        "否"
+                                    })),
+                            )
+                            .child(
+                                div()
+                                    .flex()
+                                    .flex_row()
+                                    .justify_between()
+                                    .text_sm()
+                                    .child(div().text_color(theme.muted_foreground).child("默认值"))
+                                    .child(
+                                        div()
+                                            .text_color(theme.foreground)
+                                            .child(if col.default_value.is_empty() {
+                                                "-".to_string()
+                                            } else {
+                                                col.default_value.clone()
+                                            }),
+                                    ),
+                            )
+                            .child(
+                                div()
+                                    .flex()
+                                    .flex_row()
+                                    .justify_between()
+                                    .text_sm()
+                                    .child(div().text_color(theme.muted_foreground).child("最大长度"))
+                                    .child(div().text_color(theme.foreground).child(if col.max_length == 0 {
+                                        "-".to_string()
+                                    } else {
+                                        col.max_length.to_string()
+                                    })),
+                            )
+                    }))
+                    .into_any_element(),
+            )
+            .into_any_element()
     }
 
     fn render_overview_tab(
@@ -1191,6 +1435,16 @@ impl Render for CommonWorkspace {
                     |this| this.bg(theme.list_active),
                     |this| this.hover(|this| this.bg(theme.list_hover)),
                 )
+                .on_mouse_down(
+                    MouseButton::Right,
+                    cx.listener({
+                        let name = name.clone();
+                        move |this, _, _, cx| {
+                            this.active_table = Some(name.clone());
+                            cx.notify()
+                        }
+                    }),
+                )
                 .on_click(cx.listener({
                     let name = name.clone();
                     move |this, _, _, cx| {
@@ -1301,25 +1555,6 @@ impl Render for CommonWorkspace {
                                     }
                                 }
                             })),
-                    )
-                    .child(div().flex_1())
-                    .child(
-                        Button::new(comp_id(["common-header-schema", id]))
-                            .icon(icon_export().with_size(Size::Small))
-                            .label("编辑表结构")
-                            .outline()
-                            .disabled(self.active_table.is_none())
-                            .on_click(cx.listener({
-                                // rustfmt::skip
-                                |view: &mut Self, _, _, cx| {
-                                    if let Some(parent) = view.parent.upgrade() {
-                                        let source = view.source.clone();
-                                        let _ = parent.update(cx, |app, cx| {
-                                            app.create_window(WindowKind::Export(source), cx);
-                                        });
-                                    }
-                                }
-                            })),
                     ),
             )
             .child(
@@ -1336,6 +1571,19 @@ impl Render for CommonWorkspace {
                                         .gap_2()
                                         .col_full()
                                         .scrollable(Axis::Vertical)
+                                        .context_menu({
+                                            let view = cx.entity().clone();
+                                            move |this, window, cx| {
+                                                let Some(table) = view.read(cx).active_table.clone() else {
+                                                    return this;
+                                                };
+                                                this.item(PopupMenuItem::new("查看表结构").on_click({
+                                                    window.listener_for(&view, move |this, _, window, cx| {
+                                                        this.create_schema_tab(table.clone(), window, cx);
+                                                    })
+                                                }))
+                                            }
+                                        })
                                         .children(tables),
                                 )
                                 .child(div()),
@@ -1410,4 +1658,9 @@ struct TableContent {
     datatable: Entity<TableState<DataTable>>,
 }
 
-struct SchemaContent {}
+struct SchemaContent {
+    id: String,
+    table: SharedString,
+    columns: Vec<ColumnInfo>,
+    datatable: Entity<TableState<DataTable>>,
+}
