@@ -1,9 +1,9 @@
 use std::{rc::Rc, time};
 
 use gpui::{prelude::*, *};
-use gpui_component::form::{field, Form};
 use gpui_component::{
     button::{Button, ButtonVariants},
+    form::{field, Form},
     input::{Input, InputState, TabSize},
     menu::ContextMenuExt,
     resizable::{h_resizable, resizable_panel, v_resizable},
