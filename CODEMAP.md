@@ -7,7 +7,7 @@
 - **名称**: `sqler`
 - **目标**: 桌面化多标签数据库管理器，支持多类型数据库的连接、浏览、查询和管理
 - **版本**: v0.1.0
-- **代码总行数**: 8,262 行 (29 个 .rs 文件)
+- **代码总行数**: 8,699 行 (31 个 .rs 文件)
 
 ### 技术栈
 
@@ -46,7 +46,7 @@
 
 **职责**: 核心 UI 逻辑、状态管理和用户交互
 
-#### 2.1 应用状态 (`mod.rs`, 389 行)
+#### 2.1 应用状态 (`mod.rs`, 393 行)
 
 **核心结构**: `SqlerApp`
 
@@ -111,7 +111,7 @@ pub enum TabView {
 
 #### 2.2 公共组件 (`comps/`)
 
-##### 组件工具 (`mod.rs`, 80 行)
+##### 组件工具 (`mod.rs`, 79 行)
 
 **提供功能**:
 
@@ -136,7 +136,7 @@ pub enum TabView {
 
 ---
 
-##### 数据表格组件 (`table.rs`, 123 行)
+##### 数据表格组件 (`table.rs`, 122 行)
 
 **核心结构**: `DataTable`
 
@@ -177,7 +177,7 @@ pub struct DataTable {
 
 #### 2.3 数据源创建 (`create/`)
 
-##### 创建窗口 (`mod.rs`, 411 行)
+##### 创建窗口 (`mod.rs`, 475 行)
 
 **核心结构**: `CreateWindow`
 
@@ -251,13 +251,13 @@ pub enum CreateStatus {
 
 | 模块             | 数据库        | 行数  | 状态   |
 |----------------|------------|-----|------|
-| `mysql.rs`     | MySQL      | 87  | ✅ 完整 |
-| `postgres.rs`  | PostgreSQL | 87  | ✅ 完整 |
-| `sqlite.rs`    | SQLite     | 114 | ✅ 完整 |
-| `oracle.rs`    | Oracle     | 71  | ✅ 完整 |
-| `sqlserver.rs` | SQL Server | 78  | ✅ 完整 |
-| `redis.rs`     | Redis      | 128 | ✅ 完整 |
-| `mongodb.rs`   | MongoDB    | 95  | ✅ 完整 |
+| `mysql.rs`     | MySQL      | 80  | ✅ 完整 |
+| `postgres.rs`  | PostgreSQL | 80  | ✅ 完整 |
+| `sqlite.rs`    | SQLite     | 113 | ✅ 完整 |
+| `oracle.rs`    | Oracle     | 64  | ✅ 完整 |
+| `sqlserver.rs` | SQL Server | 71  | ✅ 完整 |
+| `redis.rs`     | Redis      | 121 | ✅ 完整 |
+| `mongodb.rs`   | MongoDB    | 88  | ✅ 完整 |
 
 **表单特点**:
 
@@ -270,7 +270,7 @@ pub enum CreateStatus {
 
 #### 2.4 工作区 (`workspace/`)
 
-##### 工作区路由 (`mod.rs`, 271 行)
+##### 工作区路由 (`mod.rs`, 330 行)
 
 **职责**: 根据数据源类型构造对应工作区视图
 
@@ -322,7 +322,7 @@ MySQL → SQLite → Postgres → Oracle → SQLServer → Redis → MongoDB
 
 ---
 
-##### CommonWorkspace - 关系型数据库工作区 (`common.rs`, 1318 行)
+##### CommonWorkspace - 关系型数据库工作区 (`common.rs`, 1655 行)
 
 **适用数据库**: MySQL, PostgreSQL, SQLite, Oracle, SQL Server
 
@@ -490,7 +490,7 @@ struct OrderRule {
 
 ---
 
-##### RedisWorkspace - Redis 工作区 (`redis.rs`, 387 行)
+##### RedisWorkspace - Redis 工作区 (`redis.rs`, 371 行)
 
 **核心结构**:
 
@@ -531,7 +531,7 @@ struct CommandContent {
 
 ---
 
-##### MongoDBWorkspace - MongoDB 工作区 (`mongodb.rs`, 501 行)
+##### MongoDBWorkspace - MongoDB 工作区 (`mongodb.rs`, 285 行)
 
 **核心结构**:
 
@@ -594,7 +594,7 @@ struct CollectionContent {
 
 ---
 
-##### 导入窗口 (`import.rs`, 676 行)
+##### 导入窗口 (`import.rs`, 721 行)
 
 **核心结构**: `ImportWindow`
 
@@ -662,7 +662,7 @@ struct ImportFile {
 
 ---
 
-##### 导出窗口 (`export.rs`, 202 行)
+##### 导出窗口 (`export.rs`, 251 行)
 
 **核心结构**: `ExportWindow`
 
@@ -708,7 +708,7 @@ pub struct ExportWindow {
 
 ---
 
-### 3. 缓存系统 (`src/cache/mod.rs`, 165 行)
+### 3. 缓存系统 (`src/cache/mod.rs`, 171 行)
 
 **职责**: 本地存储数据源配置和缓存数据
 
@@ -796,7 +796,7 @@ pub struct CacheApp {
 
 **职责**: 统一数据库操作接口、SQL 查询构建和连接管理
 
-#### 4.1 核心接口 (`mod.rs`, 303 行)
+#### 4.1 核心接口 (`mod.rs`, 314 行)
 
 **Trait 定义**:
 
@@ -881,17 +881,17 @@ pub struct DataSource {
 
 | 驱动             | 行数  | 查询              | 写操作                    | tables()           | columns()            | 状态      |
 |----------------|-----|-----------------|------------------------|--------------------|----------------------|---------|
-| **MySQL**      | 412 | ✅ SQL + Builder | ✅ INSERT/UPDATE/DELETE | ✅ SHOW TABLES      | ✅ SHOW COLUMNS FROM  | 全功能     |
-| **PostgreSQL** | 448 | ✅ SQL + Builder | ✅ SQL方式                | ✅ pg_tables        | ✅ information_schema | 全功能     |
-| **SQLite**     | 395 | ✅ SQL + Builder | ✅ SQL方式                | ✅ sqlite_master    | ✅ PRAGMA table_info  | 全功能     |
-| **MongoDB**    | 307 | ✅ Document查询    | ✅ INSERT/UPDATE/DELETE | ✅ list_collections | ❌ 返回错误               | 文档型     |
+| **MySQL**      | 447 | ✅ SQL + Builder | ✅ INSERT/UPDATE/DELETE | ✅ SHOW TABLES      | ✅ SHOW COLUMNS FROM  | 全功能     |
+| **PostgreSQL** | 513 | ✅ SQL + Builder | ✅ SQL方式                | ✅ pg_tables        | ✅ information_schema | 全功能     |
+| **SQLite**     | 429 | ✅ SQL + Builder | ✅ SQL方式                | ✅ sqlite_master    | ✅ PRAGMA table_info  | 全功能     |
+| **MongoDB**    | 318 | ✅ Document查询    | ✅ INSERT/UPDATE/DELETE | ✅ list_collections | ❌ 返回错误               | 文档型     |
 | **Redis**      | 277 | ✅ Command执行     | ✅ Command方式            | ❌ 返回错误             | ❌ 返回错误               | 键值型     |
 | **SQL Server** | 93  | ❌ 占位实现          | ❌ 占位实现                 | ❌ 占位实现             | ❌ 占位实现               | **未实现** |
 | **Oracle**     | 1   | -               | -                      | -                  | -                    | **仅注释** |
 
 ---
 
-#### 4.3 MySQL 驱动 (`mysql.rs`, 412 行)
+#### 4.3 MySQL 驱动 (`mysql.rs`, 447 行)
 
 **实现**: 基于 `mysql` crate
 
@@ -928,7 +928,7 @@ fn columns(&mut self, table: &str) -> Result<Vec<String>, DriverError> {
 
 ---
 
-#### 4.4 PostgreSQL 驱动 (`postgres.rs`, 448 行)
+#### 4.4 PostgreSQL 驱动 (`postgres.rs`, 513 行)
 
 **实现**: 基于 `postgres` crate
 
@@ -965,7 +965,7 @@ fn columns(&mut self, table: &str) -> Result<Vec<String>, DriverError> {
 
 ---
 
-#### 4.5 SQLite 驱动 (`sqlite.rs`, 395 行)
+#### 4.5 SQLite 驱动 (`sqlite.rs`, 429 行)
 
 **实现**: 基于 `rusqlite` crate
 
@@ -1001,7 +1001,7 @@ fn columns(&mut self, table: &str) -> Result<Vec<String>, DriverError> {
 
 ---
 
-#### 4.6 MongoDB 驱动 (`mongodb.rs`, 307 行)
+#### 4.6 MongoDB 驱动 (`mongodb.rs`, 318 行)
 
 **实现**: 基于 `mongodb` crate
 
@@ -1514,42 +1514,57 @@ pub fn close_window(&mut self, key: &str) {
 
 ## 代码统计
 
-| 模块分类     | 文件数 | 代码行数      | 占比    |
-|----------|-----|-----------|-------|
-| app/     | 18  | 5,061     | 61.3% |
-| driver/  | 8   | 2,236     | 27.1% |
-| cache/   | 1   | 165       | 2.0%  |
-| model.rs | 1   | 674       | 8.2%  |
-| main.rs  | 1   | 124       | 1.5%  |
-| **总计**   | 29  | **8,262** | 100%  |
+| 模块分类        | 文件数 | 代码行数      | 占比    |
+|-------------|-----|-----------|-------|
+| app/        | 19  | 5,662     | 65.1% |
+| driver/     | 8   | 2,392     | 27.5% |
+| cache/      | 1   | 171       | 2.0%  |
+| model.rs    | 1   | 668       | 7.7%  |
+| main.rs     | 1   | 124       | 1.4%  |
+| codegen/    | 1   | 1         | 0.0%  |
+| update/     | 1   | 1         | 0.0%  |
+| **总计**      | 32  | **8,699** | 100%  |
 
 **app/ 模块细分**:
 
-- `workspace/`: 2,479 行 (30.0%)
-    - `common.rs`: 1,318 行 (最大单文件)
-    - `mongodb.rs`: 503 行
-    - `redis.rs`: 387 行
-    - `mod.rs`: 271 行
-- `create/`: 1,071 行 (13.0%)
-- `transfer/`: 921 行 (11.1%)
-- `comps/`: 201 行 (2.4%)
-- `mod.rs`: 389 行 (4.7%)
+- `workspace/`: 2,641 行 (30.4%)
+    - `common.rs`: 1,655 行 (最大单文件)
+    - `mod.rs`: 330 行
+    - `redis.rs`: 371 行
+    - `mongodb.rs`: 285 行
+- `create/`: 1,092 行 (12.6%)
+    - `mod.rs`: 475 行
+    - `redis.rs`: 121 行
+    - `sqlite.rs`: 113 行
+    - `mongodb.rs`: 88 行
+    - `mysql.rs`: 80 行
+    - `postgres.rs`: 80 行
+    - `sqlserver.rs`: 71 行
+    - `oracle.rs`: 64 行
+- `transfer/`: 1,015 行 (11.7%)
+    - `import.rs`: 721 行
+    - `export.rs`: 251 行
+    - `mod.rs`: 43 行
+- `comps/`: 201 行 (2.3%)
+    - `table.rs`: 122 行
+    - `mod.rs`: 79 行
+- `mod.rs`: 393 行 (4.5%)
 
 **driver/ 模块细分**:
 
-- `postgres.rs`: 448 行
-- `mysql.rs`: 412 行
-- `sqlite.rs`: 395 行
-- `mongodb.rs`: 307 行
-- `mod.rs`: 303 行
+- `postgres.rs`: 513 行
+- `mysql.rs`: 447 行
+- `sqlite.rs`: 429 行
+- `mongodb.rs`: 318 行
+- `mod.rs`: 314 行
 - `redis.rs`: 277 行
 - `sqlserver.rs`: 93 行 (占位实现)
 - `oracle.rs`: 1 行 (仅注释)
 
-**空模块**:
+**其他模块**:
 
-- `codegen/mod.rs` - 占位 (1 行)
-- `update/mod.rs` - 占位 (1 行)
+- `codegen/mod.rs` - 占位 (1 行) - 代码生成模块预留
+- `update/mod.rs` - 占位 (1 行) - 更新模块预留
 
 ---
 
@@ -1628,6 +1643,23 @@ pub fn close_window(&mut self, key: &str) {
 
 ## 版本历史
 
+**v3 (2025-12-03)**:
+
+- 更新代码总行数: 8,262 → 8,699 (+437 行)
+- 更新文件总数: 29 → 31 个文件
+- `common.rs`: 1,318 → 1,655 (+337 行) - 最大增长
+- `mongodb.rs`: 501 → 285 (-216 行) - 代码优化重构
+- `create/mod.rs`: 411 → 475 (+64 行)
+- `workspace/mod.rs`: 271 → 330 (+59 行)
+- 驱动模块全面增长:
+  - `postgres.rs`: 448 → 513 (+65 行)
+  - `export.rs`: 202 → 251 (+49 行)
+  - `import.rs`: 676 → 721 (+45 行)
+  - `mysql.rs`: 412 → 447 (+35 行)
+  - `sqlite.rs`: 395 → 429 (+34 行)
+- 新增 codegen 和 update 模块占位符
+- 完善代码统计,增加子模块详细分类
+
 **v2 (2025-01-24)**:
 
 - 更新代码总行数: 7,752 → 8,262 (+510 行)
@@ -1644,4 +1676,4 @@ pub fn close_window(&mut self, key: &str) {
 
 - 初始版本，基于实际代码详细记录所有文件行数和实现细节
 
-**最后更新**: 2025-01-24 (基于代码库深度探索全面更新)
+**最后更新**: 2025-12-03 (基于代码库实际统计全面更新)

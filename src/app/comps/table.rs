@@ -2,24 +2,41 @@ use gpui::*;
 use gpui_component::table::{Column, TableDelegate, TableState};
 
 pub struct DataTable {
-    col_defs: Vec<Column>,
-    cols: Vec<SharedString>,
+    cols: Vec<Column>,
     rows: Vec<Vec<SharedString>>,
     loading: bool,
 }
 
 impl DataTable {
+    fn build_cols(
+        cols: &[SharedString],
+        rows: &[Vec<SharedString>],
+    ) -> Vec<Column> {
+        cols.iter()
+            .enumerate()
+            .map(|(col_ix, name)| {
+                let col_len = name.chars().count();
+                let row_len = rows
+                    .iter()
+                    .take(10)
+                    .filter_map(|row| row.get(col_ix))
+                    .map(|cell| cell.chars().count())
+                    .max()
+                    .unwrap_or(0);
+                let max_len = col_len.max(row_len);
+                let col_width = (max_len * 8 + 16).max(80).min(400) as f32;
+
+                Column::new(name.clone(), name.clone()).width(px(col_width))
+            })
+            .collect()
+    }
+
     pub fn new(
         cols: Vec<SharedString>,
         rows: Vec<Vec<SharedString>>,
     ) -> Self {
-        let col_defs = cols
-            .iter()
-            .map(|name| Column::new(name.clone(), name.clone()))
-            .collect();
         Self {
-            col_defs,
-            cols,
+            cols: Self::build_cols(&cols, &rows),
             rows,
             loading: false,
         }
@@ -46,11 +63,7 @@ impl DataTable {
         cols: Vec<SharedString>,
         rows: Vec<Vec<SharedString>>,
     ) {
-        self.col_defs = cols
-            .iter()
-            .map(|name| Column::new(name.clone(), name.clone()))
-            .collect();
-        self.cols = cols;
+        self.cols = Self::build_cols(&cols, &rows);
         self.rows = rows;
     }
 
@@ -82,7 +95,7 @@ impl TableDelegate for DataTable {
         col_ix: usize,
         _cx: &App,
     ) -> &Column {
-        &self.col_defs[col_ix]
+        &self.cols[col_ix]
     }
 
     fn render_th(
@@ -94,7 +107,7 @@ impl TableDelegate for DataTable {
         div()
             .size_full()
             .text_sm()
-            .child(self.cols.get(col_ix).cloned().unwrap_or_default())
+            .child(self.cols.get(col_ix).unwrap().name.clone())
     }
 
     fn render_td(
