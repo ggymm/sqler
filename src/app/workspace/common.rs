@@ -520,17 +520,17 @@ impl CommonWorkspace {
                             .id(comp_id(["query-result-content", &tab_id]))
                             .relative()
                             .col_full()
-                            .when(tab.summary, |this| {
-                                this.child(
-                                    div()
-                                        .p_2()
-                                        .gap_2()
-                                        .col_full()
-                                        .scrollable(Axis::Vertical)
-                                        .children(summaries),
-                                )
-                            })
                             .when_some(tab.results.get(tab.active), |this, ret| {
+                                if tab.summary {
+                                    return this.child(
+                                        div()
+                                            .p_2()
+                                            .gap_2()
+                                            .col_full()
+                                            .scrollable(Axis::Vertical)
+                                            .children(summaries),
+                                    );
+                                }
                                 this.child(
                                     div().flex_1().child(
                                         Table::new(&ret.datatable)
