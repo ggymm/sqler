@@ -31,7 +31,7 @@ use crate::{
     model::{ColumnInfo, DataSource, TableInfo},
 };
 
-use super::EditorComps;
+use super::{parse_elapsed, EditorComps};
 
 const PAGE_SIZE: usize = 500;
 const ORDER_ASC: &str = "升序";
@@ -264,6 +264,7 @@ impl CommonWorkspace {
                 content.results.push(QueryResult {
                     sql: sql.to_string(),
                     error: None,
+                    count: 0,
                     running: true,
                     elapsed: 0.0,
                     datatable,
@@ -304,27 +305,22 @@ impl CommonWorkspace {
                                 let elapsed = start.elapsed().as_secs_f64();
 
                                 // 解析结果
-                                let rows = match query_resp {
-                                    QueryResp::Rows(rows) => rows,
-                                    _ => vec![],
+                                let (cols, rows) = match query_resp {
+                                    QueryResp::Rows { cols, rows } => (cols, rows),
+                                    _ => (vec![], vec![]),
                                 };
 
                                 // 提取列名和数据
-                                let table_cols: Vec<SharedString> = if let Some(first_row) = rows.first() {
-                                    first_row.keys().map(|k| SharedString::from(k.clone())).collect()
-                                } else {
-                                    vec![]
-                                };
-
                                 let mut table_rows = Vec::with_capacity(rows.len());
                                 for row in rows {
-                                    let mut record = Vec::with_capacity(table_cols.len());
-                                    for col in &table_cols {
-                                        let value = row.get(col.as_ref()).cloned().unwrap_or_default();
+                                    let mut record = Vec::with_capacity(cols.len());
+                                    for col in &cols {
+                                        let value = row.get(col).cloned().unwrap_or_default();
                                         record.push(SharedString::from(value));
                                     }
                                     table_rows.push(record);
                                 }
+                                let table_cols: Vec<SharedString> = cols.into_iter().map(SharedString::from).collect();
                                 results.push((i, table_cols, table_rows, elapsed, None));
                             }
                             Err(err) => {
@@ -352,6 +348,7 @@ impl CommonWorkspace {
                                 continue;
                             };
                             ret.error = error;
+                            ret.count = rows.len();
                             ret.running = false;
                             ret.elapsed = elapsed;
                             ret.datatable.update(cx, |t, cx| {
@@ -384,29 +381,7 @@ impl CommonWorkspace {
         let theme = cx.theme();
         let tab_id = &tab.id;
 
-        let mut results = vec![{
-            let mut item = Button::new(comp_id(["query-result-summary"]))
-                .label("摘要")
-                .small()
-                .when_else(tab.summary, |this| this.outline(), |this| this.ghost())
-                .on_click(cx.listener({
-                    let tab_id = tab_id.clone();
-                    move |view: &mut Self, _, _, cx| {
-                        let Some(content) = view.query_content(&tab_id) else {
-                            return;
-                        };
-                        content.summary = true;
-                        cx.notify();
-                    }
-                }));
-            {
-                let style = item.style();
-                style.flex_grow = Some(0.);
-                style.flex_shrink = Some(1.);
-                style.min_size.width = Some(Length::Definite(px(0.).into()));
-            }
-            item
-        }];
+        let mut results = vec![];
         for (i, _) in tab.results.iter().enumerate() {
             let active = !tab.summary && i == tab.active;
 
@@ -434,6 +409,21 @@ impl CommonWorkspace {
 
             results.push(item);
         }
+
+        let summary = Button::new(comp_id(["query-summary"]))
+            .label("摘要")
+            .small()
+            .when_else(tab.summary, |this| this.outline(), |this| this.ghost())
+            .on_click(cx.listener({
+                let tab_id = tab_id.clone();
+                move |view: &mut Self, _, _, cx| {
+                    let Some(content) = view.query_content(&tab_id) else {
+                        return;
+                    };
+                    content.summary = true;
+                    cx.notify();
+                }
+            }));
         let execute = Button::new(comp_id(["query-execute", &tab_id]))
             .label("执行查询")
             .small()
@@ -450,8 +440,6 @@ impl CommonWorkspace {
             .iter()
             .enumerate()
             .map(|(_, ret)| {
-                let time_str = format!("{:.3}s", ret.elapsed);
-
                 div()
                     .p_4()
                     .gap_2()
@@ -477,7 +465,7 @@ impl CommonWorkspace {
                                 |this| this.text_color(theme.success).child("成功"),
                                 |this| this.text_color(theme.danger).child("失败"),
                             ))
-                            .child(div().text_color(theme.muted_foreground).child(time_str)),
+                            .child(div().child(parse_elapsed(ret.elapsed))),
                     )
                     .when_some(ret.error.as_ref(), |this, err| {
                         this.child(div().text_color(theme.danger).child(format!("错误: {}", err)))
@@ -489,7 +477,7 @@ impl CommonWorkspace {
         v_resizable(comp_id(["common-content"]))
             .child(
                 resizable_panel()
-                    .size(px(280.0))
+                    .size(px(200.0))
                     .size_range(px(80.)..px(800.))
                     .child(
                         div()
@@ -522,6 +510,7 @@ impl CommonWorkspace {
                             .gap_2()
                             .border_b_1()
                             .border_color(theme.border)
+                            .child(summary)
                             .children(results)
                             .child(div().flex_1())
                             .child(execute),
@@ -541,19 +530,32 @@ impl CommonWorkspace {
                                         .children(summaries),
                                 )
                             })
-                            .when_some(
-                                (!tab.summary).then(|| tab.results.get(tab.active)).flatten(),
-                                |this, ret| {
-                                    this.child(
-                                        div().flex_1().child(
-                                            Table::new(&ret.datatable)
-                                                .stripe(false)
-                                                .bordered(false)
-                                                .scrollbar_visible(true, true),
-                                        ),
-                                    )
-                                },
-                            ),
+                            .when_some(tab.results.get(tab.active), |this, ret| {
+                                this.child(
+                                    div().flex_1().child(
+                                        Table::new(&ret.datatable)
+                                            .stripe(false)
+                                            .bordered(false)
+                                            .scrollbar_visible(true, true),
+                                    ),
+                                )
+                                .child(
+                                    div()
+                                        .flex()
+                                        .flex_row()
+                                        .items_center()
+                                        .h_10()
+                                        .p_4()
+                                        .gap_4()
+                                        .bg(theme.secondary)
+                                        .text_sm()
+                                        .border_t_1()
+                                        .border_color(theme.border)
+                                        .child(div().flex_1())
+                                        .child(format!("共 {} 条记录", ret.count))
+                                        .child(format!("运行耗时 {}", parse_elapsed(ret.elapsed))),
+                                )
+                            }),
                     )
                     .into_any_element(),
             )
@@ -690,9 +692,6 @@ impl CommonWorkspace {
             let ret = cx
                 .background_executor()
                 .spawn(async move {
-                    // 查询列名
-                    let cols = session.columns(&table)?;
-
                     // 查询数据
                     let query_resp = session.query(QueryReq::Builder {
                         table: table.to_string(),
@@ -701,9 +700,9 @@ impl CommonWorkspace {
                         orders,
                         filters,
                     })?;
-                    let rows = match query_resp {
-                        QueryResp::Rows(rows) => rows,
-                        _ => vec![],
+                    let (cols, rows) = match query_resp {
+                        QueryResp::Rows { cols, rows } => (cols, rows),
+                        _ => (vec![], vec![]),
                     };
 
                     // 构建渲染数据
@@ -711,19 +710,12 @@ impl CommonWorkspace {
                     for row in rows {
                         let mut record = Vec::with_capacity(cols.len());
                         for col in &cols {
-                            let value = row.get(&col.name).cloned().unwrap_or_default();
+                            let value = row.get(col).cloned().unwrap_or_default();
                             record.push(SharedString::from(value));
                         }
                         table_rows.push(record);
                     }
-
-                    let table_cols: Vec<SharedString> = cols
-                        .iter()
-                        .map(|c| {
-                            // rustfmt::skip
-                            SharedString::from(c.name.clone())
-                        })
-                        .collect();
+                    let table_cols: Vec<SharedString> = cols.iter().map(|c| SharedString::from(c.clone())).collect();
                     Ok::<_, DriverError>(((table_cols, table_rows), session))
                 })
                 .await;
@@ -986,9 +978,9 @@ impl CommonWorkspace {
                     .flex()
                     .flex_row()
                     .items_center()
+                    .h_12()
                     .p_2()
                     .gap_2()
-                    .h_12()
                     .bg(theme.secondary)
                     .child(filter)
                     .child(column)
@@ -1628,6 +1620,7 @@ struct OrderRule {
 struct QueryResult {
     sql: String,
     error: Option<String>,
+    count: usize,
     running: bool,
     elapsed: f64,
     datatable: Entity<TableState<DataTable>>,

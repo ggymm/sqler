@@ -168,7 +168,10 @@ pub enum DeleteReq {
 
 #[derive(Clone, Debug)]
 pub enum QueryResp {
-    Rows(Vec<HashMap<String, String>>),
+    Rows {
+        cols: Vec<String>,
+        rows: Vec<HashMap<String, String>>,
+    },
     Value(Value),
     Documents(Vec<Value>),
 }

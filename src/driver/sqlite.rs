@@ -136,7 +136,7 @@ impl DatabaseSession for SQLiteConnection {
             .conn
             .prepare(&sql)
             .map_err(|err| DriverError::Other(format!("准备查询失败: {}", err)))?;
-        let names = stmt.column_names().iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let columns = stmt.column_names().iter().map(|s| s.to_string()).collect::<Vec<_>>();
 
         let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
 
@@ -154,8 +154,8 @@ impl DatabaseSession for SQLiteConnection {
                 break;
             }
 
-            let mut record = HashMap::with_capacity(names.len());
-            for (idx, name) in names.iter().enumerate() {
+            let mut record = HashMap::with_capacity(columns.len());
+            for (idx, name) in columns.iter().enumerate() {
                 let value = row
                     .get_ref(idx)
                     .map_err(|err| DriverError::Other(format!("读取列 {name} 失败: {}", err)))?;
@@ -165,7 +165,10 @@ impl DatabaseSession for SQLiteConnection {
             count += 1;
         }
 
-        Ok(QueryResp::Rows(records))
+        Ok(QueryResp::Rows {
+            cols: columns,
+            rows: records,
+        })
     }
 
     fn insert(

@@ -19,6 +19,25 @@ mod common;
 mod mongodb;
 mod redis;
 
+pub fn parse_elapsed(elapsed: f64) -> String {
+    let ms = elapsed * 1000.0;
+
+    if ms < 1.0 {
+        "< 1ms".to_string()
+    } else if ms < 1000.0 {
+        format!("{}ms", ms.round() as u32)
+    } else {
+        let s = elapsed;
+        if s < 60.0 {
+            format!("{:.2}s", s)
+        } else {
+            let m = (s / 60.0).floor() as u32;
+            let rem = s % 60.0;
+            format!("{}m {}s", m, rem.round() as u32)
+        }
+    }
+}
+
 pub fn parse_position(
     text: &str,
     offset: usize,

@@ -196,27 +196,33 @@ impl DatabaseSession for MySQLSession {
             .map_err(|err| DriverError::Other(format!("读取结果失败: {}", err)))?;
 
         if rows.is_empty() {
-            return Ok(QueryResp::Rows(vec![]));
+            return Ok(QueryResp::Rows {
+                cols: vec![],
+                rows: vec![],
+            });
         }
 
-        let column_names: Vec<String> = rows[0]
+        let columns: Vec<String> = rows[0]
             .columns_ref()
             .iter()
             .map(|col| col.name_str().to_string())
             .collect();
-
         let mut records = Vec::with_capacity(rows.len());
+
         for row in rows {
-            let raw_values = row.unwrap();
-            let mut map = HashMap::with_capacity(column_names.len());
-            for (idx, name) in column_names.iter().enumerate() {
-                let value = raw_values.get(idx).cloned().unwrap_or(Value::NULL);
+            let raw = row.unwrap();
+            let mut map = HashMap::with_capacity(columns.len());
+            for (idx, name) in columns.iter().enumerate() {
+                let value = raw.get(idx).cloned().unwrap_or(Value::NULL);
                 map.insert(name.clone(), parse_value(value));
             }
             records.push(map);
         }
 
-        Ok(QueryResp::Rows(records))
+        Ok(QueryResp::Rows {
+            cols: columns,
+            rows: records,
+        })
     }
 
     fn insert(

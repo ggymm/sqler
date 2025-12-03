@@ -210,6 +210,7 @@ impl DatabaseSession for PostgresSession {
             .query_raw(&sql, param_refs)
             .map_err(|err| DriverError::Other(format!("执行查询失败: {}", err)))?;
 
+        let mut columns = vec![];
         let mut records = vec![];
         let mut count = 0;
         while let Some(row) = iter
@@ -218,6 +219,11 @@ impl DatabaseSession for PostgresSession {
         {
             if count >= 1000 {
                 break;
+            }
+
+            // 从第一行提取列名
+            if count == 0 {
+                columns = row.columns().iter().map(|col| col.name().to_string()).collect();
             }
 
             let mut record = HashMap::with_capacity(row.len());
@@ -229,7 +235,10 @@ impl DatabaseSession for PostgresSession {
             count += 1;
         }
 
-        Ok(QueryResp::Rows(records))
+        Ok(QueryResp::Rows {
+            cols: columns,
+            rows: records,
+        })
     }
 
     fn insert(
