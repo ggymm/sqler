@@ -264,6 +264,7 @@ impl CommonWorkspace {
                 content.results.push(QueryResult {
                     sql: sql.to_string(),
                     error: None,
+                    running: true,
                     elapsed: 0.0,
                     datatable,
                 });
@@ -351,6 +352,7 @@ impl CommonWorkspace {
                                 continue;
                             };
                             ret.error = error;
+                            ret.running = false;
                             ret.elapsed = elapsed;
                             ret.datatable.update(cx, |t, cx| {
                                 t.delegate_mut().update_data(cols, rows);
@@ -358,6 +360,8 @@ impl CommonWorkspace {
                                 cx.notify();
                             });
                         }
+                        content.active = 0;
+                        content.summary = false;
                         cx.notify();
                     }
                     Err(err) => {
@@ -1218,16 +1222,7 @@ impl CommonWorkspace {
                     ),
             )
         } else {
-            div().col_full().scrollable(Axis::Vertical).p_4().child(
-                div()
-                    .text_sm()
-                    .text_color(theme.muted_foreground)
-                    .child(if tab.columns.is_empty() {
-                        "暂无列信息"
-                    } else {
-                        "请在上方表格中选择一个字段"
-                    }),
-            )
+            div().col_full().scrollable(Axis::Vertical)
         };
 
         v_resizable(comp_id(["schema-content", &tab_id]))
@@ -1633,6 +1628,7 @@ struct OrderRule {
 struct QueryResult {
     sql: String,
     error: Option<String>,
+    running: bool,
     elapsed: f64,
     datatable: Entity<TableState<DataTable>>,
 }
