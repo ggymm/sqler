@@ -1,6 +1,7 @@
 use std::{rc::Rc, time};
 
 use gpui::{prelude::*, *};
+use gpui_component::form::{field, Form};
 use gpui_component::{
     button::{Button, ButtonVariants},
     input::{Input, InputState, TabSize},
@@ -484,18 +485,23 @@ impl CommonWorkspace {
         v_resizable(comp_id(["common-content"]))
             .child(
                 resizable_panel()
-                    .size(px(240.0))
-                    .size_range(px(100.)..px(320.))
+                    .size(px(280.0))
+                    .size_range(px(80.)..px(800.))
                     .child(
-                        div().flex_1().child(
-                            Input::new(&tab.editor)
-                                .p_0()
-                                .h_full()
-                                .appearance(false)
-                                .text_sm()
-                                .font_family(theme.mono_font_family.clone())
-                                .focus_bordered(false),
-                        ),
+                        div()
+                            .flex_1()
+                            .border_t_1()
+                            .border_color(theme.border)
+                            .child(
+                                Input::new(&tab.editor)
+                                    .p_0()
+                                    .h_full()
+                                    .appearance(false)
+                                    .text_sm()
+                                    .font_family(theme.mono_font_family.clone())
+                                    .focus_bordered(false),
+                            )
+                            .child(div()),
                     )
                     .child(div()),
             )
@@ -567,7 +573,7 @@ impl CommonWorkspace {
         self.tabs.insert(
             tab_id.clone(),
             TabContext {
-                title: SharedString::from(table.clone()),
+                title: SharedString::from(format!("{}[数据]", table)),
                 content: TabContent::Table(TableContent {
                     id: tab_id.clone(),
                     page_no: 0,
@@ -1055,7 +1061,7 @@ impl CommonWorkspace {
         self.tabs.insert(
             tab_id.clone(),
             TabContext {
-                title: SharedString::from(format!("表结构: {}", table)),
+                title: SharedString::from(format!("{}[结构]", table)),
                 content: TabContent::Schema(SchemaContent {
                     id: tab_id.clone(),
                     table: SharedString::from(table.clone()),
@@ -1177,118 +1183,72 @@ impl CommonWorkspace {
         let theme = cx.theme().clone();
         let tab_id = &tab.id;
 
+        let col_info = {
+            tab.datatable
+                .read(cx)
+                .selected_row()
+                .and_then(|idx| tab.columns.get(idx))
+        };
+
+        let detail_content = if let Some(col) = col_info {
+            div().p_4().col_full().scrollable(Axis::Vertical).child(
+                Form::vertical()
+                    .layout(Axis::Horizontal)
+                    .with_size(Size::Large)
+                    .label_width(px(120.))
+                    .child(field().label("字段").child(col.name.clone()))
+                    .child(
+                        field()
+                            .label("主键")
+                            .child(div().child(if col.primary_key { "是" } else { "否" })),
+                    )
+                    .child(
+                        field()
+                            .label("自增")
+                            .child(div().child(if col.auto_increment { "是" } else { "否" })),
+                    )
+                    .child(
+                        field()
+                            .label("默认值")
+                            .child(div().child(if col.default_value.is_empty() {
+                                "-".to_string()
+                            } else {
+                                col.default_value.clone()
+                            })),
+                    ),
+            )
+        } else {
+            div().col_full().scrollable(Axis::Vertical).p_4().child(
+                div()
+                    .text_sm()
+                    .text_color(theme.muted_foreground)
+                    .child(if tab.columns.is_empty() {
+                        "暂无列信息"
+                    } else {
+                        "请在上方表格中选择一个字段"
+                    }),
+            )
+        };
+
         v_resizable(comp_id(["schema-content", &tab_id]))
             .child(
-                resizable_panel()
-                    .size(px(240.0))
-                    .size_range(px(100.)..px(400.))
+                div()
+                    .flex_1()
+                    .border_t_1()
+                    .border_color(theme.border)
                     .child(
-                        div().flex_1().border_b_1().border_color(theme.border).child(
-                            Table::new(&tab.datatable)
-                                .stripe(false)
-                                .bordered(false)
-                                .scrollbar_visible(true, true),
-                        ),
+                        Table::new(&tab.datatable)
+                            .stripe(false)
+                            .bordered(false)
+                            .scrollbar_visible(true, true),
                     )
-                    .child(div()),
+                    .into_any_element(),
             )
             .child(
-                div()
-                    .col_full()
-                    .p_4()
-                    .gap_4()
-                    .scrollable(Axis::Vertical)
-                    .child(div().text_base().font_semibold().child("扩展属性"))
-                    .when(tab.columns.is_empty(), |this| {
-                        this.child(div().text_sm().text_color(theme.muted_foreground).child("暂无列信息"))
-                    })
-                    .children(tab.columns.iter().map(|col| {
-                        div()
-                            .p_4()
-                            .gap_3()
-                            .col_full()
-                            .rounded_md()
-                            .border_1()
-                            .border_color(theme.border)
-                            .bg(theme.secondary)
-                            .child(
-                                div()
-                                    .text_sm()
-                                    .font_semibold()
-                                    .text_color(theme.foreground)
-                                    .child(col.name.clone()),
-                            )
-                            .child(
-                                div()
-                                    .flex()
-                                    .flex_row()
-                                    .justify_between()
-                                    .text_sm()
-                                    .child(div().text_color(theme.muted_foreground).child("可空"))
-                                    .child(div().text_color(theme.foreground).child(if col.nullable {
-                                        "是"
-                                    } else {
-                                        "否"
-                                    })),
-                            )
-                            .child(
-                                div()
-                                    .flex()
-                                    .flex_row()
-                                    .justify_between()
-                                    .text_sm()
-                                    .child(div().text_color(theme.muted_foreground).child("主键"))
-                                    .child(div().text_color(theme.foreground).child(if col.primary_key {
-                                        "是"
-                                    } else {
-                                        "否"
-                                    })),
-                            )
-                            .child(
-                                div()
-                                    .flex()
-                                    .flex_row()
-                                    .justify_between()
-                                    .text_sm()
-                                    .child(div().text_color(theme.muted_foreground).child("自增"))
-                                    .child(div().text_color(theme.foreground).child(if col.auto_increment {
-                                        "是"
-                                    } else {
-                                        "否"
-                                    })),
-                            )
-                            .child(
-                                div()
-                                    .flex()
-                                    .flex_row()
-                                    .justify_between()
-                                    .text_sm()
-                                    .child(div().text_color(theme.muted_foreground).child("默认值"))
-                                    .child(
-                                        div()
-                                            .text_color(theme.foreground)
-                                            .child(if col.default_value.is_empty() {
-                                                "-".to_string()
-                                            } else {
-                                                col.default_value.clone()
-                                            }),
-                                    ),
-                            )
-                            .child(
-                                div()
-                                    .flex()
-                                    .flex_row()
-                                    .justify_between()
-                                    .text_sm()
-                                    .child(div().text_color(theme.muted_foreground).child("最大长度"))
-                                    .child(div().text_color(theme.foreground).child(if col.max_length == 0 {
-                                        "-".to_string()
-                                    } else {
-                                        col.max_length.to_string()
-                                    })),
-                            )
-                    }))
-                    .into_any_element(),
+                resizable_panel()
+                    .size(px(280.0))
+                    .size_range(px(60.)..px(600.))
+                    .child(detail_content),
             )
             .into_any_element()
     }
@@ -1371,7 +1331,6 @@ impl Render for CommonWorkspace {
                 })
                 .on_click(cx.listener({
                     let tab_id = id.clone();
-                    // rustfmt::skip
                     move |this, _, _, cx| {
                         if this.tabs.contains_key(&tab_id) {
                             this.active_tab = tab_id.clone();
@@ -1396,7 +1355,6 @@ impl Render for CommonWorkspace {
                         .icon(IconName::Close)
                         .on_click(cx.listener({
                             let tab_id = id.clone();
-                            // rustfmt::skip
                             move |this, _, _, cx| {
                                 let Some(i) = this.tabs.get_index_of(&tab_id) else {
                                     return;
@@ -1476,57 +1434,42 @@ impl Render for CommonWorkspace {
 
         let id = &self.source.id;
         let sidebar = div()
-            .id(comp_id(["common-tables", id]))
-            .p_2()
-            .gap_2()
+            .id(comp_id(["common-sidebar", id]))
             .col_full()
-            .scrollable(Axis::Vertical)
+            .child(
+                div()
+                    .id(comp_id(["common-tables", id]))
+                    .p_2()
+                    .gap_2()
+                    .col_full()
+                    .scrollable(Axis::Vertical)
+                    .children(tables),
+            )
             .context_menu({
                 let view = cx.entity().clone();
-                move |this, _, cx| {
+                move |this, window, cx| {
                     let Some(table) = view.read(cx).active_table.clone() else {
                         return this;
                     };
-                    this.menu(
-                        "新建表",
-                        Box::new(TableAction {
-                            op: TableOp::Create,
-                            table: table.clone(),
-                        }),
-                    )
-                    .separator()
-                    .menu(
-                        "打开表",
-                        Box::new(TableAction {
-                            op: TableOp::Open,
-                            table: table.clone(),
-                        }),
-                    )
-                    .menu(
-                        "设计表",
-                        Box::new(TableAction {
-                            op: TableOp::Schema,
-                            table: table.clone(),
-                        }),
-                    )
-                    .separator()
-                    .menu(
-                        "导入向导",
-                        Box::new(TableAction {
-                            op: TableOp::Import,
-                            table: table.clone(),
-                        }),
-                    )
-                    .menu(
-                        "导出向导",
-                        Box::new(TableAction {
-                            op: TableOp::Export,
-                            table: table.clone(),
-                        }),
-                    )
+                    this.menu("新建表", TableAction::new(TableOp::Create, table.clone()))
+                        .separator()
+                        .menu("打开表", TableAction::new(TableOp::Open, table.clone()))
+                        .menu("设计表", TableAction::new(TableOp::Schema, table.clone()))
+                        .separator()
+                        .menu("导入向导", TableAction::new(TableOp::Import, table.clone()))
+                        .menu("导出向导", TableAction::new(TableOp::Export, table.clone()))
+                        .separator()
+                        .submenu("转储 SQL 文件", window, cx, {
+                            let table = table.clone();
+                            move |child, _, _| {
+                                child
+                                    .menu("仅结构", TableAction::new(TableOp::Import, table.clone()))
+                                    .menu("数据和结构", TableAction::new(TableOp::Import, table.clone()))
+                            }
+                        })
                 }
-            })
-            .children(tables);
+            });
+
         div()
             .id(comp_id(["common", id]))
             .col_full()
@@ -1582,7 +1525,6 @@ impl Render for CommonWorkspace {
                             .label("数据导入")
                             .outline()
                             .on_click(cx.listener({
-                                // rustfmt::skip
                                 |view: &mut Self, _, _, cx| {
                                     if let Some(parent) = view.parent.upgrade() {
                                         let source = view.source.clone();
@@ -1599,7 +1541,6 @@ impl Render for CommonWorkspace {
                             .label("数据导出")
                             .outline()
                             .on_click(cx.listener({
-                                // rustfmt::skip
                                 |view: &mut Self, _, _, cx| {
                                     if let Some(parent) = view.parent.upgrade() {
                                         let source = view.source.clone();
@@ -1616,8 +1557,8 @@ impl Render for CommonWorkspace {
                     h_resizable(comp_id(["common-content", id]))
                         .child(
                             resizable_panel()
-                                .size(px(240.))
-                                .size_range(px(100.)..px(360.))
+                                .size(px(280.))
+                                .size_range(px(80.)..px(480.))
                                 .child(sidebar),
                         )
                         .child(
@@ -1665,6 +1606,15 @@ enum TableOp {
 struct TableAction {
     op: TableOp,
     table: String,
+}
+
+impl TableAction {
+    fn new(
+        op: TableOp,
+        table: String,
+    ) -> Box<dyn Action> {
+        Box::new(Self { op, table })
+    }
 }
 
 struct QueryRule {
