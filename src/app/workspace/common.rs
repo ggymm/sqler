@@ -940,13 +940,7 @@ impl CommonWorkspace {
         }
 
         // 表单视图
-        let mut form_panel = div()
-            .px_4()
-            .py_2()
-            .gap_2()
-            .col_full()
-            .scrollable(Axis::Vertical)
-            .child(div());
+        let mut form_panel = div().px_4().py_2().col_full().scrollable(Axis::Vertical).child(div());
         if let Some(row_idx) = tab.datatable.read(cx).selected_row() {
             // 渲染选中行数据
             let row = tab.datatable.read(cx).delegate().get_data(row_idx);
@@ -955,6 +949,7 @@ impl CommonWorkspace {
                     div()
                         .flex()
                         .flex_col()
+                        .pb_3()
                         .gap_1()
                         .child(div().text_sm().child(name.clone()))
                         .child(
@@ -1083,8 +1078,8 @@ impl CommonWorkspace {
             .child(
                 resizable_panel()
                     .visible(tab.right_panel)
-                    .size(px(280.0))
-                    .size_range(px(280.)..px(600.))
+                    .size(px(400.0))
+                    .size_range(px(400.)..Pixels::MAX)
                     .child(
                         div()
                             .col_full()
