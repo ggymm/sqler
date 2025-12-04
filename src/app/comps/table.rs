@@ -50,21 +50,16 @@ impl DataTable {
     pub fn new(
         cols: Vec<SharedString>,
         rows: Vec<Vec<SharedString>>,
-    ) -> Self {
-        Self {
-            cols: Self::build_cols(&cols, &rows),
-            rows,
-            loading: false,
-        }
-    }
-
-    pub fn build(
-        self,
         window: &mut Window,
         cx: &mut App,
     ) -> Entity<TableState<Self>> {
+        let this = Self {
+            cols: Self::build_cols(&cols, &rows),
+            rows,
+            loading: false,
+        };
         cx.new(|cx| {
-            TableState::new(self, window, cx)
+            TableState::new(this, window, cx)
                 .sortable(false)
                 .col_movable(true)
                 .col_resizable(true)
@@ -72,6 +67,13 @@ impl DataTable {
                 .row_selectable(true)
                 .loop_selection(true)
         })
+    }
+
+    pub fn get_data(
+        &self,
+        row_ix: usize,
+    ) -> Vec<SharedString> {
+        self.rows.get(row_ix).cloned().unwrap_or_default()
     }
 
     pub fn update_data(

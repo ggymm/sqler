@@ -264,7 +264,7 @@ impl CommonWorkspace {
 
             content.results.clear();
             for (_, sql) in multi_sql.iter().enumerate() {
-                let datatable = DataTable::new(vec![], vec![]).build(window, cx);
+                let datatable = DataTable::new(vec![], vec![], window, cx);
                 content.results.push(QueryResult {
                     sql: sql.to_string(),
                     error: None,
@@ -594,7 +594,7 @@ impl CommonWorkspace {
                     order_rules: vec![],
                     right_panel: false,
                     right_panel_idx: 0,
-                    datatable: DataTable::new(vec![], vec![]).build(window, cx),
+                    datatable: DataTable::new(vec![], vec![], window, cx),
                 }),
                 closable: true,
             },
@@ -819,33 +819,35 @@ impl CommonWorkspace {
                 }
             }));
 
-        let right_panel_tabs = ButtonGroup::new("button-group")
-            .outline()
-            .compact()
-            .child(
-                Button::new(comp_id(["table-panel-form", &tab_id]))
-                    .label("表单视图")
-                    .selected(tab.right_panel_idx == 0),
-            )
-            .child(
-                Button::new(comp_id(["table-panel-filter", &tab_id]))
-                    .label("筛选数据")
-                    .selected(tab.right_panel_idx == 1),
-            )
-            .child(
-                Button::new(comp_id(["table-panel-columns", &tab_id]))
-                    .label("筛选字段")
-                    .selected(tab.right_panel_idx == 2),
-            )
-            .on_click(cx.listener({
-                let tab_id = tab_id.clone();
-                move |view, selected: &Vec<usize>, _, cx| {
-                    if let Some(content) = view.table_content(&tab_id) {
-                        content.right_panel_idx = selected[0];
+        let right_panel_tabs = div().flex().flex_row().h_12().justify_center().child(
+            ButtonGroup::new("button-group")
+                .outline()
+                .compact()
+                .child(
+                    Button::new(comp_id(["table-panel-form", &tab_id]))
+                        .label("表单视图")
+                        .selected(tab.right_panel_idx == 0),
+                )
+                .child(
+                    Button::new(comp_id(["table-panel-filter", &tab_id]))
+                        .label("筛选数据")
+                        .selected(tab.right_panel_idx == 1),
+                )
+                .child(
+                    Button::new(comp_id(["table-panel-columns", &tab_id]))
+                        .label("筛选字段")
+                        .selected(tab.right_panel_idx == 2),
+                )
+                .on_click(cx.listener({
+                    let tab_id = tab_id.clone();
+                    move |view, selected: &Vec<usize>, _, cx| {
+                        if let Some(content) = view.table_content(&tab_id) {
+                            content.right_panel_idx = selected[0];
+                        }
+                        cx.notify();
                     }
-                    cx.notify();
-                }
-            }));
+                })),
+        );
 
         let apply_cond = Button::new(comp_id(["table-filter-apply", &tab_id]))
             .label("应用条件")
@@ -937,8 +939,36 @@ impl CommonWorkspace {
             )
         }
 
+        let mut form_panel = div().px_4().py_2().gap_2().col_full().scrollable(Axis::Vertical);
+        if let Some(row_idx) = tab.datatable.read(cx).selected_row() {
+            // 渲染选中行数据
+            let row = tab.datatable.read(cx).delegate().get_data(row_idx);
+            for (name, value) in tab.columns.iter().zip(row.iter()) {
+                form_panel = form_panel.child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .gap_2()
+                        .child(div().text_sm().child(name.clone()))
+                        .child(
+                            div()
+                                .px_2()
+                                .py_1()
+                                .rounded_md()
+                                .bg(theme.muted)
+                                .border_1()
+                                .border_color(theme.border)
+                                .text_sm()
+                                .child(value.clone()),
+                        ),
+                );
+            }
+        }
+
         let filter_panel = div()
-            .gap_2()
+            .px_4()
+            .py_2()
+            .gap_4()
             .col_full()
             .scrollable(Axis::Vertical)
             .child(
@@ -1003,6 +1033,7 @@ impl CommonWorkspace {
                 ),
             )
             .children(query_items);
+        let column_panel = div().gap_2().col_full().scrollable(Axis::Vertical);
 
         h_resizable(comp_id(["table-content", &tab_id]))
             .child(
@@ -1037,19 +1068,16 @@ impl CommonWorkspace {
                 resizable_panel()
                     .visible(tab.right_panel)
                     .size(px(280.0))
-                    .size_range(px(60.)..px(600.))
+                    .size_range(px(280.)..px(600.))
                     .child(
                         div()
-                            .py_2()
-                            .px_4()
-                            .gap_4()
                             .col_full()
                             .border_t_1()
                             .border_color(theme.border)
                             .child(right_panel_tabs)
                             .when(tab.right_panel_idx == 0, |this| {
                                 // 表单视图
-                                this.child(div().into_any_element())
+                                this.child(div().col_full().child(form_panel))
                             })
                             .when(tab.right_panel_idx == 1, |this| {
                                 // 筛选数据
@@ -1058,6 +1086,8 @@ impl CommonWorkspace {
                                         .flex()
                                         .flex_row()
                                         .items_center()
+                                        .h_12()
+                                        .p_2()
                                         .gap_2()
                                         .w_full()
                                         .child(div().flex_1())
@@ -1067,7 +1097,7 @@ impl CommonWorkspace {
                             })
                             .when(tab.right_panel_idx == 2, |this| {
                                 // 筛选字段
-                                this.child(div().into_any_element())
+                                this.child(div().col_full().child(column_panel))
                             }),
                     ),
             )
@@ -1096,7 +1126,7 @@ impl CommonWorkspace {
                     id: tab_id.clone(),
                     table: SharedString::from(table.clone()),
                     columns: vec![],
-                    datatable: DataTable::new(vec![], vec![]).build(window, cx),
+                    datatable: DataTable::new(vec![], vec![], window, cx),
                 }),
                 closable: true,
             },
