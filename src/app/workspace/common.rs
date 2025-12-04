@@ -2,15 +2,14 @@ use std::{rc::Rc, time};
 
 use gpui::{prelude::*, *};
 use gpui_component::{
-    button::{Button, ButtonVariants},
+    button::{Button, ButtonGroup, ButtonVariants},
     form::{field, Form},
     input::{Input, InputState, TabSize},
     menu::ContextMenuExt,
     resizable::{h_resizable, resizable_panel, v_resizable},
     select::{Select, SelectState},
-    sheet::Sheet,
     table::{Table, TableState},
-    ActiveTheme, Disableable, IconName, InteractiveElementExt, Sizable, Size, StyledExt,
+    ActiveTheme, Disableable, IconName, InteractiveElementExt, Selectable, Sizable, Size, StyledExt,
 };
 use indexmap::IndexMap;
 use serde::Deserialize;
@@ -136,7 +135,7 @@ impl CommonWorkspace {
         };
         self.active_table = None;
 
-        // 清除失效的标签页
+        // TODO: 清除失效的标签页
         self.tabs.retain(|_, tab| match &tab.content {
             TabContent::Table(tab) => self.tables.contains_key(tab.table.as_ref()),
             _ => true,
@@ -582,14 +581,14 @@ impl CommonWorkspace {
                 title: SharedString::from(format!("{}[数据]", table)),
                 content: TabContent::Table(TableContent {
                     id: tab_id.clone(),
-                    page_no: 0,
-                    rows_count: 0,
+                    page: 0,
+                    count: 0,
+                    table: SharedString::from(table),
+                    columns: vec![],
                     query_rules: vec![],
                     order_rules: vec![],
-                    filter_enable: false,
-                    columns: vec![],
-                    columns_enable: false,
-                    table: SharedString::from(table),
+                    right_panel: false,
+                    right_panel_idx: 0,
                     datatable: DataTable::new(vec![], vec![]).build(window, cx),
                 }),
                 closable: true,
@@ -672,7 +671,7 @@ impl CommonWorkspace {
                 });
             }
 
-            (content.table.clone(), content.page_no, orders, filters)
+            (content.table.clone(), content.page, orders, filters)
         };
 
         let tab_id = tab_id.clone();
@@ -730,8 +729,8 @@ impl CommonWorkspace {
                         let Some(content) = this.table_content(&tab_id) else {
                             return;
                         };
-                        content.page_no = page;
-                        content.rows_count = rows.len();
+                        content.page = page;
+                        content.count = rows.len();
                         content.columns = cols.clone();
                         content.datatable.update(cx, |t, cx| {
                             t.delegate_mut().update_data(cols, rows);
@@ -763,41 +762,23 @@ impl CommonWorkspace {
     fn render_table_tab(
         &self,
         tab: &TableContent,
-        window: &mut Window,
+        _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let theme = cx.theme().clone();
         let tab_id = &tab.id;
-
-        let page_no = tab.page_no;
-        let rows_count = tab.rows_count;
-
-        let filter = Button::new(comp_id(["table-filter", &tab_id]))
-            .label("筛选数据")
-            .outline()
-            .on_click(cx.listener({
-                let tab_id = tab_id.clone();
-                move |view: &mut Self, _, _, cx| {
-                    if let Some(content) = view.table_content(&tab_id) {
-                        content.filter_enable = !content.filter_enable;
-                    }
-                    cx.notify();
-                }
-            }));
-        let column = Button::new(comp_id(["table-column", &tab_id]))
-            .label("筛选字段")
-            .outline();
+        let page = tab.page;
 
         let page_prev = Button::new(comp_id(["table-page-prev", &tab_id]))
             .label("上一页")
             .outline()
-            .disabled(page_no == 0)
+            .disabled(page == 0)
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
-                let prev_page = page_no.saturating_sub(1);
+                let prev_page = page.saturating_sub(1);
                 move |view: &mut Self, _, window, cx| {
                     if let Some(content) = view.table_content(&tab_id) {
-                        content.page_no = prev_page;
+                        content.page = prev_page;
                     }
                     view.reload_table_tab(&tab_id, window, cx);
                 }
@@ -805,23 +786,62 @@ impl CommonWorkspace {
         let page_next = Button::new(comp_id(["table-page-next", &tab_id]))
             .label("下一页")
             .outline()
-            .disabled(rows_count == 0)
+            .disabled(tab.count == 0)
             .on_click(cx.listener({
                 let tab_id = tab_id.clone();
-                let next_page = page_no.saturating_add(1);
+                let next_page = page.saturating_add(1);
                 move |view: &mut Self, _, window, cx| {
                     if let Some(content) = view.table_content(&tab_id) {
-                        content.page_no = next_page;
+                        content.page = next_page;
                     }
                     view.reload_table_tab(&tab_id, window, cx);
                 }
             }));
+        let right_panel = Button::new(comp_id(["table-panel", &tab_id]))
+            .outline()
+            .when_else(
+                tab.right_panel,
+                |this| this.icon(IconName::PanelRightClose),
+                |this| this.icon(IconName::PanelRightOpen),
+            )
+            .on_click(cx.listener({
+                let tab_id = tab_id.clone();
+                move |view: &mut Self, _, _, cx| {
+                    if let Some(content) = view.table_content(&tab_id) {
+                        content.right_panel = !content.right_panel;
+                    }
+                    cx.notify();
+                }
+            }));
 
-        let order_ops = vec![SharedString::from(ORDER_ASC), SharedString::from(ORDER_DESC)];
-        let filter_ops: Vec<SharedString> = Operator::all()
-            .into_iter()
-            .map(|op| SharedString::from(op.label().to_string()))
-            .collect();
+        let right_panel_tabs = ButtonGroup::new("button-group")
+            .outline()
+            .compact()
+            .child(
+                Button::new(comp_id(["table-panel-form", &tab_id]))
+                    .label("表单视图")
+                    .selected(tab.right_panel_idx == 0),
+            )
+            .child(
+                Button::new(comp_id(["table-panel-filter", &tab_id]))
+                    .label("筛选数据")
+                    .selected(tab.right_panel_idx == 1),
+            )
+            .child(
+                Button::new(comp_id(["table-panel-columns", &tab_id]))
+                    .label("筛选字段")
+                    .selected(tab.right_panel_idx == 2),
+            )
+            .on_click(cx.listener({
+                let tab_id = tab_id.clone();
+                move |view, selected: &Vec<usize>, _, cx| {
+                    if let Some(content) = view.table_content(&tab_id) {
+                        content.right_panel_idx = selected[0];
+                    }
+                    cx.notify();
+                }
+            }));
+
         let apply_cond = Button::new(comp_id(["table-filter-apply", &tab_id]))
             .label("应用条件")
             .outline()
@@ -829,8 +849,7 @@ impl CommonWorkspace {
                 let tab_id = tab_id.clone();
                 move |view: &mut Self, _, window, cx| {
                     if let Some(content) = view.table_content(&tab_id) {
-                        content.page_no = 0;
-                        content.filter_enable = false;
+                        content.page = 0;
                     }
                     view.reload_table_tab(&tab_id, window, cx);
                 }
@@ -848,62 +867,13 @@ impl CommonWorkspace {
                     cx.notify();
                 }
             }));
-        let create_order = Button::new(comp_id(["table-order-create", &tab_id]))
-            .small()
-            .icon(IconName::Plus)
-            .on_click(cx.listener({
-                let tab_id = tab_id.clone();
-                let columns = tab.columns.clone();
-                move |view: &mut Self, _, window, cx| {
-                    if let Some(content) = view.table_content(&tab_id) {
-                        content.order_rules.push(OrderRule {
-                            id: Uuid::new_v4().to_string(),
-                            field: cx.new(|cx| {
-                                // rustfmt::skip
-                                SelectState::new(columns.clone(), None, window, cx)
-                            }),
-                            order: cx.new(|cx| {
-                                // rustfmt::skip
-                                SelectState::new(order_ops.clone(), None, window, cx)
-                            }),
-                        });
-                    }
-                    cx.notify();
-                }
-            }));
-        let create_query = Button::new(comp_id(["table-filter-create", &tab_id]))
-            .small()
-            .icon(IconName::Plus)
-            .on_click(cx.listener({
-                let tab_id = tab_id.clone();
-                let columns = tab.columns.clone();
-                move |view: &mut Self, _, window, cx| {
-                    if let Some(content) = view.table_content(&tab_id) {
-                        content.query_rules.push(QueryRule {
-                            id: Uuid::new_v4().to_string(),
-                            field: cx.new(|cx| {
-                                // rustfmt::skip
-                                SelectState::new(columns.clone(), None, window, cx)
-                            }),
-                            operator: cx.new(|cx| {
-                                // rustfmt::skip
-                                SelectState::new(filter_ops.clone(), None, window, cx)
-                            }),
-                            value: cx.new(|cx| {
-                                // rustfmt::skip
-                                InputState::new(window, cx)
-                            }),
-                        });
-                    }
-                    cx.notify();
-                }
-            }));
 
-        let mut orders = vec![];
+        let order_ops = vec![SharedString::from(ORDER_ASC), SharedString::from(ORDER_DESC)];
+        let mut order_items = vec![];
         for order in tab.order_rules.iter() {
             let tab_id = tab_id.clone();
             let rule_id = order.id.clone();
-            orders.push(
+            order_items.push(
                 div()
                     .flex()
                     .flex_row()
@@ -927,11 +897,16 @@ impl CommonWorkspace {
                     ),
             )
         }
-        let mut queries = vec![];
+
+        let filter_ops: Vec<SharedString> = Operator::all()
+            .into_iter()
+            .map(|op| SharedString::from(op.label().to_string()))
+            .collect();
+        let mut query_items = vec![];
         for query in tab.query_rules.iter() {
             let tab_id = tab_id.clone();
             let rule_id = query.id.clone();
-            queries.push(
+            query_items.push(
                 div()
                     .flex()
                     .flex_row()
@@ -957,12 +932,77 @@ impl CommonWorkspace {
             )
         }
 
-        div()
-            .relative()
+        let filter_panel = div()
+            .gap_2()
             .col_full()
+            .scrollable(Axis::Vertical)
+            .child(
+                div().gap_4().row_full().child(div().text_sm().child("排序规则")).child(
+                    Button::new(comp_id(["table-order-create", &tab_id]))
+                        .small()
+                        .icon(IconName::Plus)
+                        .on_click(cx.listener({
+                            let tab_id = tab_id.clone();
+                            let columns = tab.columns.clone();
+                            move |view: &mut Self, _, window, cx| {
+                                let Some(content) = view.table_content(&tab_id) else {
+                                    return;
+                                };
+                                content.order_rules.push(OrderRule {
+                                    id: Uuid::new_v4().to_string(),
+                                    field: cx.new(|cx| {
+                                        // rustfmt::skip
+                                        SelectState::new(columns.clone(), None, window, cx)
+                                    }),
+                                    order: cx.new(|cx| {
+                                        // rustfmt::skip
+                                        SelectState::new(order_ops.clone(), None, window, cx)
+                                    }),
+                                });
+                                cx.notify();
+                            }
+                        })),
+                ),
+            )
+            .children(order_items)
+            .child(
+                div().gap_4().row_full().child(div().text_sm().child("筛选规则")).child(
+                    Button::new(comp_id(["table-filter-create", &tab_id]))
+                        .small()
+                        .icon(IconName::Plus)
+                        .on_click(cx.listener({
+                            let tab_id = tab_id.clone();
+                            let columns = tab.columns.clone();
+                            move |view: &mut Self, _, window, cx| {
+                                let Some(content) = view.table_content(&tab_id) else {
+                                    return;
+                                };
+                                content.query_rules.push(QueryRule {
+                                    id: Uuid::new_v4().to_string(),
+                                    field: cx.new(|cx| {
+                                        // rustfmt::skip
+                                        SelectState::new(columns.clone(), None, window, cx)
+                                    }),
+                                    operator: cx.new(|cx| {
+                                        // rustfmt::skip
+                                        SelectState::new(filter_ops.clone(), None, window, cx)
+                                    }),
+                                    value: cx.new(|cx| {
+                                        // rustfmt::skip
+                                        InputState::new(window, cx)
+                                    }),
+                                });
+                                cx.notify();
+                            }
+                        })),
+                ),
+            )
+            .children(query_items);
+
+        h_resizable(comp_id(["table-content", &tab_id]))
             .child(
                 div()
-                    .flex_1()
+                    .col_full()
                     .border_y_1()
                     .border_color(theme.border)
                     .child(
@@ -971,72 +1011,61 @@ impl CommonWorkspace {
                             .bordered(false)
                             .scrollbar_visible(true, true),
                     )
-                    .child(div()),
+                    .child(
+                        div()
+                            .flex()
+                            .flex_row()
+                            .items_center()
+                            .h_12()
+                            .p_2()
+                            .gap_2()
+                            .bg(theme.secondary)
+                            .child(div().flex_1())
+                            .child(page_prev)
+                            .child(div().text_sm().child(format!("第 {} 页", page + 1)))
+                            .child(page_next)
+                            .child(right_panel),
+                    )
+                    .into_any_element(),
             )
             .child(
-                div()
-                    .flex()
-                    .flex_row()
-                    .items_center()
-                    .h_12()
-                    .p_2()
-                    .gap_2()
-                    .bg(theme.secondary)
-                    .child(filter)
-                    .child(column)
-                    .child(div().flex_1())
-                    .child(page_prev)
-                    .child(div().text_sm().child(format!("第 {} 页", page_no + 1)))
-                    .child(page_next),
+                resizable_panel()
+                    .visible(tab.right_panel)
+                    .size(px(280.0))
+                    .size_range(px(60.)..px(600.))
+                    .child(
+                        div()
+                            .py_2()
+                            .px_4()
+                            .gap_4()
+                            .col_full()
+                            .border_t_1()
+                            .border_color(theme.border)
+                            .child(right_panel_tabs)
+                            .when(tab.right_panel_idx == 0, |this| {
+                                // 表单视图
+                                this.child(div().into_any_element())
+                            })
+                            .when(tab.right_panel_idx == 1, |this| {
+                                // 筛选数据
+                                this.child(div().col_full().child(filter_panel)).child(
+                                    div()
+                                        .flex()
+                                        .flex_row()
+                                        .items_center()
+                                        .gap_2()
+                                        .w_full()
+                                        .child(div().flex_1())
+                                        .child(clear_cond)
+                                        .child(apply_cond),
+                                )
+                            })
+                            .when(tab.right_panel_idx == 2, |this| {
+                                // 筛选字段
+                                this.child(div().into_any_element())
+                            }),
+                    ),
             )
-            .when(tab.filter_enable, |this| {
-                let viewport_size = window.viewport_size();
-                let sheet_size = viewport_size.width / 2.0;
-                this.child(
-                    Sheet::new(window, cx)
-                        .title("筛选数据")
-                        .size(sheet_size)
-                        .margin_top(px(0.))
-                        .on_close(cx.listener({
-                            let tab_id = tab_id.clone();
-                            move |view: &mut Self, _, _, cx| {
-                                if let Some(content) = view.table_content(&tab_id) {
-                                    content.filter_enable = false;
-                                }
-                                cx.notify();
-                            }
-                        }))
-                        .gap_2()
-                        .child(
-                            div()
-                                .gap_4()
-                                .row_full()
-                                .child(div().text_sm().child("排序规则"))
-                                .child(create_order),
-                        )
-                        .children(orders)
-                        .child(
-                            div()
-                                .gap_4()
-                                .row_full()
-                                .child(div().text_sm().child("筛选规则"))
-                                .child(create_query),
-                        )
-                        .children(queries)
-                        .footer(
-                            div()
-                                .flex()
-                                .flex_row()
-                                .items_center()
-                                .gap_2()
-                                .w_full()
-                                .child(div().flex_1())
-                                .child(clear_cond)
-                                .child(apply_cond),
-                        ),
-                )
-            })
-            .when(tab.columns_enable, |this| this.child(div()))
             .into_any_element()
     }
 
@@ -1421,7 +1450,6 @@ impl Render for CommonWorkspace {
 
         let id = &self.source.id;
         let sidebar = div()
-            .id(comp_id(["common-sidebar", id]))
             .col_full()
             .child(
                 div()
@@ -1537,7 +1565,8 @@ impl Render for CommonWorkspace {
                                     }
                                 }
                             })),
-                    ),
+                    )
+                    .child(div().flex_1()),
             )
             .child(
                 div().col_full().child(
@@ -1636,14 +1665,14 @@ struct QueryContent {
 
 struct TableContent {
     id: String,
-    page_no: usize,
-    rows_count: usize,
+    page: usize,
+    count: usize,
+    table: SharedString,
+    columns: Vec<SharedString>,
     order_rules: Vec<OrderRule>,
     query_rules: Vec<QueryRule>,
-    filter_enable: bool,
-    columns: Vec<SharedString>,
-    columns_enable: bool,
-    table: SharedString,
+    right_panel: bool,
+    right_panel_idx: usize,
     datatable: Entity<TableState<DataTable>>,
 }
 

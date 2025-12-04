@@ -7,6 +7,22 @@ pub struct DataTable {
     loading: bool,
 }
 
+fn calc_width(s: &str) -> usize {
+    s.chars()
+        .map(|c| {
+            if c.is_uppercase() {
+                12 // 大写字母宽度
+            } else if c.is_ascii_alphabetic() || c.is_ascii_digit() {
+                8 // 小写字母和数字宽度
+            } else if c.is_ascii() {
+                6 // 其他 ASCII 字符
+            } else {
+                16 // 中文等宽字符
+            }
+        })
+        .sum()
+}
+
 impl DataTable {
     fn build_cols(
         cols: &[SharedString],
@@ -15,18 +31,18 @@ impl DataTable {
         cols.iter()
             .enumerate()
             .map(|(col_ix, name)| {
-                let col_len = name.chars().count();
-                let row_len = rows
+                let col_width = calc_width(name);
+                let row_width = rows
                     .iter()
                     .take(10)
                     .filter_map(|row| row.get(col_ix))
-                    .map(|cell| cell.chars().count())
+                    .map(|cell| calc_width(cell))
                     .max()
                     .unwrap_or(0);
-                let max_len = col_len.max(row_len);
-                let col_width = (max_len * 8 + 16).max(80).min(400) as f32;
+                let max_width = col_width.max(row_width);
+                let final_width = (max_width + 24).max(80).min(400) as f32;
 
-                Column::new(name.clone(), name.clone()).width(px(col_width))
+                Column::new(name.clone(), name.clone()).width(px(final_width))
             })
             .collect()
     }
