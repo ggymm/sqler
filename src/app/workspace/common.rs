@@ -939,7 +939,14 @@ impl CommonWorkspace {
             )
         }
 
-        let mut form_panel = div().px_4().py_2().gap_2().col_full().scrollable(Axis::Vertical);
+        // 表单视图
+        let mut form_panel = div()
+            .px_4()
+            .py_2()
+            .gap_2()
+            .col_full()
+            .scrollable(Axis::Vertical)
+            .child(div());
         if let Some(row_idx) = tab.datatable.read(cx).selected_row() {
             // 渲染选中行数据
             let row = tab.datatable.read(cx).delegate().get_data(row_idx);
@@ -948,7 +955,7 @@ impl CommonWorkspace {
                     div()
                         .flex()
                         .flex_col()
-                        .gap_2()
+                        .gap_1()
                         .child(div().text_sm().child(name.clone()))
                         .child(
                             div()
@@ -965,6 +972,7 @@ impl CommonWorkspace {
             }
         }
 
+        // 筛选数据
         let filter_panel = div()
             .px_4()
             .py_2()
@@ -1033,7 +1041,15 @@ impl CommonWorkspace {
                 ),
             )
             .children(query_items);
-        let column_panel = div().gap_2().col_full().scrollable(Axis::Vertical);
+
+        // 筛选字段
+        let column_panel = div()
+            .px_4()
+            .py_2()
+            .gap_2()
+            .col_full()
+            .scrollable(Axis::Vertical)
+            .child(div());
 
         h_resizable(comp_id(["table-content", &tab_id]))
             .child(
@@ -1076,11 +1092,9 @@ impl CommonWorkspace {
                             .border_color(theme.border)
                             .child(right_panel_tabs)
                             .when(tab.right_panel_idx == 0, |this| {
-                                // 表单视图
                                 this.child(div().col_full().child(form_panel))
                             })
                             .when(tab.right_panel_idx == 1, |this| {
-                                // 筛选数据
                                 this.child(div().col_full().child(filter_panel)).child(
                                     div()
                                         .flex()
@@ -1096,7 +1110,6 @@ impl CommonWorkspace {
                                 )
                             })
                             .when(tab.right_panel_idx == 2, |this| {
-                                // 筛选字段
                                 this.child(div().col_full().child(column_panel))
                             }),
                     ),
