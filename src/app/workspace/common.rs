@@ -135,10 +135,15 @@ impl CommonWorkspace {
         };
         self.active_table = None;
 
-        // TODO: 清除失效的标签页
-        self.tabs.retain(|_, tab| match &tab.content {
-            TabContent::Table(tab) => self.tables.contains_key(tab.table.as_ref()),
-            _ => true,
+        // 清除失效的标签页
+        self.tabs.retain(|id, _| {
+            if let Some(table_name) = id.strip_suffix("_table") {
+                self.tables.contains_key(table_name)
+            } else if let Some(table_name) = id.strip_suffix("_schema") {
+                self.tables.contains_key(table_name)
+            } else {
+                true
+            }
         });
         cx.notify();
     }
