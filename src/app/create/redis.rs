@@ -1,7 +1,7 @@
 use gpui::{prelude::*, *};
 use gpui_component::{
     IconName, IndexPath, Sizable, Size,
-    button::Button,
+    button::{Button, ButtonVariants},
     form::{Form, field},
     input::{Input, InputState},
     select::{Select, SelectState},
@@ -53,14 +53,30 @@ impl RedisCreate {
         let opts = opts.cloned().unwrap_or_default();
 
         let kinds: Vec<SharedString> = RedisKind::all().iter().map(|k| k.label().into()).collect();
-        let auths: Vec<SharedString> = RedisAuthMode::all().iter().map(|mode| mode.label().into()).collect();
+        let auths: Vec<SharedString> = RedisAuthMode::all().iter().map(|m| m.label().into()).collect();
+
+        let kind_index = Some(IndexPath::new(
+            RedisKind::all().iter().position(|kind| kind == &opts.kind).unwrap_or(0),
+        ));
+
+        let auth_mode = match (&opts.username, &opts.password) {
+            (Some(_), _) => RedisAuthMode::UsernamePassword,
+            (None, Some(_)) => RedisAuthMode::Password,
+            (None, None) => RedisAuthMode::None,
+        };
+        let auth_index = Some(IndexPath::new(
+            RedisAuthMode::all()
+                .iter()
+                .position(|mode| mode == &auth_mode)
+                .unwrap_or(0),
+        ));
 
         Self {
-            kind: cx.new(|cx| SelectState::new(kinds, Some(IndexPath::new(0)), window, cx)),
+            kind: cx.new(|cx| SelectState::new(kinds, kind_index, window, cx)),
             host: cx.new(|cx| InputState::new(window, cx).default_value(&opts.host)),
             port: cx.new(|cx| InputState::new(window, cx).default_value(&opts.port)),
             nodes: cx.new(|cx| InputState::new(window, cx).default_value(&opts.nodes)),
-            auth: cx.new(|cx| SelectState::new(auths, Some(IndexPath::new(0)), window, cx)),
+            auth: cx.new(|cx| SelectState::new(auths, auth_index, window, cx)),
             username: cx.new(|cx| InputState::new(window, cx).default_value(&opts.username.unwrap_or_default())),
             password: cx.new(|cx| {
                 InputState::new(window, cx)
@@ -127,15 +143,15 @@ impl Render for RedisCreate {
                 kind_cluster,
                 |form| {
                     form.child(
-                        field()
-                            .label("集群节点")
-                            .child(Input::new(&self.nodes).cleanable(true))
-                            .child(
+                        field().label("集群节点").child(
+                            Input::new(&self.nodes).cleanable(true).suffix(
                                 Button::new("redis-nodes-tooltip")
                                     .icon(IconName::Info)
-                                    .outline()
+                                    .ghost()
+                                    .xsmall()
                                     .tooltip("格式如下:127.0.0.1:7000,127.0.0.1:7001"),
                             ),
+                        ),
                     )
                 },
                 |form| {

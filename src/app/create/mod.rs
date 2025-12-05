@@ -298,6 +298,50 @@ impl Render for CreateWindow {
         let status = self.status.clone();
 
         let theme = cx.theme();
+
+        // 数据源列表
+        let mut kinds = vec![];
+        for kind in DataSourceKind::all() {
+            let item = div()
+                .flex()
+                .flex_row()
+                .items_center()
+                .p_4()
+                .gap_4()
+                .h_20()
+                .w_full()
+                .bg(theme.list)
+                .border_1()
+                .border_color(theme.border)
+                .rounded_md()
+                .id(("datasource-type-{}", *kind as u64))
+                .hover(|this| this.bg(theme.list_hover))
+                .child(div().w_12().h_12().child(img(kind.image()).size_full().rounded_md()))
+                .child(
+                    div()
+                        .flex()
+                        .flex_1()
+                        .flex_col()
+                        .items_start()
+                        .justify_center()
+                        .child(div().text_base().font_semibold().child(kind.label()))
+                        .child(div().text_sm().child(kind.description())),
+                )
+                .on_click(cx.listener({
+                    move |this: &mut CreateWindow, _, window, cx| {
+                        if this.kind != Some(*kind) {
+                            this.kind = Some(*kind);
+                            this.name.update(cx, |this, cx| {
+                                this.set_value(format!("{} 数据源", kind.label()), window, cx);
+                            });
+                            this.status = None;
+                            cx.notify();
+                        }
+                    }
+                }));
+            kinds.push(item);
+        }
+
         div()
             .col_full()
             .child(
@@ -318,70 +362,37 @@ impl Render for CreateWindow {
             )
             .child(
                 div().id("datasource-create").col_full().child(
-                    div().p_6().col_full().scrollable(Axis::Vertical).child(match kind {
-                        Some(kind) => div()
-                            .flex()
-                            .flex_col()
-                            .gap_4()
-                            .child(
-                                Form::vertical()
-                                    .layout(Axis::Horizontal)
-                                    .with_size(Size::Large)
-                                    .label_width(px(80.))
-                                    .child(field().label("名称").child(Input::new(&self.name).cleanable(true))),
+                    div()
+                        .p_6()
+                        .col_full()
+                        .scrollable(Axis::Vertical)
+                        .when_none(&kind, |this| {
+                            this.child(div().flex().flex_col().gap_5().children(kinds))
+                        })
+                        .when_some(kind, |this, kind| {
+                            this.child(
+                                div()
+                                    .flex()
+                                    .flex_col()
+                                    .gap_4()
+                                    .child(
+                                        Form::vertical()
+                                            .layout(Axis::Horizontal)
+                                            .with_size(Size::Large)
+                                            .label_width(px(80.))
+                                            .child(field().label("名称").child(Input::new(&self.name).cleanable(true))),
+                                    )
+                                    .child(match kind {
+                                        DataSourceKind::MySQL => self.mysql.clone().into_any_element(),
+                                        DataSourceKind::SQLite => self.sqlite.clone().into_any_element(),
+                                        DataSourceKind::Postgres => self.postgres.clone().into_any_element(),
+                                        DataSourceKind::Oracle => self.oracle.clone().into_any_element(),
+                                        DataSourceKind::SQLServer => self.sqlserver.clone().into_any_element(),
+                                        DataSourceKind::Redis => self.redis.clone().into_any_element(),
+                                        DataSourceKind::MongoDB => self.mongodb.clone().into_any_element(),
+                                    }),
                             )
-                            .child(match kind {
-                                DataSourceKind::MySQL => self.mysql.clone().into_any_element(),
-                                DataSourceKind::SQLite => self.sqlite.clone().into_any_element(),
-                                DataSourceKind::Postgres => self.postgres.clone().into_any_element(),
-                                DataSourceKind::Oracle => self.oracle.clone().into_any_element(),
-                                DataSourceKind::SQLServer => self.sqlserver.clone().into_any_element(),
-                                DataSourceKind::Redis => self.redis.clone().into_any_element(),
-                                DataSourceKind::MongoDB => self.mongodb.clone().into_any_element(),
-                            }),
-                        None => div().flex().flex_col().gap_5().children(
-                            DataSourceKind::all()
-                                .iter()
-                                .map(|kind| {
-                                    div()
-                                        .flex()
-                                        .flex_row()
-                                        .items_center()
-                                        .p_4()
-                                        .gap_4()
-                                        .h_20()
-                                        .w_full()
-                                        .bg(theme.list)
-                                        .border_1()
-                                        .border_color(theme.border)
-                                        .rounded_md()
-                                        .id(("datasource-type-{}", *kind as u64))
-                                        .hover(|this| this.bg(theme.list_hover))
-                                        .child(div().w_12().h_12().child(img(kind.image()).size_full().rounded_md()))
-                                        .child(
-                                            div()
-                                                .flex()
-                                                .flex_1()
-                                                .flex_col()
-                                                .items_start()
-                                                .justify_center()
-                                                .child(div().text_base().font_semibold().child(kind.label()))
-                                                .child(div().text_sm().child(kind.description())),
-                                        )
-                                        .on_click(cx.listener({
-                                            move |this: &mut CreateWindow, _, _, cx| {
-                                                if this.kind != Some(*kind) {
-                                                    this.kind = Some(*kind);
-                                                    this.status = None;
-                                                    cx.notify();
-                                                }
-                                            }
-                                        }))
-                                        .into_any_element()
-                                })
-                                .collect::<Vec<_>>(),
-                        ),
-                    }),
+                        }),
                 ),
             )
             .child(
