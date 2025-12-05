@@ -7,7 +7,7 @@ use gpui_component::{
     form::{Form, field},
     input::{Input, InputState, TabSize},
     menu::ContextMenuExt,
-    resizable::{h_resizable, resizable_panel, v_resizable},
+    resizable::{ResizableState, h_resizable, resizable_panel, v_resizable},
     select::{Select, SelectState},
     table::{Table, TableState},
 };
@@ -590,11 +590,12 @@ impl CommonWorkspace {
                     count: 0,
                     table: SharedString::from(table),
                     columns: vec![],
+                    datatable: DataTable::new(vec![], vec![], window, cx),
                     query_rules: vec![],
                     order_rules: vec![],
                     right_panel: false,
                     right_panel_idx: 0,
-                    datatable: DataTable::new(vec![], vec![], window, cx),
+                    right_panel_state: cx.new(|_| ResizableState::default()),
                 }),
                 closable: true,
             },
@@ -1047,6 +1048,7 @@ impl CommonWorkspace {
             .child(div());
 
         h_resizable(comp_id(["table-content", &tab_id]))
+            .with_state(&tab.right_panel_state)
             .child(
                 div()
                     .col_full()
@@ -1078,7 +1080,7 @@ impl CommonWorkspace {
             .child(
                 resizable_panel()
                     .visible(tab.right_panel)
-                    .size(px(400.0))
+                    .size(px(400.))
                     .size_range(px(400.)..Pixels::MAX)
                     .child(
                         div()
@@ -1712,11 +1714,12 @@ struct TableContent {
     count: usize,
     table: SharedString,
     columns: Vec<SharedString>,
+    datatable: Entity<TableState<DataTable>>,
     order_rules: Vec<OrderRule>,
     query_rules: Vec<QueryRule>,
     right_panel: bool,
     right_panel_idx: usize,
-    datatable: Entity<TableState<DataTable>>,
+    right_panel_state: Entity<ResizableState>,
 }
 
 struct SchemaContent {
