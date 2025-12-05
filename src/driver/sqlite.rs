@@ -1,12 +1,12 @@
 use std::{collections::HashMap, fs, path::Path};
 
-use rusqlite::{types::ValueRef, Connection, OpenFlags};
+use rusqlite::{Connection, OpenFlags, types::ValueRef};
 
 use crate::model::{ColumnInfo, ColumnKind, SQLiteOptions, TableInfo};
 
 use super::{
-    escape_quote, validate_sql, DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, Operator, QueryReq,
-    QueryResp, UpdateReq, UpdateResp, ValueCond,
+    DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, Operator, QueryReq, QueryResp, UpdateReq,
+    UpdateResp, ValueCond, escape_quote, validate_sql,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -25,9 +25,9 @@ impl SQLiteConnection {
 impl DatabaseSession for SQLiteConnection {
     fn query(
         &mut self,
-        request: QueryReq,
+        req: QueryReq,
     ) -> Result<QueryResp, DriverError> {
-        let (sql, params) = match request {
+        let (sql, params) = match req {
             QueryReq::Sql { sql, args } => {
                 validate_sql(&sql)?;
                 (sql, args)
@@ -128,7 +128,7 @@ impl DatabaseSession for SQLiteConnection {
                 return Err(DriverError::InvalidField(format!(
                     "SQLite 查询仅支持 SQL 和 Builder，收到: {:?}",
                     other
-                )))
+                )));
             }
         };
 
@@ -173,9 +173,9 @@ impl DatabaseSession for SQLiteConnection {
 
     fn insert(
         &mut self,
-        request: InsertReq,
+        req: InsertReq,
     ) -> Result<UpdateResp, DriverError> {
-        match request {
+        match req {
             InsertReq::Sql { sql } => {
                 validate_sql(&sql)?;
                 let affected = self
@@ -195,9 +195,9 @@ impl DatabaseSession for SQLiteConnection {
 
     fn update(
         &mut self,
-        request: UpdateReq,
+        req: UpdateReq,
     ) -> Result<UpdateResp, DriverError> {
-        match request {
+        match req {
             UpdateReq::Sql { sql } => {
                 validate_sql(&sql)?;
                 let affected = self
@@ -217,9 +217,9 @@ impl DatabaseSession for SQLiteConnection {
 
     fn delete(
         &mut self,
-        request: DeleteReq,
+        req: DeleteReq,
     ) -> Result<UpdateResp, DriverError> {
-        match request {
+        match req {
             DeleteReq::Sql { sql } => {
                 validate_sql(&sql)?;
                 let affected = self
@@ -360,7 +360,7 @@ fn open_conn(config: &SQLiteOptions) -> Result<Connection, DriverError> {
 
     let path = Path::new(path_str);
 
-    if config.read_only {
+    if config.readonly {
         if !path.exists() {
             return Err(DriverError::InvalidField("file_path 不存在".into()));
         }
@@ -370,7 +370,7 @@ fn open_conn(config: &SQLiteOptions) -> Result<Connection, DriverError> {
         }
     }
 
-    let flags = if config.read_only {
+    let flags = if config.readonly {
         OpenFlags::SQLITE_OPEN_READ_ONLY
     } else {
         OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE

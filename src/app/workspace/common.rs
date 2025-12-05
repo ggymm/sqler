@@ -2,14 +2,14 @@ use std::{rc::Rc, time};
 
 use gpui::{prelude::*, *};
 use gpui_component::{
+    ActiveTheme, Disableable, IconName, InteractiveElementExt, Selectable, Sizable, Size, StyledExt,
     button::{Button, ButtonGroup, ButtonVariants},
-    form::{field, Form},
+    form::{Form, field},
     input::{Input, InputState, TabSize},
     menu::ContextMenuExt,
     resizable::{h_resizable, resizable_panel, v_resizable},
     select::{Select, SelectState},
     table::{Table, TableState},
-    ActiveTheme, Disableable, IconName, InteractiveElementExt, Selectable, Sizable, Size, StyledExt,
 };
 use indexmap::IndexMap;
 use serde::Deserialize;
@@ -17,20 +17,20 @@ use uuid::Uuid;
 
 use crate::{
     app::{
-        comps::{
-            comp_id, icon_export, icon_import, icon_relead, icon_search, icon_sheet, icon_trash, DataTable, DivExt,
-        },
         SqlerApp, WindowKind,
+        comps::{
+            DataTable, DivExt, comp_id, icon_export, icon_import, icon_relead, icon_search, icon_sheet, icon_trash,
+        },
     },
     cache::ArcCache,
     driver::{
-        create_connection, DatabaseSession, DriverError, FilterCond, Operator, OrderCond, Paging, QueryReq, QueryResp,
-        ValueCond,
+        DatabaseSession, DriverError, FilterCond, Operator, OrderCond, Paging, QueryReq, QueryResp, ValueCond,
+        create_connection,
     },
     model::{ColumnInfo, DataSource, TableInfo},
 };
 
-use super::{parse_elapsed, EditorComps};
+use super::{EditorComps, parse_elapsed};
 
 const PAGE_SIZE: usize = 500;
 const ORDER_ASC: &str = "升序";

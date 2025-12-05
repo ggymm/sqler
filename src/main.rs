@@ -8,12 +8,12 @@ use std::{
 
 use dirs::home_dir;
 use gpui::*;
-use gpui_component::{init, scroll::ScrollbarShow, Root, Theme};
+use gpui_component::{Root, Theme, init, scroll::ScrollbarShow};
 use tracing_appender::{
     non_blocking,
     rolling::{RollingFileAppender, Rotation},
 };
-use tracing_subscriber::{fmt::layer, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+use tracing_subscriber::{EnvFilter, fmt::layer, layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::app::SqlerApp;
 

@@ -13,28 +13,28 @@ struct SqlServerConnection;
 impl DatabaseSession for SqlServerConnection {
     fn query(
         &mut self,
-        _request: QueryReq,
+        req: QueryReq,
     ) -> Result<QueryResp, DriverError> {
         Err(DriverError::Other("SQL Server 查询暂未实现".into()))
     }
 
     fn insert(
         &mut self,
-        _request: InsertReq,
+        req: InsertReq,
     ) -> Result<UpdateResp, DriverError> {
         Err(DriverError::Other("SQL Server 插入暂未实现".into()))
     }
 
     fn update(
         &mut self,
-        _request: UpdateReq,
+        req: UpdateReq,
     ) -> Result<UpdateResp, DriverError> {
         Err(DriverError::Other("SQL Server 更新暂未实现".into()))
     }
 
     fn delete(
         &mut self,
-        _request: DeleteReq,
+        req: DeleteReq,
     ) -> Result<UpdateResp, DriverError> {
         Err(DriverError::Other("SQL Server 删除暂未实现".into()))
     }

@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use gpui::{prelude::*, *};
 use gpui_component::{
+    ActiveTheme, Root, Sizable, Size,
     button::{Button, ButtonVariants},
     theme::{Theme, ThemeMode},
-    ActiveTheme, Root, Sizable, Size,
 };
 use indexmap::IndexMap;
 

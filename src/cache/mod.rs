@@ -5,8 +5,8 @@ use std::{
 };
 
 use aes_gcm::{
-    aead::{Aead, KeyInit},
     Aes256Gcm,
+    aead::{Aead, KeyInit},
 };
 use dirs::home_dir;
 use thiserror::Error;

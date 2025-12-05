@@ -264,17 +264,17 @@ impl MySQLOptions {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct SQLiteOptions {
+    pub readonly: bool,
     pub filepath: String,
     pub password: Option<String>,
-    pub read_only: bool,
 }
 
 impl Default for SQLiteOptions {
     fn default() -> Self {
         Self {
+            readonly: false,
             filepath: String::new(),
             password: None,
-            read_only: false,
         }
     }
 }
@@ -284,7 +284,7 @@ impl SQLiteOptions {
         let path = self.filepath.trim();
         if path.is_empty() {
             "sqlite://<未配置文件>".into()
-        } else if self.read_only {
+        } else if self.readonly {
             format!("sqlite://{}?mode=ro", path)
         } else {
             format!("sqlite://{}", path)
@@ -303,7 +303,7 @@ impl SQLiteOptions {
             ),
             (
                 "访问模式",
-                if self.read_only {
+                if self.readonly {
                     "只读".into()
                 } else {
                     "读写".into()
@@ -511,10 +511,37 @@ impl SQLServerOptions {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RedisKind {
+    Cluster,
+    Standalone,
+}
+
+impl Default for RedisKind {
+    fn default() -> Self {
+        RedisKind::Standalone
+    }
+}
+
+impl RedisKind {
+    pub fn all() -> &'static [RedisKind] {
+        &[RedisKind::Cluster, RedisKind::Standalone]
+    }
+
+    pub fn label(&self) -> &'static str {
+        match self {
+            RedisKind::Cluster => "集群",
+            RedisKind::Standalone => "单机",
+        }
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct RedisOptions {
+    pub kind: RedisKind,
     pub host: String,
     pub port: String,
+    pub nodes: String,
     pub username: Option<String>,
     pub password: Option<String>,
     pub use_tls: bool,
@@ -523,8 +550,10 @@ pub struct RedisOptions {
 impl Default for RedisOptions {
     fn default() -> Self {
         Self {
+            kind: RedisKind::Standalone,
             host: "127.0.0.1".into(),
             port: "6379".into(),
+            nodes: String::new(),
             username: None,
             password: None,
             use_tls: false,
@@ -535,21 +564,46 @@ impl Default for RedisOptions {
 impl RedisOptions {
     pub fn endpoint(&self) -> String {
         let scheme = if self.use_tls { "rediss" } else { "redis" };
-        format!("{}://{}:{}", scheme, self.host, self.port)
+        match self.kind {
+            RedisKind::Standalone => {
+                format!("{}://{}:{}", scheme, self.host, self.port)
+            }
+            RedisKind::Cluster => {
+                if self.nodes.is_empty() {
+                    format!("{}://<未配置集群节点>", scheme)
+                } else {
+                    format!("{}://{}", scheme, self.nodes)
+                }
+            }
+        }
     }
 
     pub fn overview(&self) -> Vec<(&'static str, String)> {
-        vec![
-            ("连接地址", format!("{}:{}", self.host, self.port)),
-            (
-                "安全性",
-                if self.use_tls {
-                    "TLS 已启用".into()
+        let mut fields = vec![("连接类型", self.kind.label().into())];
+
+        match self.kind {
+            RedisKind::Standalone => {
+                fields.push(("连接地址", format!("{}:{}", self.host, self.port)));
+            }
+            RedisKind::Cluster => {
+                if self.nodes.is_empty() {
+                    fields.push(("集群节点", "未配置".into()));
                 } else {
-                    "未启用 TLS".into()
-                },
-            ),
-        ]
+                    fields.push(("集群节点", self.nodes.replace(',', ", ")));
+                }
+            }
+        }
+
+        fields.push((
+            "安全性",
+            if self.use_tls {
+                "TLS 已启用".into()
+            } else {
+                "未启用 TLS".into()
+            },
+        ));
+
+        fields
     }
 }
 

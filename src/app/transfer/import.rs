@@ -2,21 +2,21 @@ use std::path::PathBuf;
 
 use gpui::{prelude::*, *};
 use gpui_component::{
+    ActiveTheme, Sizable, Size, StyledExt,
     button::Button,
-    form::{field, Form},
+    form::{Form, field},
     input::{Input, InputState},
     select::{Select, SelectState},
     switch::Switch,
-    ActiveTheme, Sizable, Size, StyledExt,
 };
 
 use crate::{
     app::{
-        comps::{icon_relead, DivExt},
         SqlerApp,
+        comps::{DivExt, icon_relead},
     },
     cache::ArcCache,
-    driver::{create_connection, DatabaseSession, DriverError},
+    driver::{DatabaseSession, DriverError, create_connection},
     model::DataSource,
 };
 

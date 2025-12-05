@@ -1,7 +1,10 @@
-use redis::{Client, Connection, Value};
+use redis::{
+    Client, Commands, Connection, Value,
+    cluster::{ClusterClient, ClusterConnection},
+};
 use serde_json::{Map as JsonMap, Number, Value as JsonValue};
 
-use crate::model::{ColumnInfo, ColumnKind, RedisOptions, TableInfo};
+use crate::model::{ColumnInfo, ColumnKind, RedisKind, RedisOptions, TableInfo};
 
 use super::{
     DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp, UpdateReq, UpdateResp,
@@ -10,24 +13,39 @@ use super::{
 #[derive(Debug, Clone, Copy)]
 pub struct RedisDriver;
 
+enum RedisConn {
+    Cluster(ClusterConnection),
+    Standalone(Connection),
+}
+
 struct RedisConnection {
-    conn: Connection,
+    conn: RedisConn,
 }
 
 impl RedisConnection {
-    fn new(conn: Connection) -> Self {
-        Self { conn }
+    fn new_cluster(conn: ClusterConnection) -> Self {
+        Self {
+            conn: RedisConn::Cluster(conn),
+        }
+    }
+    fn new_standalone(conn: Connection) -> Self {
+        Self {
+            conn: RedisConn::Standalone(conn),
+        }
     }
 }
 
 impl DatabaseSession for RedisConnection {
     fn query(
         &mut self,
-        request: QueryReq,
+        req: QueryReq,
     ) -> Result<QueryResp, DriverError> {
-        match request {
+        match req {
             QueryReq::Command { name, args } => {
-                let value = execute(&mut self.conn, &name, &args)?;
+                let value = match &mut self.conn {
+                    RedisConn::Cluster(conn) => execute(conn, &name, &args)?,
+                    RedisConn::Standalone(conn) => execute(conn, &name, &args)?,
+                };
                 Ok(QueryResp::Value(parse_value(value)))
             }
             other => Err(DriverError::InvalidField(format!(
@@ -39,11 +57,14 @@ impl DatabaseSession for RedisConnection {
 
     fn insert(
         &mut self,
-        request: InsertReq,
+        req: InsertReq,
     ) -> Result<UpdateResp, DriverError> {
-        match request {
+        match req {
             InsertReq::Command { name, args } => {
-                let value = execute(&mut self.conn, &name, &args)?;
+                let value = match &mut self.conn {
+                    RedisConn::Cluster(conn) => execute(conn, &name, &args)?,
+                    RedisConn::Standalone(conn) => execute(conn, &name, &args)?,
+                };
                 Ok(UpdateResp {
                     affected: redis_value_to_affected(&value),
                 })
@@ -57,11 +78,14 @@ impl DatabaseSession for RedisConnection {
 
     fn update(
         &mut self,
-        request: UpdateReq,
+        req: UpdateReq,
     ) -> Result<UpdateResp, DriverError> {
-        match request {
+        match req {
             UpdateReq::Command { name, args } => {
-                let value = execute(&mut self.conn, &name, &args)?;
+                let value = match &mut self.conn {
+                    RedisConn::Cluster(conn) => execute(conn, &name, &args)?,
+                    RedisConn::Standalone(conn) => execute(conn, &name, &args)?,
+                };
                 Ok(UpdateResp {
                     affected: redis_value_to_affected(&value),
                 })
@@ -75,11 +99,14 @@ impl DatabaseSession for RedisConnection {
 
     fn delete(
         &mut self,
-        request: DeleteReq,
+        req: DeleteReq,
     ) -> Result<UpdateResp, DriverError> {
-        match request {
+        match req {
             DeleteReq::Command { name, args } => {
-                let value = execute(&mut self.conn, &name, &args)?;
+                let value = match &mut self.conn {
+                    RedisConn::Cluster(conn) => execute(conn, &name, &args)?,
+                    RedisConn::Standalone(conn) => execute(conn, &name, &args)?,
+                };
                 Ok(UpdateResp {
                     affected: redis_value_to_affected(&value),
                 })
@@ -114,12 +141,20 @@ impl DatabaseDriver for RedisDriver {
         &self,
         config: &Self::Config,
     ) -> Result<(), DriverError> {
-        let mut conn = open_conn(config)?;
-
-        redis::cmd("PING")
-            .query::<String>(&mut conn)
-            .map_err(|err| DriverError::Other(format!("PING 失败: {}", err)))?;
-
+        match config.kind {
+            RedisKind::Cluster => {
+                let mut conn = open_cluster_conn(config)?;
+                redis::cmd("PING")
+                    .query::<String>(&mut conn)
+                    .map_err(|err| DriverError::Other(format!("PING 失败: {}", err)))?;
+            }
+            RedisKind::Standalone => {
+                let mut conn = open_standalone_conn(config)?;
+                redis::cmd("PING")
+                    .query::<String>(&mut conn)
+                    .map_err(|err| DriverError::Other(format!("PING 失败: {}", err)))?;
+            }
+        }
         Ok(())
     }
 
@@ -127,31 +162,83 @@ impl DatabaseDriver for RedisDriver {
         &self,
         config: &Self::Config,
     ) -> Result<Box<dyn DatabaseSession>, DriverError> {
-        let conn = open_conn(config)?;
-        Ok(Box::new(RedisConnection::new(conn)))
+        match config.kind {
+            RedisKind::Cluster => {
+                let conn = open_cluster_conn(config)?;
+                Ok(Box::new(RedisConnection::new_cluster(conn)))
+            }
+            RedisKind::Standalone => {
+                let conn = open_standalone_conn(config)?;
+                Ok(Box::new(RedisConnection::new_standalone(conn)))
+            }
+        }
     }
 }
 
-fn open_conn(config: &RedisOptions) -> Result<Connection, DriverError> {
+fn open_cluster_conn(config: &RedisOptions) -> Result<ClusterConnection, DriverError> {
+    if config.nodes.trim().is_empty() {
+        return Err(DriverError::MissingField("nodes".into()));
+    }
+
+    let scheme = if config.use_tls { "rediss" } else { "redis" };
+    let nodes: Vec<String> = config
+        .nodes
+        .split(',')
+        .filter(|s| !s.trim().is_empty())
+        .map(|node_str| {
+            let node_str = node_str.trim();
+
+            let mut url = String::from(scheme);
+            url.push_str("://");
+
+            match (&config.username, &config.password) {
+                (Some(username), Some(password)) => {
+                    if !username.trim().is_empty() && !password.trim().is_empty() {
+                        url.push_str(username.trim());
+                        url.push(':');
+                        url.push_str(password);
+                        url.push('@');
+                    }
+                }
+                (None, Some(password)) => {
+                    if !password.trim().is_empty() {
+                        url.push(':');
+                        url.push_str(password);
+                        url.push('@');
+                    }
+                }
+                _ => {}
+            }
+
+            url.push_str(node_str);
+
+            Ok(url)
+        })
+        .collect::<Result<Vec<String>, DriverError>>()?;
+
+    if nodes.is_empty() {
+        return Err(DriverError::MissingField("nodes".into()));
+    }
+
+    let client = ClusterClient::new(nodes).map_err(|err| DriverError::Other(format!("创建集群客户端失败: {}", err)))?;
+    client
+        .get_connection()
+        .map_err(|err| DriverError::Other(format!("建立集群连接失败: {}", err)))
+}
+
+fn open_standalone_conn(config: &RedisOptions) -> Result<Connection, DriverError> {
     if config.host.trim().is_empty() {
         return Err(DriverError::MissingField("host".into()));
     }
+    if config.port.trim().is_empty() {
+        return Err(DriverError::MissingField("port".into()));
+    }
 
-    let url = build_connection_url(config)?;
-    let client = Client::open(url).map_err(|err| DriverError::Other(format!("创建客户端失败: {}", err)))?;
-    client
-        .get_connection()
-        .map_err(|err| DriverError::Other(format!("建立连接失败: {}", err)))
-}
-
-fn build_connection_url(config: &RedisOptions) -> Result<String, DriverError> {
     let scheme = if config.use_tls { "rediss://" } else { "redis://" };
     let mut url = String::from(scheme);
 
-    // 根据 username 和 password 的存在性判断认证模式
     match (&config.username, &config.password) {
         (Some(username), Some(password)) => {
-            // 账号密码认证
             if username.trim().is_empty() {
                 return Err(DriverError::InvalidField("username".into()));
             }
@@ -164,7 +251,6 @@ fn build_connection_url(config: &RedisOptions) -> Result<String, DriverError> {
             url.push('@');
         }
         (None, Some(password)) => {
-            // 仅密码认证
             if password.trim().is_empty() {
                 return Err(DriverError::InvalidField("password".into()));
             }
@@ -172,20 +258,21 @@ fn build_connection_url(config: &RedisOptions) -> Result<String, DriverError> {
             url.push_str(password);
             url.push('@');
         }
-        _ => {
-            // 无认证
-        }
+        _ => {}
     }
 
     url.push_str(config.host.trim());
     url.push(':');
     url.push_str(&config.port);
 
-    Ok(url)
+    let client = Client::open(url).map_err(|err| DriverError::Other(format!("创建客户端失败: {}", err)))?;
+    client
+        .get_connection()
+        .map_err(|err| DriverError::Other(format!("建立连接失败: {}", err)))
 }
 
-fn execute(
-    conn: &mut Connection,
+fn execute<C: Commands>(
+    conn: &mut C,
     name: &str,
     args: &[JsonValue],
 ) -> Result<Value, DriverError> {

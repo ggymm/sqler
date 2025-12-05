@@ -1,5 +1,5 @@
 use mongodb::{
-    bson::{doc, to_document, Document},
+    bson::{Document, doc, to_document},
     sync::Client,
 };
 
@@ -89,9 +89,9 @@ impl MongoSession {
 impl DatabaseSession for MongoSession {
     fn query(
         &mut self,
-        request: QueryReq,
+        req: QueryReq,
     ) -> Result<QueryResp, DriverError> {
-        match request {
+        match req {
             QueryReq::Document { collection, filter } => {
                 let (db, coll) = self.resolve_collection(&collection)?;
                 let filter_doc =
@@ -125,9 +125,9 @@ impl DatabaseSession for MongoSession {
 
     fn insert(
         &mut self,
-        request: InsertReq,
+        req: InsertReq,
     ) -> Result<UpdateResp, DriverError> {
-        match request {
+        match req {
             InsertReq::Document { collection, document } => {
                 let (db, coll) = self.resolve_collection(&collection)?;
                 let doc = to_document(&document).map_err(|err| DriverError::Other(format!("解析文档失败: {}", err)))?;
@@ -148,9 +148,9 @@ impl DatabaseSession for MongoSession {
 
     fn update(
         &mut self,
-        request: UpdateReq,
+        req: UpdateReq,
     ) -> Result<UpdateResp, DriverError> {
-        match request {
+        match req {
             UpdateReq::Document {
                 collection,
                 filter,
@@ -182,9 +182,9 @@ impl DatabaseSession for MongoSession {
 
     fn delete(
         &mut self,
-        request: DeleteReq,
+        req: DeleteReq,
     ) -> Result<UpdateResp, DriverError> {
-        match request {
+        match req {
             DeleteReq::Document { collection, filter } => {
                 let (db, coll) = self.resolve_collection(&collection)?;
                 let filter_doc =

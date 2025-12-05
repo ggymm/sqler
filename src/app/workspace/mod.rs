@@ -2,9 +2,9 @@ use std::{sync::Arc, time::Duration};
 
 use gpui::{prelude::*, *};
 use gpui_component::{
+    ActiveTheme, InteractiveElementExt, Rope, StyledExt,
     input::{CompletionProvider, InputState},
     menu::{ContextMenuExt, PopupMenuItem},
-    ActiveTheme, InteractiveElementExt, Rope, StyledExt,
 };
 use indexmap::IndexMap;
 use lsp_types::{CompletionContext, CompletionItem, CompletionResponse, CompletionTextEdit, Position, Range, TextEdit};

@@ -1,9 +1,9 @@
 use gpui::{prelude::*, *};
 use gpui_component::{
-    button::Button,
-    form::{field, Form},
-    input::{Input, InputState},
     Sizable, Size,
+    button::Button,
+    form::{Form, field},
+    input::{Input, InputState},
 };
 
 use crate::{app::comps::DivExt, model::SQLiteOptions};
@@ -63,13 +63,12 @@ impl SQLiteCreate {
         &self,
         cx: &App,
     ) -> SQLiteOptions {
-        let filepath = self.filepath.read(cx).value().to_string();
         let password = self.password.read(cx).value().to_string();
 
         SQLiteOptions {
-            filepath,
+            readonly: false,
+            filepath: self.filepath.read(cx).value().to_string(),
             password: if password.is_empty() { None } else { Some(password) },
-            read_only: false,
         }
     }
 }

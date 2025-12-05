@@ -1,8 +1,8 @@
 use gpui::{prelude::*, *};
 use gpui_component::{
-    form::{field, Form},
-    input::{Input, InputState},
     Sizable, Size,
+    form::{Form, field},
+    input::{Input, InputState},
 };
 
 use crate::model::OracleOptions;

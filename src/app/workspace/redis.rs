@@ -1,19 +1,19 @@
 use gpui::{prelude::*, *};
 use gpui_component::{
+    ActiveTheme, Sizable, Size, StyledExt,
     button::{Button, ButtonVariants},
     input::{Input, InputState},
     resizable::{h_resizable, resizable_panel},
     table::{Table, TableState},
-    ActiveTheme, Sizable, Size, StyledExt,
 };
 use uuid::Uuid;
 
 use crate::{
     app::{
-        comps::{comp_id, icon_relead, icon_search, DataTable, DivExt},
         SqlerApp,
+        comps::{DataTable, DivExt, comp_id, icon_relead, icon_search},
     },
-    driver::{create_connection, DatabaseSession, DriverError},
+    driver::{DatabaseSession, DriverError, create_connection},
     model::DataSource,
 };
 

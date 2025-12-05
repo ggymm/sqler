@@ -1271,6 +1271,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "crc16"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "338089f42c427b86394a5ee60ff321da23a5c89c9d89514c829687b26359fcff"
+
+[[package]]
 name = "crc32fast"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5300,19 +5306,22 @@ dependencies = [
 
 [[package]]
 name = "redis"
-version = "1.0.0-rc.4"
+version = "1.0.0-rc.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d22b875ec205873a92d32994685b731b1429e95dd66d0577591e6aec4fbdd0f"
+checksum = "47a37494ab51dc2d511bb795f1c67f860e32ba9d9e4dda73d7f4617f5dcdc3de"
 dependencies = [
  "arcstr",
  "combine",
+ "crc16",
  "itoa",
  "num-bigint",
  "percent-encoding",
+ "rand 0.9.2",
  "ryu",
  "sha1_smol",
  "socket2 0.6.1",
  "url",
+ "xxhash-rust",
 ]
 
 [[package]]
@@ -8720,6 +8729,12 @@ name = "xmlwriter"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec7a2a501ed189703dba8b08142f057e887dfc4b2cc4db2d343ac6376ba3e0b9"
+
+[[package]]
+name = "xxhash-rust"
+version = "0.8.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fdd20c5420375476fbd4394763288da7eb0cc0b8c11deed431a91562af7335d3"
 
 [[package]]
 name = "y4m"

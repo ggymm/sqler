@@ -1,8 +1,8 @@
 use gpui::{prelude::*, *};
 use gpui_component::{
-    form::{field, Form},
-    input::{Input, InputState},
     Sizable, Size,
+    form::{Form, field},
+    input::{Input, InputState},
 };
 
 use crate::model::MySQLOptions;
@@ -36,18 +36,12 @@ impl MySQLCreate {
         &self,
         cx: &App,
     ) -> MySQLOptions {
-        let host = self.host.read(cx).value().to_string();
-        let port = self.port.read(cx).value().to_string();
-        let username = self.username.read(cx).value().to_string();
-        let password = self.password.read(cx).value().to_string();
-        let database = self.database.read(cx).value().to_string();
-
         MySQLOptions {
-            host,
-            port,
-            username,
-            password,
-            database,
+            host: self.host.read(cx).value().to_string(),
+            port: self.port.read(cx).value().to_string(),
+            username: self.username.read(cx).value().to_string(),
+            password: self.password.read(cx).value().to_string(),
+            database: self.database.read(cx).value().to_string(),
             use_tls: false,
         }
     }

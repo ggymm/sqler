@@ -233,22 +233,22 @@ pub trait DatabaseDriver {
 pub trait DatabaseSession: Send {
     fn query(
         &mut self,
-        request: QueryReq,
+        req: QueryReq,
     ) -> Result<QueryResp, DriverError>;
 
     fn insert(
         &mut self,
-        request: InsertReq,
+        req: InsertReq,
     ) -> Result<UpdateResp, DriverError>;
 
     fn update(
         &mut self,
-        request: UpdateReq,
+        req: UpdateReq,
     ) -> Result<UpdateResp, DriverError>;
 
     fn delete(
         &mut self,
-        request: DeleteReq,
+        req: DeleteReq,
     ) -> Result<UpdateResp, DriverError>;
 
     fn tables(&mut self) -> Result<Vec<TableInfo>, DriverError>;

@@ -1,13 +1,13 @@
 use gpui::{prelude::*, *};
 use gpui_component::{
-    button::Button,
-    form::{field, Form},
-    input::{Input, InputState},
     ActiveTheme, Sizable, Size, StyledExt,
+    button::Button,
+    form::{Form, field},
+    input::{Input, InputState},
 };
 
 use crate::{
-    app::{comps::DivExt, SqlerApp},
+    app::{SqlerApp, comps::DivExt},
     cache::ArcCache,
     driver::check_connection,
     model::{DataSource, DataSourceKind, DataSourceOptions},

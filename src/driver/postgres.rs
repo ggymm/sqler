@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
-use postgres::{fallible_iterator::FallibleIterator, types::Type, Client, Config, Error as PostgresError, NoTls};
+use postgres::{Client, Config, Error as PostgresError, NoTls, fallible_iterator::FallibleIterator, types::Type};
 
 use crate::model::{ColumnInfo, ColumnKind, PostgresOptions, TableInfo};
 
 use super::{
-    escape_quote, validate_sql, DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, Operator, QueryReq,
-    QueryResp, UpdateReq, UpdateResp, ValueCond,
+    DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, Operator, QueryReq, QueryResp, UpdateReq,
+    UpdateResp, ValueCond, escape_quote, validate_sql,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -70,9 +70,9 @@ impl PostgresSession {
 impl DatabaseSession for PostgresSession {
     fn query(
         &mut self,
-        request: QueryReq,
+        req: QueryReq,
     ) -> Result<QueryResp, DriverError> {
-        let (sql, params) = match request {
+        let (sql, params) = match req {
             QueryReq::Sql { sql, args } => {
                 validate_sql(&sql)?;
                 (sql, args)
@@ -196,7 +196,7 @@ impl DatabaseSession for PostgresSession {
                 return Err(DriverError::InvalidField(format!(
                     "PostgreSQL 查询仅支持 SQL 和 Builder，收到: {:?}",
                     other
-                )))
+                )));
             }
         };
 
@@ -243,9 +243,9 @@ impl DatabaseSession for PostgresSession {
 
     fn insert(
         &mut self,
-        request: InsertReq,
+        req: InsertReq,
     ) -> Result<UpdateResp, DriverError> {
-        match request {
+        match req {
             InsertReq::Sql { sql } => {
                 validate_sql(&sql)?;
                 let affected = self
@@ -263,9 +263,9 @@ impl DatabaseSession for PostgresSession {
 
     fn update(
         &mut self,
-        request: UpdateReq,
+        req: UpdateReq,
     ) -> Result<UpdateResp, DriverError> {
-        match request {
+        match req {
             UpdateReq::Sql { sql } => {
                 validate_sql(&sql)?;
                 let affected = self
@@ -283,9 +283,9 @@ impl DatabaseSession for PostgresSession {
 
     fn delete(
         &mut self,
-        request: DeleteReq,
+        req: DeleteReq,
     ) -> Result<UpdateResp, DriverError> {
-        match request {
+        match req {
             DeleteReq::Sql { sql } => {
                 validate_sql(&sql)?;
                 let affected = self

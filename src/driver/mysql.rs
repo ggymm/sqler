@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
-use mysql::{prelude::Queryable, Conn, Opts, OptsBuilder, SslOpts, Value};
+use mysql::{Conn, Opts, OptsBuilder, SslOpts, Value, prelude::Queryable};
 
 use crate::model::{ColumnInfo, ColumnKind, MySQLOptions, TableInfo};
 
 use super::{
-    escape_backtick, validate_sql, DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, Operator,
-    QueryReq, QueryResp, UpdateReq, UpdateResp, ValueCond,
+    DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, Operator, QueryReq, QueryResp, UpdateReq,
+    UpdateResp, ValueCond, escape_backtick, validate_sql,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -72,9 +72,9 @@ impl MySQLSession {
 impl DatabaseSession for MySQLSession {
     fn query(
         &mut self,
-        request: QueryReq,
+        req: QueryReq,
     ) -> Result<QueryResp, DriverError> {
-        let (sql, params) = match request {
+        let (sql, params) = match req {
             QueryReq::Sql { sql, args } => {
                 validate_sql(&sql)?;
                 let params: Vec<Value> = args.into_iter().map(Value::from).collect();
@@ -180,7 +180,7 @@ impl DatabaseSession for MySQLSession {
                 return Err(DriverError::InvalidField(format!(
                     "MySQL 查询仅支持 SQL 和 Builder，收到: {:?}",
                     other
-                )))
+                )));
             }
         };
         tracing::debug!(sql = %sql);
@@ -227,9 +227,9 @@ impl DatabaseSession for MySQLSession {
 
     fn insert(
         &mut self,
-        request: InsertReq,
+        req: InsertReq,
     ) -> Result<UpdateResp, DriverError> {
-        match request {
+        match req {
             InsertReq::Sql { sql } => {
                 validate_sql(&sql)?;
                 self.conn
@@ -248,9 +248,9 @@ impl DatabaseSession for MySQLSession {
 
     fn update(
         &mut self,
-        request: UpdateReq,
+        req: UpdateReq,
     ) -> Result<UpdateResp, DriverError> {
-        match request {
+        match req {
             UpdateReq::Sql { sql } => {
                 validate_sql(&sql)?;
                 self.conn
@@ -269,9 +269,9 @@ impl DatabaseSession for MySQLSession {
 
     fn delete(
         &mut self,
-        request: DeleteReq,
+        req: DeleteReq,
     ) -> Result<UpdateResp, DriverError> {
-        match request {
+        match req {
             DeleteReq::Sql { sql } => {
                 validate_sql(&sql)?;
                 self.conn
