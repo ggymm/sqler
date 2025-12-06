@@ -6,4 +6,5 @@
 target
 
 # tempdata
-*csv
+scripts/testdata/redis
+scripts/testdata/table

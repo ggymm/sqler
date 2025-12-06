@@ -47,6 +47,7 @@ enum TabContent {
 }
 
 struct TabContext {
+    icon: SharedString,
     title: SharedString,
     content: TabContent,
     closable: bool,
@@ -76,8 +77,9 @@ impl SqlerApp {
         tabs.insert(
             "home".to_string(),
             TabContext {
-                content: TabContent::Home,
+                icon: SharedString::from("icons/home.svg"),
                 title: SharedString::from("首页"),
+                content: TabContent::Home,
                 closable: false,
             },
         );
@@ -146,14 +148,16 @@ impl SqlerApp {
         };
 
         let id = source.id.clone();
-        let title = SharedString::from(source.name.clone());
+        let icon = source.kind.image();
+        let title = source.name.clone();
         let cache = self.cache.clone();
         let workspace = TabContent::Workspace(Workspace::new(cache, source, cx));
 
         self.tabs.insert(
             id.clone(),
             TabContext {
-                title,
+                icon: SharedString::from(icon),
+                title: SharedString::from(title),
                 content: workspace,
                 closable: true,
             },
@@ -291,6 +295,7 @@ impl Render for SqlerApp {
                         this.active_tab(&tab_id, cx);
                     }
                 }))
+                .child(div().w_5().h_5().child(img(tab.icon.clone()).size_full().rounded_md()))
                 .child(
                     div()
                         .flex_1()

@@ -1,4 +1,26 @@
 #!/usr/bin/env python3
+"""Table 测试数据生成脚本
+
+功能：
+    生成电商业务场景的关系型数据库测试数据，用于测试和开发。
+
+包含的表：
+    - customer: 客户信息
+    - customer_address: 客户地址
+    - category: 商品分类
+    - products: 商品信息
+    - product_translation: 商品多语言翻译
+    - order: 订单
+    - order_items: 订单明细
+    - payment: 支付记录
+    - shipment: 物流信息
+    - product_review: 商品评价
+    - support_ticket: 客服工单
+
+输出文件：
+    scripts/testdata/table/*.csv (11 个 CSV 文件)
+"""
+
 from __future__ import annotations
 
 import csv
@@ -7,31 +29,58 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 
+# 设置随机种子，确保每次生成的数据一致
 random.seed(42)
 
-NUM_CUSTOMERS = 1000
-NUM_ADDRESSES = 1000
-NUM_CATEGORIES = 1000
-NUM_PRODUCTS = 1000
-NUM_ORDERS = 1000
-NUM_ORDER_ITEMS = 3000
-NUM_PAYMENTS = 1000
-NUM_SHIPMENTS = 1000
-NUM_REVIEWS = 1000
-NUM_TICKETS = 1000
+# 数据量配置
+NUM_CUSTOMERS = 1000  # 客户数量
+NUM_ADDRESSES = 1000  # 地址数量
+NUM_CATEGORIES = 1000  # 分类数量
+NUM_PRODUCTS = 1000  # 商品数量
+NUM_ORDERS = 1000  # 订单数量
+NUM_ORDER_ITEMS = 3000  # 订单明细数量
+NUM_PAYMENTS = 1000  # 支付记录数量
+NUM_SHIPMENTS = 1000  # 物流记录数量
+NUM_REVIEWS = 1000  # 评价数量
+NUM_TICKETS = 1000  # 工单数量
 
-OUTPUT_DIR = Path(__file__).parent / "output"
+# 输出目录配置
+OUTPUT_DIR = Path(__file__).parent / "table"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def write_csv(filename: str, header: list[str], rows: list[list[object]]) -> None:
-    with (OUTPUT_DIR / filename).open("w", newline="", encoding="utf-8") as fp:
+    """写入 CSV 文件
+
+    Args:
+        filename: 输出文件名
+        header: CSV 表头
+        rows: 数据行列表
+    """
+    filepath = OUTPUT_DIR / filename
+    with filepath.open("w", newline="", encoding="utf-8") as fp:
         writer = csv.writer(fp)
         writer.writerow(header)
         writer.writerows(rows)
+    print(f"  ✅ {filename:<30} {len(rows):>6,} 行")
 
 
 def generate_customers() -> list[list[object]]:
+    """生成客户信息
+
+    包含字段：
+        - customer_id: 客户ID
+        - full_name: 全名（支持多语言）
+        - email: 邮箱
+        - phone: 电话
+        - locale: 语言区域
+        - status: 账户状态
+        - created_at: 创建时间
+        - loyalty_points: 积分
+
+    Returns:
+        客户数据行列表
+    """
     locales = ["en-US", "zh-CN", "es-ES", "fr-FR", "ja-JP"]
     statuses = ["ACTIVE", "INACTIVE", "SUSPENDED"]
     rows = []
@@ -43,8 +92,10 @@ def generate_customers() -> list[list[object]]:
     family_names_en = ["Johnson", "Brown", "Smith", "Clark", "Davis", "Moore"]
     given_names_en = ["Alice", "Bruno", "Carla", "Daniel", "Eva", "Frank"]
 
+    # 生成客户数据
     for cid in range(1, NUM_CUSTOMERS + 1):
         locale = random.choice(locales)
+        # 根据语言区域生成对应的姓名
         if locale == "zh-CN":
             full_name = random.choice(family_names_cn) + random.choice(given_names_cn)
         elif locale == "es-ES":
@@ -76,6 +127,24 @@ def generate_customers() -> list[list[object]]:
 
 
 def generate_addresses() -> list[list[object]]:
+    """生成客户地址
+
+    包含字段：
+        - address_id: 地址ID
+        - customer_id: 客户ID（外键）
+        - address_type: 地址类型（账单/收货/办公/家庭）
+        - line1: 地址行1
+        - line2: 地址行2
+        - city: 城市
+        - region: 区域/州
+        - postal_code: 邮编
+        - country: 国家
+        - latitude: 纬度
+        - longitude: 经度
+
+    Returns:
+        地址数据行列表
+    """
     address_types = ["billing", "shipping", "office", "home"]
     cities = [
         ("New York", "USA"),
@@ -89,8 +158,9 @@ def generate_addresses() -> list[list[object]]:
     ]
     rows = []
     base_lat, base_lng = 40.0, -74.0
+    # 生成地址数据
     for aid in range(1, NUM_ADDRESSES + 1):
-        customer_id = ((aid - 1) % NUM_CUSTOMERS) + 1
+        customer_id = ((aid - 1) % NUM_CUSTOMERS) + 1  # 循环分配给客户
         addr_type = random.choice(address_types)
         city, country = random.choice(cities)
         street_no = random.randint(10, 9999)
@@ -119,6 +189,21 @@ def generate_addresses() -> list[list[object]]:
 
 
 def generate_categories() -> list[list[object]]:
+    """生成商品分类
+
+    包含字段：
+        - category_id: 分类ID
+        - parent_category_id: 父分类ID（支持层级结构）
+        - slug: URL友好的分类标识
+        - display_name_en: 英文显示名
+        - display_name_zh: 中文显示名
+        - display_name_es: 西班牙文显示名
+        - description: 描述
+        - created_at: 创建时间
+
+    Returns:
+        分类数据行列表
+    """
     base_names = [
         ("electronics", "Electronics", "电子产品", "Electrónica"),
         ("fashion", "Fashion", "时尚服饰", "Moda"),
@@ -133,9 +218,11 @@ def generate_categories() -> list[list[object]]:
     ]
     rows = []
     base_date = datetime(2022, 5, 1, 9, 0, 0)
+    # 生成分类数据
     for cid in range(1, NUM_CATEGORIES + 1):
         slug_base = random.choice(base_names)
         slug = f"{slug_base[0]}-{cid}"
+        # 前50个为顶级分类，其余为子分类
         parent_id = "" if cid <= 50 else random.randint(1, 50)
         created_at = base_date + timedelta(minutes=cid)
         rows.append(
@@ -156,6 +243,24 @@ def generate_categories() -> list[list[object]]:
 def generate_products(
     categories: list[list[object]],
 ) -> tuple[list[list[object]], list[float]]:
+    """生成商品信息
+
+    包含字段：
+        - product_id: 商品ID
+        - category_id: 分类ID（外键）
+        - sku: 商品编号
+        - price: 售价
+        - cost: 成本
+        - currency: 货币
+        - status: 状态（在售/停售）
+        - created_at: 创建时间
+
+    Args:
+        categories: 分类数据（用于获取有效的分类ID）
+
+    Returns:
+        (商品数据行列表, 价格列表)
+    """
     statuses = ["ACTIVE", "DISCONTINUED"]
     currencies = ["USD", "CNY", "EUR", "JPY"]
     rows = []
@@ -163,12 +268,14 @@ def generate_products(
     base_date = datetime(2022, 6, 1, 10, 0, 0)
     category_ids = [row[0] for row in categories]
 
+    # 生成商品数据
     for pid in range(1, NUM_PRODUCTS + 1):
         category_id = random.choice(category_ids)
-        sku = f"SKU{pid:05d}"
-        price = round(10 + (pid * 2.37) % 500, 2)
-        cost = round(price * random.uniform(0.4, 0.8), 2)
+        sku = f"SKU{pid:05d}"  # 5位编号
+        price = round(10 + (pid * 2.37) % 500, 2)  # 10-510 元
+        cost = round(price * random.uniform(0.4, 0.8), 2)  # 成本为售价的40%-80%
         currency = random.choice(currencies)
+        # 每11个商品中有1个停售
         status = statuses[pid % len(statuses)] if pid % 11 == 0 else "ACTIVE"
         created_at = base_date + timedelta(days=pid)
         rows.append(
@@ -188,6 +295,20 @@ def generate_products(
 
 
 def generate_product_translations(products: list[list[object]]) -> list[list[object]]:
+    """生成商品多语言翻译
+
+    包含字段：
+        - product_id: 商品ID（外键）
+        - locale: 语言区域
+        - name: 商品名称
+        - description: 商品描述
+
+    Args:
+        products: 商品数据
+
+    Returns:
+        翻译数据行列表（每个商品3种语言）
+    """
     locales = ["en-US", "zh-CN", "es-ES"]
     adjectives = {
         "en-US": ["Premium", "Eco", "Smart", "Limited", "Classic", "Ultra"],
@@ -212,6 +333,7 @@ def generate_product_translations(products: list[list[object]]) -> list[list[obj
         "es-ES": "Diseño inclusivo con soporte multilingüe.",
     }
     rows = []
+    # 为每个商品生成3种语言的翻译
     for (
         product_id,
         category_id,
@@ -239,24 +361,44 @@ def generate_product_translations(products: list[list[object]]) -> list[list[obj
 def generate_orders(
     customers: list[list[object]], addresses: list[list[object]]
 ) -> list[list[object]]:
+    """生成订单
+
+    包含字段：
+        - order_id: 订单ID
+        - customer_id: 客户ID（外键）
+        - order_date: 下单时间
+        - status: 订单状态
+        - total_amount: 总金额（占位，后续更新）
+        - currency: 货币
+        - shipping_address_id: 收货地址ID
+        - billing_address_id: 账单地址ID
+
+    Args:
+        customers: 客户数据
+        addresses: 地址数据
+
+    Returns:
+        订单数据行列表
+    """
     statuses = ["PENDING", "PAID", "SHIPPED", "COMPLETED", "CANCELLED"]
     currencies = ["USD", "CNY", "EUR", "JPY"]
     rows = []
     base_date = datetime(2023, 7, 1, 9, 30, 0)
+    # 生成订单数据
     for oid in range(1, NUM_ORDERS + 1):
         customer_id = random.randint(1, NUM_CUSTOMERS)
         shipping_address_id = ((oid - 1) % NUM_ADDRESSES) + 1
         billing_address_id = ((oid * 3) % NUM_ADDRESSES) + 1
         status = statuses[oid % len(statuses)]
         currency = random.choice(currencies)
-        order_date = base_date + timedelta(hours=oid)
+        order_date = base_date + timedelta(hours=oid)  # 每小时一个订单
         rows.append(
             [
                 oid,
                 customer_id,
                 order_date.isoformat(),
                 status,
-                0.0,  # placeholder total, will update later
+                0.0,  # 总金额占位，后续更新
                 currency,
                 shipping_address_id,
                 billing_address_id,
@@ -268,21 +410,40 @@ def generate_orders(
 def generate_order_items(
     products: list[list[object]],
 ) -> tuple[list[list[object]], dict[int, float]]:
+    """生成订单明细
+
+    包含字段：
+        - order_item_id: 明细ID
+        - order_id: 订单ID（外键）
+        - product_id: 商品ID（外键）
+        - quantity: 数量
+        - unit_price: 单价
+        - discount_percent: 折扣
+
+    Args:
+        products: 商品数据
+
+    Returns:
+        (订单明细数据行列表, 订单总金额字典)
+    """
     rows = []
+    # 用于累计每个订单的总金额
     order_totals: dict[int, float] = {oid: 0.0 for oid in range(1, NUM_ORDERS + 1)}
+    # 生成订单明细
     for item_id in range(1, NUM_ORDER_ITEMS + 1):
-        order_id = ((item_id - 1) % NUM_ORDERS) + 1
+        order_id = ((item_id - 1) % NUM_ORDERS) + 1  # 循环分配到订单
         product_row = random.choice(products)
         product_id = product_row[0]
         price = float(product_row[3])
         quantity = random.randint(1, 5)
         discount = 0.0
+        # 部分订单有折扣
         if item_id % 15 == 0:
             discount = 5.0
         elif item_id % 40 == 0:
             discount = 10.0
-        line_total = max(price * quantity - discount, 0)
-        order_totals[order_id] += line_total
+        line_total = max(price * quantity - discount, 0)  # 行总价
+        order_totals[order_id] += line_total  # 累计到订单
         rows.append(
             [
                 item_id,
@@ -299,26 +460,54 @@ def generate_order_items(
 def update_order_totals(
     orders: list[list[object]], order_totals: dict[int, float]
 ) -> None:
+    """更新订单总金额
+
+    根据订单明细计算的总金额，更新订单表中的 total_amount 字段。
+    同时加上运费（5-15元不等）。
+
+    Args:
+        orders: 订单数据
+        order_totals: 订单总金额字典
+    """
     for row in orders:
         order_id = row[0]
         subtotal = round(order_totals.get(order_id, 0.0), 2)
-        shipping_cost = round(5 + (order_id % 4) * 2.5, 2)
-        row[4] = round(subtotal + shipping_cost, 2)
+        shipping_cost = round(5 + (order_id % 4) * 2.5, 2)  # 运费: 5/7.5/10/12.5
+        row[4] = round(subtotal + shipping_cost, 2)  # 更新总金额
 
 
 def generate_payments(orders: list[list[object]]) -> list[list[object]]:
+    """生成支付记录
+
+    包含字段：
+        - payment_id: 支付ID
+        - order_id: 订单ID（外键）
+        - method: 支付方式
+        - status: 支付状态
+        - amount: 支付金额
+        - transaction_reference: 交易流水号
+        - paid_at: 支付时间
+
+    Args:
+        orders: 订单数据
+
+    Returns:
+        支付记录数据行列表
+    """
     methods = ["CARD", "PAYPAL", "BANK_TRANSFER", "APPLE_PAY", "WECHAT_PAY"]
     statuses = ["COMPLETED", "PENDING", "FAILED", "REFUNDED"]
     rows = []
+    # 为每个订单生成支付记录
     for pid, order_row in enumerate(orders, start=1):
         order_id = order_row[0]
         amount = order_row[4]
         method = random.choice(methods)
         status = statuses[order_id % len(statuses)]
+        # 取消的订单状态改为退款
         if order_row[3] == "CANCELLED":
             status = "REFUNDED"
         transaction_ref = f"TX-{order_id:06d}-{pid:04d}"
-        paid_at = datetime.fromisoformat(order_row[2]) + timedelta(minutes=30)
+        paid_at = datetime.fromisoformat(order_row[2]) + timedelta(minutes=30)  # 下单30分钟后支付
         rows.append(
             [
                 pid,
@@ -334,16 +523,36 @@ def generate_payments(orders: list[list[object]]) -> list[list[object]]:
 
 
 def generate_shipments(orders: list[list[object]]) -> list[list[object]]:
+    """生成物流信息
+
+    包含字段：
+        - shipment_id: 物流ID
+        - order_id: 订单ID（外键）
+        - carrier: 物流公司
+        - tracking_number: 物流单号
+        - status: 物流状态
+        - shipped_at: 发货时间
+        - delivered_at: 送达时间
+        - destination_country: 目的地国家
+
+    Args:
+        orders: 订单数据
+
+    Returns:
+        物流信息数据行列表
+    """
     carriers = ["FedEx", "UPS", "DHL", "顺丰速运", "Correos"]
     statuses = ["PENDING", "IN_TRANSIT", "DELIVERED", "RETURNED"]
     rows = []
+    # 为每个订单生成物流记录
     for sid, order_row in enumerate(orders, start=1):
         order_id = order_row[0]
         status = statuses[sid % len(statuses)]
-        shipped_at = datetime.fromisoformat(order_row[2]) + timedelta(days=1)
+        shipped_at = datetime.fromisoformat(order_row[2]) + timedelta(days=1)  # 下单1天后发货
         delivered_at = ""
+        # 已送达的订单记录送达时间
         if status == "DELIVERED":
-            delivered_at = (shipped_at + timedelta(days=3)).isoformat()
+            delivered_at = (shipped_at + timedelta(days=3)).isoformat()  # 发货3天后送达
         tracking = f"TRK{sid:08d}"
         destination_country = random.choice(["USA", "中国", "España", "Canada", "日本"])
         rows.append(
@@ -362,6 +571,20 @@ def generate_shipments(orders: list[list[object]]) -> list[list[object]]:
 
 
 def generate_reviews() -> list[list[object]]:
+    """生成商品评价
+
+    包含字段：
+        - review_id: 评价ID
+        - product_id: 商品ID（外键）
+        - customer_id: 客户ID（外键）
+        - rating: 评分（1-5星）
+        - title_en/zh/es: 标题（多语言）
+        - body_en/zh/es: 内容（多语言）
+        - created_at: 创建时间
+
+    Returns:
+        评价数据行列表
+    """
     titles_en = [
         "Great quality",
         "Not bad",
@@ -400,12 +623,13 @@ def generate_reviews() -> list[list[object]]:
     ]
     rows = []
     base_date = datetime(2023, 8, 1, 12, 0, 0)
+    # 生成评价数据
     for rid in range(1, NUM_REVIEWS + 1):
-        product_id = ((rid - 1) % NUM_PRODUCTS) + 1
-        customer_id = ((rid * 7) % NUM_CUSTOMERS) + 1
+        product_id = ((rid - 1) % NUM_PRODUCTS) + 1  # 循环分配到商品
+        customer_id = ((rid * 7) % NUM_CUSTOMERS) + 1  # 分散到不同客户
         rating = random.randint(1, 5)
         idx = rid % len(titles_en)
-        created_at = base_date + timedelta(minutes=rid)
+        created_at = base_date + timedelta(minutes=rid)  # 每分钟一条评价
         rows.append(
             [
                 rid,
@@ -425,6 +649,21 @@ def generate_reviews() -> list[list[object]]:
 
 
 def generate_support_tickets() -> list[list[object]]:
+    """生成客服工单
+
+    包含字段：
+        - ticket_id: 工单ID
+        - customer_id: 客户ID（外键）
+        - subject_en/zh/es: 主题（多语言）
+        - channel: 渠道（邮件/电话/在线客服等）
+        - priority: 优先级
+        - status: 工单状态
+        - created_at: 创建时间
+        - resolved_at: 解决时间
+
+    Returns:
+        工单数据行列表
+    """
     subjects = {
         "en": [
             "Payment issue",
@@ -447,14 +686,16 @@ def generate_support_tickets() -> list[list[object]]:
     statuses = ["OPEN", "IN_PROGRESS", "WAITING_CUSTOMER", "RESOLVED", "CLOSED"]
     rows = []
     base_date = datetime(2023, 6, 1, 10, 0, 0)
+    # 生成工单数据
     for tid in range(1, NUM_TICKETS + 1):
-        customer_id = ((tid * 11) % NUM_CUSTOMERS) + 1
+        customer_id = ((tid * 11) % NUM_CUSTOMERS) + 1  # 分散到不同客户
         idx = tid % len(subjects["en"])
-        created_at = base_date + timedelta(hours=tid)
+        created_at = base_date + timedelta(hours=tid)  # 每小时一个工单
         resolved_at = ""
         status = statuses[tid % len(statuses)]
+        # 已解决和已关闭的工单记录解决时间
         if status in {"RESOLVED", "CLOSED"}:
-            resolved_at = (created_at + timedelta(days=2)).isoformat()
+            resolved_at = (created_at + timedelta(days=2)).isoformat()  # 2天后解决
         rows.append(
             [
                 tid,
@@ -473,19 +714,87 @@ def generate_support_tickets() -> list[list[object]]:
 
 
 def main() -> None:
-    customers = generate_customers()
-    addresses = generate_addresses()
-    categories = generate_categories()
-    products, _prices = generate_products(categories)
-    product_translations = generate_product_translations(products)
-    orders = generate_orders(customers, addresses)
-    order_items, order_totals = generate_order_items(products)
-    update_order_totals(orders, order_totals)
-    payments = generate_payments(orders)
-    shipments = generate_shipments(orders)
-    reviews = generate_reviews()
-    tickets = generate_support_tickets()
+    """主函数：生成所有表的测试数据"""
+    print("=" * 60)
+    print("Table 测试数据生成")
+    print("=" * 60)
+    print(f"输出目录: {OUTPUT_DIR}")
+    print()
+    print("数据量配置:")
+    print(f"  客户数量: {NUM_CUSTOMERS:,}")
+    print(f"  地址数量: {NUM_ADDRESSES:,}")
+    print(f"  分类数量: {NUM_CATEGORIES:,}")
+    print(f"  商品数量: {NUM_PRODUCTS:,}")
+    print(f"  订单数量: {NUM_ORDERS:,}")
+    print(f"  订单明细: {NUM_ORDER_ITEMS:,}")
+    print(f"  支付记录: {NUM_PAYMENTS:,}")
+    print(f"  物流记录: {NUM_SHIPMENTS:,}")
+    print(f"  评价数量: {NUM_REVIEWS:,}")
+    print(f"  工单数量: {NUM_TICKETS:,}")
+    print()
 
+    print("开始生成数据...")
+    print()
+
+    print("[1/11] 客户信息 (customer)")
+    customers = generate_customers()
+    print(f"  ✓ 生成 {len(customers):,} 条客户记录")
+    print()
+
+    print("[2/11] 客户地址 (customer_address)")
+    addresses = generate_addresses()
+    print(f"  ✓ 生成 {len(addresses):,} 条地址记录")
+    print()
+
+    print("[3/11] 商品分类 (category)")
+    categories = generate_categories()
+    print(f"  ✓ 生成 {len(categories):,} 条分类记录（含父子层级）")
+    print()
+
+    print("[4/11] 商品信息 (products)")
+    products, _prices = generate_products(categories)
+    print(f"  ✓ 生成 {len(products):,} 条商品记录")
+    print()
+
+    print("[5/11] 商品翻译 (product_translation)")
+    product_translations = generate_product_translations(products)
+    print(f"  ✓ 生成 {len(product_translations):,} 条翻译记录（{len(products)} 商品 × 3 语言）")
+    print()
+
+    print("[6/11] 订单 (order)")
+    orders = generate_orders(customers, addresses)
+    print(f"  ✓ 生成 {len(orders):,} 条订单记录")
+    print()
+
+    print("[7/11] 订单明细 (order_items)")
+    order_items, order_totals = generate_order_items(products)
+    print(f"  ✓ 生成 {len(order_items):,} 条订单明细记录")
+    print()
+
+    print("[8/11] 更新订单总金额")
+    update_order_totals(orders, order_totals)
+    print(f"  ✓ 更新 {len(orders):,} 条订单的总金额（含运费）")
+    print()
+
+    print("[9/11] 支付记录 (payment)")
+    payments = generate_payments(orders)
+    print(f"  ✓ 生成 {len(payments):,} 条支付记录")
+    print()
+
+    print("[10/11] 物流信息 (shipment)")
+    shipments = generate_shipments(orders)
+    print(f"  ✓ 生成 {len(shipments):,} 条物流记录")
+    print()
+
+    print("[11/11] 评价与工单")
+    reviews = generate_reviews()
+    print(f"  ✓ 生成 {len(reviews):,} 条商品评价")
+    tickets = generate_support_tickets()
+    print(f"  ✓ 生成 {len(tickets):,} 条客服工单")
+    print()
+
+    print("写入 CSV 文件...")
+    print()
     write_csv(
         "customer.csv",
         [
@@ -641,6 +950,40 @@ def main() -> None:
         ],
         tickets,
     )
+
+    print()
+    print("=" * 60)
+    print("✅ 生成完成!")
+    print("=" * 60)
+    print("数据统计:")
+    print(f"  客户信息:           {len(customers):>6,} 行")
+    print(f"  客户地址:           {len(addresses):>6,} 行")
+    print(f"  商品分类:           {len(categories):>6,} 行")
+    print(f"  商品信息:           {len(products):>6,} 行")
+    print(f"  商品翻译:           {len(product_translations):>6,} 行")
+    print(f"  订单:               {len(orders):>6,} 行")
+    print(f"  订单明细:           {len(order_items):>6,} 行")
+    print(f"  支付记录:           {len(payments):>6,} 行")
+    print(f"  物流信息:           {len(shipments):>6,} 行")
+    print(f"  商品评价:           {len(reviews):>6,} 行")
+    print(f"  客服工单:           {len(tickets):>6,} 行")
+    print(f"  {'─' * 30}")
+    total_rows = (
+        len(customers)
+        + len(addresses)
+        + len(categories)
+        + len(products)
+        + len(product_translations)
+        + len(orders)
+        + len(order_items)
+        + len(payments)
+        + len(shipments)
+        + len(reviews)
+        + len(tickets)
+    )
+    print(f"  总计:               {total_rows:>6,} 行")
+    print(f"  总文件数:           11 个 CSV 文件")
+    print()
 
 
 if __name__ == "__main__":
