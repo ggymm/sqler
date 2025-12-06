@@ -6,9 +6,7 @@ use serde_json::{Map as JsonMap, Number, Value as JsonValue};
 
 use crate::model::{ColumnInfo, ColumnKind, RedisKind, RedisOptions, TableInfo};
 
-use super::{
-    DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp, UpdateReq, UpdateResp,
-};
+use super::{DatabaseDriver, DatabaseSession, DriverError, ExecReq, ExecResp, QueryReq, QueryResp};
 
 #[derive(Debug, Clone, Copy)]
 pub struct RedisDriver;
@@ -36,6 +34,27 @@ impl RedisConnection {
 }
 
 impl DatabaseSession for RedisConnection {
+    fn exec(
+        &mut self,
+        req: ExecReq,
+    ) -> Result<ExecResp, DriverError> {
+        match req {
+            ExecReq::Command { name, args } => {
+                let value = match &mut self.conn {
+                    RedisConn::Cluster(conn) => execute(conn, &name, &args)?,
+                    RedisConn::Standalone(conn) => execute(conn, &name, &args)?,
+                };
+                Ok(ExecResp {
+                    affected: redis_value_to_affected(&value),
+                })
+            }
+            other => Err(DriverError::InvalidField(format!(
+                "Redis 仅支持命令，收到: {:?}",
+                other
+            ))),
+        }
+    }
+
     fn query(
         &mut self,
         req: QueryReq,
@@ -50,69 +69,6 @@ impl DatabaseSession for RedisConnection {
             }
             other => Err(DriverError::InvalidField(format!(
                 "Redis 查询仅支持命令，收到: {:?}",
-                other
-            ))),
-        }
-    }
-
-    fn insert(
-        &mut self,
-        req: InsertReq,
-    ) -> Result<UpdateResp, DriverError> {
-        match req {
-            InsertReq::Command { name, args } => {
-                let value = match &mut self.conn {
-                    RedisConn::Cluster(conn) => execute(conn, &name, &args)?,
-                    RedisConn::Standalone(conn) => execute(conn, &name, &args)?,
-                };
-                Ok(UpdateResp {
-                    affected: redis_value_to_affected(&value),
-                })
-            }
-            other => Err(DriverError::InvalidField(format!(
-                "Redis 插入仅支持命令，收到: {:?}",
-                other
-            ))),
-        }
-    }
-
-    fn update(
-        &mut self,
-        req: UpdateReq,
-    ) -> Result<UpdateResp, DriverError> {
-        match req {
-            UpdateReq::Command { name, args } => {
-                let value = match &mut self.conn {
-                    RedisConn::Cluster(conn) => execute(conn, &name, &args)?,
-                    RedisConn::Standalone(conn) => execute(conn, &name, &args)?,
-                };
-                Ok(UpdateResp {
-                    affected: redis_value_to_affected(&value),
-                })
-            }
-            other => Err(DriverError::InvalidField(format!(
-                "Redis 更新仅支持命令，收到: {:?}",
-                other
-            ))),
-        }
-    }
-
-    fn delete(
-        &mut self,
-        req: DeleteReq,
-    ) -> Result<UpdateResp, DriverError> {
-        match req {
-            DeleteReq::Command { name, args } => {
-                let value = match &mut self.conn {
-                    RedisConn::Cluster(conn) => execute(conn, &name, &args)?,
-                    RedisConn::Standalone(conn) => execute(conn, &name, &args)?,
-                };
-                Ok(UpdateResp {
-                    affected: redis_value_to_affected(&value),
-                })
-            }
-            other => Err(DriverError::InvalidField(format!(
-                "Redis 删除仅支持命令，收到: {:?}",
                 other
             ))),
         }

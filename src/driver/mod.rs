@@ -137,33 +137,22 @@ pub enum QueryReq {
 }
 
 #[derive(Clone, Debug)]
-pub enum InsertReq {
+pub enum ExecReq {
     Sql { sql: String },
     Command { name: String, args: Vec<Value> },
-    Document { collection: String, document: Value },
+    Document { collection: String, operation: DocumentOp },
 }
 
 #[derive(Clone, Debug)]
-pub enum UpdateReq {
-    Sql {
-        sql: String,
-    },
-    Command {
-        name: String,
-        args: Vec<Value>,
-    },
-    Document {
-        collection: String,
-        filter: Value,
-        update: Value,
-    },
+pub struct ExecResp {
+    pub affected: u64,
 }
 
 #[derive(Clone, Debug)]
-pub enum DeleteReq {
-    Sql { sql: String },
-    Command { name: String, args: Vec<Value> },
-    Document { collection: String, filter: Value },
+pub enum DocumentOp {
+    Insert { document: Value },
+    Update { filter: Value, update: Value },
+    Delete { filter: Value },
 }
 
 #[derive(Clone, Debug)]
@@ -174,11 +163,6 @@ pub enum QueryResp {
     },
     Value(Value),
     Documents(Vec<Value>),
-}
-
-#[derive(Clone, Debug)]
-pub struct UpdateResp {
-    pub affected: u64,
 }
 
 #[derive(Clone, Debug)]
@@ -231,25 +215,15 @@ pub trait DatabaseDriver {
 }
 
 pub trait DatabaseSession: Send {
+    fn exec(
+        &mut self,
+        req: ExecReq,
+    ) -> Result<ExecResp, DriverError>;
+
     fn query(
         &mut self,
         req: QueryReq,
     ) -> Result<QueryResp, DriverError>;
-
-    fn insert(
-        &mut self,
-        req: InsertReq,
-    ) -> Result<UpdateResp, DriverError>;
-
-    fn update(
-        &mut self,
-        req: UpdateReq,
-    ) -> Result<UpdateResp, DriverError>;
-
-    fn delete(
-        &mut self,
-        req: DeleteReq,
-    ) -> Result<UpdateResp, DriverError>;
 
     fn tables(&mut self) -> Result<Vec<TableInfo>, DriverError>;
 

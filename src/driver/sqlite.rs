@@ -5,8 +5,8 @@ use rusqlite::{Connection, OpenFlags, types::ValueRef};
 use crate::model::{ColumnInfo, ColumnKind, SQLiteOptions, TableInfo};
 
 use super::{
-    DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, Operator, QueryReq, QueryResp, UpdateReq,
-    UpdateResp, ValueCond, escape_quote, validate_sql,
+    DatabaseDriver, DatabaseSession, DriverError, ExecReq, ExecResp, Operator, QueryReq, QueryResp, ValueCond,
+    escape_quote, validate_sql,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -23,6 +23,28 @@ impl SQLiteConnection {
 }
 
 impl DatabaseSession for SQLiteConnection {
+    fn exec(
+        &mut self,
+        req: ExecReq,
+    ) -> Result<ExecResp, DriverError> {
+        match req {
+            ExecReq::Sql { sql } => {
+                validate_sql(&sql)?;
+                let affected = self
+                    .conn
+                    .execute(&sql, [])
+                    .map_err(|err| DriverError::Other(format!("执行失败: {}", err)))?;
+                Ok(ExecResp {
+                    affected: affected as u64,
+                })
+            }
+            other => Err(DriverError::InvalidField(format!(
+                "SQLite 仅支持 SQL，收到: {:?}",
+                other
+            ))),
+        }
+    }
+
     fn query(
         &mut self,
         req: QueryReq,
@@ -169,72 +191,6 @@ impl DatabaseSession for SQLiteConnection {
             cols: columns,
             rows: records,
         })
-    }
-
-    fn insert(
-        &mut self,
-        req: InsertReq,
-    ) -> Result<UpdateResp, DriverError> {
-        match req {
-            InsertReq::Sql { sql } => {
-                validate_sql(&sql)?;
-                let affected = self
-                    .conn
-                    .execute(&sql, [])
-                    .map_err(|err| DriverError::Other(format!("执行写入失败: {}", err)))?;
-                Ok(UpdateResp {
-                    affected: affected as u64,
-                })
-            }
-            other => Err(DriverError::InvalidField(format!(
-                "SQLite 插入仅支持 SQL，收到: {:?}",
-                other
-            ))),
-        }
-    }
-
-    fn update(
-        &mut self,
-        req: UpdateReq,
-    ) -> Result<UpdateResp, DriverError> {
-        match req {
-            UpdateReq::Sql { sql } => {
-                validate_sql(&sql)?;
-                let affected = self
-                    .conn
-                    .execute(&sql, [])
-                    .map_err(|err| DriverError::Other(format!("执行写入失败: {}", err)))?;
-                Ok(UpdateResp {
-                    affected: affected as u64,
-                })
-            }
-            other => Err(DriverError::InvalidField(format!(
-                "SQLite 更新仅支持 SQL，收到: {:?}",
-                other
-            ))),
-        }
-    }
-
-    fn delete(
-        &mut self,
-        req: DeleteReq,
-    ) -> Result<UpdateResp, DriverError> {
-        match req {
-            DeleteReq::Sql { sql } => {
-                validate_sql(&sql)?;
-                let affected = self
-                    .conn
-                    .execute(&sql, [])
-                    .map_err(|err| DriverError::Other(format!("执行写入失败: {}", err)))?;
-                Ok(UpdateResp {
-                    affected: affected as u64,
-                })
-            }
-            other => Err(DriverError::InvalidField(format!(
-                "SQLite 删除仅支持 SQL，收到: {:?}",
-                other
-            ))),
-        }
     }
 
     fn tables(&mut self) -> Result<Vec<TableInfo>, DriverError> {

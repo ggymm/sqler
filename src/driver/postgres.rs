@@ -5,8 +5,8 @@ use postgres::{Client, Config, Error as PostgresError, NoTls, fallible_iterator:
 use crate::model::{ColumnInfo, ColumnKind, PostgresOptions, TableInfo};
 
 use super::{
-    DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, Operator, QueryReq, QueryResp, UpdateReq,
-    UpdateResp, ValueCond, escape_quote, validate_sql,
+    DatabaseDriver, DatabaseSession, DriverError, ExecReq, ExecResp, Operator, QueryReq, QueryResp, ValueCond,
+    escape_quote, validate_sql,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -68,6 +68,26 @@ impl PostgresSession {
 }
 
 impl DatabaseSession for PostgresSession {
+    fn exec(
+        &mut self,
+        req: ExecReq,
+    ) -> Result<ExecResp, DriverError> {
+        match req {
+            ExecReq::Sql { sql } => {
+                validate_sql(&sql)?;
+                let affected = self
+                    .client
+                    .execute(&sql, &[])
+                    .map_err(|err| DriverError::Other(format!("执行失败: {}", err)))?;
+                Ok(ExecResp { affected })
+            }
+            other => Err(DriverError::InvalidField(format!(
+                "PostgreSQL 仅支持 SQL，收到: {:?}",
+                other
+            ))),
+        }
+    }
+
     fn query(
         &mut self,
         req: QueryReq,
@@ -239,66 +259,6 @@ impl DatabaseSession for PostgresSession {
             cols: columns,
             rows: records,
         })
-    }
-
-    fn insert(
-        &mut self,
-        req: InsertReq,
-    ) -> Result<UpdateResp, DriverError> {
-        match req {
-            InsertReq::Sql { sql } => {
-                validate_sql(&sql)?;
-                let affected = self
-                    .client
-                    .execute(&sql, &[])
-                    .map_err(|err| DriverError::Other(format!("执行写入失败: {}", err)))?;
-                Ok(UpdateResp { affected })
-            }
-            other => Err(DriverError::InvalidField(format!(
-                "PostgreSQL 插入仅支持 SQL，收到: {:?}",
-                other
-            ))),
-        }
-    }
-
-    fn update(
-        &mut self,
-        req: UpdateReq,
-    ) -> Result<UpdateResp, DriverError> {
-        match req {
-            UpdateReq::Sql { sql } => {
-                validate_sql(&sql)?;
-                let affected = self
-                    .client
-                    .execute(&sql, &[])
-                    .map_err(|err| DriverError::Other(format!("执行写入失败: {}", err)))?;
-                Ok(UpdateResp { affected })
-            }
-            other => Err(DriverError::InvalidField(format!(
-                "PostgreSQL 更新仅支持 SQL，收到: {:?}",
-                other
-            ))),
-        }
-    }
-
-    fn delete(
-        &mut self,
-        req: DeleteReq,
-    ) -> Result<UpdateResp, DriverError> {
-        match req {
-            DeleteReq::Sql { sql } => {
-                validate_sql(&sql)?;
-                let affected = self
-                    .client
-                    .execute(&sql, &[])
-                    .map_err(|err| DriverError::Other(format!("执行写入失败: {}", err)))?;
-                Ok(UpdateResp { affected })
-            }
-            other => Err(DriverError::InvalidField(format!(
-                "PostgreSQL 删除仅支持 SQL，收到: {:?}",
-                other
-            ))),
-        }
     }
 
     fn tables(&mut self) -> Result<Vec<TableInfo>, DriverError> {

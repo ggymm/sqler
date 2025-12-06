@@ -1,8 +1,6 @@
 use crate::model::{ColumnInfo, ColumnKind, SQLServerOptions, TableInfo};
 
-use super::{
-    DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp, UpdateReq, UpdateResp,
-};
+use super::{DatabaseDriver, DatabaseSession, DriverError, ExecReq, ExecResp, QueryReq, QueryResp};
 
 /// SQL Server 驱动占位实现。
 #[derive(Debug, Clone, Copy)]
@@ -11,32 +9,18 @@ pub struct SQLServerDriver;
 struct SqlServerConnection;
 
 impl DatabaseSession for SqlServerConnection {
+    fn exec(
+        &mut self,
+        _req: ExecReq,
+    ) -> Result<ExecResp, DriverError> {
+        Err(DriverError::Other("SQL Server 执行暂未实现".into()))
+    }
+
     fn query(
         &mut self,
         req: QueryReq,
     ) -> Result<QueryResp, DriverError> {
         Err(DriverError::Other("SQL Server 查询暂未实现".into()))
-    }
-
-    fn insert(
-        &mut self,
-        req: InsertReq,
-    ) -> Result<UpdateResp, DriverError> {
-        Err(DriverError::Other("SQL Server 插入暂未实现".into()))
-    }
-
-    fn update(
-        &mut self,
-        req: UpdateReq,
-    ) -> Result<UpdateResp, DriverError> {
-        Err(DriverError::Other("SQL Server 更新暂未实现".into()))
-    }
-
-    fn delete(
-        &mut self,
-        req: DeleteReq,
-    ) -> Result<UpdateResp, DriverError> {
-        Err(DriverError::Other("SQL Server 删除暂未实现".into()))
     }
 
     fn tables(&mut self) -> Result<Vec<TableInfo>, DriverError> {

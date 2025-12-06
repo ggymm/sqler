@@ -5,9 +5,7 @@ use mongodb::{
 
 use crate::model::{ColumnInfo, ColumnKind, MongoDBHost, MongoDBOptions, TableInfo};
 
-use super::{
-    DatabaseDriver, DatabaseSession, DeleteReq, DriverError, InsertReq, QueryReq, QueryResp, UpdateReq, UpdateResp,
-};
+use super::{DatabaseDriver, DatabaseSession, DocumentOp, DriverError, ExecReq, ExecResp, QueryReq, QueryResp};
 
 #[derive(Debug, Clone, Copy)]
 pub struct MongoDBDriver;
@@ -87,6 +85,65 @@ impl MongoSession {
 }
 
 impl DatabaseSession for MongoSession {
+    fn exec(
+        &mut self,
+        req: ExecReq,
+    ) -> Result<ExecResp, DriverError> {
+        match req {
+            ExecReq::Document { collection, operation } => {
+                let (db, coll) = self.resolve_collection(&collection)?;
+                match operation {
+                    DocumentOp::Insert { document } => {
+                        let doc = to_document(&document)
+                            .map_err(|err| DriverError::Other(format!("解析文档失败: {}", err)))?;
+                        self.client
+                            .database(db)
+                            .collection::<Document>(coll)
+                            .insert_one(doc)
+                            .run()
+                            .map_err(|err| DriverError::Other(format!("插入失败: {}", err)))?;
+                        Ok(ExecResp { affected: 1 })
+                    }
+                    DocumentOp::Update { filter, update } => {
+                        let filter_doc = to_document(&filter)
+                            .map_err(|err| DriverError::Other(format!("解析过滤条件失败: {}", err)))?;
+                        let update_doc = to_document(&update)
+                            .map_err(|err| DriverError::Other(format!("解析更新内容失败: {}", err)))?;
+
+                        let result = self
+                            .client
+                            .database(db)
+                            .collection::<Document>(coll)
+                            .update_many(filter_doc, update_doc)
+                            .run()
+                            .map_err(|err| DriverError::Other(format!("更新失败: {}", err)))?;
+                        Ok(ExecResp {
+                            affected: result.modified_count,
+                        })
+                    }
+                    DocumentOp::Delete { filter } => {
+                        let filter_doc = to_document(&filter)
+                            .map_err(|err| DriverError::Other(format!("解析过滤条件失败: {}", err)))?;
+                        let result = self
+                            .client
+                            .database(db)
+                            .collection::<Document>(coll)
+                            .delete_many(filter_doc)
+                            .run()
+                            .map_err(|err| DriverError::Other(format!("删除失败: {}", err)))?;
+                        Ok(ExecResp {
+                            affected: result.deleted_count,
+                        })
+                    }
+                }
+            }
+            other => Err(DriverError::InvalidField(format!(
+                "MongoDB 仅支持文档操作，收到: {:?}",
+                other
+            ))),
+        }
+    }
+
     fn query(
         &mut self,
         req: QueryReq,
@@ -118,90 +175,6 @@ impl DatabaseSession for MongoSession {
             }
             other => Err(DriverError::InvalidField(format!(
                 "MongoDB 查询仅支持文档操作，收到: {:?}",
-                other
-            ))),
-        }
-    }
-
-    fn insert(
-        &mut self,
-        req: InsertReq,
-    ) -> Result<UpdateResp, DriverError> {
-        match req {
-            InsertReq::Document { collection, document } => {
-                let (db, coll) = self.resolve_collection(&collection)?;
-                let doc = to_document(&document).map_err(|err| DriverError::Other(format!("解析文档失败: {}", err)))?;
-                self.client
-                    .database(db)
-                    .collection::<Document>(coll)
-                    .insert_one(doc)
-                    .run()
-                    .map_err(|err| DriverError::Other(format!("插入失败: {}", err)))?;
-                Ok(UpdateResp { affected: 1 })
-            }
-            other => Err(DriverError::InvalidField(format!(
-                "MongoDB 插入仅支持文档操作，收到: {:?}",
-                other
-            ))),
-        }
-    }
-
-    fn update(
-        &mut self,
-        req: UpdateReq,
-    ) -> Result<UpdateResp, DriverError> {
-        match req {
-            UpdateReq::Document {
-                collection,
-                filter,
-                update,
-            } => {
-                let (db, coll) = self.resolve_collection(&collection)?;
-                let filter_doc =
-                    to_document(&filter).map_err(|err| DriverError::Other(format!("解析过滤条件失败: {}", err)))?;
-                let update_doc =
-                    to_document(&update).map_err(|err| DriverError::Other(format!("解析更新内容失败: {}", err)))?;
-
-                let result = self
-                    .client
-                    .database(db)
-                    .collection::<Document>(coll)
-                    .update_many(filter_doc, update_doc)
-                    .run()
-                    .map_err(|err| DriverError::Other(format!("更新失败: {}", err)))?;
-                Ok(UpdateResp {
-                    affected: result.modified_count,
-                })
-            }
-            other => Err(DriverError::InvalidField(format!(
-                "MongoDB 更新仅支持文档操作，收到: {:?}",
-                other
-            ))),
-        }
-    }
-
-    fn delete(
-        &mut self,
-        req: DeleteReq,
-    ) -> Result<UpdateResp, DriverError> {
-        match req {
-            DeleteReq::Document { collection, filter } => {
-                let (db, coll) = self.resolve_collection(&collection)?;
-                let filter_doc =
-                    to_document(&filter).map_err(|err| DriverError::Other(format!("解析过滤条件失败: {}", err)))?;
-                let result = self
-                    .client
-                    .database(db)
-                    .collection::<Document>(coll)
-                    .delete_many(filter_doc)
-                    .run()
-                    .map_err(|err| DriverError::Other(format!("删除失败: {}", err)))?;
-                Ok(UpdateResp {
-                    affected: result.deleted_count,
-                })
-            }
-            other => Err(DriverError::InvalidField(format!(
-                "MongoDB 删除仅支持文档操作，收到: {:?}",
                 other
             ))),
         }
