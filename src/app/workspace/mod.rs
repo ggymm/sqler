@@ -5,6 +5,7 @@ use gpui_component::{
     ActiveTheme, InteractiveElementExt, Rope, StyledExt,
     input::{CompletionProvider, InputState},
     menu::{ContextMenuExt, PopupMenuItem},
+    select::SelectState,
 };
 use indexmap::IndexMap;
 use lsp_types::{CompletionContext, CompletionItem, CompletionResponse, CompletionTextEdit, Position, Range, TextEdit};
@@ -183,17 +184,21 @@ impl Workspace {
                     }),
                 }
             }
-            DataSourceKind::Redis => Workspace::Redis {
-                view: cx.new(|_| redis::RedisWorkspace {
-                    parent,
-
-                    source,
-                    session: None,
-
-                    tabs: vec![redis::TabItem::overview()],
-                    active_tab: SharedString::from(""),
-                }),
-            },
+            DataSourceKind::Redis => {
+                Workspace::Redis {
+                    view: cx.new(|_| redis::RedisWorkspace {
+                        parent,
+                        
+                        source,
+                        session: None,
+                        
+                        active: redis::ViewType::Overview,
+                        browse: None,
+                        command: None,
+                        overview: Some(redis::OverviewContent {}),
+                    }),
+                }
+            }
             DataSourceKind::MongoDB => Workspace::MongoDB {
                 view: cx.new(|_| mongodb::MongoDBWorkspace {
                     parent,
