@@ -815,7 +815,7 @@ impl CommonWorkspace {
                 }
             }));
 
-        let right_panel_tabs = div().flex().flex_row().h_12().justify_center().child(
+        let right_panel_tabs = div().row_full().min_h_12().justify_center().child(
             ButtonGroup::new("button-group")
                 .outline()
                 .compact()
@@ -936,7 +936,7 @@ impl CommonWorkspace {
         }
 
         // 表单视图
-        let mut form_panel = div().px_4().py_2().col_full().scrollbar_y().child(div());
+        let mut form_panel = div().px_4().py_2().col_full();
         if let Some(row_idx) = tab.datatable.read(cx).selected_row() {
             // 渲染选中行数据
             let row = tab.datatable.read(cx).delegate().get_data(row_idx);
@@ -969,72 +969,81 @@ impl CommonWorkspace {
             .py_2()
             .gap_4()
             .col_full()
-            .scrollbar_y()
             .child(
-                div().gap_4().row_full().child(div().text_sm().child("排序规则")).child(
-                    Button::new(comp_id(["table-order-create", &tab_id]))
-                        .small()
-                        .icon(IconName::Plus)
-                        .on_click(cx.listener({
-                            let tab_id = tab_id.clone();
-                            let columns = tab.columns.clone();
-                            move |view: &mut Self, _, window, cx| {
-                                let Some(content) = view.table_content(&tab_id) else {
-                                    return;
-                                };
-                                content.order_rules.push(OrderRule {
-                                    id: Uuid::new_v4().to_string(),
-                                    field: cx.new(|cx| {
-                                        // rustfmt::skip
-                                        SelectState::new(columns.clone(), None, window, cx)
-                                    }),
-                                    order: cx.new(|cx| {
-                                        // rustfmt::skip
-                                        SelectState::new(order_ops.clone(), None, window, cx)
-                                    }),
-                                });
-                                cx.notify();
-                            }
-                        })),
-                ),
+                div()
+                    .gap_4()
+                    .flex()
+                    .flex_row()
+                    .child(div().text_sm().child("排序规则"))
+                    .child(
+                        Button::new(comp_id(["table-order-create", &tab_id]))
+                            .small()
+                            .icon(IconName::Plus)
+                            .on_click(cx.listener({
+                                let tab_id = tab_id.clone();
+                                let columns = tab.columns.clone();
+                                move |view: &mut Self, _, window, cx| {
+                                    let Some(content) = view.table_content(&tab_id) else {
+                                        return;
+                                    };
+                                    content.order_rules.push(OrderRule {
+                                        id: Uuid::new_v4().to_string(),
+                                        field: cx.new(|cx| {
+                                            // rustfmt::skip
+                                            SelectState::new(columns.clone(), None, window, cx)
+                                        }),
+                                        order: cx.new(|cx| {
+                                            // rustfmt::skip
+                                            SelectState::new(order_ops.clone(), None, window, cx)
+                                        }),
+                                    });
+                                    cx.notify();
+                                }
+                            })),
+                    ),
             )
             .children(order_items)
             .child(
-                div().gap_4().row_full().child(div().text_sm().child("筛选规则")).child(
-                    Button::new(comp_id(["table-filter-create", &tab_id]))
-                        .small()
-                        .icon(IconName::Plus)
-                        .on_click(cx.listener({
-                            let tab_id = tab_id.clone();
-                            let columns = tab.columns.clone();
-                            move |view: &mut Self, _, window, cx| {
-                                let Some(content) = view.table_content(&tab_id) else {
-                                    return;
-                                };
-                                content.query_rules.push(QueryRule {
-                                    id: Uuid::new_v4().to_string(),
-                                    field: cx.new(|cx| {
-                                        // rustfmt::skip
-                                        SelectState::new(columns.clone(), None, window, cx)
-                                    }),
-                                    operator: cx.new(|cx| {
-                                        // rustfmt::skip
-                                        SelectState::new(filter_ops.clone(), None, window, cx)
-                                    }),
-                                    value: cx.new(|cx| {
-                                        // rustfmt::skip
-                                        InputState::new(window, cx)
-                                    }),
-                                });
-                                cx.notify();
-                            }
-                        })),
-                ),
+                div()
+                    .gap_4()
+                    .flex()
+                    .flex_row()
+                    .child(div().text_sm().child("筛选规则"))
+                    .child(
+                        Button::new(comp_id(["table-filter-create", &tab_id]))
+                            .small()
+                            .icon(IconName::Plus)
+                            .on_click(cx.listener({
+                                let tab_id = tab_id.clone();
+                                let columns = tab.columns.clone();
+                                move |view: &mut Self, _, window, cx| {
+                                    let Some(content) = view.table_content(&tab_id) else {
+                                        return;
+                                    };
+                                    content.query_rules.push(QueryRule {
+                                        id: Uuid::new_v4().to_string(),
+                                        field: cx.new(|cx| {
+                                            // rustfmt::skip
+                                            SelectState::new(columns.clone(), None, window, cx)
+                                        }),
+                                        operator: cx.new(|cx| {
+                                            // rustfmt::skip
+                                            SelectState::new(filter_ops.clone(), None, window, cx)
+                                        }),
+                                        value: cx.new(|cx| {
+                                            // rustfmt::skip
+                                            InputState::new(window, cx)
+                                        }),
+                                    });
+                                    cx.notify();
+                                }
+                            })),
+                    ),
             )
             .children(query_items);
 
         // 筛选字段
-        let column_panel = div().px_4().py_2().gap_2().col_full().scrollbar_y().child(div());
+        let column_panel = div().px_4().py_2().gap_2().child(div());
 
         h_resizable(comp_id(["table-content", &tab_id]))
             .with_state(&tab.right_panel_state)
@@ -1078,10 +1087,10 @@ impl CommonWorkspace {
                             .border_color(theme.border)
                             .child(right_panel_tabs)
                             .when(tab.right_panel_idx == 0, |this| {
-                                this.child(div().col_full().child(form_panel))
+                                this.child(div().full().scrollbar_y().child(form_panel))
                             })
                             .when(tab.right_panel_idx == 1, |this| {
-                                this.child(div().col_full().child(filter_panel)).child(
+                                this.child(div().full().scrollbar_y().child(filter_panel)).child(
                                     div()
                                         .flex()
                                         .flex_row()
@@ -1096,7 +1105,7 @@ impl CommonWorkspace {
                                 )
                             })
                             .when(tab.right_panel_idx == 2, |this| {
-                                this.child(div().col_full().child(column_panel))
+                                this.child(div().full().scrollbar_y().child(column_panel))
                             }),
                     ),
             )

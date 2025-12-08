@@ -243,92 +243,84 @@ pub fn render_home(
     let theme = cx.theme();
     let entity = cx.entity();
 
-    div()
-        .id("sources")
-        .grid()
-        .grid_cols(4)
-        .size_full()
-        .w_full()
-        .h_full()
-        .p_4()
-        .gap_4()
-        .min_w_0()
-        .min_h_0()
-        .scrollbar_all()
-        .children(
-            {
-                let cache = app.cache.read().unwrap();
-                cache.sources().iter().cloned().collect::<Vec<_>>()
-            }
-            .into_iter()
-            .map(|source| {
-                let display = source.display_endpoint();
+    let mut cards = vec![];
+    for source in {
+        let cache = app.cache.read().unwrap();
+        cache.sources().iter().cloned().collect::<Vec<_>>()
+    } {
+        let display = source.display_endpoint();
 
+        let source = source.clone();
+        let source_id = source.id.clone();
+
+        let item = div()
+            .flex()
+            .flex_1()
+            .flex_col()
+            .p_5()
+            .gap_2()
+            .min_w_64()
+            .rounded_md()
+            .bg(theme.secondary)
+            .border_1()
+            .border_color(theme.border)
+            .id(SharedString::from(format!("source-card-{}", source.id)))
+            .hover(|this| this.bg(theme.secondary_hover))
+            .on_double_click(cx.listener({
+                let source_id = source_id.clone();
+                move |this, _, window, cx| {
+                    this.create_tab(&source_id, window, cx);
+                }
+            }))
+            .context_menu({
+                let entity = entity.clone();
                 let source = source.clone();
-                let source_id = source.id.clone();
-
+                move |this, window, _cx| {
+                    this.item(PopupMenuItem::new("编辑").on_click({
+                        let source = source.clone();
+                        window.listener_for(&entity, move |this, _, _, cx| {
+                            this.create_window(WindowKind::Create(Some(source.clone())), cx);
+                        })
+                    }))
+                    .separator()
+                    .item(PopupMenuItem::new("删除"))
+                }
+            })
+            .child(
                 div()
                     .flex()
-                    .flex_1()
-                    .flex_col()
-                    .p_5()
-                    .gap_2()
-                    .min_w_64()
-                    .rounded_md()
-                    .bg(theme.secondary)
-                    .border_1()
-                    .border_color(theme.border)
-                    .id(SharedString::from(format!("source-card-{}", source.id)))
-                    .hover(|this| this.bg(theme.secondary_hover))
-                    .on_double_click(cx.listener({
-                        let source_id = source_id.clone();
-                        move |this, _, window, cx| {
-                            this.create_tab(&source_id, window, cx);
-                        }
-                    }))
-                    .context_menu({
-                        let entity = entity.clone();
-                        let source = source.clone();
-                        move |this, window, _cx| {
-                            this.item(PopupMenuItem::new("编辑").on_click({
-                                let source = source.clone();
-                                window.listener_for(&entity, move |this, _, _, cx| {
-                                    this.create_window(WindowKind::Create(Some(source.clone())), cx);
-                                })
-                            }))
-                            .separator()
-                            .item(PopupMenuItem::new("删除"))
-                        }
-                    })
+                    .flex_row()
+                    .items_center()
+                    .justify_between()
                     .child(
                         div()
-                            .flex()
-                            .flex_row()
-                            .items_center()
-                            .justify_between()
-                            .child(
-                                div()
-                                    .flex_1()
-                                    .font_semibold()
-                                    .text_color(theme.foreground)
-                                    .child(source.name),
-                            )
-                            .child(
-                                div()
-                                    .w_8()
-                                    .h_8()
-                                    .child(img(source.kind.image()).size_full().rounded_md()),
-                            ),
+                            .flex_1()
+                            .font_semibold()
+                            .text_color(theme.foreground)
+                            .child(source.name),
                     )
                     .child(
                         div()
-                            .text_sm()
-                            .overflow_hidden()
-                            .whitespace_nowrap()
-                            .text_color(theme.muted_foreground)
-                            .child(display),
-                    )
-            }),
-        )
+                            .w_8()
+                            .h_8()
+                            .child(img(source.kind.image()).size_full().rounded_md()),
+                    ),
+            )
+            .child(
+                div()
+                    .text_sm()
+                    .overflow_hidden()
+                    .whitespace_nowrap()
+                    .text_color(theme.muted_foreground)
+                    .child(display),
+            );
+
+        cards.push(item);
+    }
+
+    div()
+        .col_full()
+        .scrollbar_y()
+        .child(div().grid().grid_cols(4).p_4().gap_4().children(cards))
         .into_any_element()
 }

@@ -26,6 +26,7 @@ where
 
 #[allow(unused)]
 pub trait DivExt {
+    fn full(self) -> Self;
     fn col_full(self) -> Self;
     fn row_full(self) -> Self;
     fn scrollbar_x(self) -> Scrollable<Self>
@@ -40,6 +41,10 @@ pub trait DivExt {
 }
 
 impl DivExt for Div {
+    fn full(self) -> Self {
+        self.size_full().min_w_0().min_h_0()
+    }
+
     fn col_full(self) -> Self {
         self.flex().flex_1().flex_col().h_full().min_w_0().min_h_0()
     }
@@ -62,6 +67,10 @@ impl DivExt for Div {
 }
 
 impl DivExt for Stateful<Div> {
+    fn full(self) -> Self {
+        self.size_full().min_w_0().min_h_0()
+    }
+
     fn col_full(self) -> Self {
         self.flex().flex_1().flex_col().h_full().min_w_0().min_h_0()
     }

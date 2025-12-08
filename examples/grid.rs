@@ -39,39 +39,38 @@ impl Render for GridExample {
         ];
 
         div()
-            .id("sources")
-            .size_full()
-            .grid()
-            .grid_cols(4)
-            .w_full()
-            .h_full()
-            .p_4()
-            .gap_4()
-            .min_w_0()
-            .min_h_0()
-            .overflow_y_scrollbar()
-            .children((0..20).map(|i| {
-                let color = colors[i % colors.len()];
+            .overflow_scrollbar()
+            .child(
                 div()
-                    .id(("grid-item", i))
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .w_full()
-                    .h(px(150.))
-                    .rounded_lg()
-                    .bg(color)
-                    .border_1()
-                    .border_color(hsla(0.0, 0.0, 1.0, 0.1))
-                    .shadow_md()
-                    .child(
+                    .id("grid")
+                    .size_full()
+                    .grid()
+                    .grid_cols(4)
+                    .p_4()
+                    .gap_4()
+                    .children((0..20).map(|i| {
+                        let color = colors[i % colors.len()];
                         div()
-                            .text_xl()
-                            .font_bold()
-                            .text_color(hsla(0.0, 0.0, 1.0, 1.0))
-                            .child(format!("项目 {}", i + 1)),
-                    )
-            }))
+                            .id(("grid-item", i))
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .w_full()
+                            .h(px(150.))
+                            .rounded_lg()
+                            .bg(color)
+                            .border_1()
+                            .border_color(hsla(0.0, 0.0, 1.0, 0.1))
+                            .shadow_md()
+                            .child(
+                                div()
+                                    .text_xl()
+                                    .font_bold()
+                                    .text_color(hsla(0.0, 0.0, 1.0, 1.0))
+                                    .child(format!("项目 {}", i + 1)),
+                            )
+                    })),
+            )
     }
 }
 
@@ -89,13 +88,12 @@ fn main() {
         .detach();
 
         let theme = Theme::global_mut(cx);
-        theme.scrollbar_show = ScrollbarShow::Hover;
+        theme.scrollbar_show = ScrollbarShow::Always;
 
         let window_size = size(px(1280.), px(800.));
         let window_bounds = Bounds::centered(None, window_size, cx);
         cx.open_window(
             WindowOptions {
-                kind: WindowKind::Floating,
                 window_bounds: Some(WindowBounds::Windowed(window_bounds)),
                 titlebar: Some(TitlebarOptions {
                     title: None,
