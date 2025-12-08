@@ -242,20 +242,13 @@ impl MySQLOptions {
     pub fn overview(&self) -> Vec<(&'static str, String)> {
         vec![
             ("连接地址", format!("{}:{}", self.host, self.port)),
+            ("账号", self.username.clone()),
             (
                 "数据库",
                 if self.database.is_empty() {
                     "未配置".into()
                 } else {
                     self.database.clone()
-                },
-            ),
-            (
-                "安全性",
-                if self.use_tls {
-                    "TLS 已启用".into()
-                } else {
-                    "未启用 TLS".into()
                 },
             ),
         ]

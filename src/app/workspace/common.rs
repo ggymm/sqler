@@ -2,7 +2,7 @@ use std::{rc::Rc, time};
 
 use gpui::{prelude::*, *};
 use gpui_component::{
-    ActiveTheme, Disableable, IconName, InteractiveElementExt, Selectable, Sizable, Size, StyledExt,
+    ActiveTheme, Disableable, IconName, InteractiveElementExt, Selectable, Sizable, Size,
     button::{Button, ButtonGroup, ButtonVariants},
     form::{Form, field},
     input::{Input, InputState, TabSize},
@@ -439,45 +439,43 @@ impl CommonWorkspace {
                 }
             }));
 
-        let summaries: Vec<AnyElement> = tab
-            .results
-            .iter()
-            .enumerate()
-            .map(|(_, ret)| {
-                div()
-                    .flex()
-                    .flex_col()
-                    .p_4()
-                    .gap_2()
-                    .rounded_md()
-                    .border_1()
-                    .border_color(theme.border)
-                    .bg(theme.secondary)
-                    .child(
-                        div()
-                            .text_color(theme.foreground)
-                            .font_family(theme.mono_font_family.clone())
-                            .child(ret.sql.clone()),
-                    )
-                    .child(
-                        div()
-                            .flex()
-                            .flex_row()
-                            .items_center()
-                            .gap_2()
-                            .child(div().when_else(
-                                ret.error.is_none(),
-                                |this| this.text_color(theme.success).child("成功"),
-                                |this| this.text_color(theme.danger).child("失败"),
-                            ))
-                            .child(div().child(parse_elapsed(ret.elapsed))),
-                    )
-                    .when_some(ret.error.as_ref(), |this, err| {
-                        this.child(div().text_color(theme.danger).child(format!("错误: {}", err)))
-                    })
-                    .into_any_element()
-            })
-            .collect();
+        let mut summaries = vec![];
+        for ret in &tab.results {
+            let item = div()
+                .flex()
+                .flex_col()
+                .p_4()
+                .gap_2()
+                .rounded_md()
+                .border_1()
+                .border_color(theme.border)
+                .bg(theme.secondary)
+                .child(
+                    div()
+                        .text_color(theme.foreground)
+                        .font_family(theme.mono_font_family.clone())
+                        .child(ret.sql.clone()),
+                )
+                .child(
+                    div()
+                        .flex()
+                        .flex_row()
+                        .items_center()
+                        .gap_2()
+                        .child(div().when_else(
+                            ret.error.is_none(),
+                            |this| this.text_color(theme.success).child("成功"),
+                            |this| this.text_color(theme.danger).child("失败"),
+                        ))
+                        .child(div().child(parse_elapsed(ret.elapsed))),
+                )
+                .when_some(ret.error.as_ref(), |this, err| {
+                    this.child(div().text_color(theme.danger).child(format!("错误: {}", err)))
+                })
+                .into_any_element();
+
+            summaries.push(item);
+        }
 
         v_resizable(comp_id(["common-content"]))
             .child(
@@ -527,8 +525,12 @@ impl CommonWorkspace {
                             .col_full()
                             .when_some(tab.results.get(tab.active), |this, ret| {
                                 if tab.summary {
-                                    return this
-                                        .child(div().p_2().gap_2().col_full().scrollbar_y().children(summaries));
+                                    return this.child(
+                                        div()
+                                            .full()
+                                            .scrollbar_y()
+                                            .child(div().p_2().gap_2().col_full().children(summaries)),
+                                    );
                                 }
                                 this.child(
                                     div().flex_1().child(
@@ -1317,41 +1319,42 @@ impl CommonWorkspace {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let theme = cx.theme();
-        let overview_fields = self.source.display_overview();
+        let mut infos = vec![];
+        infos.push(("名称", self.source.name.clone()));
+        infos.extend(self.source.display_overview());
 
-        let detail_card = div()
-            .flex()
-            .flex_col()
-            .gap(px(6.))
-            .rounded_md()
-            .border_1()
-            .border_color(theme.border)
-            .bg(theme.secondary)
-            .px(px(14.))
-            .py(px(12.))
-            .children(overview_fields.into_iter().map(|(label, value)| {
-                div()
-                    .flex()
-                    .flex_row()
-                    .justify_between()
-                    .text_sm()
-                    .text_color(theme.muted_foreground)
-                    .child(div().text_color(theme.muted_foreground).child(label))
-                    .child(div().text_color(theme.foreground).child(value))
-                    .into_any_element()
-            }));
-
+        let mut fields = vec![];
+        for (label, value) in infos {
+            let item = div()
+                .flex()
+                .flex_row()
+                .items_center()
+                .child(div().w_32().child(label))
+                .child(
+                    div()
+                        .w_96()
+                        .px_2()
+                        .py_1()
+                        .rounded_md()
+                        .bg(theme.muted)
+                        .border_1()
+                        .border_color(theme.border)
+                        .child(value),
+                );
+            fields.push(item);
+        }
         div()
-            .gap_5()
+            .min_w_128()
+            .p_4()
             .col_full()
-            .scrollbar_y()
+            .text_sm()
+            .text_color(theme.foreground)
             .child(
                 div()
-                    .text_base()
-                    .font_semibold()
-                    .child(format!("名称：{}", self.source.name)),
+                    .full()
+                    .scrollbar_y()
+                    .child(div().gap_4().col_full().children(fields)),
             )
-            .child(detail_card)
             .into_any_element()
     }
 }
