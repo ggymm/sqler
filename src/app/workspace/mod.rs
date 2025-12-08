@@ -5,13 +5,12 @@ use gpui_component::{
     ActiveTheme, InteractiveElementExt, Rope, StyledExt,
     input::{CompletionProvider, InputState},
     menu::{ContextMenuExt, PopupMenuItem},
-    select::SelectState,
 };
 use indexmap::IndexMap;
 use lsp_types::{CompletionContext, CompletionItem, CompletionResponse, CompletionTextEdit, Position, Range, TextEdit};
 
 use crate::{
-    app::{SqlerApp, TabContent, WindowKind},
+    app::{SqlerApp, TabContent, WindowKind, comps::DivExt},
     cache::ArcCache,
     model::{DataSource, DataSourceKind},
 };
@@ -184,21 +183,19 @@ impl Workspace {
                     }),
                 }
             }
-            DataSourceKind::Redis => {
-                Workspace::Redis {
-                    view: cx.new(|_| redis::RedisWorkspace {
-                        parent,
-                        
-                        source,
-                        session: None,
-                        
-                        active: redis::ViewType::Overview,
-                        browse: None,
-                        command: None,
-                        overview: Some(redis::OverviewContent {}),
-                    }),
-                }
-            }
+            DataSourceKind::Redis => Workspace::Redis {
+                view: cx.new(|_| redis::RedisWorkspace {
+                    parent,
+
+                    source,
+                    session: None,
+
+                    active: redis::ViewType::Overview,
+                    browse: None,
+                    command: None,
+                    overview: Some(redis::OverviewContent {}),
+                }),
+            },
             DataSourceKind::MongoDB => Workspace::MongoDB {
                 view: cx.new(|_| mongodb::MongoDBWorkspace {
                     parent,
@@ -251,11 +248,13 @@ pub fn render_home(
         .grid()
         .grid_cols(4)
         .size_full()
+        .w_full()
+        .h_full()
         .p_4()
         .gap_4()
         .min_w_0()
         .min_h_0()
-        .scrollable(Axis::Vertical)
+        .scrollbar_all()
         .children(
             {
                 let cache = app.cache.read().unwrap();

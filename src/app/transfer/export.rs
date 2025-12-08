@@ -115,7 +115,7 @@ impl ExportWindow {
             .p_6()
             .gap_5()
             .col_full()
-            .scrollable(Axis::Vertical)
+            .scrollbar_y()
             .child(
                 Form::vertical()
                     .layout(Axis::Horizontal)

@@ -124,7 +124,7 @@ impl MongoDBWorkspace {
         div()
             .gap_5()
             .col_full()
-            .scrollable(Axis::Vertical)
+            .scrollbar_y()
             .child(
                 div()
                     .text_base()
@@ -152,7 +152,7 @@ impl Render for MongoDBWorkspace {
                 .p_2()
                 .gap_2()
                 .col_full()
-                .scrollable(Axis::Vertical),
+                .scrollbar_y(),
             |acc, collection| {
                 let active = self.active_collection.as_ref() == Some(&collection);
                 acc.child(

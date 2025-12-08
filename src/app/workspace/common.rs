@@ -445,9 +445,10 @@ impl CommonWorkspace {
             .enumerate()
             .map(|(_, ret)| {
                 div()
+                    .flex()
+                    .flex_col()
                     .p_4()
                     .gap_2()
-                    .col_full()
                     .rounded_md()
                     .border_1()
                     .border_color(theme.border)
@@ -526,14 +527,8 @@ impl CommonWorkspace {
                             .col_full()
                             .when_some(tab.results.get(tab.active), |this, ret| {
                                 if tab.summary {
-                                    return this.child(
-                                        div()
-                                            .p_2()
-                                            .gap_2()
-                                            .col_full()
-                                            .scrollable(Axis::Vertical)
-                                            .children(summaries),
-                                    );
+                                    return this
+                                        .child(div().p_2().gap_2().col_full().scrollbar_y().children(summaries));
                                 }
                                 this.child(
                                     div().flex_1().child(
@@ -941,7 +936,7 @@ impl CommonWorkspace {
         }
 
         // 表单视图
-        let mut form_panel = div().px_4().py_2().col_full().scrollable(Axis::Vertical).child(div());
+        let mut form_panel = div().px_4().py_2().col_full().scrollbar_y().child(div());
         if let Some(row_idx) = tab.datatable.read(cx).selected_row() {
             // 渲染选中行数据
             let row = tab.datatable.read(cx).delegate().get_data(row_idx);
@@ -974,7 +969,7 @@ impl CommonWorkspace {
             .py_2()
             .gap_4()
             .col_full()
-            .scrollable(Axis::Vertical)
+            .scrollbar_y()
             .child(
                 div().gap_4().row_full().child(div().text_sm().child("排序规则")).child(
                     Button::new(comp_id(["table-order-create", &tab_id]))
@@ -1039,13 +1034,7 @@ impl CommonWorkspace {
             .children(query_items);
 
         // 筛选字段
-        let column_panel = div()
-            .px_4()
-            .py_2()
-            .gap_2()
-            .col_full()
-            .scrollable(Axis::Vertical)
-            .child(div());
+        let column_panel = div().px_4().py_2().gap_2().col_full().scrollbar_y().child(div());
 
         h_resizable(comp_id(["table-content", &tab_id]))
             .with_state(&tab.right_panel_state)
@@ -1261,7 +1250,7 @@ impl CommonWorkspace {
         };
 
         let detail_content = if let Some(col) = col_info {
-            div().p_4().col_full().scrollable(Axis::Vertical).child(
+            div().p_4().col_full().scrollbar_y().child(
                 Form::vertical()
                     .layout(Axis::Horizontal)
                     .with_size(Size::Large)
@@ -1288,7 +1277,7 @@ impl CommonWorkspace {
                     ),
             )
         } else {
-            div().col_full().scrollable(Axis::Vertical)
+            div().col_full().scrollbar_y()
         };
 
         v_resizable(comp_id(["schema-content", &tab_id]))
@@ -1346,7 +1335,7 @@ impl CommonWorkspace {
         div()
             .gap_5()
             .col_full()
-            .scrollable(Axis::Vertical)
+            .scrollbar_y()
             .child(
                 div()
                     .text_base()
@@ -1496,13 +1485,14 @@ impl Render for CommonWorkspace {
         let id = &self.source.id;
         let sidebar = div()
             .col_full()
+            .scrollbar_y()
             .child(
                 div()
                     .id(comp_id(["common-tables", id]))
                     .p_2()
                     .gap_2()
-                    .col_full()
-                    .scrollable(Axis::Vertical)
+                    .flex()
+                    .flex_col()
                     .children(tables),
             )
             .context_menu({

@@ -261,9 +261,9 @@ dependencies = [
 
 [[package]]
 name = "async-compression"
-version = "0.4.34"
+version = "0.4.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e86f6d3dc9dc4352edeea6b8e499e13e3f5dc3b964d7ca5fd411415a3498473"
+checksum = "07a926debf178f2d355197f9caddb08e54a9329d44748034bba349c5848cb519"
 dependencies = [
  "compression-codecs",
  "compression-core",
@@ -860,9 +860,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.48"
+version = "1.2.49"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c481bdbf0ed3b892f6f806287d72acd515b352a4ec27a208489b8c1bc839633a"
+checksum = "90583009037521a116abf44494efecd645ba48b6622457080f080b85544e2215"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -1034,9 +1034,9 @@ dependencies = [
 
 [[package]]
 name = "compression-codecs"
-version = "0.4.33"
+version = "0.4.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "302266479cb963552d11bd042013a58ef1adc56768016c8b82b4199488f2d4ad"
+checksum = "34a3cbbb8b6eca96f3a5c4bf6938d5b27ced3675d69f95bb51948722870bc323"
 dependencies = [
  "compression-core",
  "deflate64",
@@ -2339,9 +2339,9 @@ dependencies = [
 
 [[package]]
 name = "gif"
-version = "0.14.0"
+version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f954a9e9159ec994f73a30a12b96a702dde78f5547bcb561174597924f7d4162"
+checksum = "f5df2ba84018d80c213569363bdcd0c64e6933c67fe4c1d60ecf822971a3c35e"
 dependencies = [
  "color_quant",
  "weezl",
@@ -2529,9 +2529,9 @@ dependencies = [
 
 [[package]]
 name = "gpui-component"
-version = "0.4.2"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd41a5808ef0eba74d7af77913dcca5f647f783bf1e0114726e2b01d7fbd194f"
+checksum = "2dda822a7bab4e0a08a4276ba68e2f82cc5855bf0b377d7b195c58c8061dc7d1"
 dependencies = [
  "aho-corasick",
  "anyhow",
@@ -2596,9 +2596,9 @@ dependencies = [
 
 [[package]]
 name = "gpui-component-macros"
-version = "0.4.2"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc45eec82efdcc1b852ed14479bd41940c7de21e7b4a2c462d53db4d9823cebd"
+checksum = "581a8cd1e38b2fd86d1029dd56a3296ffd1388fda295054104d89923755de902"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3043,9 +3043,9 @@ dependencies = [
 
 [[package]]
 name = "hyper-util"
-version = "0.1.18"
+version = "0.1.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52e9a2a24dc5c6821e71a7030e1e14b7b632acac55c40e9d2e082c621261bb56"
+checksum = "727805d60e7938b76b826a6ef209eb70eaa1812794f9424d4a4e2d740662df5f"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -3912,9 +3912,9 @@ checksum = "e53debba6bda7a793e5f99b8dacf19e626084f525f7829104ba9898f367d85ff"
 
 [[package]]
 name = "mio"
-version = "1.1.0"
+version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69d83b0086dc8ecf3ce9ae2874b2d1290252e2a30720bea58a5c6639b0092873"
+checksum = "a69bcab0ad47271a0234d9422b131806bf3968021e5dc9328caf2d4cd58557fc"
 dependencies = [
  "libc",
  "log",
@@ -4960,7 +4960,7 @@ version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "219cb19e96be00ab2e37d6e299658a0cfa83e52429179969b0f0121b4ac46983"
 dependencies = [
- "toml_edit 0.23.7",
+ "toml_edit 0.23.9",
 ]
 
 [[package]]
@@ -5025,9 +5025,9 @@ dependencies = [
 
 [[package]]
 name = "pxfm"
-version = "0.1.26"
+version = "0.1.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b3502d6155304a4173a5f2c34b52b7ed0dd085890326cb50fd625fdf39e86b3b"
+checksum = "7186d3822593aa4393561d186d1393b3923e9d6163d3fbfd6e825e3e6cf3e6a8"
 dependencies = [
  "num-traits",
 ]
@@ -5306,9 +5306,9 @@ dependencies = [
 
 [[package]]
 name = "redis"
-version = "1.0.0-rc.5"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47a37494ab51dc2d511bb795f1c67f860e32ba9d9e4dda73d7f4617f5dcdc3de"
+checksum = "47ba378d39b8053bffbfc2750220f5a24a06189b5129523d5db01618774e0239"
 dependencies = [
  "arcstr",
  "combine",
@@ -6124,9 +6124,9 @@ checksum = "7a2ae44ef20feb57a68b23d846850f861394c2e02dc425a50098ae8c90267589"
 
 [[package]]
 name = "slotmap"
-version = "1.0.7"
+version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dbff4acf519f630b3a3ddcfaea6c06b42174d9a44bc70c620e9ed1649d58b82a"
+checksum = "bdd58c3c93c3d278ca835519292445cb4b0d4dc59ccfdf7ceadaab3f8aeb4038"
 dependencies = [
  "version_check",
 ]
@@ -6956,9 +6956,9 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.23.7"
+version = "0.23.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6485ef6d0d9b5d0ec17244ff7eb05310113c3f316f2d14200d4de56b3cb98f8d"
+checksum = "5d7cbc3b4b49633d57a0509303158ca50de80ae32c265093b24c414705807832"
 dependencies = [
  "indexmap",
  "toml_datetime 0.7.3",
@@ -7555,9 +7555,9 @@ checksum = "7df058c713841ad818f1dc5d3fd88063241cc61f49f5fbea4b951e8cf5a8d71d"
 
 [[package]]
 name = "unicode-script"
-version = "0.5.7"
+version = "0.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9fb421b350c9aff471779e262955939f565ec18b86c15364e6bdf0d662ca7c1f"
+checksum = "383ad40bb927465ec0ce7720e033cb4ca06912855fc35db31b5755d0de75b1ee"
 
 [[package]]
 name = "unicode-segmentation"

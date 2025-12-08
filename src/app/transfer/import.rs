@@ -374,7 +374,7 @@ impl ImportWindow {
                     .child(
                         div()
                             .col_full()
-                            .scrollable(Axis::Vertical)
+                            .scrollbar_y()
                             .children(self.files.iter().enumerate().map(|(i, file)| {
                                 div()
                                     .flex()
@@ -466,65 +466,63 @@ impl ImportWindow {
                             }),
                     )
                     .child(
-                        div()
-                            .col_full()
-                            .child(div().col_full().scrollable(Axis::Vertical).children(
-                                self.files.iter().enumerate().map(|(i, file)| {
-                                    div()
-                                        .flex()
-                                        .flex_row()
-                                        .items_center()
-                                        .p_2()
-                                        .border_t_1()
-                                        .border_color(theme.border)
-                                        .child({
-                                            let mut column = div().text_sm().child(file.name());
-                                            let style = column.style();
-                                            style.size.width = Some(source_width);
-                                            style.min_size.width = Some(source_width);
-                                            style.max_size.width = Some(source_width);
-                                            column
-                                        })
-                                        .child({
-                                            let mut column = div()
-                                                .flex()
-                                                .flex_row()
-                                                .items_center()
-                                                .gap_4()
-                                                .child(match file.option {
-                                                    TableOption::NewTable => {
-                                                        Input::new(&file.table).cleanable(true).into_any_element()
-                                                    }
-                                                    TableOption::ExistTable => Select::new(&self.current_tables)
-                                                        .placeholder("选择表")
-                                                        .into_any_element(),
-                                                })
-                                                .child(
-                                                    Switch::new(("target-switch", i as u32))
-                                                        .label("新建表")
-                                                        .checked(file.option == TableOption::NewTable)
-                                                        .on_click(cx.listener({
-                                                            move |this: &mut ImportWindow, checked, _, cx| {
-                                                                let option = if *checked {
-                                                                    TableOption::NewTable
-                                                                } else {
-                                                                    TableOption::ExistTable
-                                                                };
-                                                                if i < this.files.len() {
-                                                                    this.files[i].option = option;
-                                                                    cx.notify();
-                                                                }
+                        div().col_full().child(div().col_full().scrollbar_y().children(
+                            self.files.iter().enumerate().map(|(i, file)| {
+                                div()
+                                    .flex()
+                                    .flex_row()
+                                    .items_center()
+                                    .p_2()
+                                    .border_t_1()
+                                    .border_color(theme.border)
+                                    .child({
+                                        let mut column = div().text_sm().child(file.name());
+                                        let style = column.style();
+                                        style.size.width = Some(source_width);
+                                        style.min_size.width = Some(source_width);
+                                        style.max_size.width = Some(source_width);
+                                        column
+                                    })
+                                    .child({
+                                        let mut column = div()
+                                            .flex()
+                                            .flex_row()
+                                            .items_center()
+                                            .gap_4()
+                                            .child(match file.option {
+                                                TableOption::NewTable => {
+                                                    Input::new(&file.table).cleanable(true).into_any_element()
+                                                }
+                                                TableOption::ExistTable => Select::new(&self.current_tables)
+                                                    .placeholder("选择表")
+                                                    .into_any_element(),
+                                            })
+                                            .child(
+                                                Switch::new(("target-switch", i as u32))
+                                                    .label("新建表")
+                                                    .checked(file.option == TableOption::NewTable)
+                                                    .on_click(cx.listener({
+                                                        move |this: &mut ImportWindow, checked, _, cx| {
+                                                            let option = if *checked {
+                                                                TableOption::NewTable
+                                                            } else {
+                                                                TableOption::ExistTable
+                                                            };
+                                                            if i < this.files.len() {
+                                                                this.files[i].option = option;
+                                                                cx.notify();
                                                             }
-                                                        })),
-                                                );
-                                            let style = column.style();
-                                            style.size.width = Some(target_width);
-                                            style.min_size.width = Some(target_width);
-                                            style.max_size.width = Some(target_width);
-                                            column
-                                        })
-                                }),
-                            )),
+                                                        }
+                                                    })),
+                                            );
+                                        let style = column.style();
+                                        style.size.width = Some(target_width);
+                                        style.min_size.width = Some(target_width);
+                                        style.max_size.width = Some(target_width);
+                                        column
+                                    })
+                            }),
+                        )),
                     ),
             )
             .into_any_element()
@@ -557,22 +555,17 @@ impl ImportWindow {
                     .border_1()
                     .border_color(theme.border)
                     .rounded_md()
-                    .child(
+                    .child(div().col_full().scrollbar_y().children(self.files.iter().map(|file| {
                         div()
-                            .col_full()
-                            .scrollable(Axis::Vertical)
-                            .children(self.files.iter().map(|file| {
-                                div()
-                                    .flex()
-                                    .flex_row()
-                                    .items_center()
-                                    .justify_between()
-                                    .px_4()
-                                    .py_2()
-                                    .child(div().text_sm().child(file.name()))
-                                    .child(div().text_sm().text_color(theme.muted_foreground).child("未开始"))
-                            })),
-                    ),
+                            .flex()
+                            .flex_row()
+                            .items_center()
+                            .justify_between()
+                            .px_4()
+                            .py_2()
+                            .child(div().text_sm().child(file.name()))
+                            .child(div().text_sm().text_color(theme.muted_foreground).child("未开始"))
+                    }))),
             )
             .into_any_element()
     }

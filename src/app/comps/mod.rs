@@ -1,5 +1,8 @@
 use gpui::*;
-use gpui_component::Icon;
+use gpui_component::{
+    Icon,
+    scroll::{Scrollable, ScrollableElement},
+};
 
 mod table;
 
@@ -21,28 +24,62 @@ where
     ElementId::Name(SharedString::from(name))
 }
 
+#[allow(unused)]
 pub trait DivExt {
     fn col_full(self) -> Self;
     fn row_full(self) -> Self;
+    fn scrollbar_x(self) -> Scrollable<Self>
+    where
+        Self: Sized + InteractiveElement + Styled + ParentElement + Element;
+    fn scrollbar_y(self) -> Scrollable<Self>
+    where
+        Self: Sized + InteractiveElement + Styled + ParentElement + Element;
+    fn scrollbar_all(self) -> Scrollable<Self>
+    where
+        Self: Sized + InteractiveElement + Styled + ParentElement + Element;
 }
 
 impl DivExt for Div {
     fn col_full(self) -> Self {
-        self.flex().flex_1().flex_col().size_full().min_w_0().min_h_0()
+        self.flex().flex_1().flex_col().h_full().min_w_0().min_h_0()
     }
 
     fn row_full(self) -> Self {
-        self.flex().flex_1().flex_row().size_full().min_w_0().min_h_0()
+        self.flex().flex_1().flex_row().w_full().min_w_0().min_h_0()
+    }
+
+    fn scrollbar_x(self) -> Scrollable<Self> {
+        self.overflow_x_scrollbar()
+    }
+
+    fn scrollbar_y(self) -> Scrollable<Self> {
+        self.overflow_y_scrollbar()
+    }
+
+    fn scrollbar_all(self) -> Scrollable<Self> {
+        self.overflow_scrollbar()
     }
 }
 
 impl DivExt for Stateful<Div> {
     fn col_full(self) -> Self {
-        self.flex().flex_1().flex_col().size_full().min_w_0().min_h_0()
+        self.flex().flex_1().flex_col().h_full().min_w_0().min_h_0()
     }
 
     fn row_full(self) -> Self {
-        self.flex().flex_1().flex_row().size_full().min_w_0().min_h_0()
+        self.flex().flex_1().flex_row().w_full().min_w_0().min_h_0()
+    }
+
+    fn scrollbar_x(self) -> Scrollable<Self> {
+        self.overflow_x_scrollbar()
+    }
+
+    fn scrollbar_y(self) -> Scrollable<Self> {
+        self.overflow_y_scrollbar()
+    }
+
+    fn scrollbar_all(self) -> Scrollable<Self> {
+        self.overflow_scrollbar()
     }
 }
 
@@ -68,10 +105,6 @@ pub fn icon_search() -> Icon {
 
 pub fn icon_sheet() -> Icon {
     Icon::default().path("icons/sheet.svg")
-}
-
-pub fn icon_transfer() -> Icon {
-    Icon::default().path("icons/transfer.svg")
 }
 
 pub fn icon_trash() -> Icon {

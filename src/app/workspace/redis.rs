@@ -1,6 +1,14 @@
 use std::collections::HashMap;
 use std::time::Instant;
 
+use crate::{
+    app::{
+        SqlerApp,
+        comps::{DivExt, comp_id, icon_relead},
+    },
+    driver::DatabaseSession,
+    model::DataSource,
+};
 use gpui::{prelude::*, *};
 use gpui_component::{
     ActiveTheme, Selectable, Sizable, Size, StyledExt,
@@ -9,16 +17,7 @@ use gpui_component::{
     list::ListItem,
     resizable::{resizable_panel, v_resizable},
     select::{Select, SelectState},
-    tree::{tree, TreeItem, TreeState},
-};
-
-use crate::{
-    app::{
-        SqlerApp,
-        comps::{DivExt, comp_id, icon_relead},
-    },
-    driver::DatabaseSession,
-    model::DataSource,
+    tree::{TreeItem, TreeState, tree},
 };
 
 #[derive(Clone)]
@@ -40,17 +39,10 @@ fn build_tree_items(keys: &HashMap<String, KeyInfo>) -> Vec<TreeItem> {
         }
 
         for i in 0..parts.len() {
-            let parent_path = if i == 0 {
-                String::new()
-            } else {
-                parts[0..i].join(":")
-            };
+            let parent_path = if i == 0 { String::new() } else { parts[0..i].join(":") };
             let current_path = parts[0..=i].join(":");
 
-            tree_map
-                .entry(parent_path)
-                .or_insert_with(Vec::new)
-                .push(current_path);
+            tree_map.entry(parent_path).or_insert_with(Vec::new).push(current_path);
         }
     }
 
@@ -252,9 +244,7 @@ impl RedisWorkspace {
         &self,
         key: &str,
     ) -> Option<KeyInfo> {
-        self.browse
-            .as_ref()
-            .and_then(|browse| browse.keys.get(key).cloned())
+        self.browse.as_ref().and_then(|browse| browse.keys.get(key).cloned())
     }
 
     fn render_browse_view(
@@ -280,8 +270,16 @@ impl RedisWorkspace {
                     .p_2()
                     .border_b_1()
                     .border_color(theme.border)
-                    .child(div().flex_1().child(Select::new(&browse.key_type_filter).with_size(Size::Small)))
-                    .child(div().w(px(200.)).child(Input::new(&browse.search_input).with_size(Size::Small))),
+                    .child(
+                        div()
+                            .flex_1()
+                            .child(Select::new(&browse.key_type_filter).with_size(Size::Small)),
+                    )
+                    .child(
+                        div()
+                            .w(px(200.))
+                            .child(Input::new(&browse.search_input).with_size(Size::Small)),
+                    ),
             )
             .child(
                 div()
@@ -314,31 +312,30 @@ impl RedisWorkspace {
                     if entry.is_folder() {
                         list_item = list_item.child(item.label.clone());
                     } else if let Some(info) = key_info {
-                        list_item = list_item
-                            .child(
-                                div()
-                                    .flex()
-                                    .flex_row()
-                                    .gap_1()
-                                    .child(div().flex_1().text_sm().child(item.label.clone()))
-                                    .child(
-                                        div()
-                                            .flex()
-                                            .flex_row()
-                                            .gap_4()
-                                            .text_xs()
-                                            .child(div().w(px(60.)).child(info.key_type.clone()))
-                                            .child(
-                                                div()
-                                                    .w(px(300.))
-                                                    .overflow_hidden()
-                                                    .whitespace_nowrap()
-                                                    .child(info.value.clone()),
-                                            )
-                                            .child(div().w(px(60.)).child(info.size.clone()))
-                                            .child(div().w(px(80.)).child(info.ttl.clone())),
-                                    ),
-                            );
+                        list_item = list_item.child(
+                            div()
+                                .flex()
+                                .flex_row()
+                                .gap_1()
+                                .child(div().flex_1().text_sm().child(item.label.clone()))
+                                .child(
+                                    div()
+                                        .flex()
+                                        .flex_row()
+                                        .gap_4()
+                                        .text_xs()
+                                        .child(div().w(px(60.)).child(info.key_type.clone()))
+                                        .child(
+                                            div()
+                                                .w(px(300.))
+                                                .overflow_hidden()
+                                                .whitespace_nowrap()
+                                                .child(info.value.clone()),
+                                        )
+                                        .child(div().w(px(60.)).child(info.size.clone()))
+                                        .child(div().w(px(80.)).child(info.ttl.clone())),
+                                ),
+                        );
                     }
 
                     list_item
@@ -383,7 +380,11 @@ impl RedisWorkspace {
                                     .text_color(theme.muted_foreground)
                                     .child("键类型:"),
                             )
-                            .child(div().w(px(200.)).child(Select::new(&browse.detail_key_type).with_size(Size::Small))),
+                            .child(
+                                div()
+                                    .w(px(200.))
+                                    .child(Select::new(&browse.detail_key_type).with_size(Size::Small)),
+                            ),
                     )
                     .child(
                         div()
@@ -417,7 +418,11 @@ impl RedisWorkspace {
                                     .text_color(theme.muted_foreground)
                                     .child("TTL:"),
                             )
-                            .child(div().w(px(200.)).child(Select::new(&browse.detail_ttl).with_size(Size::Small))),
+                            .child(
+                                div()
+                                    .w(px(200.))
+                                    .child(Select::new(&browse.detail_ttl).with_size(Size::Small)),
+                            ),
                     )
                     .child(
                         div()
@@ -494,7 +499,11 @@ impl RedisWorkspace {
                             .flex()
                             .flex_row()
                             .gap_2()
-                            .child(div().flex_1().child(Input::new(&command.command_input).with_size(Size::Small)))
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .child(Input::new(&command.command_input).with_size(Size::Small)),
+                            )
                             .child(
                                 Button::new(comp_id(["redis-command-execute", id]))
                                     .label("执行")
@@ -530,7 +539,7 @@ impl RedisWorkspace {
                             .border_color(theme.border)
                             .rounded_md()
                             .bg(theme.secondary)
-                            .overflow_y_scroll()
+                            .scrollbar_y()
                             .when_some(command.command_result.as_ref(), |this, result| {
                                 this.child(result.clone())
                             })
@@ -568,19 +577,6 @@ impl Render for RedisWorkspace {
         let is_browse = matches!(self.active, ViewType::Browse);
         let is_command = matches!(self.active, ViewType::Command);
 
-        let elapsed = self
-            .browse
-            .as_ref()
-            .map(|b| b.last_refresh_time.elapsed())
-            .unwrap_or_default();
-        let time_str = if elapsed.as_secs() < 60 {
-            format!("{}秒前", elapsed.as_secs())
-        } else if elapsed.as_secs() < 3600 {
-            format!("{}分钟前", elapsed.as_secs() / 60)
-        } else {
-            format!("{}小时前", elapsed.as_secs() / 3600)
-        };
-
         div()
             .id(comp_id(["redis", id]))
             .col_full()
@@ -594,34 +590,6 @@ impl Render for RedisWorkspace {
                     .gap_2()
                     .border_b_1()
                     .border_color(theme.border)
-                    .child(
-                        ButtonGroup::new(comp_id(["redis-view-switcher", id]))
-                            .outline()
-                            .compact()
-                            .child(
-                                Button::new(comp_id(["redis-view-overview", id]))
-                                    .label("概览")
-                                    .selected(is_overview),
-                            )
-                            .child(
-                                Button::new(comp_id(["redis-view-browse", id]))
-                                    .label("浏览数据")
-                                    .selected(is_browse),
-                            )
-                            .child(
-                                Button::new(comp_id(["redis-view-command", id]))
-                                    .label("执行命令")
-                                    .selected(is_command),
-                            )
-                            .on_click(cx.listener(move |view, selected: &Vec<usize>, window, cx| {
-                                match selected[0] {
-                                    0 => view.switch_to_overview(window, cx),
-                                    1 => view.switch_to_browse(window, cx),
-                                    2 => view.switch_to_command(window, cx),
-                                    _ => {}
-                                }
-                            })),
-                    )
                     .child(
                         Button::new(comp_id(["redis-header-reload", id]))
                             .icon(icon_relead().with_size(Size::Small))
@@ -645,10 +613,32 @@ impl Render for RedisWorkspace {
                     )
                     .child(div().flex_1())
                     .child(
-                        div()
-                            .text_sm()
-                            .text_color(theme.muted_foreground)
-                            .child(format!("上次刷新: {}", time_str)),
+                        ButtonGroup::new(comp_id(["redis-view-switcher", id]))
+                            .outline()
+                            .compact()
+                            .child(
+                                Button::new(comp_id(["redis-view-overview", id]))
+                                    .label("概览")
+                                    .selected(is_overview),
+                            )
+                            .child(
+                                Button::new(comp_id(["redis-view-browse", id]))
+                                    .label("浏览数据")
+                                    .selected(is_browse),
+                            )
+                            .child(
+                                Button::new(comp_id(["redis-view-command", id]))
+                                    .label("执行命令")
+                                    .selected(is_command),
+                            )
+                            .on_click(
+                                cx.listener(move |view, selected: &Vec<usize>, window, cx| match selected[0] {
+                                    0 => view.switch_to_overview(window, cx),
+                                    1 => view.switch_to_browse(window, cx),
+                                    2 => view.switch_to_command(window, cx),
+                                    _ => {}
+                                }),
+                            ),
                     ),
             )
             .child(match &self.active {

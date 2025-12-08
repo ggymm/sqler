@@ -365,7 +365,7 @@ impl Render for CreateWindow {
                     div()
                         .p_6()
                         .col_full()
-                        .scrollable(Axis::Vertical)
+                        .scrollbar_y()
                         .when_none(&kind, |this| {
                             this.child(div().flex().flex_col().gap_5().children(kinds))
                         })

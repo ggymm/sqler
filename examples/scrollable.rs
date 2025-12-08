@@ -1,3 +1,5 @@
+use gpui_component::scroll::ScrollbarAxis;
+
 fn main() {
-    println!()
+    print!("{}", ScrollbarAxis::Both.has_vertical());
 }

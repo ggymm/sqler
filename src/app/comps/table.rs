@@ -117,10 +117,10 @@ impl TableDelegate for DataTable {
     }
 
     fn render_th(
-        &self,
+        &mut self,
         col_ix: usize,
         _window: &mut Window,
-        _cx: &mut App,
+        _cx: &mut Context<TableState<Self>>,
     ) -> impl IntoElement {
         div()
             .size_full()
@@ -129,11 +129,11 @@ impl TableDelegate for DataTable {
     }
 
     fn render_td(
-        &self,
+        &mut self,
         row_ix: usize,
         col_ix: usize,
         _window: &mut Window,
-        _cx: &mut App,
+        _cx: &mut Context<TableState<Self>>,
     ) -> impl IntoElement {
         let value = self
             .rows
