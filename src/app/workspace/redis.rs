@@ -2,7 +2,7 @@ use std::{collections::HashMap, time::Instant};
 
 use gpui::{prelude::*, *};
 use gpui_component::{
-    ActiveTheme, Disableable, Icon, IconName, Selectable, Sizable, Size, StyledExt,
+    ActiveTheme, Icon, IconName, Selectable, Sizable, Size, StyledExt,
     button::{Button, ButtonGroup},
     input::{Input, InputState},
     list::ListItem,
@@ -24,8 +24,8 @@ use crate::{
 
 #[derive(Clone)]
 pub struct KeyInfo {
-    pub full_key: String,
-    pub key_type: String,
+    pub key: String,
+    pub kind: String,
     pub size: String,
     pub ttl: String,
 }
@@ -135,21 +135,6 @@ impl RedisWorkspace {
             format!("[二进制数据 {} 字节]", value.len())
         } else {
             value.to_string()
-        }
-    }
-
-    fn select_key(
-        &mut self,
-        key: String,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if let Some(browse) = self.browse_content() {
-            browse.selected_key = Some(key.clone());
-            cx.notify();
-
-            // 加载完整的 key 值
-            self.load_key_detail(key, window, cx);
         }
     }
 
@@ -316,13 +301,6 @@ impl RedisWorkspace {
         .detach();
     }
 
-    fn find_key_info(
-        &self,
-        key: &str,
-    ) -> Option<KeyInfo> {
-        self.browse.as_ref().and_then(|browse| browse.keys.get(key).cloned())
-    }
-
     fn load_more_keys(
         &mut self,
         window: &mut Window,
@@ -479,7 +457,7 @@ impl RedisWorkspace {
                             Ok(QueryResp::Value(Value::Number(n))) => {
                                 if let Some(ttl_val) = n.as_i64() {
                                     if ttl_val == -1 {
-                                        "永不过期".to_string()
+                                        "No TTL".to_string()
                                     } else if ttl_val == -2 {
                                         "已过期".to_string()
                                     } else {
@@ -516,8 +494,8 @@ impl RedisWorkspace {
                         key_infos.insert(
                             key.clone(),
                             KeyInfo {
-                                full_key: key,
-                                key_type,
+                                key: key,
+                                kind: key_type,
                                 size,
                                 ttl,
                             },
@@ -671,197 +649,171 @@ impl RedisWorkspace {
     ) -> AnyElement {
         let theme = cx.theme().clone();
         let id = &self.source.id;
-        let keys = browse.keys.clone();
-        let view_entity = cx.entity().clone();
 
-        // 渲染键列表（左侧面板）
-        let key_list = div()
-            .flex()
-            .flex_col()
-            .gap_2()
+        let tree = div()
             .col_full()
             .child(
                 div()
                     .flex()
                     .flex_row()
-                    .px_2()
+                    .px_4()
                     .py_1()
-                    .gap_4()
-                    .text_xs()
+                    .text_sm()
                     .font_semibold()
-                    .text_color(theme.muted_foreground)
-                    .border_b_1()
-                    .border_color(theme.border)
                     .child(div().flex_1().child("键"))
-                    .child(div().w(px(60.)).child("类型"))
-                    .child(div().w(px(60.)).child("大小"))
-                    .child(div().w(px(80.)).child("TTL")),
+                    .child(div().w_20().child("类型"))
+                    .child(div().w_20().child("大小"))
+                    .child(div().w_20().child("TTL")),
             )
-            .child(
-                tree(&browse.tree_state, move |_ix, entry, selected, _window, _cx| {
-                    let item = entry.item();
-                    let key_id = item.id.to_string();
-                    let key_info = keys.get(key_id.as_str());
+            .child(tree(&browse.tree_state, {
+                let keys = browse.keys.clone();
+                let entity = cx.entity().clone();
+                move |_, entry, selected, _, _| {
+                    let key = entry.item();
 
-                    let list_item = ListItem::new(item.id.clone())
-                        .pl(px(16.) * entry.depth() + px(12.))
-                        .rounded_md()
+                    let item = ListItem::new(key.id.clone())
+                        .pl(px(16.) * entry.depth() + px(16.))
+                        .text_sm()
                         .selected(selected);
 
                     if entry.is_folder() {
-                        // 文件夹节点：添加展开/折叠图标
                         let icon_name = if entry.is_expanded() {
                             IconName::ChevronDown
                         } else {
                             IconName::ChevronRight
                         };
 
-                        list_item.child(
+                        item.child(
                             div()
                                 .flex()
                                 .flex_row()
                                 .items_center()
                                 .gap_1()
-                                .child(Icon::new(icon_name).size_3())
-                                .child(item.label.clone()),
+                                .child(Icon::new(icon_name))
+                                .child(key.label.clone()),
                         )
-                    } else if let Some(info) = key_info {
-                        list_item
-                            .on_click({
-                                let view = view_entity.clone();
-                                let key = key_id.clone();
-                                move |_event, window, cx| {
-                                    let _ = view.update(cx, |this, cx| {
-                                        this.select_key(key.clone(), window, cx);
-                                    });
-                                }
-                            })
-                            .child(
-                                div()
-                                    .flex()
-                                    .flex_row()
-                                    .gap_1()
-                                    .child(div().flex_1().text_sm().child(item.label.clone()))
-                                    .child(
-                                        div()
-                                            .flex()
-                                            .flex_row()
-                                            .gap_4()
-                                            .text_xs()
-                                            .child(div().w(px(60.)).child(info.key_type.clone()))
-                                            .child(div().w(px(60.)).child(info.size.clone()))
-                                            .child(div().w(px(80.)).child(info.ttl.clone())),
-                                    ),
-                            )
                     } else {
-                        list_item
-                    }
-                })
-                .flex_1(),
-            );
+                        let Some(info) = keys.get(key.id.as_str()) else {
+                            return item;
+                        };
+                        item.on_click({
+                            let view = entity.clone();
+                            let key = key.id.to_string().clone();
+                            move |_, window, cx| {
+                                let _ = view.update(cx, |this, cx| {
+                                    let Some(browse) = this.browse_content() else {
+                                        return;
+                                    };
+                                    browse.selected_key = Some(key.clone());
+                                    cx.notify();
 
-        // 渲染键详情（右侧面板）
-        let key_detail = if let Some(key) = &browse.selected_key {
-            if let Some(info) = self.find_key_info(key) {
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap_3()
-                    .p_4()
-                    .col_full()
-                    .child(
-                        div()
-                            .flex()
-                            .flex_row()
-                            .items_center()
-                            .gap_2()
-                            .child(
-                                div()
-                                    .w(px(80.))
-                                    .text_sm()
-                                    .text_color(theme.muted_foreground)
-                                    .child("键名称:"),
-                            )
-                            .child(div().flex_1().text_sm().child(info.full_key)),
-                    )
-                    .child(
-                        div()
-                            .flex()
-                            .flex_row()
-                            .items_center()
-                            .gap_2()
-                            .child(
-                                div()
-                                    .w(px(80.))
-                                    .text_sm()
-                                    .text_color(theme.muted_foreground)
-                                    .child("键类型:"),
-                            )
-                            .child(
-                                div()
-                                    .w(px(200.))
-                                    .child(Select::new(&browse.detail_key_type).with_size(Size::Small)),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .flex()
-                            .flex_col()
-                            .gap_2()
-                            .child(div().text_sm().text_color(theme.muted_foreground).child("值:"))
-                            .child(
-                                div()
-                                    .flex_1()
-                                    .min_h(px(200.))
-                                    .p_2()
-                                    .text_sm()
-                                    .border_1()
-                                    .border_color(theme.border)
-                                    .rounded_md()
-                                    .bg(theme.secondary)
-                                    .child(browse.selected_key_value.clone()),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .flex()
-                            .flex_row()
-                            .items_center()
-                            .gap_2()
-                            .child(
-                                div()
-                                    .w(px(80.))
-                                    .text_sm()
-                                    .text_color(theme.muted_foreground)
-                                    .child("TTL:"),
-                            )
-                            .child(
-                                div()
-                                    .w(px(200.))
-                                    .child(Select::new(&browse.detail_ttl).with_size(Size::Small)),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .flex()
-                            .flex_row()
-                            .gap_2()
-                            .justify_end()
-                            .child(Button::new(comp_id(["redis-detail-apply"])).label("应用").outline())
-                            .child(Button::new(comp_id(["redis-detail-cancel"])).label("放弃").outline()),
-                    )
-                    .into_any_element()
-            } else {
-                div()
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .col_full()
-                    .text_sm()
-                    .text_color(theme.muted_foreground)
-                    .child("请选择一个键查看详情")
-                    .into_any_element()
-            }
+                                    // 加载完整的 key 值
+                                    this.load_key_detail(key.clone(), window, cx);
+                                });
+                            }
+                        })
+                        .child(
+                            div()
+                                .flex()
+                                .flex_row()
+                                .child(div().flex_1().child(key.label.clone()))
+                                .child(div().w_20().child(info.kind.clone()))
+                                .child(div().w_20().child(info.size.clone()))
+                                .child(div().w_20().child(info.ttl.clone())),
+                        )
+                    }
+                }
+            }));
+
+        let detail = if let Some(key) = &browse.selected_key {
+            div()
+                .flex()
+                .flex_col()
+                .gap_3()
+                .p_4()
+                .col_full()
+                .child(
+                    div()
+                        .flex()
+                        .flex_row()
+                        .items_center()
+                        .gap_2()
+                        .child(
+                            div()
+                                .w(px(80.))
+                                .text_sm()
+                                .text_color(theme.muted_foreground)
+                                .child("键名称:"),
+                        )
+                        .child(div().flex_1().text_sm().child(key.clone())),
+                )
+                .child(
+                    div()
+                        .flex()
+                        .flex_row()
+                        .items_center()
+                        .gap_2()
+                        .child(
+                            div()
+                                .w(px(80.))
+                                .text_sm()
+                                .text_color(theme.muted_foreground)
+                                .child("键类型:"),
+                        )
+                        .child(
+                            div()
+                                .w(px(200.))
+                                .child(Select::new(&browse.detail_key_type).with_size(Size::Small)),
+                        ),
+                )
+                .child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .gap_2()
+                        .child(div().text_sm().text_color(theme.muted_foreground).child("值:"))
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_h(px(200.))
+                                .p_2()
+                                .text_sm()
+                                .border_1()
+                                .border_color(theme.border)
+                                .rounded_md()
+                                .bg(theme.secondary)
+                                .child(browse.selected_key_value.clone()),
+                        ),
+                )
+                .child(
+                    div()
+                        .flex()
+                        .flex_row()
+                        .items_center()
+                        .gap_2()
+                        .child(
+                            div()
+                                .w(px(80.))
+                                .text_sm()
+                                .text_color(theme.muted_foreground)
+                                .child("TTL:"),
+                        )
+                        .child(
+                            div()
+                                .w(px(200.))
+                                .child(Select::new(&browse.detail_ttl).with_size(Size::Small)),
+                        ),
+                )
+                .child(
+                    div()
+                        .flex()
+                        .flex_row()
+                        .gap_2()
+                        .justify_end()
+                        .child(Button::new(comp_id(["redis-detail-apply"])).label("应用").outline())
+                        .child(Button::new(comp_id(["redis-detail-cancel"])).label("放弃").outline()),
+                )
+                .into_any_element()
         } else {
             div()
                 .flex()
@@ -879,9 +831,9 @@ impl RedisWorkspace {
                 resizable_panel()
                     .size(px(300.0))
                     .size_range(px(200.0)..Pixels::MAX)
-                    .child(key_list),
+                    .child(tree),
             )
-            .child(key_detail)
+            .child(detail)
             .into_any_element()
     }
 
@@ -992,10 +944,52 @@ impl Render for RedisWorkspace {
         let id = &self.source.id;
         let theme = cx.theme().clone();
 
-        let is_overview = matches!(self.active, ViewType::Overview);
-        let is_browse = matches!(self.active, ViewType::Browse);
-        let is_command = matches!(self.active, ViewType::Command);
-        let is_loading = self.browse.as_ref().map(|b| b.loading).unwrap_or(false);
+        match &self.active {
+            ViewType::Overview if self.overview.is_none() => {
+                self.overview = Some(OverviewContent {});
+            }
+            ViewType::Browse if self.browse.is_none() => {
+                let detail_types = vec![
+                    "string".into(),
+                    "hash".into(),
+                    "list".into(),
+                    "set".into(),
+                    "zset".into(),
+                ];
+
+                let ttl_options = vec![
+                    "无TTL".into(),
+                    "10秒".into(),
+                    "1分钟".into(),
+                    "10分钟".into(),
+                    "1小时".into(),
+                ];
+
+                let keys = HashMap::new();
+                let tree_items = build_tree_items(&keys);
+
+                self.browse = Some(BrowseContent {
+                    keys,
+                    tree_state: cx.new(|cx| TreeState::new(cx).items(tree_items)),
+                    selected_key: None,
+                    selected_key_value: String::new(),
+                    last_refresh_time: Instant::now(),
+                    detail_key_type: cx.new(|cx| SelectState::new(detail_types, None, window, cx)),
+                    detail_ttl: cx.new(|cx| SelectState::new(ttl_options, None, window, cx)),
+                    scan_cursor: "0".to_string(),
+                    loading: false,
+                });
+            }
+            ViewType::Command if self.command.is_none() => {
+                self.command = Some(CommandContent {
+                    command_input: cx.new(|cx| {
+                        InputState::new(window, cx).placeholder("输入 Redis 命令，例如: GET key 或 SET key value")
+                    }),
+                    command_result: None,
+                });
+            }
+            _ => {}
+        }
 
         div()
             .id(comp_id(["redis", id]))
@@ -1005,17 +999,15 @@ impl Render for RedisWorkspace {
                     .id(comp_id(["redis-header", id]))
                     .flex()
                     .flex_row()
-                    .items_center()
                     .p_4()
                     .gap_2()
                     .border_b_1()
                     .border_color(theme.border)
                     .child(
                         Button::new(comp_id(["redis-header-reload", id]))
-                            .icon(icon_relead().with_size(Size::Small))
+                            .icon(icon_relead())
                             .label("刷新")
                             .outline()
-                            .disabled(is_loading)
                             .on_click({
                                 cx.listener(|view, _, window, cx| {
                                     if let Some(browse) = view.browse.as_mut() {
@@ -1032,7 +1024,6 @@ impl Render for RedisWorkspace {
                             .icon(icon_arrow_down())
                             .label("获取更多")
                             .outline()
-                            .loading(is_loading)
                             .on_click({
                                 cx.listener(|view, _event, window, cx| {
                                     view.load_more_keys(window, cx);
@@ -1041,10 +1032,9 @@ impl Render for RedisWorkspace {
                     )
                     .child(
                         Button::new(comp_id(["redis-header-load-all", id]))
-                            .icon(icon_arrow_down_line().with_size(Size::Small))
+                            .icon(icon_arrow_down_line())
                             .label("获取全部")
                             .outline()
-                            .loading(is_loading)
                             .on_click({
                                 cx.listener(|view, _event, window, cx| {
                                     view.load_all_keys(window, cx);
@@ -1053,7 +1043,7 @@ impl Render for RedisWorkspace {
                     )
                     .child(
                         Button::new(comp_id(["redis-header-add", id]))
-                            .icon(icon_create().with_size(Size::Small))
+                            .icon(icon_create())
                             .label("新建数据")
                             .outline(),
                     )
@@ -1065,17 +1055,17 @@ impl Render for RedisWorkspace {
                             .child(
                                 Button::new(comp_id(["redis-view-overview", id]))
                                     .label("数据源概览")
-                                    .selected(is_overview),
+                                    .selected(matches!(self.active, ViewType::Overview)),
                             )
                             .child(
                                 Button::new(comp_id(["redis-view-browse", id]))
-                                    .label("浏览数据")
-                                    .selected(is_browse),
+                                    .label("数据视图")
+                                    .selected(matches!(self.active, ViewType::Browse)),
                             )
                             .child(
                                 Button::new(comp_id(["redis-view-command", id]))
-                                    .label("执行命令")
-                                    .selected(is_command),
+                                    .label("命令视图")
+                                    .selected(matches!(self.active, ViewType::Command)),
                             )
                             .on_click(
                                 cx.listener(move |view, selected: &Vec<usize>, window, cx| match selected[0] {
@@ -1088,30 +1078,9 @@ impl Render for RedisWorkspace {
                     ),
             )
             .child(match &self.active {
-                ViewType::Overview => {
-                    if let Some(overview) = &self.overview {
-                        self.render_overview_view(overview, window, cx)
-                    } else {
-                        self.switch_to_overview(window, cx);
-                        div().col_full().into_any_element()
-                    }
-                }
-                ViewType::Browse => {
-                    if let Some(browse) = self.browse.as_ref() {
-                        self.render_browse_view(browse, window, cx)
-                    } else {
-                        self.switch_to_browse(window, cx);
-                        div().col_full().into_any_element()
-                    }
-                }
-                ViewType::Command => {
-                    if let Some(command) = &self.command {
-                        self.render_command_view(command, window, cx)
-                    } else {
-                        self.switch_to_command(window, cx);
-                        div().col_full().into_any_element()
-                    }
-                }
+                ViewType::Browse => self.render_browse_view(self.browse.as_ref().unwrap(), window, cx),
+                ViewType::Command => self.render_command_view(self.command.as_ref().unwrap(), window, cx),
+                ViewType::Overview => self.render_overview_view(self.overview.as_ref().unwrap(), window, cx),
             })
     }
 }
@@ -1125,13 +1094,15 @@ pub enum ViewType {
 pub struct BrowseContent {
     pub keys: HashMap<String, KeyInfo>,
     pub tree_state: Entity<TreeState>,
+
+    pub loading: bool,
+    pub scan_cursor: String,
+    pub last_refresh_time: Instant,
+
     pub selected_key: Option<String>,
     pub selected_key_value: String,
-    pub last_refresh_time: Instant,
     pub detail_key_type: Entity<SelectState<Vec<SharedString>>>,
     pub detail_ttl: Entity<SelectState<Vec<SharedString>>>,
-    pub scan_cursor: String,
-    pub loading: bool,
 }
 
 pub struct CommandContent {
