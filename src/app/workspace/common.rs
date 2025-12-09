@@ -477,7 +477,7 @@ impl CommonWorkspace {
             summaries.push(item);
         }
 
-        v_resizable(comp_id(["common-content"]))
+        v_resizable(comp_id(["query-content"]))
             .child(
                 resizable_panel()
                     .size(px(200.0))
