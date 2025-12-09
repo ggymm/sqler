@@ -1547,7 +1547,7 @@ impl Render for CommonWorkspace {
                     .border_color(theme.border)
                     .child(
                         Button::new(comp_id(["common-header-refresh", id]))
-                            .icon(icon_relead().with_size(Size::Small))
+                            .icon(icon_relead())
                             .label("刷新表")
                             .outline()
                             .on_click(cx.listener({
@@ -1559,7 +1559,7 @@ impl Render for CommonWorkspace {
                     )
                     .child(
                         Button::new(comp_id(["common-header-table", id]))
-                            .icon(icon_sheet().with_size(Size::Small))
+                            .icon(icon_sheet())
                             .label("新建表")
                             .outline()
                             .on_click(cx.listener({
@@ -1571,7 +1571,7 @@ impl Render for CommonWorkspace {
                     )
                     .child(
                         Button::new(comp_id(["common-header-query", id]))
-                            .icon(icon_search().with_size(Size::Small))
+                            .icon(icon_search())
                             .label("新建查询")
                             .outline()
                             .on_click(cx.listener({
@@ -1583,7 +1583,7 @@ impl Render for CommonWorkspace {
                     )
                     .child(
                         Button::new(comp_id(["common-header-import", id]))
-                            .icon(icon_import().with_size(Size::Small))
+                            .icon(icon_import())
                             .label("数据导入")
                             .outline()
                             .on_click(cx.listener({
@@ -1599,7 +1599,7 @@ impl Render for CommonWorkspace {
                     )
                     .child(
                         Button::new(comp_id(["common-header-export", id]))
-                            .icon(icon_export().with_size(Size::Small))
+                            .icon(icon_export())
                             .label("数据导出")
                             .outline()
                             .on_click(cx.listener({

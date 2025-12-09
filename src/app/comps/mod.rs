@@ -92,8 +92,20 @@ impl DivExt for Stateful<Div> {
     }
 }
 
+pub fn icon_arrow_down() -> Icon {
+    Icon::default().path("icons/arrow-down.svg")
+}
+
+pub fn icon_arrow_down_line() -> Icon {
+    Icon::default().path("icons/arrow-down-to-line.svg")
+}
+
 pub fn icon_close() -> Icon {
     Icon::default().path("icons/close.svg")
+}
+
+pub fn icon_create() -> Icon {
+    Icon::default().path("icons/plus.svg")
 }
 
 pub fn icon_export() -> Icon {
