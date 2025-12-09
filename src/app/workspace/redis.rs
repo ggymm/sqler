@@ -547,74 +547,6 @@ impl RedisWorkspace {
         .detach();
     }
 
-    fn switch_to_browse(
-        &mut self,
-        _window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if matches!(self.active, ViewType::Browse) {
-            return;
-        }
-
-        if self.browse.is_none() {
-            let keys = HashMap::new();
-            let tree_items = build_tree_items(&keys);
-            let tree_state = cx.new(|cx| TreeState::new(cx).items(tree_items));
-
-            self.browse = Some(BrowseContent {
-                keys,
-                tree_state,
-                selected_key: None,
-                selected_key_value: String::new(),
-                last_refresh_time: Instant::now(),
-                scan_cursor: "0".to_string(),
-                loading: false,
-            });
-        }
-
-        self.active = ViewType::Browse;
-        cx.notify();
-    }
-
-    fn switch_to_command(
-        &mut self,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if matches!(self.active, ViewType::Command) {
-            return;
-        }
-
-        if self.command.is_none() {
-            self.command = Some(CommandContent {
-                editor: cx.new(|cx| {
-                    InputState::new(window, cx).placeholder("输入 Redis 命令，例如: GET key 或 SET key value")
-                }),
-                result: None,
-            });
-        }
-
-        self.active = ViewType::Command;
-        cx.notify();
-    }
-
-    fn switch_to_overview(
-        &mut self,
-        _window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if matches!(self.active, ViewType::Overview) {
-            return;
-        }
-
-        if self.overview.is_none() {
-            self.overview = Some(OverviewContent {});
-        }
-
-        self.active = ViewType::Overview;
-        cx.notify();
-    }
-
     fn render_browse_view(
         &self,
         browse: &BrowseContent,
@@ -911,10 +843,25 @@ impl Render for RedisWorkspace {
                                     .selected(matches!(self.active, ViewType::Command)),
                             )
                             .on_click(
-                                cx.listener(move |view, selected: &Vec<usize>, window, cx| match selected[0] {
-                                    0 => view.switch_to_overview(window, cx),
-                                    1 => view.switch_to_browse(window, cx),
-                                    2 => view.switch_to_command(window, cx),
+                                cx.listener(move |view, selected: &Vec<usize>, _window, cx| match selected[0] {
+                                    0 => {
+                                        if !matches!(view.active, ViewType::Overview) {
+                                            view.active = ViewType::Overview;
+                                            cx.notify();
+                                        }
+                                    }
+                                    1 => {
+                                        if !matches!(view.active, ViewType::Browse) {
+                                            view.active = ViewType::Browse;
+                                            cx.notify();
+                                        }
+                                    }
+                                    2 => {
+                                        if !matches!(view.active, ViewType::Command) {
+                                            view.active = ViewType::Command;
+                                            cx.notify();
+                                        }
+                                    }
                                     _ => {}
                                 }),
                             ),
