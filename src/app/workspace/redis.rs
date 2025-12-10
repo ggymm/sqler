@@ -3,7 +3,7 @@ use std::{collections::HashMap, time::Instant};
 use gpui::{prelude::*, *};
 use gpui_component::input::TabSize;
 use gpui_component::{
-    ActiveTheme, Icon, IconName, Selectable, Sizable, Size, StyledExt,
+    ActiveTheme, Icon, IconName, Selectable, StyledExt,
     button::{Button, ButtonGroup},
     input::{Input, InputState},
     list::ListItem,
@@ -117,14 +117,6 @@ impl RedisWorkspace {
         }
     }
 
-    fn browse_content(&mut self) -> Option<&mut BrowseContent> {
-        self.browse.as_mut()
-    }
-
-    fn command_content(&mut self) -> Option<&mut CommandContent> {
-        self.command.as_mut()
-    }
-
     /// 安全地显示值，处理二进制数据
     fn format_value(value: &str) -> String {
         // 检查是否包含不可打印字符或无效UTF-8
@@ -157,8 +149,6 @@ impl RedisWorkspace {
             tracing::error!("无法获取 Redis 连接");
             return;
         };
-
-        let key_for_closure = key.clone();
 
         cx.spawn_in(window, async move |this, cx| {
             let ret = cx
@@ -557,6 +547,7 @@ impl RedisWorkspace {
         let id = &self.source.id;
 
         let tree = div()
+            .px_2()
             .col_full()
             .child(
                 div()
@@ -580,6 +571,7 @@ impl RedisWorkspace {
                     let item = ListItem::new(key.id.clone())
                         .pl(px(16.) * entry.depth() + px(16.))
                         .text_sm()
+                        .rounded_md()
                         .selected(selected);
 
                     if entry.is_folder() {
@@ -604,10 +596,10 @@ impl RedisWorkspace {
                         };
                         item.on_click({
                             let view = entity.clone();
-                            let key = key.id.to_string().clone();
+                            let key = info.key.clone();
                             move |_, window, cx| {
                                 let _ = view.update(cx, |this, cx| {
-                                    let Some(browse) = this.browse_content() else {
+                                    let Some(browse) = this.browse.as_mut() else {
                                         return;
                                     };
                                     browse.selected_key = Some(key.clone());
@@ -663,7 +655,7 @@ impl RedisWorkspace {
             div().into_any_element()
         };
 
-        v_resizable(comp_id(["redis-content", id]))
+        v_resizable(comp_id(["browse-content", &id]))
             .child(
                 resizable_panel()
                     .size(px(400.0))
@@ -683,30 +675,26 @@ impl RedisWorkspace {
         let theme = cx.theme();
         let id = &self.source.id;
 
-        v_resizable(comp_id(["query-content"]))
+        let editor = div().flex_1().child(
+            Input::new(&command.editor)
+                .p_0()
+                .h_full()
+                .appearance(false)
+                .text_sm()
+                .font_family(theme.mono_font_family.clone())
+                .focus_bordered(false),
+        );
+
+        let result = div().into_any_element();
+
+        v_resizable(comp_id(["command-content", &id]))
             .child(
                 resizable_panel()
                     .size(px(200.0))
                     .size_range(px(80.)..px(800.))
-                    .child(
-                        div()
-                            .flex_1()
-                            .border_t_1()
-                            .border_color(theme.border)
-                            .child(
-                                Input::new(&command.editor)
-                                    .p_0()
-                                    .h_full()
-                                    .appearance(false)
-                                    .text_sm()
-                                    .font_family(theme.mono_font_family.clone())
-                                    .focus_bordered(false),
-                            )
-                            .child(div()),
-                    )
-                    .child(div()),
+                    .child(editor),
             )
-            .child(div().into_any_element())
+            .child(result)
             .into_any_element()
     }
 
