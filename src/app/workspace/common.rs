@@ -481,7 +481,7 @@ impl CommonWorkspace {
             .child(
                 resizable_panel()
                     .size(px(200.0))
-                    .size_range(px(80.)..px(800.))
+                    .size_range(px(200.)..Pixels::MAX)
                     .child(
                         div()
                             .flex_1()
@@ -818,7 +818,7 @@ impl CommonWorkspace {
             }));
 
         let right_panel_tabs = div().row_full().min_h_12().justify_center().child(
-            ButtonGroup::new("button-group")
+            ButtonGroup::new("table-panel-switcher")
                 .outline()
                 .compact()
                 .child(
@@ -939,30 +939,42 @@ impl CommonWorkspace {
 
         // 表单视图
         let mut form_panel = div().px_4().py_2().col_full();
-        if let Some(row_idx) = tab.datatable.read(cx).selected_row() {
-            // 渲染选中行数据
-            let row = tab.datatable.read(cx).delegate().get_data(row_idx);
-            for (name, value) in tab.columns.iter().zip(row.iter()) {
-                form_panel = form_panel.child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .pb_3()
-                        .gap_1()
-                        .child(div().text_sm().child(name.clone()))
-                        .child(
-                            div()
-                                .px_2()
-                                .py_1()
-                                .rounded_md()
-                                .bg(theme.muted)
-                                .border_1()
-                                .border_color(theme.border)
-                                .text_sm()
-                                .child(value.clone()),
-                        ),
-                );
-            }
+        if let Some(i) = tab.datatable.read(cx).selected_row() {
+            // 选中行
+            let row = tab.datatable.read(cx).delegate().get_data(i);
+
+            // 构造表单
+            form_panel = tab
+                .columns
+                .iter()
+                .zip(row.iter())
+                .fold(form_panel, |form_panel, (name, value)| {
+                    form_panel.child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .pb_3()
+                            .gap_1()
+                            .text_sm()
+                            .child(div().child(name.clone()))
+                            .child(
+                                div()
+                                    .px_2()
+                                    .py_1()
+                                    .rounded_md()
+                                    .bg(theme.muted)
+                                    .border_1()
+                                    .border_color(theme.border)
+                                    .child(
+                                        div()
+                                            .id(comp_id(["table-panel-form-item", name]))
+                                            .max_h_64()
+                                            .overflow_y_scroll()
+                                            .child(value.clone()),
+                                    ),
+                            ),
+                    )
+                });
         }
 
         // 筛选数据
@@ -1307,8 +1319,8 @@ impl CommonWorkspace {
             )
             .child(
                 resizable_panel()
-                    .size(px(280.0))
-                    .size_range(px(60.)..px(600.))
+                    .size(px(400.0))
+                    .size_range(px(200.)..Pixels::MAX)
                     .child(detail_content),
             )
             .into_any_element()
@@ -1620,8 +1632,8 @@ impl Render for CommonWorkspace {
                     h_resizable(comp_id(["common-content", id]))
                         .child(
                             resizable_panel()
-                                .size(px(280.))
-                                .size_range(px(80.)..px(480.))
+                                .size(px(240.))
+                                .size_range(px(120.)..px(480.))
                                 .child(sidebar),
                         )
                         .child(

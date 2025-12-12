@@ -1,4 +1,4 @@
-use std::{collections::HashMap, time::Instant};
+use std::collections::HashMap;
 
 use gpui::{prelude::*, *};
 use gpui_component::input::TabSize;
@@ -275,7 +275,7 @@ impl RedisWorkspace {
 
                         // 更新选中 key 的完整值到专用字段
                         if let Some(browse) = this.browse.as_mut() {
-                            browse.selected_key_value = full_value;
+                            browse.selected_value = full_value;
                         }
 
                         cx.notify();
@@ -325,7 +325,7 @@ impl RedisWorkspace {
         }
 
         // 如果游标为 0 且不是第一次加载，说明已经加载完所有 keys
-        if browse.scan_cursor == "0" && !browse.keys.is_empty() {
+        if browse.cursor == "0" && !browse.keys.is_empty() {
             return;
         }
 
@@ -334,7 +334,7 @@ impl RedisWorkspace {
         cx.notify();
 
         // 获取当前游标
-        let cursor = browse.scan_cursor.clone();
+        let cursor = browse.cursor.clone();
 
         // 获取数据库连接
         let session = match self.active_session() {
@@ -503,7 +503,7 @@ impl RedisWorkspace {
                             let new_count = browse.keys.len();
 
                             // 更新游标
-                            browse.scan_cursor = cursor;
+                            browse.cursor = cursor;
 
                             // 只有当有新keys加入时才重建树（避免不必要的重建）
                             if new_count > old_count {
@@ -516,9 +516,7 @@ impl RedisWorkspace {
 
                             // 更新加载状态
                             browse.loading = false;
-                            browse.last_refresh_time = Instant::now();
                         }
-
                         cx.notify();
                     }
                     Err(err) => {
@@ -539,21 +537,20 @@ impl RedisWorkspace {
 
     fn render_browse_view(
         &self,
-        browse: &BrowseContent,
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        let browse = self.browse.as_ref().unwrap();
         let theme = cx.theme().clone();
         let id = &self.source.id;
 
         let tree = div()
-            .px_2()
             .col_full()
             .child(
                 div()
                     .flex()
                     .flex_row()
-                    .px_4()
+                    .px_6()
                     .py_1()
                     .text_sm()
                     .font_semibold()
@@ -569,9 +566,8 @@ impl RedisWorkspace {
                     let key = entry.item();
 
                     let item = ListItem::new(key.id.clone())
-                        .pl(px(16.) * entry.depth() + px(16.))
+                        .pl(px(16.) * entry.depth() + px(20.))
                         .text_sm()
-                        .rounded_md()
                         .selected(selected);
 
                     if entry.is_folder() {
@@ -602,7 +598,7 @@ impl RedisWorkspace {
                                     let Some(browse) = this.browse.as_mut() else {
                                         return;
                                     };
-                                    browse.selected_key = Some(key.clone());
+                                    browse.selected = Some(key.clone());
                                     cx.notify();
 
                                     // 加载详情
@@ -633,7 +629,7 @@ impl RedisWorkspace {
                 }
             }));
 
-        let detail = if let Some(key) = &browse.selected_key {
+        let detail = if let Some(key) = &browse.selected {
             div()
                 .p_4()
                 .gap_4()
@@ -648,7 +644,7 @@ impl RedisWorkspace {
                         .border_color(theme.border)
                         .rounded_md()
                         .scrollbar_y()
-                        .child(div().p_2().flex_1().child(browse.selected_key_value.clone())),
+                        .child(div().p_2().flex_1().child(browse.selected_value.clone())),
                 )
                 .into_any_element()
         } else {
@@ -668,10 +664,10 @@ impl RedisWorkspace {
 
     fn render_command_view(
         &self,
-        command: &CommandContent,
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        let command = self.command.as_ref().unwrap();
         let theme = cx.theme();
         let id = &self.source.id;
 
@@ -691,7 +687,7 @@ impl RedisWorkspace {
             .child(
                 resizable_panel()
                     .size(px(200.0))
-                    .size_range(px(80.)..px(800.))
+                    .size_range(px(200.)..Pixels::MAX)
                     .child(editor),
             )
             .child(result)
@@ -700,7 +696,6 @@ impl RedisWorkspace {
 
     fn render_overview_view(
         &self,
-        _overview: &OverviewContent,
         _window: &mut Window,
         _cx: &mut Context<Self>,
     ) -> AnyElement {
@@ -723,16 +718,17 @@ impl Render for RedisWorkspace {
             }
             ViewType::Browse if self.browse.is_none() => {
                 let keys = HashMap::new();
-                let tree_items = build_tree_items(&keys);
+                let items = build_tree_items(&keys);
 
                 self.browse = Some(BrowseContent {
                     keys,
-                    tree_state: cx.new(|cx| TreeState::new(cx).items(tree_items)),
-                    selected_key: None,
-                    selected_key_value: String::new(),
-                    last_refresh_time: Instant::now(),
-                    scan_cursor: "0".to_string(),
+                    tree_state: cx.new(|cx| TreeState::new(cx).items(items)),
+
                     loading: false,
+                    cursor: "0".to_string(),
+
+                    selected: None,
+                    selected_value: String::new(),
                 });
             }
             ViewType::Command if self.command.is_none() => {
@@ -775,7 +771,7 @@ impl Render for RedisWorkspace {
                                 cx.listener(|view, _, window, cx| {
                                     if let Some(browse) = view.browse.as_mut() {
                                         browse.keys.clear();
-                                        browse.scan_cursor = "0".to_string();
+                                        browse.cursor = "0".to_string();
                                         browse.loading = false;
                                     }
                                     view.load_more_keys(window, cx);
@@ -817,7 +813,7 @@ impl Render for RedisWorkspace {
                             .compact()
                             .child(
                                 Button::new(comp_id(["redis-view-overview", id]))
-                                    .label("数据源概览")
+                                    .label("概览视图")
                                     .selected(matches!(self.active, ViewType::Overview)),
                             )
                             .child(
@@ -830,29 +826,17 @@ impl Render for RedisWorkspace {
                                     .label("命令视图")
                                     .selected(matches!(self.active, ViewType::Command)),
                             )
-                            .on_click(
-                                cx.listener(move |view, selected: &Vec<usize>, _window, cx| match selected[0] {
-                                    0 => {
-                                        if !matches!(view.active, ViewType::Overview) {
-                                            view.active = ViewType::Overview;
-                                            cx.notify();
-                                        }
+                            .on_click(cx.listener({
+                                move |view, selected: &Vec<usize>, _, cx| {
+                                    match selected[0] {
+                                        1 => view.active = ViewType::Browse,
+                                        2 => view.active = ViewType::Command,
+                                        0 => view.active = ViewType::Overview,
+                                        _ => {}
                                     }
-                                    1 => {
-                                        if !matches!(view.active, ViewType::Browse) {
-                                            view.active = ViewType::Browse;
-                                            cx.notify();
-                                        }
-                                    }
-                                    2 => {
-                                        if !matches!(view.active, ViewType::Command) {
-                                            view.active = ViewType::Command;
-                                            cx.notify();
-                                        }
-                                    }
-                                    _ => {}
-                                }),
-                            ),
+                                    cx.notify();
+                                }
+                            })),
                     ),
             )
             .child(
@@ -860,9 +844,9 @@ impl Render for RedisWorkspace {
                     .id(comp_id(["redis-content", id]))
                     .col_full()
                     .child(match &self.active {
-                        ViewType::Browse => self.render_browse_view(self.browse.as_ref().unwrap(), window, cx),
-                        ViewType::Command => self.render_command_view(self.command.as_ref().unwrap(), window, cx),
-                        ViewType::Overview => self.render_overview_view(self.overview.as_ref().unwrap(), window, cx),
+                        ViewType::Browse => self.render_browse_view(window, cx),
+                        ViewType::Command => self.render_command_view(window, cx),
+                        ViewType::Overview => self.render_overview_view(window, cx),
                     }),
             )
     }
@@ -879,11 +863,10 @@ pub struct BrowseContent {
     pub tree_state: Entity<TreeState>,
 
     pub loading: bool,
-    pub scan_cursor: String,
-    pub last_refresh_time: Instant,
 
-    pub selected_key: Option<String>,
-    pub selected_key_value: String,
+    pub cursor: String,
+    pub selected: Option<String>,
+    pub selected_value: String,
 }
 
 pub struct CommandContent {
