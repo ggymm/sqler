@@ -576,6 +576,33 @@ impl CommonWorkspace {
             return;
         }
 
+        let content_id = tab_id.clone();
+        let datatable = DataTable::new(vec![], vec![], window, cx);
+        let subscription = cx.subscribe_in(
+            &datatable,
+            window,
+            move |view: &mut Self, _, event: &TableEvent, window, cx| {
+                if let TableEvent::SelectRow(i) = event {
+                    let Some(content) = view.table_content(&content_id) else {
+                        return;
+                    };
+                    if content.column_items.is_empty() {
+                        return;
+                    }
+                    content
+                        .column_items
+                        .iter()
+                        .zip(content.datatable.read(cx).delegate().get_data(*i).iter())
+                        .for_each(|((_, state), value)| {
+                            let value = value.to_string();
+                            state.update(cx, |state, cx| {
+                                state.set_value(&value, window, cx);
+                            });
+                        });
+                }
+            },
+        );
+
         // 新建标签页
         self.tabs.insert(
             tab_id.clone(),
@@ -587,14 +614,14 @@ impl CommonWorkspace {
                     count: 0,
                     table: SharedString::from(table),
                     columns: vec![],
-                    datatable: DataTable::new(vec![], vec![], window, cx),
+                    datatable,
                     query_rules: vec![],
                     order_rules: vec![],
                     column_items: vec![],
                     detail_panel: false,
                     detail_panel_idx: 0,
                     detail_panel_state: cx.new(|_| ResizableState::default()),
-                    _subscription: None,
+                    _subscription: subscription,
                 }),
                 closable: true,
             },
@@ -750,28 +777,6 @@ impl CommonWorkspace {
                                     (col.clone(), input)
                                 })
                                 .collect();
-
-                            // 订阅表格选中事件，更新 column_items 的值
-                            let datatable = content.datatable.clone();
-                            let tab_id_clone = tab_id.clone();
-                            content._subscription = Some(cx.subscribe_in(
-                                &datatable,
-                                window,
-                                move |view: &mut CommonWorkspace, _table, event: &TableEvent, window, cx| {
-                                    if let TableEvent::SelectRow(row_idx) = event {
-                                        let Some(content) = view.table_content(&tab_id_clone) else {
-                                            return;
-                                        };
-                                        let row = content.datatable.read(cx).delegate().get_data(*row_idx);
-                                        for ((_, input_state), value) in content.column_items.iter().zip(row.iter()) {
-                                            let value_str = value.to_string();
-                                            input_state.update(cx, |state, cx| {
-                                                state.set_value(&value_str, window, cx);
-                                            });
-                                        }
-                                    }
-                                },
-                            ));
                         }
 
                         content.datatable.update(cx, |t, cx| {
@@ -1752,7 +1757,7 @@ struct TableContent {
     detail_panel: bool,
     detail_panel_idx: usize,
     detail_panel_state: Entity<ResizableState>,
-    _subscription: Option<Subscription>,
+    _subscription: Subscription,
 }
 
 struct SchemaContent {
