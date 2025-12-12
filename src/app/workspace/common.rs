@@ -590,9 +590,10 @@ impl CommonWorkspace {
                     datatable: DataTable::new(vec![], vec![], window, cx),
                     query_rules: vec![],
                     order_rules: vec![],
-                    right_panel: false,
-                    right_panel_idx: 0,
-                    right_panel_state: cx.new(|_| ResizableState::default()),
+                    column_items: vec![],
+                    detail_panel: false,
+                    detail_panel_idx: 0,
+                    detail_panel_state: cx.new(|_| ResizableState::default()),
                 }),
                 closable: true,
             },
@@ -803,7 +804,7 @@ impl CommonWorkspace {
         let right_panel = Button::new(comp_id(["table-panel", &tab_id]))
             .outline()
             .when_else(
-                tab.right_panel,
+                tab.detail_panel,
                 |this| this.icon(IconName::PanelRightClose),
                 |this| this.icon(IconName::PanelRightOpen),
             )
@@ -811,7 +812,7 @@ impl CommonWorkspace {
                 let tab_id = tab_id.clone();
                 move |view: &mut Self, _, _, cx| {
                     if let Some(content) = view.table_content(&tab_id) {
-                        content.right_panel = !content.right_panel;
+                        content.detail_panel = !content.detail_panel;
                     }
                     cx.notify();
                 }
@@ -824,23 +825,23 @@ impl CommonWorkspace {
                 .child(
                     Button::new(comp_id(["table-panel-form", &tab_id]))
                         .label("表单视图")
-                        .selected(tab.right_panel_idx == 0),
+                        .selected(tab.detail_panel_idx == 0),
                 )
                 .child(
                     Button::new(comp_id(["table-panel-filter", &tab_id]))
                         .label("筛选数据")
-                        .selected(tab.right_panel_idx == 1),
+                        .selected(tab.detail_panel_idx == 1),
                 )
                 .child(
                     Button::new(comp_id(["table-panel-columns", &tab_id]))
                         .label("筛选字段")
-                        .selected(tab.right_panel_idx == 2),
+                        .selected(tab.detail_panel_idx == 2),
                 )
                 .on_click(cx.listener({
                     let tab_id = tab_id.clone();
                     move |view, selected: &Vec<usize>, _, cx| {
                         if let Some(content) = view.table_content(&tab_id) {
-                            content.right_panel_idx = selected[0];
+                            content.detail_panel_idx = selected[0];
                         }
                         cx.notify();
                     }
@@ -1060,7 +1061,7 @@ impl CommonWorkspace {
         let column_panel = div().px_4().py_2().gap_2().child(div());
 
         h_resizable(comp_id(["table-content", &tab_id]))
-            .with_state(&tab.right_panel_state)
+            .with_state(&tab.detail_panel_state)
             .child(
                 div()
                     .col_full()
@@ -1091,7 +1092,7 @@ impl CommonWorkspace {
             )
             .child(
                 resizable_panel()
-                    .visible(tab.right_panel)
+                    .visible(tab.detail_panel)
                     .size(px(400.))
                     .size_range(px(400.)..Pixels::MAX)
                     .child(
@@ -1100,10 +1101,10 @@ impl CommonWorkspace {
                             .border_t_1()
                             .border_color(theme.border)
                             .child(right_panel_tabs)
-                            .when(tab.right_panel_idx == 0, |this| {
+                            .when(tab.detail_panel_idx == 0, |this| {
                                 this.child(div().full().scrollbar_y().child(form_panel))
                             })
-                            .when(tab.right_panel_idx == 1, |this| {
+                            .when(tab.detail_panel_idx == 1, |this| {
                                 this.child(div().full().scrollbar_y().child(filter_panel)).child(
                                     div()
                                         .flex()
@@ -1118,7 +1119,7 @@ impl CommonWorkspace {
                                         .child(apply_cond),
                                 )
                             })
-                            .when(tab.right_panel_idx == 2, |this| {
+                            .when(tab.detail_panel_idx == 2, |this| {
                                 this.child(div().full().scrollbar_y().child(column_panel))
                             }),
                     ),
@@ -1731,9 +1732,10 @@ struct TableContent {
     datatable: Entity<TableState<DataTable>>,
     order_rules: Vec<OrderRule>,
     query_rules: Vec<QueryRule>,
-    right_panel: bool,
-    right_panel_idx: usize,
-    right_panel_state: Entity<ResizableState>,
+    column_items: Vec<(SharedString, InputState)>,
+    detail_panel: bool,
+    detail_panel_idx: usize,
+    detail_panel_state: Entity<ResizableState>,
 }
 
 struct SchemaContent {
