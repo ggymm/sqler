@@ -9,7 +9,7 @@ use gpui_component::{
     menu::ContextMenuExt,
     resizable::{ResizableState, h_resizable, resizable_panel, v_resizable},
     select::{Select, SelectState},
-    table::{Table, TableState},
+    table::{Table, TableEvent, TableState},
 };
 use indexmap::IndexMap;
 use serde::Deserialize;
@@ -594,6 +594,7 @@ impl CommonWorkspace {
                     detail_panel: false,
                     detail_panel_idx: 0,
                     detail_panel_state: cx.new(|_| ResizableState::default()),
+                    _subscription: None,
                 }),
                 closable: true,
             },
@@ -724,7 +725,7 @@ impl CommonWorkspace {
                 .await;
 
             // 更新 UI
-            let _ = cx.update(|_, cx| {
+            let _ = cx.update(|window, cx| {
                 let _ = this.update(cx, |this, cx| match ret {
                     Ok((data, session)) => {
                         this.session = Some(session);
@@ -736,6 +737,43 @@ impl CommonWorkspace {
                         content.page = page;
                         content.count = rows.len();
                         content.columns = cols.clone();
+                        if content.column_items.len() != cols.len() {
+                            content.column_items = cols
+                                .iter()
+                                .map(|col| {
+                                    let input = cx.new(|cx| {
+                                        InputState::new(window, cx)
+                                            .auto_grow(1, 10)
+                                            .multi_line(true)
+                                            .searchable(false)
+                                    });
+                                    (col.clone(), input)
+                                })
+                                .collect();
+
+                            // 订阅表格选中事件，更新 column_items 的值
+                            let datatable = content.datatable.clone();
+                            let tab_id_clone = tab_id.clone();
+                            content._subscription = Some(cx.subscribe_in(
+                                &datatable,
+                                window,
+                                move |view: &mut CommonWorkspace, _table, event: &TableEvent, window, cx| {
+                                    if let TableEvent::SelectRow(row_idx) = event {
+                                        let Some(content) = view.table_content(&tab_id_clone) else {
+                                            return;
+                                        };
+                                        let row = content.datatable.read(cx).delegate().get_data(*row_idx);
+                                        for ((_, input_state), value) in content.column_items.iter().zip(row.iter()) {
+                                            let value_str = value.to_string();
+                                            input_state.update(cx, |state, cx| {
+                                                state.set_value(&value_str, window, cx);
+                                            });
+                                        }
+                                    }
+                                },
+                            ));
+                        }
+
                         content.datatable.update(cx, |t, cx| {
                             t.delegate_mut().update_data(cols, rows);
                             t.delegate_mut().update_loading(false);
@@ -940,42 +978,20 @@ impl CommonWorkspace {
 
         // 表单视图
         let mut form_panel = div().px_4().py_2().col_full();
-        if let Some(i) = tab.datatable.read(cx).selected_row() {
-            // 选中行
-            let row = tab.datatable.read(cx).delegate().get_data(i);
-
-            // 构造表单
-            form_panel = tab
-                .columns
-                .iter()
-                .zip(row.iter())
-                .fold(form_panel, |form_panel, (name, value)| {
-                    form_panel.child(
-                        div()
-                            .flex()
-                            .flex_col()
-                            .pb_3()
-                            .gap_1()
-                            .text_sm()
-                            .child(div().child(name.clone()))
-                            .child(
-                                div()
-                                    .px_2()
-                                    .py_1()
-                                    .rounded_md()
-                                    .bg(theme.muted)
-                                    .border_1()
-                                    .border_color(theme.border)
-                                    .child(
-                                        div()
-                                            .id(comp_id(["table-panel-form-item", name]))
-                                            .max_h_64()
-                                            .overflow_y_scroll()
-                                            .child(value.clone()),
-                                    ),
-                            ),
-                    )
-                });
+        if tab.datatable.read(cx).selected_row().is_some() {
+            // 渲染表单项
+            for (name, state) in tab.column_items.iter() {
+                form_panel = form_panel.child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .pb_3()
+                        .gap_1()
+                        .text_sm()
+                        .child(div().child(name.clone()))
+                        .child(div().child(Input::new(state).disabled(true))),
+                );
+            }
         }
 
         // 筛选数据
@@ -1732,10 +1748,11 @@ struct TableContent {
     datatable: Entity<TableState<DataTable>>,
     order_rules: Vec<OrderRule>,
     query_rules: Vec<QueryRule>,
-    column_items: Vec<(SharedString, InputState)>,
+    column_items: Vec<(SharedString, Entity<InputState>)>,
     detail_panel: bool,
     detail_panel_idx: usize,
     detail_panel_state: Entity<ResizableState>,
+    _subscription: Option<Subscription>,
 }
 
 struct SchemaContent {
