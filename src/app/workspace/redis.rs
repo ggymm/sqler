@@ -24,10 +24,10 @@ use crate::{
 
 #[derive(Clone)]
 pub struct KeyInfo {
-    pub key: String,
-    pub kind: String,
-    pub size: String,
-    pub ttl: String,
+    pub key: SharedString,
+    pub ttl: SharedString,
+    pub kind: SharedString,
+    pub size: SharedString,
 }
 
 fn build_tree_items(keys: &HashMap<String, KeyInfo>) -> Vec<TreeItem> {
@@ -275,7 +275,7 @@ impl RedisWorkspace {
 
                         // 更新选中 key 的完整值到专用字段
                         if let Some(browse) = this.browse.as_mut() {
-                            browse.selected_value = full_value;
+                            browse.selected_value = SharedString::from(full_value);
                         }
 
                         cx.notify();
@@ -325,7 +325,7 @@ impl RedisWorkspace {
         }
 
         // 如果游标为 0 且不是第一次加载，说明已经加载完所有 keys
-        if browse.cursor == "0" && !browse.keys.is_empty() {
+        if browse.cursor.as_ref() == "0" && !browse.keys.is_empty() {
             return;
         }
 
@@ -334,7 +334,7 @@ impl RedisWorkspace {
         cx.notify();
 
         // 获取当前游标
-        let cursor = browse.cursor.clone();
+        let cursor = browse.cursor.to_string();
 
         // 获取数据库连接
         let session = match self.active_session() {
@@ -481,7 +481,15 @@ impl RedisWorkspace {
                             _ => "-".to_string(),
                         };
 
-                        key_infos.insert(key.clone(), KeyInfo { key, kind, size, ttl });
+                        key_infos.insert(
+                            key.clone(),
+                            KeyInfo {
+                                key: SharedString::from(key),
+                                ttl: SharedString::from(ttl),
+                                kind: SharedString::from(kind),
+                                size: SharedString::from(size),
+                            },
+                        );
                     }
 
                     Ok::<_, String>((current_cursor, key_infos, session))
@@ -503,7 +511,7 @@ impl RedisWorkspace {
                             let new_count = browse.keys.len();
 
                             // 更新游标
-                            browse.cursor = cursor;
+                            browse.cursor = SharedString::from(cursor);
 
                             // 只有当有新keys加入时才重建树（避免不必要的重建）
                             if new_count > old_count {
@@ -602,7 +610,7 @@ impl RedisWorkspace {
                                     cx.notify();
 
                                     // 加载详情
-                                    this.load_key_detail(key.clone(), window, cx);
+                                    this.load_key_detail(key.to_string(), window, cx);
                                 });
                             }
                         })
@@ -725,10 +733,10 @@ impl Render for RedisWorkspace {
                     tree_state: cx.new(|cx| TreeState::new(cx).items(items)),
 
                     loading: false,
-                    cursor: "0".to_string(),
+                    cursor: SharedString::from("0"),
 
                     selected: None,
-                    selected_value: String::new(),
+                    selected_value: SharedString::default(),
                 });
             }
             ViewType::Command if self.command.is_none() => {
@@ -771,7 +779,7 @@ impl Render for RedisWorkspace {
                                 cx.listener(|view, _, window, cx| {
                                     if let Some(browse) = view.browse.as_mut() {
                                         browse.keys.clear();
-                                        browse.cursor = "0".to_string();
+                                        browse.cursor = SharedString::from("0");
                                         browse.loading = false;
                                     }
                                     view.load_more_keys(window, cx);
@@ -864,9 +872,9 @@ pub struct BrowseContent {
 
     pub loading: bool,
 
-    pub cursor: String,
-    pub selected: Option<String>,
-    pub selected_value: String,
+    pub cursor: SharedString,
+    pub selected: Option<SharedString>,
+    pub selected_value: SharedString,
 }
 
 pub struct CommandContent {

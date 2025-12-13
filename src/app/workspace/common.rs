@@ -66,8 +66,8 @@ pub struct CommonWorkspace {
     pub source: DataSource,
     pub session: Option<Box<dyn DatabaseSession>>,
 
-    pub tabs: IndexMap<String, TabContext>,
-    pub active_tab: String,
+    pub tabs: IndexMap<SharedString, TabContext>,
+    pub active_tab: SharedString,
     pub tables: IndexMap<String, TableInfo>,
     pub active_table: Option<String>,
 }
@@ -150,7 +150,7 @@ impl CommonWorkspace {
 
     fn query_content(
         &mut self,
-        tab_id: &String,
+        tab_id: &SharedString,
     ) -> Option<&mut QueryContent> {
         self.tabs.get_mut(tab_id).and_then({
             |item| {
@@ -165,7 +165,7 @@ impl CommonWorkspace {
 
     fn table_content(
         &mut self,
-        tab_id: &String,
+        tab_id: &SharedString,
     ) -> Option<&mut TableContent> {
         self.tabs.get_mut(tab_id).and_then({
             |item| {
@@ -180,7 +180,7 @@ impl CommonWorkspace {
 
     fn schema_content(
         &mut self,
-        tab_id: &String,
+        tab_id: &SharedString,
     ) -> Option<&mut SchemaContent> {
         self.tabs.get_mut(tab_id).and_then({
             |item| {
@@ -198,7 +198,7 @@ impl CommonWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let tab_id = Uuid::new_v4().to_string();
+        let tab_id = SharedString::from(Uuid::new_v4().to_string());
 
         let lsp = Rc::new(EditorComps::new());
         let editor = cx.new(|cx| {
@@ -238,7 +238,7 @@ impl CommonWorkspace {
 
     fn reload_query_tab(
         &mut self,
-        tab_id: &String,
+        tab_id: &SharedString,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -569,21 +569,21 @@ impl CommonWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let tab_id = format!("{}_table", table);
+        let tab_id = SharedString::from(format!("{}_table", table));
         if self.tabs.contains_key(&tab_id) {
             self.active_tab = tab_id;
             cx.notify();
             return;
         }
 
-        let content_id = tab_id.clone();
+        let table_id = tab_id.clone();
         let datatable = DataTable::new(vec![], vec![], window, cx);
         let subscription = cx.subscribe_in(
             &datatable,
             window,
             move |view: &mut Self, _, event: &TableEvent, window, cx| {
                 if let TableEvent::SelectRow(i) = event {
-                    let Some(content) = view.table_content(&content_id) else {
+                    let Some(content) = view.table_content(&table_id) else {
                         return;
                     };
                     if content.column_items.is_empty() {
@@ -635,7 +635,7 @@ impl CommonWorkspace {
 
     fn reload_table_tab(
         &mut self,
-        tab_id: &String,
+        tab_id: &SharedString,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -764,7 +764,7 @@ impl CommonWorkspace {
                         content.page = page;
                         content.count = rows.len();
                         content.columns = cols.clone();
-                        if content.column_items.len() != cols.len() {
+                        if content.column_items.len() != cols.len() && cols.len() > 0 {
                             content.column_items = cols
                                 .iter()
                                 .map(|col| {
@@ -814,8 +814,8 @@ impl CommonWorkspace {
     ) -> AnyElement {
         let theme = cx.theme().clone();
         let tab_id = &tab.id;
-        let page = tab.page;
 
+        let page = tab.page;
         let page_prev = Button::new(comp_id(["table-page-prev", &tab_id]))
             .label("上一页")
             .outline()
@@ -1154,7 +1154,7 @@ impl CommonWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let tab_id = format!("{}_schema", table);
+        let tab_id = SharedString::from(format!("{}_schema", table));
         if self.tabs.contains_key(&tab_id) {
             self.active_tab = tab_id;
             cx.notify();
@@ -1184,7 +1184,7 @@ impl CommonWorkspace {
 
     fn reload_schema_tab(
         &mut self,
-        tab_id: &String,
+        tab_id: &SharedString,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -1737,7 +1737,7 @@ struct QueryResult {
 }
 
 struct QueryContent {
-    id: String,
+    id: SharedString,
     active: usize,
     summary: bool,
     editor: Entity<InputState>,
@@ -1745,7 +1745,7 @@ struct QueryContent {
 }
 
 struct TableContent {
-    id: String,
+    id: SharedString,
     page: usize,
     count: usize,
     table: SharedString,
@@ -1761,7 +1761,7 @@ struct TableContent {
 }
 
 struct SchemaContent {
-    id: String,
+    id: SharedString,
     table: SharedString,
     columns: Vec<ColumnInfo>,
     datatable: Entity<TableState<DataTable>>,
