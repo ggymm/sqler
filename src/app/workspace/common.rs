@@ -85,6 +85,9 @@ impl CommonWorkspace {
             TableOp::Create | TableOp::Import | TableOp::Export => {
                 // TODO: 暂不实现
             }
+            TableOp::Exec | TableOp::Dump | TableOp::DumpData | TableOp::DumpSchema => {
+                // TODO: 暂不实现
+            }
         }
     }
 
@@ -586,14 +589,14 @@ impl CommonWorkspace {
                     let Some(content) = view.table_content(&table_id) else {
                         return;
                     };
-                    if content.column_items.is_empty() {
+                    if content.form_items.is_empty() {
                         return;
                     }
                     content
-                        .column_items
+                        .form_items
                         .iter()
                         .zip(content.datatable.read(cx).delegate().get_data(*i).iter())
-                        .for_each(|((_, state), value)| {
+                        .for_each(|(state, value)| {
                             let value = value.to_string();
                             state.update(cx, |state, cx| {
                                 state.set_value(&value, window, cx);
@@ -614,13 +617,13 @@ impl CommonWorkspace {
                     count: 0,
                     table: SharedString::from(table),
                     columns: vec![],
-                    datatable,
+                    form_items: vec![],
                     query_rules: vec![],
                     order_rules: vec![],
-                    column_items: vec![],
                     detail_panel: false,
                     detail_panel_idx: 0,
                     detail_panel_state: cx.new(|_| ResizableState::default()),
+                    datatable,
                     _subscription: subscription,
                 }),
                 closable: true,
@@ -764,17 +767,17 @@ impl CommonWorkspace {
                         content.page = page;
                         content.count = rows.len();
                         content.columns = cols.clone();
-                        if content.column_items.len() != cols.len() && cols.len() > 0 {
-                            content.column_items = cols
+                        if content.form_items.len() != cols.len() && cols.len() > 0 {
+                            content.form_items = cols
                                 .iter()
-                                .map(|col| {
+                                .map(|_| {
                                     let input = cx.new(|cx| {
                                         InputState::new(window, cx)
                                             .auto_grow(1, 10)
                                             .multi_line(true)
                                             .searchable(false)
                                     });
-                                    (col.clone(), input)
+                                    input
                                 })
                                 .collect();
                         }
@@ -875,11 +878,6 @@ impl CommonWorkspace {
                         .label("筛选数据")
                         .selected(tab.detail_panel_idx == 1),
                 )
-                .child(
-                    Button::new(comp_id(["table-panel-columns", &tab_id]))
-                        .label("筛选字段")
-                        .selected(tab.detail_panel_idx == 2),
-                )
                 .on_click(cx.listener({
                     let tab_id = tab_id.clone();
                     move |view, selected: &Vec<usize>, _, cx| {
@@ -893,10 +891,13 @@ impl CommonWorkspace {
 
         // 表单视图
         let mut form_panel = div().px_4().py_2().col_full();
-        if tab.datatable.read(cx).selected_row().is_some() {
+        form_panel = tab.columns.iter().enumerate().fold(form_panel, {
             // 渲染表单项
-            for (name, state) in tab.column_items.iter() {
-                form_panel = form_panel.child(
+            |panel, (i, name)| {
+                let Some(state) = tab.form_items.get(i) else {
+                    return panel;
+                };
+                panel.child(
                     div()
                         .flex()
                         .flex_col()
@@ -905,9 +906,9 @@ impl CommonWorkspace {
                         .text_sm()
                         .child(div().font_semibold().child(name.clone()))
                         .child(div().child(Input::new(state).disabled(true))),
-                );
+                )
             }
-        }
+        });
 
         // 筛选数据
         #[rustfmt::skip]
@@ -1073,15 +1074,6 @@ impl CommonWorkspace {
             }));
 
         // 筛选字段
-        let apply_column = Button::new(comp_id(["table-column-apply", &tab_id]))
-            .label("应用字段")
-            .outline();
-
-        let select_column = Button::new(comp_id(["table-column-select", &tab_id]))
-            .label("清除条件")
-            .outline();
-
-        let column_panel = div().px_4().py_2().gap_4().col_full();
 
         h_resizable(comp_id(["table-content", &tab_id]))
             .with_state(&tab.detail_panel_state)
@@ -1140,21 +1132,6 @@ impl CommonWorkspace {
                                         .child(div().flex_1())
                                         .child(filter_clear)
                                         .child(filter_apply),
-                                )
-                            })
-                            .when(tab.detail_panel_idx == 2, |this| {
-                                this.child(div().full().scrollbar_y().child(column_panel)).child(
-                                    div()
-                                        .flex()
-                                        .flex_row()
-                                        .items_center()
-                                        .h_12()
-                                        .p_2()
-                                        .gap_2()
-                                        .w_full()
-                                        .child(div().flex_1())
-                                        .child(apply_column)
-                                        .child(select_column),
                                 )
                             }),
                     ),
@@ -1569,12 +1546,13 @@ impl Render for CommonWorkspace {
                         .menu("导入向导", TableAction::new(TableOp::Import, table.clone()))
                         .menu("导出向导", TableAction::new(TableOp::Export, table.clone()))
                         .separator()
+                        .menu("运行 SQL 文件", TableAction::new(TableOp::Exec, table.clone()))
                         .submenu("转储 SQL 文件", window, cx, {
                             let table = table.clone();
                             move |child, _, _| {
                                 child
-                                    .menu("仅结构", TableAction::new(TableOp::Import, table.clone()))
-                                    .menu("数据和结构", TableAction::new(TableOp::Import, table.clone()))
+                                    .menu("数据和结构", TableAction::new(TableOp::DumpData, table.clone()))
+                                    .menu("仅结构", TableAction::new(TableOp::DumpSchema, table.clone()))
                             }
                         })
                 }
@@ -1708,8 +1686,13 @@ enum TableOp {
     Open,   // 打开表（查看数据）
     Schema, // 设计表（查看结构）
 
-    Import, // 导入向导
-    Export, // 导出向导
+    Import, // 运行 SQL 文件
+    Export, // 转储 SQL 文件
+
+    Exec,       // 运行 SQL 文件
+    Dump,       // 转储 SQL 文件
+    DumpData,   // 结构 + 数据
+    DumpSchema, // 仅 结构
 }
 
 #[derive(Action, Clone, PartialEq, Eq, Deserialize)]
@@ -1764,13 +1747,13 @@ struct TableContent {
     count: usize,
     table: SharedString,
     columns: Vec<SharedString>,
-    datatable: Entity<TableState<DataTable>>,
+    form_items: Vec<Entity<InputState>>,
     order_rules: Vec<OrderRule>,
     query_rules: Vec<QueryRule>,
-    column_items: Vec<(SharedString, Entity<InputState>)>,
     detail_panel: bool,
     detail_panel_idx: usize,
     detail_panel_state: Entity<ResizableState>,
+    datatable: Entity<TableState<DataTable>>,
     _subscription: Subscription,
 }
 
