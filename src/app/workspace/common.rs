@@ -891,7 +891,35 @@ impl CommonWorkspace {
                 })),
         );
 
-        let apply_cond = Button::new(comp_id(["table-filter-apply", &tab_id]))
+        // 表单视图
+        let mut form_panel = div().px_4().py_2().col_full();
+        if tab.datatable.read(cx).selected_row().is_some() {
+            // 渲染表单项
+            for (name, state) in tab.column_items.iter() {
+                form_panel = form_panel.child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .pb_3()
+                        .gap_1()
+                        .text_sm()
+                        .child(div().child(name.clone()))
+                        .child(div().child(Input::new(state).disabled(true))),
+                );
+            }
+        }
+
+        // 筛选数据
+        #[rustfmt::skip]
+        let order_ops = vec![
+            SharedString::from(ORDER_ASC), SharedString::from(ORDER_DESC)
+        ];
+        let query_ops: Vec<SharedString> = Operator::all()
+            .into_iter()
+            .map(|op| SharedString::from(op.label().to_string()))
+            .collect();
+
+        let filter_apply = Button::new(comp_id(["table-filter-apply", &tab_id]))
             .label("应用条件")
             .outline()
             .on_click(cx.listener({
@@ -903,7 +931,7 @@ impl CommonWorkspace {
                     view.reload_table_tab(&tab_id, window, cx);
                 }
             }));
-        let clear_cond = Button::new(comp_id(["table-filter-clear", &tab_id]))
+        let filter_clear = Button::new(comp_id(["table-filter-clear", &tab_id]))
             .label("清除条件")
             .outline()
             .on_click(cx.listener({
@@ -917,12 +945,75 @@ impl CommonWorkspace {
                 }
             }));
 
-        let order_ops = vec![SharedString::from(ORDER_ASC), SharedString::from(ORDER_DESC)];
-        let mut order_items = vec![];
-        for order in tab.order_rules.iter() {
-            let tab_id = tab_id.clone();
-            let rule_id = order.id.clone();
-            order_items.push(
+        let create_order = Button::new(comp_id(["table-order-create", &tab_id]))
+            .small()
+            .icon(IconName::Plus)
+            .on_click(cx.listener({
+                let tab_id = tab_id.clone();
+                let columns = tab.columns.clone();
+                move |view: &mut Self, _, window, cx| {
+                    let Some(content) = view.table_content(&tab_id) else {
+                        return;
+                    };
+                    content.order_rules.push(OrderRule {
+                        id: Uuid::new_v4().to_string(),
+                        field: cx.new(|cx| {
+                            // rustfmt::skip
+                            SelectState::new(columns.clone(), None, window, cx)
+                        }),
+                        order: cx.new(|cx| {
+                            // rustfmt::skip
+                            SelectState::new(order_ops.clone(), None, window, cx)
+                        }),
+                    });
+                    cx.notify();
+                }
+            }));
+        let create_query = Button::new(comp_id(["table-filter-create", &tab_id]))
+            .small()
+            .icon(IconName::Plus)
+            .on_click(cx.listener({
+                let tab_id = tab_id.clone();
+                let columns = tab.columns.clone();
+                move |view: &mut Self, _, window, cx| {
+                    let Some(content) = view.table_content(&tab_id) else {
+                        return;
+                    };
+                    content.query_rules.push(QueryRule {
+                        id: Uuid::new_v4().to_string(),
+                        field: cx.new(|cx| {
+                            // rustfmt::skip
+                            SelectState::new(columns.clone(), None, window, cx)
+                        }),
+                        operator: cx.new(|cx| {
+                            // rustfmt::skip
+                            SelectState::new(query_ops.clone(), None, window, cx)
+                        }),
+                        value: cx.new(|cx| {
+                            // rustfmt::skip
+                            InputState::new(window, cx)
+                        }),
+                    });
+                    cx.notify();
+                }
+            }));
+
+        let filter_panel = div()
+            .px_4()
+            .py_2()
+            .gap_4()
+            .col_full()
+            .child(
+                div()
+                    .gap_4()
+                    .flex()
+                    .flex_row()
+                    .child(div().text_sm().child("排序规则"))
+                    .child(create_order),
+            )
+            .children(tab.order_rules.iter().map(|order| {
+                let tab_id = tab_id.clone();
+                let rule_id = order.id.clone();
                 div()
                     .flex()
                     .flex_row()
@@ -943,19 +1034,20 @@ impl CommonWorkspace {
                                     cx.notify();
                                 }
                             })),
-                    ),
+                    )
+            }))
+            .child(
+                div()
+                    .gap_4()
+                    .flex()
+                    .flex_row()
+                    .child(div().text_sm().child("筛选规则"))
+                    .child(create_query),
             )
-        }
+            .children(tab.query_rules.iter().map(|query| {
+                let tab_id = tab_id.clone();
+                let rule_id = query.id.clone();
 
-        let filter_ops: Vec<SharedString> = Operator::all()
-            .into_iter()
-            .map(|op| SharedString::from(op.label().to_string()))
-            .collect();
-        let mut query_items = vec![];
-        for query in tab.query_rules.iter() {
-            let tab_id = tab_id.clone();
-            let rule_id = query.id.clone();
-            query_items.push(
                 div()
                     .flex()
                     .flex_row()
@@ -977,109 +1069,19 @@ impl CommonWorkspace {
                                     cx.notify();
                                 }
                             })),
-                    ),
-            )
-        }
-
-        // 表单视图
-        let mut form_panel = div().px_4().py_2().col_full();
-        if tab.datatable.read(cx).selected_row().is_some() {
-            // 渲染表单项
-            for (name, state) in tab.column_items.iter() {
-                form_panel = form_panel.child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .pb_3()
-                        .gap_1()
-                        .text_sm()
-                        .child(div().child(name.clone()))
-                        .child(div().child(Input::new(state).disabled(true))),
-                );
-            }
-        }
-
-        // 筛选数据
-        let filter_panel = div()
-            .px_4()
-            .py_2()
-            .gap_4()
-            .col_full()
-            .child(
-                div()
-                    .gap_4()
-                    .flex()
-                    .flex_row()
-                    .child(div().text_sm().child("排序规则"))
-                    .child(
-                        Button::new(comp_id(["table-order-create", &tab_id]))
-                            .small()
-                            .icon(IconName::Plus)
-                            .on_click(cx.listener({
-                                let tab_id = tab_id.clone();
-                                let columns = tab.columns.clone();
-                                move |view: &mut Self, _, window, cx| {
-                                    let Some(content) = view.table_content(&tab_id) else {
-                                        return;
-                                    };
-                                    content.order_rules.push(OrderRule {
-                                        id: Uuid::new_v4().to_string(),
-                                        field: cx.new(|cx| {
-                                            // rustfmt::skip
-                                            SelectState::new(columns.clone(), None, window, cx)
-                                        }),
-                                        order: cx.new(|cx| {
-                                            // rustfmt::skip
-                                            SelectState::new(order_ops.clone(), None, window, cx)
-                                        }),
-                                    });
-                                    cx.notify();
-                                }
-                            })),
-                    ),
-            )
-            .children(order_items)
-            .child(
-                div()
-                    .gap_4()
-                    .flex()
-                    .flex_row()
-                    .child(div().text_sm().child("筛选规则"))
-                    .child(
-                        Button::new(comp_id(["table-filter-create", &tab_id]))
-                            .small()
-                            .icon(IconName::Plus)
-                            .on_click(cx.listener({
-                                let tab_id = tab_id.clone();
-                                let columns = tab.columns.clone();
-                                move |view: &mut Self, _, window, cx| {
-                                    let Some(content) = view.table_content(&tab_id) else {
-                                        return;
-                                    };
-                                    content.query_rules.push(QueryRule {
-                                        id: Uuid::new_v4().to_string(),
-                                        field: cx.new(|cx| {
-                                            // rustfmt::skip
-                                            SelectState::new(columns.clone(), None, window, cx)
-                                        }),
-                                        operator: cx.new(|cx| {
-                                            // rustfmt::skip
-                                            SelectState::new(filter_ops.clone(), None, window, cx)
-                                        }),
-                                        value: cx.new(|cx| {
-                                            // rustfmt::skip
-                                            InputState::new(window, cx)
-                                        }),
-                                    });
-                                    cx.notify();
-                                }
-                            })),
-                    ),
-            )
-            .children(query_items);
+                    )
+            }));
 
         // 筛选字段
-        let column_panel = div().px_4().py_2().gap_2().child(div());
+        let apply_column = Button::new(comp_id(["table-column-apply", &tab_id]))
+            .label("应用字段")
+            .outline();
+
+        let select_column = Button::new(comp_id(["table-column-select", &tab_id]))
+            .label("清除条件")
+            .outline();
+
+        let column_panel = div().px_4().py_2().gap_4().col_full();
 
         h_resizable(comp_id(["table-content", &tab_id]))
             .with_state(&tab.detail_panel_state)
@@ -1136,12 +1138,24 @@ impl CommonWorkspace {
                                         .gap_2()
                                         .w_full()
                                         .child(div().flex_1())
-                                        .child(clear_cond)
-                                        .child(apply_cond),
+                                        .child(apply_column)
+                                        .child(filter_apply),
                                 )
                             })
                             .when(tab.detail_panel_idx == 2, |this| {
-                                this.child(div().full().scrollbar_y().child(column_panel))
+                                this.child(div().full().scrollbar_y().child(column_panel)).child(
+                                    div()
+                                        .flex()
+                                        .flex_row()
+                                        .items_center()
+                                        .h_12()
+                                        .p_2()
+                                        .gap_2()
+                                        .w_full()
+                                        .child(div().flex_1())
+                                        .child(filter_clear)
+                                        .child(select_column),
+                                )
                             }),
                     ),
             )
