@@ -22,6 +22,8 @@ use crate::{
     model::DataSource,
 };
 
+const PAGE_SIZE: usize = 500;
+
 #[derive(Clone)]
 pub struct KeyInfo {
     pub key: SharedString,
@@ -291,26 +293,9 @@ impl RedisWorkspace {
         .detach();
     }
 
-    fn load_more_keys(
-        &mut self,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.load_keys(500, false, window, cx);
-    }
-
-    fn load_all_keys(
-        &mut self,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.load_keys(usize::MAX, true, window, cx);
-    }
-
     fn load_keys(
         &mut self,
-        count: usize,
-        load_all: bool,
+        all: bool,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -333,6 +318,7 @@ impl RedisWorkspace {
         browse.loading = true;
         cx.notify();
 
+
         // 获取当前游标
         let cursor = browse.cursor.to_string();
 
@@ -340,91 +326,81 @@ impl RedisWorkspace {
         let session = match self.active_session() {
             Ok(_) => self.session.take(),
             Err(err) => {
-                tracing::error!("{}", err);
-                if let Some(browse) = self.browse.as_mut() {
-                    browse.loading = false;
-                }
-                cx.notify();
+                tracing::error!("获取数据库连接失败: {}", err);
                 return;
             }
         };
-
-        let Some(session) = session else {
-            tracing::error!("无法获取 Redis 连接");
-            if let Some(browse) = self.browse.as_mut() {
-                browse.loading = false;
-            }
-            cx.notify();
+        let Some(mut session) = session else {
             return;
         };
 
-        // 在后台线程执行 SCAN 命令
+        // 在后台线程执行查询
         cx.spawn_in(window, async move |this, cx| {
             let ret = cx
                 .background_executor()
                 .spawn(async move {
-                    let mut session = session;
                     let mut all_keys: Vec<String> = Vec::new();
                     let mut current_cursor = cursor;
-                    let mut loaded_count = 0;
+                    let mut count = 0;
 
                     loop {
-                        // 执行 SCAN 命令
-                        let scan_result = session.query(QueryReq::Command {
+                       match session.query(QueryReq::Command {
                             name: "SCAN".to_string(),
                             args: vec![
                                 Value::String(current_cursor.clone()),
                                 Value::String("COUNT".to_string()),
-                                Value::Number(500.into()),
+                                Value::Number(PAGE_SIZE.into()),
                             ],
-                        });
+                        }) {
+                           Ok(QueryResp::Value(value)) => {
+                               // 解析 SCAN 返回值: [cursor, [keys...]]
+                               if let Value::Array(arr) = value {
+                                   if arr.len() < 2 {
+                                       break;
+                                   }
 
-                        match scan_result {
-                            Ok(QueryResp::Value(value)) => {
-                                // 解析 SCAN 返回值: [cursor, [keys...]]
-                                if let Value::Array(arr) = value {
-                                    if arr.len() >= 2 {
-                                        // 获取新游标
-                                        let new_cursor = match &arr[0] {
-                                            Value::String(s) => s.clone(),
-                                            Value::Number(n) => n.to_string(),
-                                            _ => "0".to_string(),
-                                        };
+                                   // 获取新游标
+                                   let new_cursor = match &arr[0] {
+                                       Value::String(s) => s.clone(),
+                                       Value::Number(n) => n.to_string(),
+                                       _ => "0".to_string(),
+                                   };
 
-                                        // 获取 keys
-                                        if let Value::Array(keys) = &arr[1] {
-                                            for key in keys {
-                                                if let Value::String(k) = key {
-                                                    all_keys.push(k.clone());
-                                                    loaded_count += 1;
-                                                }
-                                            }
-                                        }
+                                   // 获取 keys
+                                   if let Value::Array(keys) = &arr[1] {
+                                       for key in keys {
+                                           if let Value::String(k) = key {
+                                               all_keys.push(k.clone());
+                                               count += 1;
+                                           }
+                                       }
+                                   }
 
-                                        // 更新游标
-                                        current_cursor = new_cursor;
+                                   // 更新游标
+                                   current_cursor = new_cursor;
 
-                                        // 检查是否继续加载
-                                        if current_cursor == "0" || (!load_all && loaded_count >= count) {
-                                            break;
-                                        }
-                                    } else {
-                                        break;
-                                    }
-                                } else {
-                                    tracing::error!("SCAN 返回值格式错误: {:?}", value);
-                                    break;
-                                }
-                            }
-                            Ok(other) => {
-                                tracing::error!("SCAN 返回类型错误: {:?}", other);
-                                break;
-                            }
-                            Err(err) => {
-                                tracing::error!("执行 SCAN 命令失败: {}", err);
-                                break;
-                            }
-                        }
+                                   // 检查是否继续加载
+                                   if current_cursor == "0" {
+                                       break
+                                   } else {
+                                       if !all && count >= PAGE_SIZE {
+                                           break
+                                       }
+                                   }
+                               } else {
+                                   tracing::error!("SCAN 返回值格式错误: {:?}", value);
+                                   break;
+                               }
+                           }
+                           Ok(other) => {
+                               tracing::error!("SCAN 返回类型错误: {:?}", other);
+                               break;
+                           }
+                           Err(err) => {
+                               tracing::error!("执行 SCAN 命令失败: {}", err);
+                               break;
+                           }
+                       }
                     }
 
                     // 获取每个 key 的详细信息
@@ -782,7 +758,7 @@ impl Render for RedisWorkspace {
                                         browse.cursor = SharedString::from("0");
                                         browse.loading = false;
                                     }
-                                    view.load_more_keys(window, cx);
+                                    view.load_keys(false, window, cx);
                                 })
                             }),
                     )
@@ -793,7 +769,7 @@ impl Render for RedisWorkspace {
                             .outline()
                             .on_click({
                                 cx.listener(|view, _event, window, cx| {
-                                    view.load_more_keys(window, cx);
+                                    view.load_keys(false, window, cx);
                                 })
                             }),
                     )
@@ -804,7 +780,7 @@ impl Render for RedisWorkspace {
                             .outline()
                             .on_click({
                                 cx.listener(|view, _event, window, cx| {
-                                    view.load_all_keys(window, cx);
+                                    view.load_keys(true, window, cx);
                                 })
                             }),
                     )

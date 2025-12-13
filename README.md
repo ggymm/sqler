@@ -21,18 +21,8 @@
 #### 功能列表
 
 1. 数据源管理
-
-#### TODO
-
-- [ ] 数据源测试和保存（MySQL，SQLite，Redis（集群），MongoDB，PostgreSQL）
-- [ ] 数据导出和导入（transfer）（快速导入导出）
-- [ ] Redis数据源工作区
-- [x] 工作区中新增 SQL 查询页面
-- [ ] 工作区 SQL 查询结果需要支持按照 tab 展示（支持一次执行多条语句）
-- [ ] 工作区结构重构（优先级最低）
-- [x] 将build的内容移动到driver中，修改queryReq的结构
-- [ ] 工作区展示，保存的命令或者查询语句
-- [ ] 编辑和删除数据源
+2. 数据表查看
+3. 执行 SQL 并查看结果
 
 #### 常用命令
 
@@ -46,10 +36,3 @@ cargo bloat --release --crates
 cargo outdated -R
 
 ```
-
-~/.sqler
-sources.db
-cache
-{uuid}
-tables.json
-queries.json
