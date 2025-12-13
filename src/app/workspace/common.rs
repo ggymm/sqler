@@ -2,7 +2,7 @@ use std::{rc::Rc, time};
 
 use gpui::{prelude::*, *};
 use gpui_component::{
-    ActiveTheme, Disableable, IconName, InteractiveElementExt, Selectable, Sizable, Size,
+    ActiveTheme, Disableable, IconName, InteractiveElementExt, Selectable, Sizable, Size, StyledExt,
     button::{Button, ButtonGroup, ButtonVariants},
     form::{Form, field},
     input::{Input, InputState, TabSize},
@@ -903,7 +903,7 @@ impl CommonWorkspace {
                         .pb_3()
                         .gap_1()
                         .text_sm()
-                        .child(div().child(name.clone()))
+                        .child(div().font_semibold().child(name.clone()))
                         .child(div().child(Input::new(state).disabled(true))),
                 );
             }
@@ -1138,7 +1138,7 @@ impl CommonWorkspace {
                                         .gap_2()
                                         .w_full()
                                         .child(div().flex_1())
-                                        .child(apply_column)
+                                        .child(filter_clear)
                                         .child(filter_apply),
                                 )
                             })
@@ -1153,7 +1153,7 @@ impl CommonWorkspace {
                                         .gap_2()
                                         .w_full()
                                         .child(div().flex_1())
-                                        .child(filter_clear)
+                                        .child(apply_column)
                                         .child(select_column),
                                 )
                             }),
