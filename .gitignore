@@ -1,0 +1,10 @@
+#project
+.idea
+.vacode
+
+#rust output
+target
+
+# tempdata
+scripts/testdata/redis
+scripts/testdata/table

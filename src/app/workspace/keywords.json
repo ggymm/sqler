@@ -1,0 +1,762 @@
+[
+  {
+    "label": "SELECT",
+    "detail": "SELECT column1, column2 FROM table",
+    "documentation": "从数据库表中检索数据。\n\n**语法:**\n```sql\nSELECT column1, column2, ...\nFROM table_name\n[WHERE condition]\n[ORDER BY column]\n[LIMIT count];\n```\n\n**示例:**\n```sql\nSELECT name, age FROM users WHERE age > 18;\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "INSERT",
+    "detail": "INSERT INTO table (columns) VALUES (values)",
+    "documentation": "向数据库表中插入新记录。\n\n**语法:**\n```sql\nINSERT INTO table_name (column1, column2, ...)\nVALUES (value1, value2, ...);\n```\n\n**示例:**\n```sql\nINSERT INTO users (name, age) VALUES ('John', 25);\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "UPDATE",
+    "detail": "UPDATE table SET column = value WHERE condition",
+    "documentation": "更新数据库表中的现有记录。\n\n**语法:**\n```sql\nUPDATE table_name\nSET column1 = value1, column2 = value2, ...\nWHERE condition;\n```\n\n**示例:**\n```sql\nUPDATE users SET age = 26 WHERE name = 'John';\n```\n\n**注意:** 不带WHERE子句会更新所有记录！\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "DELETE",
+    "detail": "DELETE FROM table WHERE condition",
+    "documentation": "从数据库表中删除记录。\n\n**语法:**\n```sql\nDELETE FROM table_name\nWHERE condition;\n```\n\n**示例:**\n```sql\nDELETE FROM users WHERE age < 18;\n```\n\n**注意:** 不带WHERE子句会删除所有记录！\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "FROM",
+    "detail": "FROM table_name",
+    "documentation": "指定要查询的数据表。\n\n**语法:**\n```sql\nSELECT columns FROM table_name;\n```\n\n**支持多表:**\n```sql\nSELECT * FROM table1, table2;\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "WHERE",
+    "detail": "WHERE condition",
+    "documentation": "筛选满足指定条件的记录。\n\n**语法:**\n```sql\nSELECT columns FROM table\nWHERE condition;\n```\n\n**运算符:**\n- `=` 等于\n- `<>` 或 `!=` 不等于\n- `>`, `<`, `>=`, `<=` 比较\n- `BETWEEN` 范围\n- `LIKE` 模式匹配\n- `IN` 列表匹配\n\n**示例:**\n```sql\nSELECT * FROM users WHERE age >= 18 AND status = 'active';\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "ORDER BY",
+    "detail": "ORDER BY column [ASC|DESC]",
+    "documentation": "对查询结果进行排序。\n\n**语法:**\n```sql\nSELECT columns FROM table\nORDER BY column1 [ASC|DESC], column2 [ASC|DESC];\n```\n\n**参数:**\n- `ASC` - 升序（默认）\n- `DESC` - 降序\n\n**示例:**\n```sql\nSELECT * FROM users ORDER BY age DESC, name ASC;\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "GROUP BY",
+    "detail": "GROUP BY column",
+    "documentation": "将查询结果按指定列分组，通常与聚合函数一起使用。\n\n**语法:**\n```sql\nSELECT column, aggregate_function(column)\nFROM table\nGROUP BY column;\n```\n\n**示例:**\n```sql\nSELECT department, COUNT(*) as count\nFROM employees\nGROUP BY department;\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "HAVING",
+    "detail": "HAVING condition",
+    "documentation": "对分组后的结果进行条件筛选，类似于WHERE但用于聚合结果。\n\n**语法:**\n```sql\nSELECT column, aggregate_function(column)\nFROM table\nGROUP BY column\nHAVING condition;\n```\n\n**示例:**\n```sql\nSELECT department, COUNT(*) as count\nFROM employees\nGROUP BY department\nHAVING COUNT(*) > 5;\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "JOIN",
+    "detail": "JOIN table ON condition",
+    "documentation": "连接两个或多个表，基于表之间的相关列。\n\n**类型:**\n- `INNER JOIN` - 返回两表匹配的记录\n- `LEFT JOIN` - 返回左表所有记录\n- `RIGHT JOIN` - 返回右表所有记录\n- `FULL JOIN` - 返回两表所有记录\n\n**示例:**\n```sql\nSELECT orders.id, customers.name\nFROM orders\nJOIN customers ON orders.customer_id = customers.id;\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "INNER JOIN",
+    "detail": "INNER JOIN table ON condition",
+    "documentation": "返回两个表中满足连接条件的记录。\n\n**语法:**\n```sql\nSELECT columns\nFROM table1\nINNER JOIN table2 ON table1.column = table2.column;\n```\n\n**示例:**\n```sql\nSELECT users.name, orders.amount\nFROM users\nINNER JOIN orders ON users.id = orders.user_id;\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "LEFT JOIN",
+    "detail": "LEFT JOIN table ON condition",
+    "documentation": "返回左表的所有记录，以及右表中匹配的记录。右表无匹配时返回NULL。\n\n**语法:**\n```sql\nSELECT columns\nFROM table1\nLEFT JOIN table2 ON table1.column = table2.column;\n```\n\n**示例:**\n```sql\nSELECT users.name, orders.amount\nFROM users\nLEFT JOIN orders ON users.id = orders.user_id;\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "RIGHT JOIN",
+    "detail": "RIGHT JOIN table ON condition",
+    "documentation": "返回右表的所有记录，以及左表中匹配的记录。左表无匹配时返回NULL。\n\n**语法:**\n```sql\nSELECT columns\nFROM table1\nRIGHT JOIN table2 ON table1.column = table2.column;\n```\n\n**示例:**\n```sql\nSELECT users.name, orders.amount\nFROM users\nRIGHT JOIN orders ON users.id = orders.user_id;\n```\n\n**支持:** MySQL, PostgreSQL, Oracle, SQL Server\n**注意:** SQLite 不支持 RIGHT JOIN"
+  },
+  {
+    "label": "FULL OUTER JOIN",
+    "detail": "FULL OUTER JOIN table ON condition",
+    "documentation": "返回两个表的所有记录，无论是否匹配。\n\n**语法:**\n```sql\nSELECT columns\nFROM table1\nFULL OUTER JOIN table2 ON table1.column = table2.column;\n```\n\n**支持:** PostgreSQL, Oracle, SQL Server\n**注意:** MySQL 和 SQLite 不直接支持，需用UNION模拟"
+  },
+  {
+    "label": "CROSS JOIN",
+    "detail": "CROSS JOIN table",
+    "documentation": "返回两个表的笛卡尔积（所有可能的组合）。\n\n**语法:**\n```sql\nSELECT columns\nFROM table1\nCROSS JOIN table2;\n```\n\n**示例:**\n```sql\nSELECT colors.name, sizes.name\nFROM colors\nCROSS JOIN sizes;\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "UNION",
+    "detail": "SELECT ... UNION SELECT ...",
+    "documentation": "合并两个或多个SELECT语句的结果集，去除重复行。\n\n**语法:**\n```sql\nSELECT columns FROM table1\nUNION\nSELECT columns FROM table2;\n```\n\n**注意:**\n- 各SELECT语句列数必须相同\n- 对应列的数据类型必须兼容\n- 使用 `UNION ALL` 保留重复行\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "UNION ALL",
+    "detail": "SELECT ... UNION ALL SELECT ...",
+    "documentation": "合并两个或多个SELECT语句的结果集，保留所有行（包括重复行）。\n\n**语法:**\n```sql\nSELECT columns FROM table1\nUNION ALL\nSELECT columns FROM table2;\n```\n\n**与UNION区别:** UNION ALL不去重，性能更好。\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "LIMIT",
+    "detail": "LIMIT count [OFFSET offset]",
+    "documentation": "限制查询返回的记录数。\n\n**语法:**\n```sql\nSELECT columns FROM table\nLIMIT count;\n\n-- 带偏移量\nSELECT columns FROM table\nLIMIT count OFFSET offset;\n\n-- MySQL简写\nSELECT columns FROM table\nLIMIT offset, count;\n```\n\n**示例:**\n```sql\nSELECT * FROM users LIMIT 10 OFFSET 20;\n```\n\n**支持:** MySQL, PostgreSQL, SQLite\n**注意:** Oracle使用ROWNUM，SQL Server使用TOP"
+  },
+  {
+    "label": "OFFSET",
+    "detail": "OFFSET offset",
+    "documentation": "指定跳过的记录数，通常与LIMIT一起用于分页。\n\n**语法:**\n```sql\nSELECT columns FROM table\nLIMIT count OFFSET offset;\n```\n\n**示例:**\n```sql\n-- 获取第21-30条记录\nSELECT * FROM users\nORDER BY id\nLIMIT 10 OFFSET 20;\n```\n\n**支持:** MySQL, PostgreSQL, SQLite"
+  },
+  {
+    "label": "DISTINCT",
+    "detail": "SELECT DISTINCT columns",
+    "documentation": "返回唯一不重复的值。\n\n**语法:**\n```sql\nSELECT DISTINCT column1, column2\nFROM table;\n```\n\n**示例:**\n```sql\nSELECT DISTINCT city FROM customers;\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "AS",
+    "detail": "column AS alias",
+    "documentation": "为列或表创建别名。\n\n**语法:**\n```sql\n-- 列别名\nSELECT column AS alias FROM table;\n\n-- 表别名\nSELECT t.column FROM table AS t;\n```\n\n**示例:**\n```sql\nSELECT first_name AS name, COUNT(*) AS total\nFROM users AS u\nGROUP BY first_name;\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "AND",
+    "detail": "condition1 AND condition2",
+    "documentation": "逻辑与运算符，所有条件都必须为真。\n\n**语法:**\n```sql\nSELECT * FROM table\nWHERE condition1 AND condition2;\n```\n\n**示例:**\n```sql\nSELECT * FROM users\nWHERE age >= 18 AND status = 'active';\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "OR",
+    "detail": "condition1 OR condition2",
+    "documentation": "逻辑或运算符，任一条件为真即可。\n\n**语法:**\n```sql\nSELECT * FROM table\nWHERE condition1 OR condition2;\n```\n\n**示例:**\n```sql\nSELECT * FROM users\nWHERE role = 'admin' OR role = 'moderator';\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "NOT",
+    "detail": "NOT condition",
+    "documentation": "逻辑非运算符，对条件取反。\n\n**语法:**\n```sql\nSELECT * FROM table\nWHERE NOT condition;\n```\n\n**示例:**\n```sql\nSELECT * FROM users\nWHERE NOT status = 'deleted';\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "IN",
+    "detail": "column IN (value1, value2, ...)",
+    "documentation": "检查值是否在指定列表中。\n\n**语法:**\n```sql\nSELECT * FROM table\nWHERE column IN (value1, value2, ...);\n\n-- 子查询\nSELECT * FROM table1\nWHERE column IN (SELECT column FROM table2);\n```\n\n**示例:**\n```sql\nSELECT * FROM users\nWHERE status IN ('active', 'pending', 'verified');\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "NOT IN",
+    "detail": "column NOT IN (value1, value2, ...)",
+    "documentation": "检查值是否不在指定列表中。\n\n**语法:**\n```sql\nSELECT * FROM table\nWHERE column NOT IN (value1, value2, ...);\n```\n\n**示例:**\n```sql\nSELECT * FROM users\nWHERE status NOT IN ('deleted', 'banned');\n```\n\n**注意:** 列表中含NULL时行为可能不符合预期。\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "BETWEEN",
+    "detail": "column BETWEEN value1 AND value2",
+    "documentation": "检查值是否在指定范围内（包含边界）。\n\n**语法:**\n```sql\nSELECT * FROM table\nWHERE column BETWEEN value1 AND value2;\n```\n\n**示例:**\n```sql\nSELECT * FROM orders\nWHERE order_date BETWEEN '2024-01-01' AND '2024-12-31';\n```\n\n**等价于:**\n```sql\nWHERE column >= value1 AND column <= value2\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "LIKE",
+    "detail": "column LIKE pattern",
+    "documentation": "模式匹配，用于字符串搜索。\n\n**通配符:**\n- `%` - 匹配任意数量字符\n- `_` - 匹配单个字符\n\n**示例:**\n```sql\n-- 以'John'开头\nSELECT * FROM users WHERE name LIKE 'John%';\n\n-- 包含'son'\nSELECT * FROM users WHERE name LIKE '%son%';\n\n-- 第二个字符是'o'\nSELECT * FROM users WHERE name LIKE '_o%';\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "IS NULL",
+    "detail": "column IS NULL",
+    "documentation": "检查列值是否为NULL。\n\n**语法:**\n```sql\nSELECT * FROM table\nWHERE column IS NULL;\n```\n\n**示例:**\n```sql\nSELECT * FROM users\nWHERE email IS NULL;\n```\n\n**注意:** 不能使用 `= NULL`，必须使用 `IS NULL`。\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "IS NOT NULL",
+    "detail": "column IS NOT NULL",
+    "documentation": "检查列值是否不为NULL。\n\n**语法:**\n```sql\nSELECT * FROM table\nWHERE column IS NOT NULL;\n```\n\n**示例:**\n```sql\nSELECT * FROM users\nWHERE phone IS NOT NULL;\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "EXISTS",
+    "detail": "EXISTS (subquery)",
+    "documentation": "检查子查询是否返回任何行。\n\n**语法:**\n```sql\nSELECT * FROM table1\nWHERE EXISTS (SELECT 1 FROM table2 WHERE condition);\n```\n\n**示例:**\n```sql\nSELECT * FROM customers c\nWHERE EXISTS (\n    SELECT 1 FROM orders o\n    WHERE o.customer_id = c.id\n);\n```\n\n**性能:** 通常比IN子查询更高效。\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "CASE",
+    "detail": "CASE WHEN condition THEN result END",
+    "documentation": "条件表达式，类似于编程语言中的if-else。\n\n**语法:**\n```sql\n-- 搜索CASE\nCASE\n    WHEN condition1 THEN result1\n    WHEN condition2 THEN result2\n    ELSE default_result\nEND\n\n-- 简单CASE\nCASE expression\n    WHEN value1 THEN result1\n    WHEN value2 THEN result2\n    ELSE default_result\nEND\n```\n\n**示例:**\n```sql\nSELECT name,\n    CASE\n        WHEN age < 18 THEN '未成年'\n        WHEN age < 60 THEN '成年'\n        ELSE '老年'\n    END AS age_group\nFROM users;\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "WHEN",
+    "detail": "WHEN condition THEN result",
+    "documentation": "CASE表达式中的条件分支。\n\n**语法:**\n```sql\nCASE\n    WHEN condition THEN result\n    ...\nEND\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "THEN",
+    "detail": "THEN result",
+    "documentation": "CASE表达式中指定条件满足时的返回值。\n\n**语法:**\n```sql\nCASE WHEN condition THEN result END\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "ELSE",
+    "detail": "ELSE default_result",
+    "documentation": "CASE表达式中所有条件都不满足时的默认值。\n\n**语法:**\n```sql\nCASE\n    WHEN condition THEN result\n    ELSE default_result\nEND\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "END",
+    "detail": "END",
+    "documentation": "结束CASE表达式或存储过程中的语句块。\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "CREATE TABLE",
+    "detail": "CREATE TABLE table_name (columns)",
+    "documentation": "创建新的数据库表。\n\n**语法:**\n```sql\nCREATE TABLE table_name (\n    column1 datatype constraints,\n    column2 datatype constraints,\n    ...\n);\n```\n\n**示例:**\n```sql\nCREATE TABLE users (\n    id INT PRIMARY KEY AUTO_INCREMENT,\n    name VARCHAR(100) NOT NULL,\n    email VARCHAR(255) UNIQUE,\n    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n);\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "ALTER TABLE",
+    "detail": "ALTER TABLE table_name action",
+    "documentation": "修改现有表的结构。\n\n**常用操作:**\n```sql\n-- 添加列\nALTER TABLE table ADD column datatype;\n\n-- 删除列\nALTER TABLE table DROP COLUMN column;\n\n-- 修改列类型\nALTER TABLE table MODIFY column new_datatype;\n\n-- 重命名列\nALTER TABLE table RENAME COLUMN old TO new;\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "DROP TABLE",
+    "detail": "DROP TABLE table_name",
+    "documentation": "删除数据库表及其所有数据。\n\n**语法:**\n```sql\nDROP TABLE table_name;\n\n-- 如果存在则删除\nDROP TABLE IF EXISTS table_name;\n```\n\n**警告:** 此操作不可逆！\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "TRUNCATE TABLE",
+    "detail": "TRUNCATE TABLE table_name",
+    "documentation": "快速删除表中所有数据，但保留表结构。\n\n**语法:**\n```sql\nTRUNCATE TABLE table_name;\n```\n\n**与DELETE区别:**\n- TRUNCATE更快（不记录单行删除日志）\n- TRUNCATE重置自增计数器\n- TRUNCATE不能带WHERE条件\n- TRUNCATE不触发DELETE触发器\n\n**支持:** MySQL, PostgreSQL, Oracle, SQL Server\n**注意:** SQLite不支持TRUNCATE，使用DELETE FROM"
+  },
+  {
+    "label": "CREATE INDEX",
+    "detail": "CREATE INDEX index_name ON table (columns)",
+    "documentation": "创建索引以加速查询。\n\n**语法:**\n```sql\n-- 普通索引\nCREATE INDEX index_name ON table (column);\n\n-- 唯一索引\nCREATE UNIQUE INDEX index_name ON table (column);\n\n-- 复合索引\nCREATE INDEX index_name ON table (col1, col2);\n```\n\n**示例:**\n```sql\nCREATE INDEX idx_users_email ON users (email);\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "DROP INDEX",
+    "detail": "DROP INDEX index_name",
+    "documentation": "删除数据库索引。\n\n**语法:**\n```sql\n-- MySQL\nDROP INDEX index_name ON table_name;\n\n-- PostgreSQL, SQLite, Oracle\nDROP INDEX index_name;\n\n-- SQL Server\nDROP INDEX table_name.index_name;\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "CREATE VIEW",
+    "detail": "CREATE VIEW view_name AS SELECT ...",
+    "documentation": "创建虚拟表（视图），基于SELECT查询的结果。\n\n**语法:**\n```sql\nCREATE VIEW view_name AS\nSELECT columns\nFROM table\nWHERE condition;\n```\n\n**示例:**\n```sql\nCREATE VIEW active_users AS\nSELECT id, name, email\nFROM users\nWHERE status = 'active';\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "DROP VIEW",
+    "detail": "DROP VIEW view_name",
+    "documentation": "删除视图。\n\n**语法:**\n```sql\nDROP VIEW view_name;\n\n-- 如果存在则删除\nDROP VIEW IF EXISTS view_name;\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "PRIMARY KEY",
+    "detail": "column datatype PRIMARY KEY",
+    "documentation": "定义主键约束，唯一标识表中的每条记录。\n\n**特点:**\n- 值必须唯一\n- 不能为NULL\n- 每个表只能有一个主键\n\n**语法:**\n```sql\n-- 列级定义\nCREATE TABLE users (\n    id INT PRIMARY KEY,\n    name VARCHAR(100)\n);\n\n-- 表级定义（复合主键）\nCREATE TABLE order_items (\n    order_id INT,\n    product_id INT,\n    PRIMARY KEY (order_id, product_id)\n);\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "FOREIGN KEY",
+    "detail": "FOREIGN KEY (column) REFERENCES table(column)",
+    "documentation": "定义外键约束，建立表之间的关联。\n\n**语法:**\n```sql\nCREATE TABLE orders (\n    id INT PRIMARY KEY,\n    customer_id INT,\n    FOREIGN KEY (customer_id) REFERENCES customers(id)\n        ON DELETE CASCADE\n        ON UPDATE CASCADE\n);\n```\n\n**级联操作:**\n- `CASCADE` - 级联删除/更新\n- `SET NULL` - 设为NULL\n- `RESTRICT` - 阻止操作\n- `NO ACTION` - 延迟检查\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "UNIQUE",
+    "detail": "column datatype UNIQUE",
+    "documentation": "定义唯一约束，确保列中所有值都不重复。\n\n**语法:**\n```sql\n-- 列级定义\nCREATE TABLE users (\n    email VARCHAR(255) UNIQUE\n);\n\n-- 表级定义（复合唯一）\nCREATE TABLE (\n    col1 INT,\n    col2 INT,\n    UNIQUE (col1, col2)\n);\n```\n\n**与PRIMARY KEY区别:**\n- 表可有多个UNIQUE约束\n- UNIQUE列可以有NULL值（除SQL Server）\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "NOT NULL",
+    "detail": "column datatype NOT NULL",
+    "documentation": "定义非空约束，确保列不能有NULL值。\n\n**语法:**\n```sql\nCREATE TABLE users (\n    name VARCHAR(100) NOT NULL,\n    email VARCHAR(255) NOT NULL\n);\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "DEFAULT",
+    "detail": "column datatype DEFAULT value",
+    "documentation": "定义默认值，当插入时未提供值则使用默认值。\n\n**语法:**\n```sql\nCREATE TABLE users (\n    status VARCHAR(20) DEFAULT 'active',\n    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n);\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "CHECK",
+    "detail": "CHECK (condition)",
+    "documentation": "定义检查约束，确保列值满足指定条件。\n\n**语法:**\n```sql\nCREATE TABLE products (\n    price DECIMAL(10,2) CHECK (price > 0),\n    quantity INT CHECK (quantity >= 0)\n);\n```\n\n**支持:** PostgreSQL, SQLite, Oracle, SQL Server\n**注意:** MySQL 8.0.16+ 才真正强制执行CHECK约束"
+  },
+  {
+    "label": "AUTO_INCREMENT",
+    "detail": "column INT AUTO_INCREMENT",
+    "documentation": "自动递增列值（MySQL特有语法）。\n\n**语法:**\n```sql\nCREATE TABLE users (\n    id INT AUTO_INCREMENT PRIMARY KEY,\n    name VARCHAR(100)\n);\n```\n\n**支持:** MySQL\n**其他数据库:**\n- PostgreSQL: SERIAL 或 IDENTITY\n- SQLite: INTEGER PRIMARY KEY\n- Oracle: SEQUENCE 或 IDENTITY\n- SQL Server: IDENTITY"
+  },
+  {
+    "label": "COUNT",
+    "detail": "COUNT(column) / COUNT(*)",
+    "documentation": "统计行数的聚合函数。\n\n**语法:**\n```sql\n-- 统计所有行（包括NULL）\nSELECT COUNT(*) FROM table;\n\n-- 统计非NULL值的行\nSELECT COUNT(column) FROM table;\n\n-- 统计不重复值\nSELECT COUNT(DISTINCT column) FROM table;\n```\n\n**示例:**\n```sql\nSELECT department, COUNT(*) as employee_count\nFROM employees\nGROUP BY department;\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "SUM",
+    "detail": "SUM(column)",
+    "documentation": "计算数值列总和的聚合函数。\n\n**语法:**\n```sql\nSELECT SUM(column) FROM table;\n```\n\n**示例:**\n```sql\nSELECT SUM(amount) as total_sales\nFROM orders\nWHERE order_date >= '2024-01-01';\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "AVG",
+    "detail": "AVG(column)",
+    "documentation": "计算数值列平均值的聚合函数。\n\n**语法:**\n```sql\nSELECT AVG(column) FROM table;\n```\n\n**示例:**\n```sql\nSELECT AVG(price) as average_price\nFROM products\nWHERE category = 'Electronics';\n```\n\n**注意:** NULL值会被忽略。\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "MAX",
+    "detail": "MAX(column)",
+    "documentation": "获取列中最大值的聚合函数。\n\n**语法:**\n```sql\nSELECT MAX(column) FROM table;\n```\n\n**示例:**\n```sql\nSELECT MAX(salary) as highest_salary\nFROM employees;\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "MIN",
+    "detail": "MIN(column)",
+    "documentation": "获取列中最小值的聚合函数。\n\n**语法:**\n```sql\nSELECT MIN(column) FROM table;\n```\n\n**示例:**\n```sql\nSELECT MIN(price) as lowest_price\nFROM products;\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "COALESCE",
+    "detail": "COALESCE(value1, value2, ...)",
+    "documentation": "返回参数列表中第一个非NULL值。\n\n**语法:**\n```sql\nSELECT COALESCE(column1, column2, 'default') FROM table;\n```\n\n**示例:**\n```sql\nSELECT name, COALESCE(phone, email, 'No contact') as contact\nFROM users;\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "NULLIF",
+    "detail": "NULLIF(value1, value2)",
+    "documentation": "如果两个值相等则返回NULL，否则返回第一个值。\n\n**语法:**\n```sql\nSELECT NULLIF(value1, value2);\n```\n\n**示例:**\n```sql\n-- 避免除以零错误\nSELECT total / NULLIF(count, 0) as average\nFROM stats;\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "CAST",
+    "detail": "CAST(expression AS datatype)",
+    "documentation": "将表达式转换为指定数据类型。\n\n**语法:**\n```sql\nSELECT CAST(expression AS datatype);\n```\n\n**示例:**\n```sql\nSELECT CAST('123' AS INT);\nSELECT CAST(price AS DECIMAL(10,2));\nSELECT CAST(created_at AS DATE);\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "CONVERT",
+    "detail": "CONVERT(expression, datatype)",
+    "documentation": "转换数据类型（语法因数据库而异）。\n\n**MySQL语法:**\n```sql\nSELECT CONVERT(expression, datatype);\n```\n\n**SQL Server语法:**\n```sql\nSELECT CONVERT(datatype, expression [, style]);\n```\n\n**支持:** MySQL, SQL Server\n**注意:** PostgreSQL和Oracle使用CAST"
+  },
+  {
+    "label": "CONCAT",
+    "detail": "CONCAT(string1, string2, ...)",
+    "documentation": "连接多个字符串。\n\n**语法:**\n```sql\nSELECT CONCAT(string1, string2, ...);\n```\n\n**示例:**\n```sql\nSELECT CONCAT(first_name, ' ', last_name) as full_name\nFROM users;\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "SUBSTRING",
+    "detail": "SUBSTRING(string, start, length)",
+    "documentation": "提取字符串的子串。\n\n**语法:**\n```sql\nSUBSTRING(string, start_position, length)\n```\n\n**示例:**\n```sql\nSELECT SUBSTRING('Hello World', 1, 5); -- 'Hello'\nSELECT SUBSTRING(name, 1, 10) FROM users;\n```\n\n**支持:** MySQL, PostgreSQL, SQL Server\n**注意:** Oracle使用SUBSTR"
+  },
+  {
+    "label": "UPPER",
+    "detail": "UPPER(string)",
+    "documentation": "将字符串转换为大写。\n\n**语法:**\n```sql\nSELECT UPPER(string);\n```\n\n**示例:**\n```sql\nSELECT UPPER(name) FROM users;\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "LOWER",
+    "detail": "LOWER(string)",
+    "documentation": "将字符串转换为小写。\n\n**语法:**\n```sql\nSELECT LOWER(string);\n```\n\n**示例:**\n```sql\nSELECT LOWER(email) FROM users;\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "TRIM",
+    "detail": "TRIM(string)",
+    "documentation": "去除字符串首尾的空格。\n\n**语法:**\n```sql\n-- 去除两端空格\nSELECT TRIM(string);\n\n-- 去除指定字符\nSELECT TRIM(characters FROM string);\n\n-- 指定方向\nSELECT TRIM(LEADING/TRAILING/BOTH chars FROM string);\n```\n\n**示例:**\n```sql\nSELECT TRIM('  hello  '); -- 'hello'\nSELECT TRIM('x' FROM 'xxxhelloxxx'); -- 'hello'\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "LENGTH",
+    "detail": "LENGTH(string)",
+    "documentation": "返回字符串的长度。\n\n**语法:**\n```sql\nSELECT LENGTH(string);\n```\n\n**示例:**\n```sql\nSELECT name, LENGTH(name) as name_length\nFROM users;\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle\n**注意:** SQL Server使用LEN"
+  },
+  {
+    "label": "REPLACE",
+    "detail": "REPLACE(string, from, to)",
+    "documentation": "替换字符串中的子串。\n\n**语法:**\n```sql\nSELECT REPLACE(string, search_string, replace_string);\n```\n\n**示例:**\n```sql\nSELECT REPLACE('Hello World', 'World', 'SQL');\n-- 结果: 'Hello SQL'\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "NOW",
+    "detail": "NOW()",
+    "documentation": "返回当前日期和时间。\n\n**语法:**\n```sql\nSELECT NOW();\n```\n\n**示例:**\n```sql\nINSERT INTO logs (message, created_at)\nVALUES ('User login', NOW());\n```\n\n**支持:** MySQL, PostgreSQL\n**其他数据库:**\n- SQLite: datetime('now')\n- Oracle: SYSDATE\n- SQL Server: GETDATE()"
+  },
+  {
+    "label": "CURRENT_DATE",
+    "detail": "CURRENT_DATE",
+    "documentation": "返回当前日期（不含时间）。\n\n**语法:**\n```sql\nSELECT CURRENT_DATE;\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle\n**注意:** SQL Server使用CAST(GETDATE() AS DATE)"
+  },
+  {
+    "label": "CURRENT_TIMESTAMP",
+    "detail": "CURRENT_TIMESTAMP",
+    "documentation": "返回当前日期和时间戳。\n\n**语法:**\n```sql\nSELECT CURRENT_TIMESTAMP;\n```\n\n**常用于默认值:**\n```sql\nCREATE TABLE logs (\n    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n);\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "DATE_FORMAT",
+    "detail": "DATE_FORMAT(date, format)",
+    "documentation": "将日期格式化为字符串（MySQL特有）。\n\n**语法:**\n```sql\nSELECT DATE_FORMAT(date, format_string);\n```\n\n**格式符:**\n- `%Y` - 4位年份\n- `%m` - 月份(01-12)\n- `%d` - 日期(01-31)\n- `%H` - 小时(00-23)\n- `%i` - 分钟(00-59)\n- `%s` - 秒(00-59)\n\n**示例:**\n```sql\nSELECT DATE_FORMAT(NOW(), '%Y-%m-%d %H:%i:%s');\n```\n\n**支持:** MySQL\n**其他数据库:** PostgreSQL使用TO_CHAR，SQL Server使用FORMAT"
+  },
+  {
+    "label": "ROUND",
+    "detail": "ROUND(number, decimals)",
+    "documentation": "将数字四舍五入到指定小数位。\n\n**语法:**\n```sql\nSELECT ROUND(number, decimal_places);\n```\n\n**示例:**\n```sql\nSELECT ROUND(3.14159, 2); -- 3.14\nSELECT ROUND(price, 2) FROM products;\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "FLOOR",
+    "detail": "FLOOR(number)",
+    "documentation": "向下取整，返回小于等于参数的最大整数。\n\n**语法:**\n```sql\nSELECT FLOOR(number);\n```\n\n**示例:**\n```sql\nSELECT FLOOR(3.7); -- 3\nSELECT FLOOR(-3.7); -- -4\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "CEIL",
+    "detail": "CEIL(number)",
+    "documentation": "向上取整，返回大于等于参数的最小整数。\n\n**语法:**\n```sql\nSELECT CEIL(number);\nSELECT CEILING(number); -- SQL Server\n```\n\n**示例:**\n```sql\nSELECT CEIL(3.2); -- 4\nSELECT CEIL(-3.2); -- -3\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "ABS",
+    "detail": "ABS(number)",
+    "documentation": "返回数字的绝对值。\n\n**语法:**\n```sql\nSELECT ABS(number);\n```\n\n**示例:**\n```sql\nSELECT ABS(-5); -- 5\nSELECT ABS(balance) FROM accounts;\n```\n\n**支持:** MySQL, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "IF",
+    "detail": "IF(condition, true_value, false_value)",
+    "documentation": "条件函数，根据条件返回不同值（MySQL特有）。\n\n**语法:**\n```sql\nSELECT IF(condition, value_if_true, value_if_false);\n```\n\n**示例:**\n```sql\nSELECT name, IF(age >= 18, 'Adult', 'Minor') as status\nFROM users;\n```\n\n**支持:** MySQL\n**其他数据库:** 使用CASE WHEN语句"
+  },
+  {
+    "label": "IFNULL",
+    "detail": "IFNULL(expression, alt_value)",
+    "documentation": "如果表达式为NULL则返回替代值（MySQL特有）。\n\n**语法:**\n```sql\nSELECT IFNULL(expression, replacement);\n```\n\n**示例:**\n```sql\nSELECT IFNULL(phone, 'N/A') FROM users;\n```\n\n**支持:** MySQL\n**其他数据库:**\n- PostgreSQL: COALESCE\n- Oracle: NVL\n- SQL Server: ISNULL"
+  },
+  {
+    "label": "GROUP_CONCAT",
+    "detail": "GROUP_CONCAT(column SEPARATOR ',')",
+    "documentation": "将分组中的值连接成字符串（MySQL特有）。\n\n**语法:**\n```sql\nSELECT GROUP_CONCAT(column\n    [ORDER BY column]\n    [SEPARATOR 'string'])\nFROM table\nGROUP BY group_column;\n```\n\n**示例:**\n```sql\nSELECT department,\n       GROUP_CONCAT(name ORDER BY name SEPARATOR ', ') as members\nFROM employees\nGROUP BY department;\n```\n\n**支持:** MySQL\n**其他数据库:**\n- PostgreSQL: STRING_AGG\n- Oracle: LISTAGG\n- SQL Server: STRING_AGG (2017+)"
+  },
+  {
+    "label": "SHOW TABLES",
+    "detail": "SHOW TABLES",
+    "documentation": "显示当前数据库中的所有表（MySQL特有）。\n\n**语法:**\n```sql\nSHOW TABLES;\nSHOW TABLES FROM database_name;\nSHOW TABLES LIKE 'pattern';\n```\n\n**示例:**\n```sql\nSHOW TABLES LIKE 'user%';\n```\n\n**支持:** MySQL"
+  },
+  {
+    "label": "SHOW DATABASES",
+    "detail": "SHOW DATABASES",
+    "documentation": "显示所有数据库（MySQL特有）。\n\n**语法:**\n```sql\nSHOW DATABASES;\nSHOW DATABASES LIKE 'pattern';\n```\n\n**支持:** MySQL"
+  },
+  {
+    "label": "SHOW COLUMNS",
+    "detail": "SHOW COLUMNS FROM table_name",
+    "documentation": "显示表的列信息（MySQL特有）。\n\n**语法:**\n```sql\nSHOW COLUMNS FROM table_name;\nDESCRIBE table_name; -- 等价\nDESC table_name; -- 简写\n```\n\n**支持:** MySQL"
+  },
+  {
+    "label": "DESCRIBE",
+    "detail": "DESCRIBE table_name",
+    "documentation": "显示表结构，包括列名、类型、约束等（MySQL/Oracle）。\n\n**语法:**\n```sql\nDESCRIBE table_name;\nDESC table_name; -- 简写\n```\n\n**支持:** MySQL, Oracle"
+  },
+  {
+    "label": "EXPLAIN",
+    "detail": "EXPLAIN SELECT ...",
+    "documentation": "显示SQL语句的执行计划，用于查询优化。\n\n**语法:**\n```sql\nEXPLAIN SELECT * FROM table WHERE condition;\n```\n\n**支持:** MySQL, PostgreSQL, SQLite"
+  },
+  {
+    "label": "SERIAL",
+    "detail": "column SERIAL",
+    "documentation": "自增整数类型（PostgreSQL特有）。\n\n**语法:**\n```sql\nCREATE TABLE users (\n    id SERIAL PRIMARY KEY,\n    name VARCHAR(100)\n);\n```\n\n**等价于:**\n```sql\nid INTEGER NOT NULL DEFAULT nextval('users_id_seq')\n```\n\n**支持:** PostgreSQL\n**注意:** PostgreSQL 10+ 推荐使用IDENTITY"
+  },
+  {
+    "label": "RETURNING",
+    "detail": "INSERT/UPDATE/DELETE ... RETURNING columns",
+    "documentation": "返回被修改行的数据（PostgreSQL特有）。\n\n**语法:**\n```sql\nINSERT INTO table (columns) VALUES (values)\nRETURNING id, name;\n\nUPDATE table SET col = val WHERE condition\nRETURNING *;\n\nDELETE FROM table WHERE condition\nRETURNING id;\n```\n\n**支持:** PostgreSQL"
+  },
+  {
+    "label": "ON CONFLICT",
+    "detail": "ON CONFLICT (column) DO UPDATE/NOTHING",
+    "documentation": "处理插入冲突（PostgreSQL的UPSERT）。\n\n**语法:**\n```sql\nINSERT INTO table (col1, col2) VALUES (val1, val2)\nON CONFLICT (col1) DO UPDATE\nSET col2 = EXCLUDED.col2;\n\nINSERT INTO table (col1, col2) VALUES (val1, val2)\nON CONFLICT (col1) DO NOTHING;\n```\n\n**支持:** PostgreSQL, SQLite"
+  },
+  {
+    "label": "STRING_AGG",
+    "detail": "STRING_AGG(expression, separator)",
+    "documentation": "将分组中的值连接成字符串（PostgreSQL）。\n\n**语法:**\n```sql\nSELECT STRING_AGG(column, ', ' ORDER BY column)\nFROM table\nGROUP BY group_column;\n```\n\n**示例:**\n```sql\nSELECT department,\n       STRING_AGG(name, ', ' ORDER BY name) as members\nFROM employees\nGROUP BY department;\n```\n\n**支持:** PostgreSQL, SQL Server (2017+)"
+  },
+  {
+    "label": "ARRAY_AGG",
+    "detail": "ARRAY_AGG(expression)",
+    "documentation": "将分组中的值聚合为数组（PostgreSQL特有）。\n\n**语法:**\n```sql\nSELECT ARRAY_AGG(column ORDER BY column)\nFROM table\nGROUP BY group_column;\n```\n\n**示例:**\n```sql\nSELECT category, ARRAY_AGG(name) as products\nFROM products\nGROUP BY category;\n```\n\n**支持:** PostgreSQL"
+  },
+  {
+    "label": "TO_CHAR",
+    "detail": "TO_CHAR(value, format)",
+    "documentation": "将数值或日期转换为格式化字符串（PostgreSQL/Oracle）。\n\n**语法:**\n```sql\n-- 日期格式化\nSELECT TO_CHAR(date, 'YYYY-MM-DD HH24:MI:SS');\n\n-- 数字格式化\nSELECT TO_CHAR(number, '999,999.99');\n```\n\n**示例:**\n```sql\nSELECT TO_CHAR(NOW(), 'YYYY-MM-DD');\nSELECT TO_CHAR(price, '999,999.00');\n```\n\n**支持:** PostgreSQL, Oracle"
+  },
+  {
+    "label": "INTERVAL",
+    "detail": "INTERVAL 'value' unit",
+    "documentation": "表示时间间隔，用于日期运算。\n\n**语法:**\n```sql\nSELECT NOW() + INTERVAL '1 day';\nSELECT NOW() - INTERVAL '2 hours';\n```\n\n**单位:**\n- year, month, day\n- hour, minute, second\n\n**支持:** MySQL, PostgreSQL"
+  },
+  {
+    "label": "JSONB",
+    "detail": "column JSONB",
+    "documentation": "二进制JSON数据类型，支持高效索引和查询（PostgreSQL特有）。\n\n**语法:**\n```sql\nCREATE TABLE documents (\n    id SERIAL PRIMARY KEY,\n    data JSONB\n);\n```\n\n**操作符:**\n- `->` 获取JSON对象字段\n- `->>` 获取JSON对象字段为文本\n- `@>` 包含\n- `?` 存在键\n\n**示例:**\n```sql\nSELECT data->>'name' FROM documents;\nSELECT * FROM documents WHERE data @> '{\"status\": \"active\"}';\n```\n\n**支持:** PostgreSQL"
+  },
+  {
+    "label": "PRAGMA",
+    "detail": "PRAGMA name = value",
+    "documentation": "SQLite配置命令，用于查询和设置数据库参数。\n\n**常用命令:**\n```sql\n-- 查看表结构\nPRAGMA table_info(table_name);\n\n-- 外键约束\nPRAGMA foreign_keys = ON;\n\n-- 数据库信息\nPRAGMA database_list;\n\n-- 查询优化\nPRAGMA optimize;\n```\n\n**支持:** SQLite"
+  },
+  {
+    "label": "AUTOINCREMENT",
+    "detail": "column INTEGER PRIMARY KEY AUTOINCREMENT",
+    "documentation": "SQLite的自增列，保证ID单调递增不重用。\n\n**语法:**\n```sql\nCREATE TABLE users (\n    id INTEGER PRIMARY KEY AUTOINCREMENT,\n    name TEXT\n);\n```\n\n**与不加AUTOINCREMENT区别:**\n- 不加: 删除后ID可能被重用\n- 加上: ID永不重用，性能略低\n\n**支持:** SQLite"
+  },
+  {
+    "label": "VACUUM",
+    "detail": "VACUUM",
+    "documentation": "重建数据库文件，释放未使用空间（SQLite）。\n\n**语法:**\n```sql\nVACUUM;\n```\n\n**作用:**\n- 减小数据库文件大小\n- 整理碎片\n- 重建索引\n\n**支持:** SQLite, PostgreSQL"
+  },
+  {
+    "label": "GLOB",
+    "detail": "column GLOB pattern",
+    "documentation": "模式匹配，使用Unix通配符（SQLite特有）。\n\n**通配符:**\n- `*` - 匹配任意数量字符\n- `?` - 匹配单个字符\n\n**示例:**\n```sql\nSELECT * FROM files WHERE name GLOB '*.txt';\nSELECT * FROM users WHERE name GLOB 'J???';\n```\n\n**与LIKE区别:** GLOB区分大小写。\n\n**支持:** SQLite"
+  },
+  {
+    "label": "ROWNUM",
+    "detail": "ROWNUM <= n",
+    "documentation": "Oracle的行号伪列，用于限制返回行数。\n\n**语法:**\n```sql\nSELECT * FROM table WHERE ROWNUM <= 10;\n```\n\n**注意:**\n- ROWNUM在WHERE之前分配\n- 不能直接用 ROWNUM > n\n- Oracle 12c+ 推荐使用FETCH FIRST\n\n**支持:** Oracle"
+  },
+  {
+    "label": "SYSDATE",
+    "detail": "SYSDATE",
+    "documentation": "返回当前系统日期和时间（Oracle特有）。\n\n**语法:**\n```sql\nSELECT SYSDATE FROM DUAL;\n```\n\n**示例:**\n```sql\nSELECT * FROM orders\nWHERE order_date > SYSDATE - 7;\n```\n\n**支持:** Oracle"
+  },
+  {
+    "label": "NVL",
+    "detail": "NVL(expression, replacement)",
+    "documentation": "如果表达式为NULL则返回替代值（Oracle特有）。\n\n**语法:**\n```sql\nSELECT NVL(column, default_value) FROM table;\n```\n\n**示例:**\n```sql\nSELECT NVL(phone, 'N/A') FROM customers;\n```\n\n**支持:** Oracle\n**其他数据库:** 使用COALESCE或IFNULL"
+  },
+  {
+    "label": "NVL2",
+    "detail": "NVL2(expr, not_null_val, null_val)",
+    "documentation": "根据表达式是否为NULL返回不同值（Oracle特有）。\n\n**语法:**\n```sql\nNVL2(expression, value_if_not_null, value_if_null)\n```\n\n**示例:**\n```sql\nSELECT NVL2(commission, salary + commission, salary) as total\nFROM employees;\n```\n\n**支持:** Oracle"
+  },
+  {
+    "label": "DECODE",
+    "detail": "DECODE(expr, search, result, ...)",
+    "documentation": "条件函数，类似于简单CASE（Oracle特有）。\n\n**语法:**\n```sql\nDECODE(expression,\n    search1, result1,\n    search2, result2,\n    ...\n    default)\n```\n\n**示例:**\n```sql\nSELECT DECODE(status,\n    'A', 'Active',\n    'I', 'Inactive',\n    'Unknown') as status_name\nFROM users;\n```\n\n**支持:** Oracle"
+  },
+  {
+    "label": "CONNECT BY",
+    "detail": "CONNECT BY PRIOR column = column",
+    "documentation": "递归查询层次结构数据（Oracle特有）。\n\n**语法:**\n```sql\nSELECT columns\nFROM table\nSTART WITH condition\nCONNECT BY PRIOR child_col = parent_col;\n```\n\n**示例:**\n```sql\nSELECT employee_id, manager_id, LEVEL\nFROM employees\nSTART WITH manager_id IS NULL\nCONNECT BY PRIOR employee_id = manager_id;\n```\n\n**支持:** Oracle"
+  },
+  {
+    "label": "DUAL",
+    "detail": "FROM DUAL",
+    "documentation": "Oracle的虚拟表，用于不需要实际表的查询。\n\n**语法:**\n```sql\nSELECT expression FROM DUAL;\n```\n\n**示例:**\n```sql\nSELECT SYSDATE FROM DUAL;\nSELECT 1 + 1 FROM DUAL;\n```\n\n**支持:** Oracle\n**注意:** MySQL可用但非必需，PostgreSQL/SQLite不需要"
+  },
+  {
+    "label": "TOP",
+    "detail": "SELECT TOP n columns",
+    "documentation": "限制返回的行数（SQL Server特有）。\n\n**语法:**\n```sql\nSELECT TOP n columns FROM table;\nSELECT TOP n PERCENT columns FROM table;\nSELECT TOP n WITH TIES columns FROM table ORDER BY col;\n```\n\n**示例:**\n```sql\nSELECT TOP 10 * FROM orders ORDER BY order_date DESC;\n```\n\n**支持:** SQL Server"
+  },
+  {
+    "label": "GETDATE",
+    "detail": "GETDATE()",
+    "documentation": "返回当前日期和时间（SQL Server特有）。\n\n**语法:**\n```sql\nSELECT GETDATE();\n```\n\n**相关函数:**\n- `GETUTCDATE()` - UTC时间\n- `SYSDATETIME()` - 高精度时间\n\n**支持:** SQL Server"
+  },
+  {
+    "label": "ISNULL",
+    "detail": "ISNULL(expression, replacement)",
+    "documentation": "如果表达式为NULL则返回替代值（SQL Server特有）。\n\n**语法:**\n```sql\nSELECT ISNULL(column, default_value) FROM table;\n```\n\n**示例:**\n```sql\nSELECT ISNULL(phone, 'N/A') FROM customers;\n```\n\n**支持:** SQL Server\n**其他数据库:** 使用COALESCE"
+  },
+  {
+    "label": "IDENTITY",
+    "detail": "column INT IDENTITY(1,1)",
+    "documentation": "自增列（SQL Server特有）。\n\n**语法:**\n```sql\nCREATE TABLE users (\n    id INT IDENTITY(1,1) PRIMARY KEY,\n    name NVARCHAR(100)\n);\n```\n\n**参数:**\n- 第一个参数: 起始值\n- 第二个参数: 增量\n\n**支持:** SQL Server"
+  },
+  {
+    "label": "NVARCHAR",
+    "detail": "NVARCHAR(length)",
+    "documentation": "可变长度Unicode字符串类型（SQL Server）。\n\n**语法:**\n```sql\ncolumn NVARCHAR(100)  -- 最大100字符\ncolumn NVARCHAR(MAX)  -- 最大2GB\n```\n\n**与VARCHAR区别:**\n- NVARCHAR使用2字节存储\n- 支持国际字符\n\n**支持:** SQL Server"
+  },
+  {
+    "label": "WITH",
+    "detail": "WITH cte_name AS (SELECT ...)",
+    "documentation": "公共表表达式(CTE)，定义临时命名结果集。\n\n**语法:**\n```sql\nWITH cte_name AS (\n    SELECT columns FROM table WHERE condition\n)\nSELECT * FROM cte_name;\n```\n\n**递归CTE:**\n```sql\nWITH RECURSIVE cte AS (\n    -- 基础查询\n    SELECT id, parent_id, name FROM tree WHERE parent_id IS NULL\n    UNION ALL\n    -- 递归查询\n    SELECT t.id, t.parent_id, t.name\n    FROM tree t\n    JOIN cte ON t.parent_id = cte.id\n)\nSELECT * FROM cte;\n```\n\n**支持:** MySQL 8.0+, PostgreSQL, SQLite, Oracle, SQL Server"
+  },
+  {
+    "label": "FETCH FIRST",
+    "detail": "FETCH FIRST n ROWS ONLY",
+    "documentation": "SQL标准的行数限制语法。\n\n**语法:**\n```sql\nSELECT columns FROM table\nORDER BY column\nOFFSET n ROWS\nFETCH FIRST m ROWS ONLY;\n```\n\n**示例:**\n```sql\nSELECT * FROM users\nORDER BY created_at DESC\nOFFSET 10 ROWS\nFETCH FIRST 10 ROWS ONLY;\n```\n\n**支持:** PostgreSQL, Oracle 12c+, SQL Server 2012+"
+  },
+  {
+    "label": "WINDOW",
+    "detail": "OVER (PARTITION BY ... ORDER BY ...)",
+    "documentation": "窗口函数的OVER子句，定义计算范围。\n\n**语法:**\n```sql\nfunction() OVER (\n    [PARTITION BY column]\n    [ORDER BY column]\n    [ROWS/RANGE frame_spec]\n)\n```\n\n**示例:**\n```sql\nSELECT name, salary,\n    AVG(salary) OVER (PARTITION BY department) as dept_avg,\n    ROW_NUMBER() OVER (ORDER BY salary DESC) as rank\nFROM employees;\n```\n\n**支持:** MySQL 8.0+, PostgreSQL, SQLite 3.25+, Oracle, SQL Server"
+  },
+  {
+    "label": "ROW_NUMBER",
+    "detail": "ROW_NUMBER() OVER (...)",
+    "documentation": "为结果集中的每行分配唯一的连续行号。\n\n**语法:**\n```sql\nROW_NUMBER() OVER (\n    [PARTITION BY column]\n    ORDER BY column\n)\n```\n\n**示例:**\n```sql\nSELECT name, salary,\n    ROW_NUMBER() OVER (ORDER BY salary DESC) as rank\nFROM employees;\n```\n\n**支持:** MySQL 8.0+, PostgreSQL, SQLite 3.25+, Oracle, SQL Server"
+  },
+  {
+    "label": "RANK",
+    "detail": "RANK() OVER (...)",
+    "documentation": "为结果集分配排名，相同值得相同排名，跳过后续排名。\n\n**语法:**\n```sql\nRANK() OVER (\n    [PARTITION BY column]\n    ORDER BY column\n)\n```\n\n**示例:**\n```sql\n-- 分数相同则排名相同，下一个排名跳过\nSELECT name, score,\n    RANK() OVER (ORDER BY score DESC) as rank\nFROM students;\n-- 结果: 1, 2, 2, 4 (跳过3)\n```\n\n**支持:** MySQL 8.0+, PostgreSQL, SQLite 3.25+, Oracle, SQL Server"
+  },
+  {
+    "label": "DENSE_RANK",
+    "detail": "DENSE_RANK() OVER (...)",
+    "documentation": "为结果集分配排名，相同值得相同排名，不跳过后续排名。\n\n**语法:**\n```sql\nDENSE_RANK() OVER (\n    [PARTITION BY column]\n    ORDER BY column\n)\n```\n\n**示例:**\n```sql\n-- 分数相同则排名相同，下一个排名连续\nSELECT name, score,\n    DENSE_RANK() OVER (ORDER BY score DESC) as rank\nFROM students;\n-- 结果: 1, 2, 2, 3 (不跳过)\n```\n\n**支持:** MySQL 8.0+, PostgreSQL, SQLite 3.25+, Oracle, SQL Server"
+  },
+  {
+    "label": "LAG",
+    "detail": "LAG(column, offset, default) OVER (...)",
+    "documentation": "访问当前行之前的行数据。\n\n**语法:**\n```sql\nLAG(column, offset, default_value) OVER (\n    [PARTITION BY column]\n    ORDER BY column\n)\n```\n\n**示例:**\n```sql\nSELECT date, sales,\n    LAG(sales, 1, 0) OVER (ORDER BY date) as prev_sales,\n    sales - LAG(sales, 1, 0) OVER (ORDER BY date) as diff\nFROM daily_sales;\n```\n\n**支持:** MySQL 8.0+, PostgreSQL, SQLite 3.25+, Oracle, SQL Server"
+  },
+  {
+    "label": "LEAD",
+    "detail": "LEAD(column, offset, default) OVER (...)",
+    "documentation": "访问当前行之后的行数据。\n\n**语法:**\n```sql\nLEAD(column, offset, default_value) OVER (\n    [PARTITION BY column]\n    ORDER BY column\n)\n```\n\n**示例:**\n```sql\nSELECT date, sales,\n    LEAD(sales, 1, 0) OVER (ORDER BY date) as next_sales\nFROM daily_sales;\n```\n\n**支持:** MySQL 8.0+, PostgreSQL, SQLite 3.25+, Oracle, SQL Server"
+  },
+  {
+    "label": "PARTITION BY",
+    "detail": "PARTITION BY column",
+    "documentation": "在窗口函数中按指定列分组。\n\n**语法:**\n```sql\nfunction() OVER (PARTITION BY column ORDER BY column)\n```\n\n**示例:**\n```sql\nSELECT department, name, salary,\n    SUM(salary) OVER (PARTITION BY department) as dept_total\nFROM employees;\n```\n\n**支持:** MySQL 8.0+, PostgreSQL, SQLite 3.25+, Oracle, SQL Server"
+  },
+  {
+    "label": "SET",
+    "detail": "Redis: SET key value [EX seconds]",
+    "documentation": "设置键值对（Redis命令）。\n\n**语法:**\n```\nSET key value [EX seconds] [PX milliseconds] [NX|XX]\n```\n\n**选项:**\n- `EX seconds` - 设置过期时间（秒）\n- `PX milliseconds` - 设置过期时间（毫秒）\n- `NX` - 仅当键不存在时设置\n- `XX` - 仅当键存在时设置\n\n**示例:**\n```\nSET user:1:name \"John\" EX 3600\nSET session:abc123 \"data\" NX\n```\n\n**支持:** Redis"
+  },
+  {
+    "label": "GET",
+    "detail": "Redis: GET key",
+    "documentation": "获取键对应的值（Redis命令）。\n\n**语法:**\n```\nGET key\n```\n\n**返回:**\n- 键存在时返回值\n- 键不存在时返回nil\n\n**示例:**\n```\nGET user:1:name\n```\n\n**支持:** Redis"
+  },
+  {
+    "label": "DEL",
+    "detail": "Redis: DEL key [key ...]",
+    "documentation": "删除一个或多个键（Redis命令）。\n\n**语法:**\n```\nDEL key [key ...]\n```\n\n**返回:** 被删除的键数量\n\n**示例:**\n```\nDEL user:1 user:2 user:3\n```\n\n**支持:** Redis"
+  },
+  {
+    "label": "KEYS",
+    "detail": "Redis: KEYS pattern",
+    "documentation": "查找匹配模式的所有键（Redis命令）。\n\n**语法:**\n```\nKEYS pattern\n```\n\n**通配符:**\n- `*` - 匹配任意数量字符\n- `?` - 匹配单个字符\n- `[abc]` - 匹配括号内字符\n\n**示例:**\n```\nKEYS user:*\nKEYS session:????\n```\n\n**警告:** 生产环境慎用，可能阻塞服务器。推荐使用SCAN。\n\n**支持:** Redis"
+  },
+  {
+    "label": "HSET",
+    "detail": "Redis: HSET key field value",
+    "documentation": "设置哈希表字段值（Redis命令）。\n\n**语法:**\n```\nHSET key field value [field value ...]\n```\n\n**示例:**\n```\nHSET user:1 name \"John\" age 25 email \"john@example.com\"\n```\n\n**支持:** Redis"
+  },
+  {
+    "label": "HGET",
+    "detail": "Redis: HGET key field",
+    "documentation": "获取哈希表指定字段值（Redis命令）。\n\n**语法:**\n```\nHGET key field\n```\n\n**示例:**\n```\nHGET user:1 name\n```\n\n**支持:** Redis"
+  },
+  {
+    "label": "HGETALL",
+    "detail": "Redis: HGETALL key",
+    "documentation": "获取哈希表所有字段和值（Redis命令）。\n\n**语法:**\n```\nHGETALL key\n```\n\n**返回:** 字段和值的列表\n\n**示例:**\n```\nHGETALL user:1\n```\n\n**支持:** Redis"
+  },
+  {
+    "label": "LPUSH",
+    "detail": "Redis: LPUSH key value [value ...]",
+    "documentation": "从列表左端插入值（Redis命令）。\n\n**语法:**\n```\nLPUSH key value [value ...]\n```\n\n**返回:** 列表长度\n\n**示例:**\n```\nLPUSH queue:tasks \"task1\" \"task2\" \"task3\"\n```\n\n**支持:** Redis"
+  },
+  {
+    "label": "RPUSH",
+    "detail": "Redis: RPUSH key value [value ...]",
+    "documentation": "从列表右端插入值（Redis命令）。\n\n**语法:**\n```\nRPUSH key value [value ...]\n```\n\n**返回:** 列表长度\n\n**示例:**\n```\nRPUSH queue:tasks \"task1\" \"task2\"\n```\n\n**支持:** Redis"
+  },
+  {
+    "label": "LRANGE",
+    "detail": "Redis: LRANGE key start stop",
+    "documentation": "获取列表指定范围的元素（Redis命令）。\n\n**语法:**\n```\nLRANGE key start stop\n```\n\n**索引:**\n- 0 表示第一个元素\n- -1 表示最后一个元素\n\n**示例:**\n```\nLRANGE queue:tasks 0 -1  # 获取所有元素\nLRANGE queue:tasks 0 9   # 获取前10个元素\n```\n\n**支持:** Redis"
+  },
+  {
+    "label": "SADD",
+    "detail": "Redis: SADD key member [member ...]",
+    "documentation": "向集合添加成员（Redis命令）。\n\n**语法:**\n```\nSADD key member [member ...]\n```\n\n**返回:** 新添加的成员数量\n\n**示例:**\n```\nSADD tags:post:1 \"redis\" \"database\" \"nosql\"\n```\n\n**支持:** Redis"
+  },
+  {
+    "label": "SMEMBERS",
+    "detail": "Redis: SMEMBERS key",
+    "documentation": "获取集合所有成员（Redis命令）。\n\n**语法:**\n```\nSMEMBERS key\n```\n\n**示例:**\n```\nSMEMBERS tags:post:1\n```\n\n**支持:** Redis"
+  },
+  {
+    "label": "ZADD",
+    "detail": "Redis: ZADD key score member [score member ...]",
+    "documentation": "向有序集合添加成员及其分数（Redis命令）。\n\n**语法:**\n```\nZADD key [NX|XX] [GT|LT] [CH] score member [score member ...]\n```\n\n**示例:**\n```\nZADD leaderboard 100 \"player1\" 85 \"player2\" 92 \"player3\"\n```\n\n**支持:** Redis"
+  },
+  {
+    "label": "ZRANGE",
+    "detail": "Redis: ZRANGE key start stop [WITHSCORES]",
+    "documentation": "按分数排序获取有序集合成员（Redis命令）。\n\n**语法:**\n```\nZRANGE key start stop [WITHSCORES]\n```\n\n**示例:**\n```\nZRANGE leaderboard 0 9 WITHSCORES  # 获取前10名及分数\n```\n\n**支持:** Redis"
+  },
+  {
+    "label": "EXPIRE",
+    "detail": "Redis: EXPIRE key seconds",
+    "documentation": "设置键的过期时间（Redis命令）。\n\n**语法:**\n```\nEXPIRE key seconds\n```\n\n**返回:**\n- 1 - 设置成功\n- 0 - 键不存在\n\n**示例:**\n```\nEXPIRE session:abc123 3600  # 1小时后过期\n```\n\n**支持:** Redis"
+  },
+  {
+    "label": "TTL",
+    "detail": "Redis: TTL key",
+    "documentation": "获取键的剩余过期时间（Redis命令）。\n\n**语法:**\n```\nTTL key\n```\n\n**返回:**\n- 正整数 - 剩余秒数\n- -1 - 键存在但无过期时间\n- -2 - 键不存在\n\n**示例:**\n```\nTTL session:abc123\n```\n\n**支持:** Redis"
+  },
+  {
+    "label": "INCR",
+    "detail": "Redis: INCR key",
+    "documentation": "将键的值加1（Redis命令）。\n\n**语法:**\n```\nINCR key\n```\n\n**返回:** 递增后的值\n\n**示例:**\n```\nINCR page:views:123\nINCR counter\n```\n\n**支持:** Redis"
+  },
+  {
+    "label": "SCAN",
+    "detail": "Redis: SCAN cursor [MATCH pattern] [COUNT count]",
+    "documentation": "增量迭代数据库中的键（Redis命令）。\n\n**语法:**\n```\nSCAN cursor [MATCH pattern] [COUNT count]\n```\n\n**示例:**\n```\nSCAN 0 MATCH user:* COUNT 100\n```\n\n**优势:** 不阻塞服务器，适合生产环境。\n\n**支持:** Redis"
+  },
+  {
+    "label": "find",
+    "detail": "MongoDB: db.collection.find(query)",
+    "documentation": "查询集合中的文档（MongoDB方法）。\n\n**语法:**\n```javascript\ndb.collection.find(query, projection)\n```\n\n**示例:**\n```javascript\n// 查找所有文档\ndb.users.find({})\n\n// 条件查询\ndb.users.find({ age: { $gt: 18 } })\n\n// 指定返回字段\ndb.users.find({ status: \"active\" }, { name: 1, email: 1 })\n```\n\n**支持:** MongoDB"
+  },
+  {
+    "label": "findOne",
+    "detail": "MongoDB: db.collection.findOne(query)",
+    "documentation": "查询集合中的单个文档（MongoDB方法）。\n\n**语法:**\n```javascript\ndb.collection.findOne(query, projection)\n```\n\n**返回:** 匹配的第一个文档或null\n\n**示例:**\n```javascript\ndb.users.findOne({ email: \"john@example.com\" })\n```\n\n**支持:** MongoDB"
+  },
+  {
+    "label": "insertOne",
+    "detail": "MongoDB: db.collection.insertOne(doc)",
+    "documentation": "插入单个文档到集合（MongoDB方法）。\n\n**语法:**\n```javascript\ndb.collection.insertOne(document)\n```\n\n**示例:**\n```javascript\ndb.users.insertOne({\n    name: \"John\",\n    email: \"john@example.com\",\n    age: 25\n})\n```\n\n**支持:** MongoDB"
+  },
+  {
+    "label": "insertMany",
+    "detail": "MongoDB: db.collection.insertMany(docs)",
+    "documentation": "插入多个文档到集合（MongoDB方法）。\n\n**语法:**\n```javascript\ndb.collection.insertMany([doc1, doc2, ...])\n```\n\n**示例:**\n```javascript\ndb.users.insertMany([\n    { name: \"John\", age: 25 },\n    { name: \"Jane\", age: 30 }\n])\n```\n\n**支持:** MongoDB"
+  },
+  {
+    "label": "updateOne",
+    "detail": "MongoDB: db.collection.updateOne(filter, update)",
+    "documentation": "更新匹配条件的单个文档（MongoDB方法）。\n\n**语法:**\n```javascript\ndb.collection.updateOne(filter, update, options)\n```\n\n**更新操作符:**\n- `$set` - 设置字段值\n- `$unset` - 删除字段\n- `$inc` - 递增数值\n- `$push` - 向数组添加元素\n\n**示例:**\n```javascript\ndb.users.updateOne(\n    { email: \"john@example.com\" },\n    { $set: { age: 26 } }\n)\n```\n\n**支持:** MongoDB"
+  },
+  {
+    "label": "updateMany",
+    "detail": "MongoDB: db.collection.updateMany(filter, update)",
+    "documentation": "更新所有匹配条件的文档（MongoDB方法）。\n\n**语法:**\n```javascript\ndb.collection.updateMany(filter, update, options)\n```\n\n**示例:**\n```javascript\ndb.users.updateMany(\n    { status: \"inactive\" },\n    { $set: { archived: true } }\n)\n```\n\n**支持:** MongoDB"
+  },
+  {
+    "label": "deleteOne",
+    "detail": "MongoDB: db.collection.deleteOne(filter)",
+    "documentation": "删除匹配条件的单个文档（MongoDB方法）。\n\n**语法:**\n```javascript\ndb.collection.deleteOne(filter)\n```\n\n**示例:**\n```javascript\ndb.users.deleteOne({ _id: ObjectId(\"...\") })\n```\n\n**支持:** MongoDB"
+  },
+  {
+    "label": "deleteMany",
+    "detail": "MongoDB: db.collection.deleteMany(filter)",
+    "documentation": "删除所有匹配条件的文档（MongoDB方法）。\n\n**语法:**\n```javascript\ndb.collection.deleteMany(filter)\n```\n\n**示例:**\n```javascript\ndb.users.deleteMany({ status: \"deleted\" })\n```\n\n**警告:** 空过滤器 `{}` 会删除所有文档！\n\n**支持:** MongoDB"
+  },
+  {
+    "label": "aggregate",
+    "detail": "MongoDB: db.collection.aggregate(pipeline)",
+    "documentation": "聚合管道，用于复杂数据处理（MongoDB方法）。\n\n**语法:**\n```javascript\ndb.collection.aggregate([\n    { $stage1: { ... } },\n    { $stage2: { ... } },\n    ...\n])\n```\n\n**常用阶段:**\n- `$match` - 过滤文档\n- `$group` - 分组聚合\n- `$sort` - 排序\n- `$project` - 投影字段\n- `$limit` - 限制数量\n- `$lookup` - 关联查询\n\n**示例:**\n```javascript\ndb.orders.aggregate([\n    { $match: { status: \"completed\" } },\n    { $group: { _id: \"$customer_id\", total: { $sum: \"$amount\" } } },\n    { $sort: { total: -1 } }\n])\n```\n\n**支持:** MongoDB"
+  },
+  {
+    "label": "$match",
+    "detail": "MongoDB: $match pipeline stage",
+    "documentation": "聚合管道中的过滤阶段（MongoDB）。\n\n**语法:**\n```javascript\n{ $match: { query } }\n```\n\n**示例:**\n```javascript\ndb.orders.aggregate([\n    { $match: { status: \"active\", amount: { $gt: 100 } } }\n])\n```\n\n**支持:** MongoDB"
+  },
+  {
+    "label": "$group",
+    "detail": "MongoDB: $group pipeline stage",
+    "documentation": "聚合管道中的分组阶段（MongoDB）。\n\n**语法:**\n```javascript\n{ $group: {\n    _id: \"$field\",\n    field: { accumulator: expression }\n}}\n```\n\n**累加器:**\n- `$sum` - 求和\n- `$avg` - 平均值\n- `$min` / `$max` - 最小/最大值\n- `$push` - 收集到数组\n- `$first` / `$last` - 首/末值\n\n**示例:**\n```javascript\ndb.sales.aggregate([\n    { $group: {\n        _id: \"$category\",\n        totalSales: { $sum: \"$amount\" },\n        avgPrice: { $avg: \"$price\" }\n    }}\n])\n```\n\n**支持:** MongoDB"
+  },
+  {
+    "label": "$project",
+    "detail": "MongoDB: $project pipeline stage",
+    "documentation": "聚合管道中的投影阶段，选择/重塑字段（MongoDB）。\n\n**语法:**\n```javascript\n{ $project: {\n    field1: 1,        // 包含\n    field2: 0,        // 排除\n    newField: expr    // 计算字段\n}}\n```\n\n**示例:**\n```javascript\ndb.users.aggregate([\n    { $project: {\n        fullName: { $concat: [\"$firstName\", \" \", \"$lastName\"] },\n        email: 1,\n        _id: 0\n    }}\n])\n```\n\n**支持:** MongoDB"
+  },
+  {
+    "label": "$sort",
+    "detail": "MongoDB: $sort pipeline stage",
+    "documentation": "聚合管道中的排序阶段（MongoDB）。\n\n**语法:**\n```javascript\n{ $sort: { field1: 1, field2: -1 } }\n```\n\n**值:**\n- `1` - 升序\n- `-1` - 降序\n\n**示例:**\n```javascript\ndb.users.aggregate([\n    { $sort: { createdAt: -1, name: 1 } }\n])\n```\n\n**支持:** MongoDB"
+  },
+  {
+    "label": "$lookup",
+    "detail": "MongoDB: $lookup pipeline stage",
+    "documentation": "聚合管道中的关联查询阶段（MongoDB）。\n\n**语法:**\n```javascript\n{ $lookup: {\n    from: \"other_collection\",\n    localField: \"field\",\n    foreignField: \"field\",\n    as: \"output_array\"\n}}\n```\n\n**示例:**\n```javascript\ndb.orders.aggregate([\n    { $lookup: {\n        from: \"customers\",\n        localField: \"customer_id\",\n        foreignField: \"_id\",\n        as: \"customer\"\n    }}\n])\n```\n\n**支持:** MongoDB"
+  },
+  {
+    "label": "createIndex",
+    "detail": "MongoDB: db.collection.createIndex(keys)",
+    "documentation": "在集合上创建索引（MongoDB方法）。\n\n**语法:**\n```javascript\ndb.collection.createIndex(keys, options)\n```\n\n**索引类型:**\n- `{ field: 1 }` - 升序单字段索引\n- `{ field: -1 }` - 降序单字段索引\n- `{ field1: 1, field2: 1 }` - 复合索引\n- `{ field: \"text\" }` - 文本索引\n\n**示例:**\n```javascript\ndb.users.createIndex({ email: 1 }, { unique: true })\ndb.orders.createIndex({ customer_id: 1, created_at: -1 })\n```\n\n**支持:** MongoDB"
+  },
+  {
+    "label": "$gt",
+    "detail": "MongoDB: $gt (greater than)",
+    "documentation": "比较查询操作符：大于（MongoDB）。\n\n**语法:**\n```javascript\n{ field: { $gt: value } }\n```\n\n**示例:**\n```javascript\ndb.products.find({ price: { $gt: 100 } })\n```\n\n**相关操作符:**\n- `$gte` - 大于等于\n- `$lt` - 小于\n- `$lte` - 小于等于\n- `$eq` - 等于\n- `$ne` - 不等于\n\n**支持:** MongoDB"
+  },
+  {
+    "label": "$in",
+    "detail": "MongoDB: $in (in array)",
+    "documentation": "匹配数组中任一值的查询操作符（MongoDB）。\n\n**语法:**\n```javascript\n{ field: { $in: [value1, value2, ...] } }\n```\n\n**示例:**\n```javascript\ndb.users.find({ status: { $in: [\"active\", \"pending\"] } })\n```\n\n**支持:** MongoDB"
+  },
+  {
+    "label": "$regex",
+    "detail": "MongoDB: $regex (pattern match)",
+    "documentation": "正则表达式匹配查询操作符（MongoDB）。\n\n**语法:**\n```javascript\n{ field: { $regex: /pattern/, $options: 'i' } }\n```\n\n**选项:**\n- `i` - 不区分大小写\n- `m` - 多行匹配\n- `s` - 点匹配换行\n\n**示例:**\n```javascript\ndb.users.find({ name: { $regex: /^john/i } })\n```\n\n**支持:** MongoDB"
+  }
+]

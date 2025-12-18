@@ -1,0 +1,6 @@
+max_width = 120
+fn_params_layout = "Vertical"
+match_arm_leading_pipes = "Preserve"
+reorder_imports = true
+reorder_modules = true
+single_line_let_else_max_width = 0
