@@ -35,6 +35,18 @@ cargo bloat --release --crates
 # cargo install cargo-outdated
 cargo outdated -R
 
+# 打包
+cargo clean
+cargo build --release
+
+# 格式化
+cargo fmt
+
+# 更新依赖
+cargo clean
+rm -rf Cargo.lock
+cargo update
+
 ```
 
 ```txt

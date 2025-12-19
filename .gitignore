@@ -6,5 +6,5 @@
 target
 
 # tempdata
-scripts/testdata/redis
-scripts/testdata/table
+docs/testdata/redis
+docs/testdata/table
