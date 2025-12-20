@@ -44,7 +44,7 @@ cargo fmt
 
 # 更新依赖
 cargo clean
-rm -rf Cargo.lock
+rm -f Cargo.lock
 cargo update
 
 ```
