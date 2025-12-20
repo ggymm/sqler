@@ -1,0 +1,25 @@
+[package]
+name = "sqler-core"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "sqler_core"
+path = "src/lib.rs"
+
+[dependencies]
+dirs.workspace = true
+uuid.workspace = true
+aes-gcm.workspace = true
+thiserror.workspace = true
+
+serde.workspace = true
+serde_json.workspace = true
+
+tracing.workspace = true
+
+mongodb.workspace = true
+mysql.workspace = true
+postgres.workspace = true
+redis.workspace = true
+rusqlite.workspace = true

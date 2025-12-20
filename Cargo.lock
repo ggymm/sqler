@@ -6208,15 +6208,29 @@ dependencies = [
 ]
 
 [[package]]
-name = "sqler"
-version = "0.1.0"
+name = "sqler-app"
+version = "1.0.0"
 dependencies = [
- "aes-gcm",
  "dirs 6.0.0",
  "gpui",
  "gpui-component",
  "indexmap",
  "lsp-types",
+ "serde",
+ "serde_json",
+ "sqler-core",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
+name = "sqler-core"
+version = "1.0.0"
+dependencies = [
+ "aes-gcm",
+ "dirs 6.0.0",
  "mongodb",
  "mysql",
  "postgres",
@@ -6226,8 +6240,6 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.17",
  "tracing",
- "tracing-appender",
- "tracing-subscriber",
  "uuid",
 ]
 
