@@ -1,7 +1,8 @@
 [workspace]
 members = [
-    "crates/sqler-core",
     "crates/sqler-app",
+    "crates/sqler-core",
+    "crates/sqler-task",
 ]
 resolver = "2"
 

@@ -1,4 +1,4 @@
-# Sqler 代码地图
+# Sqler 代码地图 v5.0 (Workspace 架构)
 
 ## 项目概览
 
@@ -6,28 +6,797 @@
 
 - **名称**: `sqler`
 - **目标**: 桌面化多标签数据库管理器，支持多类型数据库的连接、浏览、查询和管理
-- **版本**: v0.1.0
-- **代码总行数**: 9,403 行 (32 个 .rs 文件)
+- **版本**: v1.0.0
+- **代码总行数**: 9,393 行 (21 个 .rs 文件)
+- **架构模式**: Cargo Workspace (2 crates)
 
 ### 技术栈
 
-- **核心框架**: Rust + GPUI 0.2.2 + gpui-component 0.4.1
+- **核心框架**: Rust + GPUI 0.2.2 + gpui-component 0.5.0
 - **数据库驱动**: mysql, postgres, rusqlite, mongodb, redis 等
 - **加密**: AES-256-GCM (数据源配置加密存储)
 - **序列化**: serde, serde_json
 - **日志**: tracing (终端+文件双重输出)
 
+### Workspace 架构
+
+**Crate 组织**:
+
+```
+sqler/
+  Cargo.toml              # Workspace 根配置
+  crates/
+    sqler-core/           # 核心库 crate (3145 行)
+      Cargo.toml
+      src/
+        lib.rs            # 数据模型定义 (734 行)
+        driver/           # 数据库驱动 (2240 行)
+        cache/            # 缓存系统 (171 行)
+    sqler-app/            # 应用程序 crate (6248 行)
+      Cargo.toml
+      src/
+        main.rs           # 应用入口 (124 行)
+        app/              # 应用层 (391 行)
+        comps/            # 公共组件 (308 行)
+        create/           # 数据源创建 (1148 行)
+        workspace/        # 工作区 (3273 行)
+        transfer/         # 数据传输 (1003 行)
+        subtask/          # 预留模块 (1 行)
+      assets/             # 静态资源
+        icons/
+```
+
+**依赖关系**:
+
+- `sqler-app` **依赖** `sqler-core`
+- `sqler-core` **零依赖** `sqler-app`（单向依赖，消除循环）
+- 编译产物: 单个二进制 `sqler`（位于 sqler-app）
+
+**Workspace 优势**:
+
+1. **职责分离**: 核心逻辑（driver、cache、model）与 UI 层完全分离
+2. **独立编译**: sqler-core 可单独编译和测试
+3. **依赖管理**: workspace.dependencies 统一版本管理
+4. **代码复用**: sqler-core 可被其他 crate 复用（如 CLI 工具、Web 服务）
+5. **构建优化**: 核心库变更时 UI 层无需重新编译
+
 ---
 
-## 代码结构
+## sqler-core crate（核心库，3145 行）
 
-### 1. 入口模块 (`src/main.rs`, 124 行)
+**路径**: `crates/sqler-core/`
+
+**职责**: 数据模型定义、数据库驱动抽象、缓存系统
+
+**依赖**:
+- 数据库驱动: mysql, postgres, rusqlite, mongodb, redis
+- 加密: aes-gcm
+- 序列化: serde, serde_json
+- 日志: tracing
+
+**导出接口**: 通过 `pub use` 统一导出核心类型
+
+```
+pub use driver::{
+    DatabaseDriver, DatabaseSession, DriverError,
+    ExecReq, ExecResp, FilterCond, Operator, OrderCond,
+    Paging, QueryReq, QueryResp, ValueCond,
+    check_connection, create_connection, supp_kinds,
+};
+
+pub use cache::{AppCache, ArcCache, CacheError};
+```
+
+---
+
+### 1. lib.rs - 核心类型定义（734 行）
+
+**路径**: `crates/sqler-core/src/lib.rs`
+
+**职责**: 定义所有核心数据结构和配置类型
+
+#### 1.1 核心类型
+
+##### TableInfo
+
+```
+pub struct TableInfo {
+    pub name: String,
+    pub row_count: Option<u64>,
+    pub size_bytes: Option<u64>,
+    pub last_accessed: Option<u64>,
+}
+```
+
+##### ColumnInfo
+
+```
+pub struct ColumnInfo {
+    pub name: String,
+    pub kind: String,
+    pub comment: String,
+    pub nullable: bool,
+    pub primary_key: bool,
+    pub default_value: String,
+    pub max_length: u64,
+    pub auto_increment: bool,
+}
+```
+
+##### SavedQuery
+
+```
+pub struct SavedQuery {
+    pub name: String,
+    pub content: String,
+}
+```
+
+#### 1.2 数据源类型
+
+##### DataSource
+
+```
+pub struct DataSource {
+    pub id: String,                     // UUID
+    pub name: String,                   // 显示名称
+    pub kind: DataSourceKind,           // 数据库类型
+    pub options: DataSourceOptions,     // 连接配置
+}
+```
+
+**核心方法**:
+- `new(name, kind, options)`: 创建数据源（自动生成 UUID）
+- `display_endpoint()`: 生成连接字符串（隐藏密码）
+- `display_overview()`: 生成概览信息列表
+
+##### DataSourceKind
+
+```
+#[repr(u8)]
+pub enum DataSourceKind {
+    MySQL,
+    SQLite,
+    Postgres,
+    Oracle,
+    SQLServer,
+    Redis,
+    MongoDB,
+}
+```
+
+**标准顺序**: MySQL → SQLite → Postgres → Oracle → SQLServer → Redis → MongoDB
+
+**方法**:
+- `all()`: 返回所有类型
+- `image()`: 返回图标路径
+- `label()`: 返回显示名称
+- `description()`: 返回描述信息
+
+#### 1.3 列类型枚举
+
+```
+pub enum ColumnKind {
+    TinyInt, SmallInt, Int, BigInt,
+    Float, Double, Decimal,
+    Char, VarChar, Text,
+    Binary, VarBinary, Blob,
+    Date, Time, DateTime, Timestamp,
+    Boolean, Json, Uuid,
+    Enum, Set,
+    Document, Array,  // MongoDB
+    String, List, Hash, ZSet,  // Redis
+    Unknown,
+}
+```
+
+#### 1.4 数据源配置类型
+
+##### DataSourceOptions
+
+```
+pub enum DataSourceOptions {
+    MySQL(MySQLOptions),
+    SQLite(SQLiteOptions),
+    Postgres(PostgresOptions),
+    Oracle(OracleOptions),
+    SQLServer(SQLServerOptions),
+    Redis(RedisOptions),
+    MongoDB(MongoDBOptions),
+}
+```
+
+##### MySQLOptions
+
+```
+pub struct MySQLOptions {
+    pub host: String,
+    pub port: String,
+    pub username: String,
+    pub password: String,
+    pub database: String,
+    pub use_tls: bool,
+}
+```
+
+**方法**:
+- `endpoint()`: 生成连接字符串（如 `mysql://host:3306/db`）
+- `overview()`: 返回 `Vec<(&'static str, String)>` 格式的概览信息
+
+**默认值**:
+- host: `127.0.0.1`
+- port: `3306`
+- username: `root`
+
+##### PostgresOptions
+
+```
+pub struct PostgresOptions {
+    pub host: String,
+    pub port: String,
+    pub database: String,
+    pub username: String,
+    pub password: String,
+    pub use_tls: bool,
+}
+```
+
+**方法**: `endpoint()`, `overview()`
+
+**默认值**:
+- host: `127.0.0.1`
+- port: `5432`
+- username: `postgres`
+
+##### SQLiteOptions
+
+```
+pub struct SQLiteOptions {
+    pub readonly: bool,
+    pub filepath: String,
+    pub password: Option<String>,
+}
+```
+
+**方法**: `endpoint()`, `overview()`
+
+**特点**:
+- 支持只读模式
+- 支持文件加密
+- endpoint() 返回文件名而非完整路径
+
+##### OracleOptions
+
+```
+pub enum OracleAddress {
+    ServiceName(String),
+    Sid(String),
+}
+
+pub struct OracleOptions {
+    pub host: String,
+    pub port: u16,
+    pub address: OracleAddress,
+    pub username: String,
+    pub password: Option<String>,
+    pub wallet_path: Option<String>,
+}
+```
+
+**默认值**:
+- host: `127.0.0.1`
+- port: `1521`
+- address: `ServiceName("xe")`
+- username: `system`
+
+##### SQLServerOptions
+
+```
+pub enum SQLServerAuth {
+    SqlPassword,
+    Integrated,
+}
+
+pub struct SQLServerOptions {
+    pub host: String,
+    pub port: u16,
+    pub database: String,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub auth: SQLServerAuth,
+    pub instance: Option<String>,
+}
+```
+
+**默认值**:
+- host: `127.0.0.1`
+- port: `1433`
+- auth: `SqlPassword`
+
+##### RedisOptions
+
+```
+pub enum RedisKind {
+    Cluster,
+    Standalone,
+}
+
+pub struct RedisOptions {
+    pub kind: RedisKind,
+    pub host: String,
+    pub port: String,
+    pub nodes: String,        // 集群模式节点列表
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub use_tls: bool,
+}
+```
+
+**默认值**:
+- kind: `Standalone`
+- host: `127.0.0.1`
+- port: `6379`
+
+**特点**:
+- 支持单机和集群模式
+- 集群模式使用 nodes 字段（逗号分隔）
+
+##### MongoDBOptions
+
+```
+pub struct MongoDBHost {
+    pub host: String,
+    pub port: u16,
+}
+
+pub struct MongoDBOptions {
+    pub connection_string: Option<String>,
+    pub hosts: Vec<MongoDBHost>,
+    pub replica_set: Option<String>,
+    pub auth_source: Option<String>,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub use_tls: bool,
+}
+```
+
+**默认值**:
+- hosts: `[MongoDBHost { host: "127.0.0.1", port: 27017 }]`
+
+**特点**:
+- 支持连接字符串或主机列表两种配置方式
+- 支持副本集配置
+
+---
+
+### 2. driver/ - 数据库驱动（2240 行）
+
+**路径**: `crates/sqler-core/src/driver/`
+
+**职责**: 统一数据库操作接口、SQL 查询构建和连接管理
+
+#### 2.1 核心接口（mod.rs，288 行）
+
+##### DatabaseDriver Trait
+
+```
+pub trait DatabaseDriver {
+    type Config;
+    fn supp_kinds(&self) -> Vec<ColumnKind>;
+    fn check_connection(&self, config: &Self::Config) -> Result<(), DriverError>;
+    fn create_connection(&self, config: &Self::Config) -> Result<Box<dyn DatabaseSession>, DriverError>;
+}
+```
+
+##### DatabaseSession Trait
+
+```
+pub trait DatabaseSession: Send {
+    fn exec(&mut self, req: ExecReq) -> Result<ExecResp, DriverError>;
+    fn query(&mut self, req: QueryReq) -> Result<QueryResp, DriverError>;
+    fn tables(&mut self) -> Result<Vec<TableInfo>, DriverError>;
+    fn columns(&mut self, table: &str) -> Result<Vec<ColumnInfo>, DriverError>;
+}
+```
+
+**特点**:
+- `Send` trait: 支持跨线程传递
+- 统一写操作: `exec()` 合并了原来的 insert/update/delete 方法
+- 多模式支持: SQL/Builder/Command/Document
+
+##### 请求/响应类型
+
+| 类型           | 变体/字段                                                                                                                              | 用途          |
+|--------------|------------------------------------------------------------------------------------------------------------------------------------|-------------|
+| `QueryReq`   | `Sql {sql, args}` / `Builder {table, columns, paging, orders, filters}` / `Command {name, args}` / `Document {collection, filter}` | 查询请求        |
+| `QueryResp`  | `Rows {cols, rows}` / `Value(Value)` / `Documents(Vec<Value>)`                                                                     | 查询响应        |
+| `ExecReq`    | `Sql {sql}` / `Command {name, args}` / `Document {collection, operation}`                                                          | 执行请求（写操作）   |
+| `ExecResp`   | `{affected: u64}`                                                                                                                  | 执行响应（受影响行数） |
+| `DocumentOp` | `Insert {document}` / `Update {filter, update}` / `Delete {filter}`                                                                | 文档操作类型      |
+
+##### 查询条件类型
+
+```
+pub struct Paging {
+    page: usize,
+    size: usize,
+}
+
+pub enum Operator {
+    Equal, NotEqual, GreaterThan, LessThan,
+    GreaterOrEqual, LessOrEqual,
+    Like, NotLike, In, NotIn, Between,
+    IsNull, IsNotNull,
+}
+
+pub struct FilterCond {
+    pub field: String,
+    pub operator: Operator,
+    pub value: ValueCond,
+}
+
+pub enum ValueCond {
+    Null,
+    Bool(bool),
+    String(String),
+    Number(f64),
+    List(Vec<String>),
+    Range(String, String),
+}
+
+pub struct OrderCond {
+    pub field: String,
+    pub ascending: bool,
+}
+```
+
+##### 全局函数
+
+```
+pub fn supp_kinds(kind: DataSourceKind) -> Vec<ColumnKind>
+pub fn check_connection(opts: &DataSourceOptions) -> Result<(), DriverError>
+pub fn create_connection(opts: &DataSourceOptions) -> Result<Box<dyn DatabaseSession>, DriverError>
+pub fn validate_sql(sql: &str) -> Result<(), DriverError>
+pub fn escape_quote(s: &str) -> String
+pub fn escape_backtick(s: &str) -> String
+```
+
+#### 2.2 驱动实现状态
+
+| 驱动             | 文件             | 行数  | 查询              | 写操作       | tables()           | columns()            | 状态      |
+|----------------|----------------|-----|-----------------|-----------|--------------------|----------------------|---------|
+| **MySQL**      | `mysql.rs`     | 405 | ✅ SQL + Builder | ✅ exec 方法 | ✅ SHOW TABLES      | ✅ SHOW COLUMNS FROM  | 全功能     |
+| **PostgreSQL** | `postgres.rs`  | 473 | ✅ SQL + Builder | ✅ exec 方法 | ✅ pg_tables        | ✅ information_schema | 全功能     |
+| **SQLite**     | `sqlite.rs`    | 385 | ✅ SQL + Builder | ✅ exec 方法 | ✅ sqlite_master    | ✅ PRAGMA table_info  | 全功能     |
+| **MongoDB**    | `mongodb.rs`   | 291 | ✅ Document查询    | ✅ exec 方法 | ✅ list_collections | ❌ 返回错误               | 文档型     |
+| **Redis**      | `redis.rs`     | 320 | ✅ Command执行     | ✅ exec 方法 | ❌ 返回错误             | ❌ 返回错误               | 键值型     |
+| **SQL Server** | `sqlserver.rs` | 77  | ❌ 占位实现          | ❌ 占位实现    | ❌ 占位实现             | ❌ 占位实现               | **未实现** |
+| **Oracle**     | `oracle.rs`    | 1   | -               | -         | -                  | -                    | **仅注释** |
+
+**注**: 所有写操作（INSERT/UPDATE/DELETE）统一通过 `exec()` 方法处理
+
+#### 2.3 MySQL 驱动（mysql.rs，405 行）
+
+**实现**: 基于 `mysql` crate
+
+**核心功能**:
+
+1. **连接管理**: 支持字符集设置、连接池配置
+2. **查询执行**: 支持参数化查询（占位符: `?`）
+3. **标识符转义**: 反引号 `` ` `` (例: `` `table_name` ``)
+4. **SQL 构建器**: WHERE/ORDER BY/LIMIT 拼接
+5. **类型转换**: `mysql::Value` ↔ `serde_json::Value`
+
+**columns() 实现**:
+
+```
+fn columns(&mut self, table: &str) -> Result<Vec<ColumnInfo>, DriverError> {
+    let sql = format!("SHOW FULL COLUMNS FROM `{}`", escape_backtick(table));
+    let rows: Vec<mysql::Row> = self.conn.query(&sql)?;
+
+    rows.iter().map(|row| {
+        Ok(ColumnInfo {
+            name: row.get(0).ok_or(...)?,
+            kind: row.get(1).ok_or(...)?,
+            nullable: row.get(2).map(|s: String| s == "YES").unwrap_or(false),
+            primary_key: row.get(3).map(|s: String| s == "PRI").unwrap_or(false),
+            default_value: row.get(4).unwrap_or_default(),
+            comment: row.get(8).unwrap_or_default(),
+            // ...
+        })
+    }).collect()
+}
+```
+
+**特点**:
+- 使用 `SHOW FULL COLUMNS FROM` 语法获取完整列信息
+- 反引号转义防止 SQL 注入
+- 返回 `ColumnInfo` 结构，包含列的所有元数据
+
+#### 2.4 PostgreSQL 驱动（postgres.rs，473 行）
+
+**实现**: 基于 `postgres` crate
+
+**核心功能**:
+
+1. **连接管理**: 禁用 SSL
+2. **查询执行**: 支持位置参数绑定 (`$1, $2, $3...`)
+3. **标识符转义**: 双引号 `"` (例: `"table_name"`)
+4. **类型转换**: PostgreSQL 原生类型 → JSON
+
+**columns() 实现**:
+
+```
+fn columns(&mut self, table: &str) -> Result<Vec<ColumnInfo>, DriverError> {
+    let sql = "
+        SELECT column_name, data_type, is_nullable, column_default,
+               character_maximum_length
+        FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = $1
+        ORDER BY ordinal_position";
+
+    let rows = self.client.query(sql, &[&table])?;
+
+    rows.iter().map(|row| {
+        Ok(ColumnInfo {
+            name: row.get(0),
+            kind: row.get(1),
+            nullable: row.get::<_, String>(2) == "YES",
+            default_value: row.get(3).unwrap_or_default(),
+            // ...
+        })
+    }).collect()
+}
+```
+
+**特点**:
+- 使用标准 `information_schema.columns` 视图
+- 参数化查询防止 SQL 注入
+- 按列顺序排序
+
+#### 2.5 SQLite 驱动（sqlite.rs，385 行）
+
+**实现**: 基于 `rusqlite` crate
+
+**核心功能**:
+
+1. **连接管理**: 支持只读/创建模式
+2. **查询执行**: 占位符 `?`
+3. **标识符转义**: 双引号 `"`
+4. **特性**: 支持内存数据库
+
+**columns() 实现**:
+
+```
+fn columns(&mut self, table: &str) -> Result<Vec<ColumnInfo>, DriverError> {
+    let sql = format!("PRAGMA table_info(\"{}\")", escape_quote(table));
+    let mut stmt = self.conn.prepare(&sql)?;
+
+    let mut columns = vec![];
+    let mut rows = stmt.query([])?;
+    while let Some(row) = rows.next()? {
+        columns.push(ColumnInfo {
+            name: row.get(1)?,           // 列名在第 2 列 (索引 1)
+            kind: row.get(2)?,
+            nullable: row.get(3).map(|v: i64| v == 0).unwrap_or(false),
+            primary_key: row.get(5).map(|v: i64| v == 1).unwrap_or(false),
+            default_value: row.get(4).unwrap_or_default(),
+            // ...
+        });
+    }
+    Ok(columns)
+}
+```
+
+**特点**:
+- 使用 SQLite 特有的 `PRAGMA table_info()` 命令
+- 双引号转义防止注入
+
+#### 2.6 MongoDB 驱动（mongodb.rs，291 行）
+
+**实现**: 基于 `mongodb` crate
+
+**核心功能**:
+
+1. **连接管理**: 支持 connection string 或 host 列表
+2. **文档型 CRUD**: find/insert_one/update_many/delete_many
+3. **响应转换**: BSON → JSON
+4. **集合名支持**: 数据库前缀 (`db.collection`)
+
+**columns() 实现**:
+
+```
+fn columns(&mut self, _table: &str) -> Result<Vec<ColumnInfo>, DriverError> {
+    Err(DriverError::Other("MongoDB 作为文档数据库不支持固定列结构查询".into()))
+}
+```
+
+**特点**: 文档型数据库无固定列结构，返回明确的错误信息
+
+#### 2.7 Redis 驱动（redis.rs，320 行）
+
+**实现**: 基于 `redis` crate
+
+**核心功能**:
+
+1. **连接管理**: 支持 URL 连接字符串
+2. **命令执行**: 支持任意 Redis 命令
+3. **响应转换**: Redis 类型 → JSON
+4. **影响行数估算**: 基于返回值类型
+
+**columns() 实现**:
+
+```
+fn columns(&mut self, _table: &str) -> Result<Vec<ColumnInfo>, DriverError> {
+    Err(DriverError::Other("Redis 作为键值数据库不支持列结构查询".into()))
+}
+```
+
+**特点**: 键值型数据库无表和列概念，返回明确的错误信息
+
+#### 2.8 SQL Server 驱动（sqlserver.rs，77 行）
+
+**状态**: 占位实现
+
+所有方法注释标记 `/// SQL Server 驱动占位实现。`
+
+所有操作返回"暂未实现"错误。
+
+**TODO**: 需要完整实现连接和查询逻辑
+
+#### 2.9 Oracle 驱动（oracle.rs，1 行）
+
+**状态**: 仅包含注释
+
+```
+// Oracle 驱动相关类型定义已移至 crates/sqler-core/src/lib.rs
+```
+
+配置结构（OracleOptions、OracleAddress）已在 lib.rs 中定义。
+
+**TODO**: 需要完整实现驱动
+
+---
+
+### 3. cache/ - 缓存系统（171 行）
+
+**路径**: `crates/sqler-core/src/cache/mod.rs`
+
+**职责**: 本地存储数据源配置和缓存数据
+
+#### 核心结构
+
+```
+pub struct AppCache {
+    sources: Vec<DataSource>,     // 数据源列表
+    sources_path: PathBuf,        // ~/.sqler/sources.db
+    sources_cache: PathBuf,       // ~/.sqler/cache/
+}
+
+pub type ArcCache = Arc<RwLock<AppCache>>;
+```
+
+#### 存储机制
+
+**目录结构**:
+
+```
+~/.sqler/
+  sources.db          # 加密的数据源列表
+  logs/               # 日志文件
+  cache/
+    {uuid}/
+      tables.json   # 表信息缓存
+      queries.json  # 保存的查询
+```
+
+**加密算法**: AES-256-GCM (仅加密 sources.db)
+
+- 密钥: 256位（硬编码常量 `ENCRYPTION_KEY`）
+- Nonce: 12字节（硬编码常量 `NONCE`）
+- ⚠️ 生产环境应从环境变量或配置读取
+
+**初始化流程**:
+
+1. 创建 `~/.sqler/cache/` 目录（自动创建父目录）
+2. 尝试解密加载 `sources.db`
+3. 解密失败或文件不存在则使用空列表
+4. 返回 `ArcCache = Arc::new(RwLock::new(cache))`
+
+#### 核心 API
+
+**数据源管理**:
+
+```
+pub fn sources(&self) -> &[DataSource]
+pub fn sources_mut(&mut self) -> &mut Vec<DataSource>
+pub fn sources_update(&mut self) -> Result<(), CacheError>
+```
+
+**使用示例**:
+```
+// 读取数据源
+let cache = app.cache.read().unwrap();
+let sources = cache.sources();
+
+// 修改数据源
+let mut cache = app.cache.write().unwrap();
+cache.sources_mut().push(source);
+cache.sources_update()?;
+```
+
+**表信息缓存**:
+
+```
+pub fn tables(&self, uuid: &str) -> Result<Vec<TableInfo>, CacheError>
+pub fn tables_update(&self, uuid: &str, tables: &[TableInfo]) -> Result<(), CacheError>
+```
+
+**使用示例**:
+```
+// 初始化工作区时从缓存读取
+let tables = cache.read().unwrap()
+    .tables(&source.id)
+    .unwrap_or_default();
+
+// 刷新表列表时更新缓存
+let cache = self.cache.write().unwrap();
+cache.tables_update(&self.source.id, &tables)?;
+```
+
+**查询缓存**:
+
+```
+pub fn queries(&self, uuid: &str) -> Result<Vec<SavedQuery>, CacheError>
+pub fn queries_update(&self, uuid: &str, queries: &[SavedQuery]) -> Result<(), CacheError>
+```
+
+**错误处理**:
+
+```
+pub enum CacheError {
+    Io(io::Error),
+    Serialization(serde_json::Error),
+    Encryption(String),
+    Decryption(String),
+    DirectoryNotFound,
+}
+```
+
+#### 设计亮点
+
+1. **Arc<RwLock<>> 模式**: 支持跨线程共享和并发读写
+2. **读写分离**: 多个读者或单个写者，保证数据一致性
+3. **单一数据源**: `SqlerApp` 和所有工作区共享同一个 `ArcCache` 实例
+4. **懒加载**: 按需创建 `cache/{uuid}/` 目录
+5. **零成本抽象**: `sources()` 返回引用避免克隆开销
+6. **分离存储**: 加密数据源配置 + 明文 JSON 缓存
+
+---
+
+## sqler-app crate（应用程序，6248 行）
+
+**路径**: `crates/sqler-app/`
+
+**职责**: UI 层、用户交互、窗口管理
+
+**依赖**:
+- sqler-core (workspace)
+- gpui, gpui-component
+- indexmap, lsp-types
+- tracing, tracing-appender, tracing-subscriber
+
+---
+
+### 1. main.rs - 应用入口（124 行）
+
+**路径**: `crates/sqler-app/src/main.rs`
 
 **职责**: 程序入口，应用初始化和窗口创建
 
 **核心功能**:
 
-1. 注册本地资源加载器 `FsAssets` (从 `assets/` 目录加载图标等资源)
+1. 注册本地资源加载器 `FsAssets` (从 `crates/sqler-app/assets/` 加载资源)
 2. 初始化 GPUI 框架和组件库
 3. **日志系统初始化** (`init_runtime()`):
     - 日志目录: `~/.sqler/logs/`
@@ -35,56 +804,75 @@
     - 文件命名: `sqler.log`
     - 日志级别: debug (开发模式) / info (发布模式)
     - 双重输出: 终端 (带颜色) + 文件 (无颜色)
-4. 配置全局主题 (字号 14pt，滚动条悬停显示)
+4. 配置全局主题 (滚动条悬停显示)
 5. 创建主窗口 (1280x800，居中显示)
 6. 挂载 `SqlerApp` 作为根视图
 7. 配置窗口关闭行为 (所有窗口关闭时退出应用)
 
+**FsAssets 实现**:
+
+```
+struct FsAssets;
+
+impl AssetSource for FsAssets {
+    fn load(&self, path: &str) -> Result<Option<Cow<'static, [u8]>>> {
+        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let full = manifest_dir.join("assets").join(path);
+        match fs::read(full) {
+            Ok(data) => Ok(Some(Cow::Owned(data))),
+            Err(_) => Ok(None),
+        }
+    }
+}
+```
+
+**特点**: 从 crate 目录加载资源，支持开发和发布环境
+
 ---
 
-### 2. 应用层 (`src/app/`)
+### 2. app/ - 应用层（391 行）
+
+**路径**: `crates/sqler-app/src/app/mod.rs`
 
 **职责**: 核心 UI 逻辑、状态管理和用户交互
 
-#### 2.1 应用状态 (`mod.rs`, 398 行)
-
-**核心结构**: `SqlerApp`
-
-**状态字段**:
+#### 核心结构
 
 ```
 pub struct SqlerApp {
-    tabs: IndexMap<String, TabContext>,             // 标签页集合 (使用 IndexMap 保持顺序)
-    active_tab: String,                              // 当前活动标签 ID
-    cache: ArcCache,                                 // 缓存管理器 (Arc<RwLock<AppCache>>)
-    windows: HashMap<String, WindowHandle<Root>>,   // 浮动窗口集合 (自动去重)
+    pub tabs: IndexMap<String, TabContext>,             // 标签页集合
+    pub active_tab: String,                              // 当前活动标签 ID
+    pub cache: ArcCache,                                 // 缓存管理器
+    pub windows: HashMap<String, WindowHandle<Root>>,   // 浮动窗口集合
+}
+
+pub struct TabContext {
+    pub icon: SharedString,
+    pub title: SharedString,
+    pub content: TabContent,
+    pub closable: bool,
+}
+
+pub enum TabContent {
+    Home,
+    Workspace(Workspace),
+}
+
+pub enum WindowKind {
+    Create(Option<DataSource>),
+    Import(DataSource),
+    Export(DataSource),
 }
 ```
 
-**TabContext 设计**:
-
-```
-struct TabContext {
-    icon: SharedString,       // 标签图标路径
-    title: SharedString,      // 标签标题
-    content: TabContent,      // 视图内容
-    closable: bool,           // 是否可关闭
-}
-
-enum TabContent {
-    Home,                     // 首页视图
-    Workspace(Workspace),     // 工作区视图
-}
-```
-
-**标签 ID 设计优势**:
+#### 标签 ID 设计
 
 - 使用 `IndexMap<String, TabContext>` 保持标签顺序
 - Key 作为标签 ID：首页="home"，工作区=数据源UUID
 - 消除了独立的 ID 字段，简化查找逻辑
 - O(1) 时间复杂度的标签查找和删除
 
-**核心方法**:
+#### 核心方法
 
 1. `new()`: 初始化应用，加载主题和缓存
 2. `close_tab()`: 关闭标签，自动切换到前一个标签
@@ -94,7 +882,7 @@ enum TabContent {
 6. `create_window()`: 创建浮动窗口（Create/Import/Export，HashMap 自动去重）
 7. `close_window()`: 关闭指定窗口并从 HashMap 中移除
 
-**数据源管理**:
+#### 数据源管理
 
 - ✅ 通过 `cache.read().unwrap().sources()` 获取数据源列表（零成本借用）
 - ✅ 首页渲染使用 `app.cache.read().unwrap().sources()`
@@ -102,7 +890,7 @@ enum TabContent {
 - ✅ 单一数据源原则（Arc<RwLock<AppCache>>），无数据重复
 - ✅ 读写分离：读操作用 `read()`，写操作用 `write()`
 
-**UI 渲染**:
+#### UI 渲染
 
 - 顶部标签栏 (支持切换和关闭)
 - 主题切换按钮
@@ -111,9 +899,11 @@ enum TabContent {
 
 ---
 
-#### 2.2 公共组件 (`comps/`)
+### 3. comps/ - 公共组件（308 行）
 
-##### 组件工具 (`mod.rs`, 92 行)
+**路径**: `crates/sqler-app/src/comps/`
+
+#### 3.1 组件工具（mod.rs，92 行）
 
 **提供功能**:
 
@@ -121,7 +911,7 @@ enum TabContent {
    ```
    pub fn comp_id<I>(parts: I) -> ElementId
    ```
-    - 示例: `comp_id(["tab", "mysql"])` → `"tab-mysql"`
+   示例: `comp_id(["tab", "mysql"])` → `"tab-mysql"`
 
 2. **布局扩展 Trait** (`DivExt`):
     - `full()`: 设置为全尺寸 (size_full)
@@ -131,13 +921,9 @@ enum TabContent {
     - `scrollbar_y()`: 垂直滚动条
     - `scrollbar_all()`: 双向滚动条
 
-**实现目标**:
-- 为 `Div` 和 `Stateful<Div>` 提供统一的布局快捷方法
-- 简化常见布局代码
+**实现目标**: 为 `Div` 和 `Stateful<Div>` 提供统一的布局快捷方法
 
----
-
-##### 图标组件 (`icon.rs`, 63 行)
+#### 3.2 图标组件（icon.rs，63 行）
 
 **核心枚举**: `AppIcon`
 
@@ -149,11 +935,9 @@ enum TabContent {
 - 统一的图标加载接口
 - 自动从 `assets/icons/` 加载 SVG 文件
 
----
+#### 3.3 数据表格组件（table.rs，153 行）
 
-##### 数据表格组件 (`table.rs`, 153 行)
-
-**核心结构**: `DataTable`
+**核心结构**:
 
 ```
 pub struct DataTable {
@@ -189,28 +973,29 @@ pub struct DataTable {
 - 最终宽度: `(max_width + 24).max(80).min(400)`
 
 **动态列支持**:
-
 - 通过 `update_data()` 更新数据
 - 调用 `table.refresh(cx)` 重新准备列/行布局
 - 支持从 0 列动态变更到任意列数
 
 ---
 
-#### 2.3 数据源创建 (`create/`)
+### 4. create/ - 数据源创建（1148 行）
 
-##### 创建窗口 (`mod.rs`, 486 行)
+**路径**: `crates/sqler-app/src/create/`
 
-**核心结构**: `CreateWindow`
+#### 4.1 创建窗口（mod.rs，483 行）
+
+**核心结构**:
 
 ```
 pub struct CreateWindow {
-    cache: ArcCache,                           // 缓存管理器
-    parent: WeakEntity<SqlerApp>,              // 父应用引用
+    cache: ArcCache,
+    parent: WeakEntity<SqlerApp>,
 
-    name: Entity<InputState>,                  // 数据源名称输入
-    kind: Option<DataSourceKind>,              // 当前选中的数据库类型
-    status: Option<DataSourceStatus>,          // 连接测试状态
-    source_id: Option<String>,                 // 编辑时使用现有数据源 ID
+    name: Entity<InputState>,
+    kind: Option<DataSourceKind>,
+    status: Option<DataSourceStatus>,
+    source_id: Option<String>,
 
     // 各类型的创建表单实体
     mysql: Entity<MySQLCreate>,
@@ -224,14 +1009,14 @@ pub struct CreateWindow {
 
 pub struct CreateWindowBuilder {
     cache: Option<ArcCache>,
-    source: Option<DataSource>,                // 编辑时传入现有数据源
+    source: Option<DataSource>,
     parent: Option<WeakEntity<SqlerApp>>,
 }
 
 pub enum DataSourceStatus {
-    Testing,                                   // 测试中
-    Error(String),                             // 测试失败
-    Success(String),                           // 测试成功
+    Testing,
+    Error(String),
+    Success(String),
 }
 ```
 
@@ -242,7 +1027,7 @@ pub enum DataSourceStatus {
 3. `builder.source(source)`: 设置编辑的数据源（可选）
 4. `builder.parent(parent)`: 设置父应用引用
 5. `builder.build(window, cx)`: 构建窗口
-6. `check_conn()`: 异步测试连接，调用 `check_connection(&options)`
+6. `check_conn()`: 异步测试连接，调用 `sqler_core::check_connection(&options)`
 7. `create_conn()`: 保存数据源到缓存
 
 **窗口配置**:
@@ -281,21 +1066,19 @@ pub enum DataSourceStatus {
 - ✅ 支持新建和编辑模式（通过 Builder 模式）
 - ❌ Oracle / SQL Server 驱动未实现（保存时返回错误提示）
 
----
-
-##### 表单实现
+#### 4.2 表单实现
 
 **支持的数据库类型** (每个独立模块):
 
-| 模块             | 数据库        | 行数  | 状态   |
-|----------------|------------|-----|------|
-| `mysql.rs`     | MySQL      | 74  | ✅ 完整 |
-| `postgres.rs`  | PostgreSQL | 80  | ✅ 完整 |
-| `sqlite.rs`    | SQLite     | 112 | ✅ 完整 |
-| `oracle.rs`    | Oracle     | 64  | ✅ 完整 |
-| `sqlserver.rs` | SQL Server | 71  | ✅ 完整 |
-| `redis.rs`     | Redis      | 174 | ✅ 完整 |
-| `mongodb.rs`   | MongoDB    | 88  | ✅ 完整 |
+| 模块             | 文件              | 数据库        | 行数  | 状态   |
+|----------------|-----------------|------------|-----|------|
+| `mysql.rs`     | mysql.rs        | MySQL      | 74  | ✅ 完整 |
+| `postgres.rs`  | postgres.rs     | PostgreSQL | 80  | ✅ 完整 |
+| `sqlite.rs`    | sqlite.rs       | SQLite     | 114 | ✅ 完整 |
+| `oracle.rs`    | oracle.rs       | Oracle     | 64  | ✅ 完整 |
+| `sqlserver.rs` | sqlserver.rs    | SQL Server | 71  | ✅ 完整 |
+| `redis.rs`     | redis.rs        | Redis      | 174 | ✅ 完整 |
+| `mongodb.rs`   | mongodb.rs      | MongoDB    | 88  | ✅ 完整 |
 
 **表单特点**:
 
@@ -306,9 +1089,11 @@ pub enum DataSourceStatus {
 
 ---
 
-#### 2.4 工作区 (`workspace/`)
+### 5. workspace/ - 工作区（3273 行）
 
-##### 工作区路由 (`mod.rs`, 327 行)
+**路径**: `crates/sqler-app/src/workspace/`
+
+#### 5.1 工作区路由（mod.rs，327 行）
 
 **职责**: 根据数据源类型构造对应工作区视图
 
@@ -316,9 +1101,9 @@ pub enum DataSourceStatus {
 
 ```
 pub enum Workspace {
-    Common { view: Entity<CommonWorkspace> },     // 关系型数据库
-    Redis { view: Entity<RedisWorkspace> },       // Redis
-    MongoDB { view: Entity<MongoDBWorkspace> },   // MongoDB
+    Common { view: Entity<CommonWorkspace> },
+    Redis { view: Entity<RedisWorkspace> },
+    MongoDB { view: Entity<MongoDBWorkspace> },
 }
 ```
 
@@ -348,15 +1133,19 @@ match source.kind {
 MySQL → SQLite → Postgres → Oracle → SQLServer → Redis → MongoDB
 ```
 
+**辅助功能**:
+
+- `parse_elapsed(elapsed: f64)`: 格式化执行时间（< 1ms / Xms / X.XXs / Xm Xs）
+- `parse_position(text, offset)`: 计算文本偏移对应的 LSP Position
+- `EditorComps`: SQL 编辑器自动补全提供器（基于 keywords.json）
+
 **首页渲染** (`render_home`):
 
 - 4 列网格布局
 - 卡片展示数据源（名称、图标、连接地址）
 - 双击卡片打开对应工作区标签
 
----
-
-##### CommonWorkspace - 关系型数据库工作区 (`common.rs`, 1763 行)
+#### 5.2 CommonWorkspace - 关系型数据库工作区（common.rs，1760 行）
 
 **适用数据库**: MySQL, PostgreSQL, SQLite, Oracle, SQL Server
 
@@ -364,73 +1153,73 @@ MySQL → SQLite → Postgres → Oracle → SQLServer → Redis → MongoDB
 
 ```
 pub struct CommonWorkspace {
-    pub cache: ArcCache,                                 // 缓存管理器
-    pub parent: WeakEntity<SqlerApp>,                    // 父应用引用
+    pub cache: ArcCache,
+    pub parent: WeakEntity<SqlerApp>,
 
-    pub source: DataSource,                              // 数据源配置
-    pub session: Option<Box<dyn DatabaseSession>>,      // 连接实例（复用）
+    pub source: DataSource,
+    pub session: Option<Box<dyn DatabaseSession>>,
 
-    pub tabs: IndexMap<SharedString, TabContext>,        // 标签页集合 (保持顺序)
-    pub active_tab: SharedString,                        // 当前活动标签 ID
-    pub tables: IndexMap<String, TableInfo>,             // 表信息集合
-    pub active_table: Option<String>,                    // 当前选中的表
+    pub tabs: IndexMap<SharedString, TabContext>,
+    pub active_tab: SharedString,
+    pub tables: IndexMap<String, TableInfo>,
+    pub active_table: Option<String>,
 }
 
 struct TabContext {
-    title: SharedString,      // 标签标题
-    content: TabContent,      // 标签内容
-    closable: bool,           // 是否可关闭
+    title: SharedString,
+    content: TabContent,
+    closable: bool,
 }
 
 enum TabContent {
-    Query(QueryContent),      // SQL 查询标签
-    Table(TableContent),      // 表数据标签
-    Schema(SchemaContent),    // 表结构标签
-    Overview,                 // 概览标签
+    Query(QueryContent),
+    Table(TableContent),
+    Schema(SchemaContent),
+    Overview,
 }
 
 struct TableContent {
-    id: SharedString,                            // 标签唯一 ID
-    page: usize,                                 // 当前页码
-    count: usize,                                // 总行数
-    table: SharedString,                         // 表名
-    columns: Vec<SharedString>,                  // 列名列表
-    form_items: Vec<Entity<InputState>>,         // 表单输入项
-    order_rules: Vec<OrderRule>,                 // 排序规则
-    query_rules: Vec<QueryRule>,                 // 筛选规则
-    detail_panel: bool,                          // 详情面板开关
-    detail_panel_idx: usize,                     // 详情面板选中行索引
-    detail_panel_state: Entity<ResizableState>,  // 详情面板大小状态
-    datatable: Entity<TableState<DataTable>>,    // 数据表格组件
-    _subscription: Subscription,                 // 表格事件订阅
+    id: SharedString,
+    page: usize,
+    count: usize,
+    table: SharedString,
+    columns: Vec<SharedString>,
+    form_items: Vec<Entity<InputState>>,
+    order_rules: Vec<OrderRule>,
+    query_rules: Vec<QueryRule>,
+    detail_panel: bool,
+    detail_panel_idx: usize,
+    detail_panel_state: Entity<ResizableState>,
+    datatable: Entity<TableState<DataTable>>,
+    _subscription: Subscription,
 }
 
 struct QueryContent {
-    id: SharedString,                            // 标签唯一 ID
-    active: usize,                               // 当前活动的查询结果索引
-    summary: bool,                               // 显示查询摘要
-    editor: Entity<InputState>,                  // SQL 编辑器
-    results: Vec<QueryResult>,                   // 查询结果列表
+    id: SharedString,
+    active: usize,
+    summary: bool,
+    editor: Entity<InputState>,
+    results: Vec<QueryResult>,
 }
 
 struct SchemaContent {
-    id: SharedString,                            // 标签唯一 ID
-    table: SharedString,                         // 表名
-    columns: Vec<ColumnInfo>,                    // 列信息列表
-    datatable: Entity<TableState<DataTable>>,    // 列信息表格
+    id: SharedString,
+    table: SharedString,
+    columns: Vec<ColumnInfo>,
+    datatable: Entity<TableState<DataTable>>,
 }
 
 struct QueryRule {
-    id: String,                                           // 规则 ID
-    value: Entity<InputState>,                            // 筛选值输入
-    field: Entity<SelectState<Vec<SharedString>>>,        // 字段选择器
-    operator: Entity<SelectState<Vec<SharedString>>>,     // 操作符选择器
+    id: String,
+    value: Entity<InputState>,
+    field: Entity<SelectState<Vec<SharedString>>>,
+    operator: Entity<SelectState<Vec<SharedString>>>,
 }
 
 struct OrderRule {
-    id: String,                                           // 规则 ID
-    field: Entity<SelectState<Vec<SharedString>>>,        // 字段选择器
-    order: Entity<SelectState<Vec<SharedString>>>,        // 排序方向 ("升序"/"降序")
+    id: String,
+    field: Entity<SelectState<Vec<SharedString>>>,
+    order: Entity<SelectState<Vec<SharedString>>>,
 }
 ```
 
@@ -454,9 +1243,7 @@ struct OrderRule {
    - 包含表名、行数、创建时间、注释等元数据
    - 自动同步到 `~/.sqler/cache/{uuid}/tables.json`
 
----
-
-###### 连接管理
+##### 连接管理
 
 **策略**: 延迟建立 + 连接复用
 
@@ -474,9 +1261,7 @@ struct OrderRule {
 - 支持跨线程使用（DatabaseSession: Send）
 - 失败自动重试
 
----
-
-###### 标签页管理
+##### 标签页管理
 
 **创建流程** (`create_table_tab`):
 
@@ -494,9 +1279,7 @@ struct OrderRule {
 - 避免代码重复（创建和刷新共用加载逻辑）
 - 用户立即看到标签页（无需等待数据加载）
 
----
-
-###### 数据加载 (`reload_table_tab`)
+##### 数据加载（reload_table_tab）
 
 **执行流程**:
 
@@ -529,9 +1312,7 @@ struct OrderRule {
 - 使用统一的 `columns()` trait 方法，消除数据库方言差异
 - 页面大小固定为 **500 行/页** (常量 `PAGE_SIZE`)
 
----
-
-###### 表格功能
+##### 表格功能
 
 **已实现功能**:
 
@@ -545,9 +1326,7 @@ struct OrderRule {
 8. ✅ SQL 查询编辑器功能（多 SQL 支持、异步执行、错误处理、结果展示、执行时间统计）
 9. ✅ 表结构查看功能（列信息表格、详情面板、列详细信息展示）
 
----
-
-##### RedisWorkspace - Redis 工作区 (`redis.rs`, 905 行)
+#### 5.3 RedisWorkspace - Redis 工作区（redis.rs，903 行）
 
 **核心结构**:
 
@@ -558,9 +1337,9 @@ pub struct RedisWorkspace {
     pub session: Option<Box<dyn DatabaseSession>>,
 
     pub active: ViewType,
-    pub browse: Option<BrowseContent>,   // 浏览器视图
-    pub command: Option<CommandContent>,  // 命令执行
-    pub overview: Option<OverviewContent>,// 概览
+    pub browse: Option<BrowseContent>,
+    pub command: Option<CommandContent>,
+    pub overview: Option<OverviewContent>,
 }
 
 pub enum ViewType {
@@ -607,9 +1386,7 @@ pub struct KeyInfo {
 
 - ❌ 实现命令执行逻辑（解析输入，调用 `session.query(QueryReq::Command {...})`）
 
----
-
-##### MongoDBWorkspace - MongoDB 工作区 (`mongodb.rs`, 285 行)
+#### 5.4 MongoDBWorkspace - MongoDB 工作区（mongodb.rs，283 行）
 
 **核心结构**:
 
@@ -619,7 +1396,7 @@ pub struct MongoDBWorkspace {
     parent: WeakEntity<SqlerApp>,
     session: Option<Box<dyn DatabaseSession>>,
 
-    tabs: Vec<TabItem>,        // TabContent::Overview 或 Collection
+    tabs: Vec<TabItem>,
     active_tab: SharedString,
     collections: Vec<SharedString>,
     active_collection: Option<SharedString>,
@@ -627,8 +1404,8 @@ pub struct MongoDBWorkspace {
 }
 
 enum TabContent {
-    Collection(CollectionContent),  // 集合查看标签
-    Overview,                       // 概览标签
+    Collection(CollectionContent),
+    Overview,
 }
 
 struct CollectionContent {
@@ -660,39 +1437,39 @@ struct CollectionContent {
 
 ---
 
-#### 2.5 数据传输 (`transfer/`)
+### 6. transfer/ - 数据传输（1003 行）
+
+**路径**: `crates/sqler-app/src/transfer/`
 
 **职责**: 数据导入/导出功能
 
-**模块组成** (`mod.rs`, 43 行):
+**模块组成** (mod.rs, 43 行):
 
 - `ImportWindow`: 数据导入窗口
 - `ExportWindow`: 数据导出窗口
 - `TransferKind` 枚举: CSV / JSON / SQL
 
----
+#### 6.1 导入窗口（import.rs，711 行）
 
-##### 导入窗口 (`import.rs`, 714 行)
-
-**核心结构**: `ImportWindow`
+**核心结构**:
 
 ```
 pub struct ImportWindow {
-    meta: DataSource,                                      // 数据源信息
+    meta: DataSource,
     parent: WeakEntity<SqlerApp>,
 
-    step: ImportStep,                                      // 当前步骤
-    files: Vec<ImportFile>,                                // 待导入文件列表
-    tables: Vec<SharedString>,                             // 数据库表列表
+    step: ImportStep,
+    files: Vec<ImportFile>,
+    tables: Vec<SharedString>,
 
     // CSV 参数配置
-    col_index: Entity<InputState>,                         // 字段行索引
-    data_index: Entity<InputState>,                        // 数据起始行
-    row_delimiter: Entity<InputState>,                     // 行分隔符
-    col_delimiter: Entity<InputState>,                     // 列分隔符
+    col_index: Entity<InputState>,
+    data_index: Entity<InputState>,
+    row_delimiter: Entity<InputState>,
+    col_delimiter: Entity<InputState>,
 
-    file_kinds: Entity<DropdownState<Vec<SharedString>>>,  // 文件格式选择
-    import_modes: Entity<DropdownState<Vec<SharedString>>>, // 导入模式选择
+    file_kinds: Entity<DropdownState<Vec<SharedString>>>,
+    import_modes: Entity<DropdownState<Vec<SharedString>>>,
 }
 ```
 
@@ -715,10 +1492,10 @@ pub struct ImportWindow {
 
 ```
 struct ImportFile {
-    path: PathBuf,                                         // 文件路径
-    option: TableOption,                                   // NewTable / ExistTable
-    new_table: Entity<InputState>,                         // 新建表名输入
-    exist_table: Entity<DropdownState<Vec<SharedString>>>, // 已存在表选择
+    path: PathBuf,
+    option: TableOption,
+    new_table: Entity<InputState>,
+    exist_table: Entity<DropdownState<Vec<SharedString>>>,
 }
 ```
 
@@ -738,18 +1515,16 @@ struct ImportFile {
 5. ✅ 导入模式选择
 6. ❌ 实际导入逻辑待实现
 
----
+#### 6.2 导出窗口（export.rs，249 行）
 
-##### 导出窗口 (`export.rs`, 251 行)
-
-**核心结构**: `ExportWindow`
+**核心结构**:
 
 ```
 pub struct ExportWindow {
     parent: WeakEntity<SqlerApp>,
-    format: Option<TransferKind>,                          // 导出格式
-    file_path: Entity<InputState>,                         // 目标文件路径
-    table_name: Entity<InputState>,                        // 源表名称
+    format: Option<TransferKind>,
+    file_path: Entity<InputState>,
+    table_name: Entity<InputState>,
 }
 ```
 
@@ -767,9 +1542,7 @@ pub struct ExportWindow {
 3. ✅ 目标文件路径输入
 4. ❌ 实际导出逻辑待实现
 
----
-
-##### TransferKind 枚举
+#### 6.3 TransferKind 枚举
 
 **支持的格式**:
 
@@ -786,580 +1559,19 @@ pub struct ExportWindow {
 
 ---
 
-### 3. 缓存系统 (`src/cache/mod.rs`, 171 行)
+### 7. subtask/ - 预留模块（1 行）
 
-**职责**: 本地存储数据源配置和缓存数据
+**路径**: `crates/sqler-app/src/subtask/mod.rs`
 
-**核心结构**:
+**状态**: 空模块，仅包含两个空行
 
-```
-pub struct AppCache {
-    sources: Vec<DataSource>,     // 数据源列表
-    sources_path: PathBuf,        // ~/.sqler/sources.db
-    sources_cache: PathBuf,       // ~/.sqler/cache/
-}
-
-pub type ArcCache = Arc<RwLock<AppCache>>;
-```
-
-#### 存储机制
-
-**目录结构**:
-
-```
-~/.sqler/
-  sources.db          # 加密的数据源列表
-  cache/
-    {uuid}/
-      tables.json   # 表信息缓存
-      queries.json  # 保存的查询
-```
-
-**加密算法**: AES-256-GCM (仅加密 sources.db)
-
-- 密钥: 256位（硬编码常量 `ENCRYPTION_KEY`）
-- Nonce: 12字节（硬编码常量 `NONCE`）
-- ⚠️ 生产环境应从环境变量或配置读取
-
-**初始化流程**:
-
-1. 创建 `~/.sqler/cache/` 目录（自动创建父目录）
-2. 尝试解密加载 `sources.db`
-3. 解密失败或文件不存在则使用空列表
-4. 返回 `ArcCache = Arc::new(RwLock::new(cache))`
-
-#### 核心 API
-
-**数据源管理**:
-
-- `sources()`: 获取数据源列表引用 `&[DataSource]` (需先获取读锁)
-- `sources_mut()`: 获取可变引用 `&mut Vec<DataSource>` (需先获取写锁)
-- `sources_update()`: 加密并写入 `sources.db`
-
-**使用示例**:
-```
-// 读取数据源
-let cache = app.cache.read().unwrap();
-let sources = cache.sources();
-
-// 修改数据源
-let mut cache = app.cache.write().unwrap();
-cache.sources_mut().push(source);
-cache.sources_update()?;
-```
-
-**表信息缓存**:
-
-- `tables(uuid)`: 读取 `cache/{uuid}/tables.json`
-- `tables_update(uuid, &[TableInfo])`: 写入表信息
-
-**使用示例**:
-```
-// 初始化工作区时从缓存读取
-let tables = cache.read().unwrap()
-    .tables(&source.id)
-    .unwrap_or_default();
-
-// 刷新表列表时更新缓存
-let cache = self.cache.write().unwrap();
-cache.tables_update(&self.source.id, &tables)?;
-```
-
-**查询缓存**:
-
-- `queries(uuid)`: 读取 `cache/{uuid}/queries.json`
-- `queries_update(uuid, &[SavedQuery])`: 写入查询列表
-
-**错误处理**:
-
-- `CacheError` 枚举: Io, Serialization, Encryption, Decryption, DirectoryNotFound
-
-#### 设计亮点
-
-1. **Arc<RwLock<>> 模式**: 支持跨线程共享和并发读写
-2. **读写分离**: 多个读者或单个写者，保证数据一致性
-3. **单一数据源**: `SqlerApp` 和所有工作区共享同一个 `ArcCache` 实例
-4. **懒加载**: 按需创建 `cache/{uuid}/` 目录
-5. **零成本抽象**: `sources()` 返回引用避免克隆开销
-6. **分离存储**: 加密数据源配置 + 明文 JSON 缓存
-
-#### 当前状态
-
-**已接入**:
-
-- ✅ `SqlerApp.cache: ArcCache` 初始化并作为唯一数据源
-- ✅ 新建数据源窗口保存逻辑已实现（使用写锁修改）
-- ✅ 首页展示真实数据源（使用读锁访问）
-- ✅ 创建工作区标签使用缓存数据（使用读锁查找）
-- ✅ 所有工作区共享同一个 `ArcCache` 实例
-- ✅ 表信息缓存已接入（CommonWorkspace 初始化时读取、reload_tables 时更新）
-
-**待使用**:
-
-- ❌ `queries()` / `queries_update()` 暂未被调用
+**用途**: 为未来的子任务系统预留模块位置
 
 ---
 
-### 4. 数据库驱动 (`src/driver/`, ~2240 行)
+### 8. assets/ - 静态资源
 
-**职责**: 统一数据库操作接口、SQL 查询构建和连接管理
-
-#### 4.1 核心接口 (`mod.rs`, 288 行)
-
-**Trait 定义**:
-
-```
-pub trait DatabaseDriver {
-    type Config;
-    fn supp_kinds(&self) -> Vec<ColumnKind>;  // 支持的列类型
-    fn check_connection(&self, config: &Self::Config) -> Result<(), DriverError>;
-    fn create_connection(&self, config: &Self::Config) -> Result<Box<dyn DatabaseSession>, DriverError>;
-}
-
-pub trait DatabaseSession: Send {
-    fn exec(&mut self, req: ExecReq) -> Result<ExecResp, DriverError>;
-    fn query(&mut self, req: QueryReq) -> Result<QueryResp, DriverError>;
-    fn tables(&mut self) -> Result<Vec<TableInfo>, DriverError>;
-    fn columns(&mut self, table: &str) -> Result<Vec<ColumnInfo>, DriverError>;
-}
-```
-
-**请求/响应类型**:
-
-| 类型           | 变体/字段                                                                                             | 用途          |
-|--------------|---------------------------------------------------------------------------------------------------|-------------|
-| `QueryReq`   | `Sql {sql, args}` / `Builder {table, columns, paging, orders, filters}` / `Command {name, args}` / `Document {collection, filter}` | 查询请求        |
-| `QueryResp`  | `Rows {cols, rows}` / `Value(Value)` / `Documents(Vec<Value>)`                                   | 查询响应        |
-| `ExecReq`    | `Sql {sql}` / `Command {name, args}` / `Document {collection, operation}`                        | 执行请求（写操作）   |
-| `ExecResp`   | `{affected: u64}`                                                                                 | 执行响应（受影响行数） |
-| `DocumentOp` | `Insert {document}` / `Update {filter, update}` / `Delete {filter}`                              | 文档操作类型      |
-
-**查询条件类型**:
-
-| 类型           | 字段                                                                  | 说明        |
-|--------------|---------------------------------------------------------------------|-----------|
-| `FilterCond` | `{field, operator, value}`                                          | 筛选条件      |
-| `OrderCond`  | `{field, ascending}`                                                | 排序规则      |
-| `Paging`     | `{page, size}`                                                      | 分页参数      |
-| `Operator`   | Equal, NotEqual, GreaterThan, LessThan, GreaterOrEqual, LessOrEqual, Like, NotLike, In, NotIn, Between, IsNull, IsNotNull | 比较操作符     |
-| `ValueCond`  | Null, Bool, String, Number, List, Range                             | 条件值       |
-
-**设计亮点**:
-
-1. **统一写操作**: 原来的 insert/update/delete 三个方法合并为一个 `exec` 方法
-   - 减少 trait 方法数量
-   - 统一错误处理逻辑
-   - 通过 `ExecReq` 枚举区分不同操作
-
-2. **丰富的返回类型**:
-   - `tables()` 返回 `Vec<TableInfo>`（包含表名、行数、创建时间、注释等元数据）
-   - `columns()` 返回 `Vec<ColumnInfo>`（包含列名、类型、可空性、默认值、注释等）
-
-3. **多模式支持**:
-   - SQL 模式：适用于关系型数据库
-   - Builder 模式：类型安全的查询构建
-   - Command 模式：适用于 Redis
-   - Document 模式：适用于 MongoDB
-
-**数据源类型** (`DataSourceKind`, 按标准顺序):
-
-```
-pub enum DataSourceKind {
-    MySQL,
-    SQLite,
-    Postgres,
-    Oracle,
-    SQLServer,
-    Redis,
-    MongoDB,
-}
-```
-
-**DataSource 结构**:
-
-```
-pub struct DataSource {
-    pub id: String,                          // UUID
-    pub name: String,                        // 显示名称
-    pub desc: String,                        // 描述
-    pub kind: DataSourceKind,                // 数据库类型
-    pub options: DataSourceOptions,          // 连接配置
-    pub extras: Option<HashMap<String, Value>>,  // 额外信息（表列表缓存）
-}
-```
-
-**全局函数**:
-
-| 函数                        | 参数                   | 返回                                              | 说明          |
-|---------------------------|----------------------|-------------------------------------------------|-------------|
-| `supp_kinds(kind)`        | `DataSourceKind`     | `Vec<ColumnKind>`                               | 获取数据库支持的列类型 |
-| `check_connection(opts)`  | `&DataSourceOptions` | `Result<(), DriverError>`                       | 测试连接        |
-| `create_connection(opts)` | `&DataSourceOptions` | `Result<Box<dyn DatabaseSession>, DriverError>` | 创建会话        |
-
----
-
-#### 4.2 驱动实现状态
-
-| 驱动             | 行数  | 查询              | 写操作         | tables()           | columns()            | 状态      |
-|----------------|-----|-----------------|-------------|--------------------|--------------------|---------|
-| **MySQL**      | 405 | ✅ SQL + Builder | ✅ exec 方法   | ✅ SHOW TABLES      | ✅ SHOW COLUMNS FROM  | 全功能     |
-| **PostgreSQL** | 473 | ✅ SQL + Builder | ✅ exec 方法   | ✅ pg_tables        | ✅ information_schema | 全功能     |
-| **SQLite**     | 385 | ✅ SQL + Builder | ✅ exec 方法   | ✅ sqlite_master    | ✅ PRAGMA table_info  | 全功能     |
-| **MongoDB**    | 291 | ✅ Document查询    | ✅ exec 方法   | ✅ list_collections | ❌ 返回错误               | 文档型     |
-| **Redis**      | 320 | ✅ Command执行     | ✅ exec 方法   | ❌ 返回错误             | ❌ 返回错误               | 键值型     |
-| **SQL Server** | 77  | ❌ 占位实现          | ❌ 占位实现       | ❌ 占位实现             | ❌ 占位实现               | **未实现** |
-| **Oracle**     | 1   | -               | -           | -                  | -                    | **仅注释** |
-
-**注**: 所有写操作（INSERT/UPDATE/DELETE）现在统一通过 `exec()` 方法处理
-
----
-
-#### 4.3 MySQL 驱动 (`mysql.rs`, 405 行)
-
-**实现**: 基于 `mysql` crate
-
-**核心功能**:
-
-1. **连接管理**: 支持字符集设置、连接池配置
-2. **查询执行**: 支持参数化查询（占位符: `?`）
-3. **标识符转义**: 反引号 `` ` `` (例: `` `table_name` ``)
-4. **SQL 构建器**: WHERE/ORDER BY/LIMIT 拼接
-5. **类型转换**: `mysql::Value` ↔ `serde_json::Value`
-
-**columns() 实现**:
-
-```
-fn columns(&mut self, table: &str) -> Result<Vec<ColumnInfo>, DriverError> {
-    let sql = format!("SHOW FULL COLUMNS FROM `{}`", escape_backtick(table));
-    let rows: Vec<mysql::Row> = self.conn.query(&sql)?;
-
-    rows.iter().map(|row| {
-        Ok(ColumnInfo {
-            name: row.get(0).ok_or(...)?,
-            kind: row.get(1).ok_or(...)?,
-            nullable: row.get(2).map(|s: String| s == "YES").unwrap_or(false),
-            primary_key: row.get(3).map(|s: String| s == "PRI").unwrap_or(false),
-            default_value: row.get(4).unwrap_or_default(),
-            comment: row.get(8).unwrap_or_default(),
-            // ...
-        })
-    }).collect()
-}
-```
-
-**特点**:
-
-- 使用 `SHOW FULL COLUMNS FROM` 语法（获取完整列信息）
-- 反引号转义防止 SQL 注入
-- 返回 `ColumnInfo` 结构，包含列的所有元数据
-
----
-
-#### 4.4 PostgreSQL 驱动 (`postgres.rs`, 473 行)
-
-**实现**: 基于 `postgres` crate
-
-**核心功能**:
-
-1. **连接管理**: 禁用 SSL
-2. **查询执行**: 支持位置参数绑定 (`$1, $2, $3...`)
-3. **标识符转义**: 双引号 `"` (例: `"table_name"`)
-4. **类型转换**: PostgreSQL 原生类型 → JSON
-
-**columns() 实现**:
-
-```
-fn columns(&mut self, table: &str) -> Result<Vec<ColumnInfo>, DriverError> {
-    let sql = "
-        SELECT column_name, data_type, is_nullable, column_default,
-               character_maximum_length
-        FROM information_schema.columns
-        WHERE table_schema = 'public' AND table_name = $1
-        ORDER BY ordinal_position";
-
-    let rows = self.client.query(sql, &[&table])?;
-
-    rows.iter().map(|row| {
-        Ok(ColumnInfo {
-            name: row.get(0),
-            kind: row.get(1),
-            nullable: row.get::<_, String>(2) == "YES",
-            default_value: row.get(3).unwrap_or_default(),
-            // ...
-        })
-    }).collect()
-}
-```
-
-**特点**:
-
-- 使用标准 `information_schema.columns` 视图
-- 参数化查询防止 SQL 注入
-- 按列顺序排序
-- 返回 `ColumnInfo` 结构，包含完整元数据
-
----
-
-#### 4.5 SQLite 驱动 (`sqlite.rs`, 385 行)
-
-**实现**: 基于 `rusqlite` crate
-
-**核心功能**:
-
-1. **连接管理**: 支持只读/创建模式
-2. **查询执行**: 占位符 `?`
-3. **标识符转义**: 双引号 `"`
-4. **特性**: 支持内存数据库
-
-**columns() 实现**:
-
-```
-fn columns(&mut self, table: &str) -> Result<Vec<ColumnInfo>, DriverError> {
-    let sql = format!("PRAGMA table_info(\"{}\")", escape_quote(table));
-    let mut stmt = self.conn.prepare(&sql)?;
-
-    let mut columns = vec![];
-    let mut rows = stmt.query([])?;
-    while let Some(row) = rows.next()? {
-        columns.push(ColumnInfo {
-            name: row.get(1)?,           // 列名在第 2 列 (索引 1)
-            kind: row.get(2)?,
-            nullable: row.get(3).map(|v: i64| v == 0).unwrap_or(false),
-            primary_key: row.get(5).map(|v: i64| v == 1).unwrap_or(false),
-            default_value: row.get(4).unwrap_or_default(),
-            // ...
-        });
-    }
-    Ok(columns)
-}
-```
-
-**特点**:
-
-- 使用 SQLite 特有的 `PRAGMA table_info()` 命令
-- 双引号转义防止注入
-- 返回 `ColumnInfo` 结构，包含完整元数据
-
----
-
-#### 4.6 MongoDB 驱动 (`mongodb.rs`, 291 行)
-
-**实现**: 基于 `mongodb` crate
-
-**核心功能**:
-
-1. **连接管理**: 支持 connection string 或 host 列表
-2. **文档型 CRUD**: find/insert_one/update_many/delete_many
-3. **响应转换**: BSON → JSON
-4. **集合名支持**: 数据库前缀 (`db.collection`)
-
-**columns() 实现**:
-
-```
-fn columns(&mut self, _table: &str) -> Result<Vec<ColumnInfo>, DriverError> {
-    Err(DriverError::Other("MongoDB 作为文档数据库不支持固定列结构查询".into()))
-}
-```
-
-**特点**:
-
-- 文档型数据库无固定列结构
-- 返回明确的错误信息
-
----
-
-#### 4.7 Redis 驱动 (`redis.rs`, 320 行)
-
-**实现**: 基于 `redis` crate
-
-**核心功能**:
-
-1. **连接管理**: 支持 URL 连接字符串
-2. **命令执行**: 支持任意 Redis 命令
-3. **响应转换**: Redis 类型 → JSON
-4. **影响行数估算**: 基于返回值类型
-
-**columns() 实现**:
-
-```
-fn columns(&mut self, _table: &str) -> Result<Vec<ColumnInfo>, DriverError> {
-    Err(DriverError::Other("Redis 作为键值数据库不支持列结构查询".into()))
-}
-```
-
-**特点**:
-
-- 键值型数据库无表和列概念
-- 返回明确的错误信息
-
----
-
-#### 4.8 SQL Server 驱动 (`sqlserver.rs`, 77 行)
-
-**状态**: 占位实现
-
-**标识**: 所有方法注释标记 `/// SQL Server 驱动占位实现。`
-
-**所有操作**: 返回"暂未实现"错误
-
-```
-fn columns(&mut self, _table: &str) -> Result<Vec<String>, DriverError> {
-    Err(DriverError::Other("SQL Server 查询列信息暂未实现".into()))
-}
-```
-
-**TODO**: 需要完整实现连接和查询逻辑
-
----
-
-#### 4.9 Oracle 驱动 (`oracle.rs`, 1 行)
-
-**状态**: 仅包含注释，配置结构已移至 `src/model.rs`
-
-```
-// Oracle 驱动相关类型定义已移至 src/model.rs
-```
-
-**配置结构** (在 `src/model.rs` 中):
-
-```
-pub enum OracleAddress {
-    ServiceName(String),
-    Sid(String),
-}
-
-pub struct OracleOptions {
-    pub host: String,
-    pub port: u16,
-    pub address: OracleAddress,
-    pub username: String,
-    pub password: Option<String>,
-    pub wallet_path: Option<String>,
-}
-```
-
-**TODO**: 需要完整实现驱动
-
----
-
-### 5. 数据源配置类型
-
-#### DataSourceOptions 枚举
-
-```
-pub enum DataSourceOptions {
-    MySQL(MySQLOptions),
-    SQLite(SQLiteOptions),
-    Postgres(PostgresOptions),
-    Oracle(OracleOptions),
-    SQLServer(SQLServerOptions),
-    Redis(RedisOptions),
-    MongoDB(MongoDBOptions),
-}
-```
-
-#### 各数据库配置
-
-| 数据库            | 关键字段                                                                           | endpoint() 示例                  |
-|----------------|--------------------------------------------------------------------------------|--------------------------------|
-| **MySQL**      | host, port, username, password, database, charset, use_tls                     | `mysql://user@host:3306/db`    |
-| **PostgreSQL** | host, port, username, password, database, use_tls                              | `postgres://user@host:5432/db` |
-| **SQLite**     | filepath, password, read_only                                                  | `sqlite:///path/to/db`         |
-| **Oracle**     | host, port, address (ServiceName/Sid), username, password, wallet_path         | `oracle://host:1521?sid=xe`    |
-| **SQLServer**  | host, port, database, username, password, auth, instance                       | `sqlserver://host:1433/db`     |
-| **Redis**      | host, port, username, password, use_tls                                        | `redis://host:6379`            |
-| **MongoDB**    | connection_string/hosts, replica_set, auth_source, username, password, use_tls | `mongodb://host:27017`         |
-
-**通用方法**:
-
-- `endpoint()`: 生成连接字符串（隐藏密码）
-- `overview()`: 生成概览信息列表
-
----
-
-### 6. 测试数据和文档 (`docs/testdata/`)
-
-#### 6.1 测试数据生成器
-
-**位置**: `/docs/testdata/generate.py` (19,514 字节)
-
-**输出目录**: `/docs/testdata/output/` (11 个 CSV 文件)
-
-**生成的表** (电商业务模型):
-
-1. `category.csv` - 商品分类 (113 KB)
-2. `customer.csv` - 客户信息 (95 KB)
-3. `customer_address.csv` - 客户地址 (95 KB)
-4. `order.csv` - 订单 (57 KB)
-5. `order_items.csv` - 订单明细 (79 KB)
-6. `products.csv` - 商品 (62 KB)
-7. `product_review.csv` - 商品评论 (211 KB)
-8. `product_translation.csv` - 商品翻译 (224 KB)
-9. `payment.csv` - 支付 (70 KB)
-10. `shipment.csv` - 发货 (70 KB)
-11. `support_ticket.csv` - 客服工单 (105 KB)
-
-**总数据量**: 约 1.18 MB CSV 数据
-
-#### 6.2 SQL 关键字文档
-
-**位置**: `/src/app/workspace/keywords.json` (762 行)
-
-**内容**: SQL 关键字和函数的文档说明，用于 SQL 编辑器的代码提示和自动补全
-
-**格式**:
-
-```
-{
-  "keywords": [
-    "SELECT",
-    "FROM",
-    "WHERE",
-    ...
-  ],
-  "functions": {
-    "COUNT": "返回匹配条件的行数",
-    "SUM": "计算数值列的总和",
-    ...
-  }
-}
-```
-
----
-
-### 7. 窗口管理机制
-
-**设计**: 使用 `HashMap<String, WindowHandle<Root>>` 管理浮动窗口
-
-**优势**:
-
-1. **自动去重**: 同一类型窗口只能打开一个
-2. **统一管理**: 所有浮动窗口集中管理
-3. **清晰的生命周期**: 窗口关闭时从 HashMap 中移除
-
-**窗口类型**:
-
-- `"create"`: 新建数据源窗口
-- `"import-{uuid}"`: 数据导入窗口（每个数据源独立）
-- `"export-{uuid}"`: 数据导出窗口（每个数据源独立）
-
-**实现**:
-
-```
-// 创建窗口（自动去重）
-pub fn create_window(&mut self, key: String, window: WindowHandle<Root>) {
-    self.windows.insert(key, window);
-}
-
-// 关闭窗口
-pub fn close_window(&mut self, key: &str) {
-    self.windows.remove(key);
-}
-```
-
----
-
-### 8. 静态资源 (`assets/`)
+**路径**: `crates/sqler-app/assets/`
 
 **内容**: 数据库图标等静态文件
 
@@ -1372,22 +1584,10 @@ pub fn close_window(&mut self, key: &str) {
 - `icons/sqlserver.svg`
 - `icons/redis.svg`
 - `icons/mongodb.svg`
+- `icons/home.svg`
+- `icons/close.svg`, `icons/export.svg`, `icons/import.svg`, ...
 
-**加载**: 通过 `FsAssets` 注册到 GPUI
-
----
-
-### 9. 项目配置 (`Cargo.toml`)
-
-**核心依赖**:
-
-| 分类        | 依赖                                        |
-|-----------|-------------------------------------------|
-| **UI 框架** | gpui, gpui-component                      |
-| **加密**    | aes-gcm                                   |
-| **序列化**   | serde, serde_json                         |
-| **数据库驱动** | mysql, postgres, rusqlite, mongodb, redis |
-| **工具**    | dirs, uuid, thiserror                     |
+**加载**: 通过 `FsAssets` 从 `CARGO_MANIFEST_DIR/assets/` 注册到 GPUI
 
 ---
 
@@ -1481,7 +1681,7 @@ pub fn close_window(&mut self, key: &str) {
 5. ✅ 零成本抽象（返回引用避免克隆）
 6. ✅ 懒加载（按需创建目录）
 7. ✅ 数据源管理已接入 UI
-8. ❌ 表信息缓存暂未使用
+8. ✅ 表信息缓存已接入（CommonWorkspace 初始化时读取、reload_tables 时更新）
 9. ❌ 查询缓存暂未使用
 
 ---
@@ -1521,17 +1721,12 @@ pub fn close_window(&mut self, key: &str) {
 
 #### 中优先级
 
-1. **数据源编辑和删除功能**
-    - 首页右键菜单（编辑/删除）
-    - 编辑窗口（复用 CreateWindow）
-    - 删除确认对话框
-
-2. **数据编辑**
+1. **数据编辑**
     - 单元格编辑
     - 行增删
     - 保存变更到数据库
 
-3. **错误处理优化**
+2. **错误处理优化**
     - 友好的错误提示
     - 连接失败重试
     - 超时处理
@@ -1554,37 +1749,45 @@ pub fn close_window(&mut self, key: &str) {
 
 ## 关键设计亮点
 
-### 1. Trait 驱动架构
+### 1. Workspace 架构优势
+
+- **职责分离**: 核心逻辑（sqler-core）与 UI 层（sqler-app）完全分离
+- **单向依赖**: sqler-app 依赖 sqler-core，避免循环依赖
+- **独立编译**: sqler-core 可单独编译和测试
+- **代码复用**: sqler-core 可被其他项目复用（CLI、Web 服务等）
+- **统一版本管理**: workspace.dependencies 集中管理依赖版本
+
+### 2. Trait 驱动架构
 
 - `DatabaseDriver` 和 `DatabaseSession` 统一多数据库接口
 - 通过 `columns()` trait 方法消除 SQL 方言差异
 - 支持 SQL、文档、命令三种查询模式
 
-### 2. 连接复用策略
+### 3. 连接复用策略
 
 - 使用 `Option<Box<dyn DatabaseSession>>` 实现懒加载和复用
 - 支持跨线程移动（DatabaseSession: Send）
 - 失败自动重试
 
-### 3. 参数化查询
+### 4. 参数化查询
 
 - 各驱动正确处理占位符和参数绑定
 - 防止 SQL 注入攻击
 - 标识符转义（反引号、双引号）
 
-### 4. 工作区架构
+### 5. 工作区架构
 
-- `WorkspaceState` 枚举支持多种工作区类型
+- `Workspace` 枚举支持多种工作区类型
 - Common 工作区统一处理所有关系型数据库
 - 专用工作区（Redis、MongoDB）针对性优化
 
-### 5. 数据源 ID 设计
+### 6. 数据源 ID 设计
 
 - 使用 UUID 作为标签 ID
 - 避免 TabId 包装类型
 - 简化查找和路由逻辑
 
-### 6. 窗口管理设计
+### 7. 窗口管理设计
 
 **HashMap 去重机制**:
 
@@ -1598,7 +1801,7 @@ pub fn close_window(&mut self, key: &str) {
 - 数据导入窗口: `"import-{uuid}"`
 - 数据导出窗口: `"export-{uuid}"`
 
-### 7. 缓存系统设计
+### 8. 缓存系统设计
 
 **单一数据源原则**:
 
@@ -1623,12 +1826,12 @@ pub fn close_window(&mut self, key: &str) {
 - 按需创建 `cache/{uuid}/` 目录
 - 文件不存在返回空列表，不阻塞系统
 
-### 8. 动态列支持
+### 9. 动态列支持
 
 - DataTable 通过 `update_data()` 和 `refresh()` 支持动态列数
 - 无需重建表格组件
 
-### 9. 数据源排序标准
+### 10. 数据源排序标准
 
 - 统一排序：MySQL → SQLite → Postgres → Oracle → SQLServer → Redis → MongoDB
 - 所有 match 语句遵循相同顺序
@@ -1638,96 +1841,209 @@ pub fn close_window(&mut self, key: &str) {
 
 ## 代码统计
 
-| 模块分类        | 文件数 | 代码行数      | 占比    |
-|-------------|-----|-----------|-------|
-| app/        | 20  | 5,871     | 62.4% |
-| driver/     | 8   | 2,240     | 23.8% |
-| model.rs    | 1   | 724       | 7.7%  |
-| cache/      | 1   | 171       | 1.8%  |
-| main.rs     | 1   | 124       | 1.3%  |
-| codegen/    | 1   | 1         | 0.0%  |
-| update/     | 1   | 1         | 0.0%  |
-| **总计**      | 33  | **9,403** | 100%  |
+### Workspace 总览
 
-**app/ 模块细分**:
+| 分类             | 文件数 | 代码行数      | 占比    |
+|----------------|-----|-----------|-------|
+| **sqler-core** | 10  | 3,145     | 33.5% |
+| **sqler-app**  | 21  | 6,248     | 66.5% |
+| **总计**         | 31  | **9,393** | 100%  |
 
-- `workspace/`: 2,995 行 (31.8%)
-    - `common.rs`: 1,763 行 (最大单文件)
-    - `redis.rs`: 905 行 (第二大文件)
-    - `mod.rs`: 327 行
-    - `mongodb.rs`: 285 行
-- `create/`: 1,149 行 (12.2%)
-    - `mod.rs`: 486 行
-    - `redis.rs`: 174 行
-    - `sqlite.rs`: 112 行
-    - `mongodb.rs`: 88 行
-    - `postgres.rs`: 80 行
-    - `mysql.rs`: 74 行
-    - `sqlserver.rs`: 71 行
-    - `oracle.rs`: 64 行
-- `transfer/`: 1,008 行 (10.7%)
-    - `import.rs`: 714 行
-    - `export.rs`: 251 行
-    - `mod.rs`: 43 行
-- `comps/`: 308 行 (3.3%)
-    - `table.rs`: 153 行
-    - `mod.rs`: 92 行
-    - `icon.rs`: 63 行
-- `mod.rs`: 398 行 (4.2%)
+### sqler-core crate 统计（3145 行）
+
+| 模块          | 文件数 | 代码行数  | 占比    |
+|-------------|-----|-------|-------|
+| lib.rs      | 1   | 734   | 23.3% |
+| driver/     | 8   | 2,240 | 71.2% |
+| cache/      | 1   | 171   | 5.4%  |
+| **总计**      | 10  | 3,145 | 100%  |
 
 **driver/ 模块细分**:
 
-- `postgres.rs`: 473 行
-- `mysql.rs`: 405 行
-- `sqlite.rs`: 385 行
-- `redis.rs`: 320 行
-- `mongodb.rs`: 291 行
-- `mod.rs`: 288 行
-- `sqlserver.rs`: 77 行 (占位实现)
-- `oracle.rs`: 1 行 (仅注释)
+| 文件           | 行数    | 状态   |
+|--------------|-------|------|
+| postgres.rs  | 473   | 全功能  |
+| mysql.rs     | 405   | 全功能  |
+| sqlite.rs    | 385   | 全功能  |
+| redis.rs     | 320   | 全功能  |
+| mongodb.rs   | 291   | 全功能  |
+| mod.rs       | 288   | 接口定义 |
+| sqlserver.rs | 77    | 占位实现 |
+| oracle.rs    | 1     | 仅注释  |
+| **总计**       | 2,240 |      |
 
-**其他模块**:
+### sqler-app crate 统计（6248 行）
 
-- `model.rs` - 724 行 - 数据模型定义
-- `cache/mod.rs` - 171 行 - 缓存系统
-- `main.rs` - 124 行 - 程序入口
-- `codegen/mod.rs` - 1 行 - 代码生成模块预留
-- `update/mod.rs` - 1 行 - 更新模块预留
+| 模块          | 文件数 | 代码行数  | 占比    |
+|-------------|-----|-------|-------|
+| workspace/  | 4   | 3,273 | 52.4% |
+| create/     | 8   | 1,148 | 18.4% |
+| transfer/   | 3   | 1,003 | 16.1% |
+| app/        | 1   | 391   | 6.3%  |
+| comps/      | 3   | 308   | 4.9%  |
+| main.rs     | 1   | 124   | 2.0%  |
+| subtask/    | 1   | 1     | 0.0%  |
+| **总计**      | 21  | 6,248 | 100%  |
+
+**workspace/ 模块细分**:
+
+| 文件         | 行数    | 说明          |
+|------------|-------|-------------|
+| common.rs  | 1,760 | 关系型数据库工作区   |
+| redis.rs   | 903   | Redis 工作区   |
+| mod.rs     | 327   | 工作区路由       |
+| mongodb.rs | 283   | MongoDB 工作区 |
+| **总计**     | 3,273 |             |
+
+**create/ 模块细分**:
+
+| 文件           | 行数    | 说明            |
+|--------------|-------|---------------|
+| mod.rs       | 483   | 创建窗口主逻辑       |
+| redis.rs     | 174   | Redis 表单      |
+| sqlite.rs    | 114   | SQLite 表单     |
+| mongodb.rs   | 88    | MongoDB 表单    |
+| postgres.rs  | 80    | PostgreSQL 表单 |
+| mysql.rs     | 74    | MySQL 表单      |
+| sqlserver.rs | 71    | SQL Server 表单 |
+| oracle.rs    | 64    | Oracle 表单     |
+| **总计**       | 1,148 |               |
+
+**transfer/ 模块细分**:
+
+| 文件        | 行数    | 说明     |
+|-----------|-------|--------|
+| import.rs | 711   | 数据导入窗口 |
+| export.rs | 249   | 数据导出窗口 |
+| mod.rs    | 43    | 传输类型定义 |
+| **总计**    | 1,003 |        |
+
+**comps/ 模块细分**:
+
+| 文件          | 行数  | 说明       |
+|-------------|-----|----------|
+| table.rs    | 153 | 数据表格组件   |
+| mod.rs      | 92  | 组件工具     |
+| icon.rs     | 63  | 图标组件     |
+| **总计**      | 308 |          |
 
 ---
 
-## 项目状态
+## 项目配置
 
-**当前阶段**: 核心功能开发中
+### Workspace 配置（根 Cargo.toml）
 
-**可用功能**:
+```
+[workspace]
+members = [
+    "crates/sqler-core",
+    "crates/sqler-app",
+]
+resolver = "2"
 
-- ✅ MySQL/PostgreSQL/SQLite 数据源浏览和查询
-- ✅ 多标签管理
-- ✅ 分页导航
-- ✅ 连接复用
-- ✅ 统一的列查询接口
-- ✅ 筛选和排序功能（完整实现并应用到查询）
-- ✅ SQL 查询编辑器（多 SQL 支持、异步执行、结果展示）
-- ✅ 表结构查看（列信息展示、详情面板）
-- ✅ 新建数据源窗口（测试连接+保存）
-- ✅ 缓存系统（单一数据源原则，HashMap 窗口管理）
-- ✅ 表信息缓存（初始化读取、刷新时更新 tables.json）
-- ✅ 日志系统（终端+文件双重输出，每日轮转）
-- ✅ 数据导入/导出 UI 完整实现
-- ✅ SQL 关键字文档（keywords.json，762 行）
+[workspace.package]
+version = "1.0.0"
+edition = "2024"
 
-**开发中**:
+[workspace.dependencies]
+sqler-core = { path = "crates/sqler-core" }
 
-- 🚧 Redis/MongoDB 工作区功能
-- 🚧 查询缓存使用（保存查询、查询历史）
-- 🚧 数据导入/导出执行逻辑
+gpui = { version = "0.2.2" }
+gpui-component = { version = "0.5.0", features = ["tree-sitter-languages"] }
 
-**待开发**:
+dirs = "6"
+uuid = "1"
+aes-gcm = "0.10"
+indexmap = "2"
+lsp-types = "0.97.0"
+thiserror = "2"
 
-- 📋 数据源编辑和删除
-- 📋 SQL Server/Oracle 驱动
-- 📋 数据编辑
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+tracing = "0.1"
+tracing-appender = "0.2"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+mongodb = { version = "3", features = ["sync"] }
+mysql = { version = "26" }
+postgres = { version = "0.19" }
+redis = { version = "1.0.1", features = ["cluster"] }
+rusqlite = { version = "0.37", features = ["bundled"] }
+```
+
+### sqler-core 配置
+
+```
+[package]
+name = "sqler-core"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "sqler_core"
+path = "src/lib.rs"
+
+[dependencies]
+dirs.workspace = true
+uuid.workspace = true
+aes-gcm.workspace = true
+thiserror.workspace = true
+
+serde.workspace = true
+serde_json.workspace = true
+
+tracing.workspace = true
+
+mongodb.workspace = true
+mysql.workspace = true
+postgres.workspace = true
+redis.workspace = true
+rusqlite.workspace = true
+```
+
+### sqler-app 配置
+
+```
+[package]
+name = "sqler-app"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "sqler"
+path = "src/main.rs"
+
+[dependencies]
+sqler-core.workspace = true
+
+gpui.workspace = true
+gpui-component.workspace = true
+
+dirs.workspace = true
+uuid.workspace = true
+indexmap.workspace = true
+lsp-types.workspace = true
+
+serde.workspace = true
+serde_json.workspace = true
+
+tracing.workspace = true
+tracing-appender.workspace = true
+tracing-subscriber.workspace = true
+```
+
+### 发布配置
+
+```
+[profile.release]
+lto = "thin"
+strip = true
+debug = false
+panic = 'abort'
+opt-level = 3
+codegen-units = 1
+```
 
 ---
 
@@ -1744,10 +2060,16 @@ pub fn close_window(&mut self, key: &str) {
    use gpui::{prelude::*, *};
    use serde::{Deserialize, Serialize};
 
-   // 3. 当前 crate 导入（按模块分组）
+   // 3. Workspace crate 导入
+   use sqler_core::{
+       DatabaseDriver, DriverError,
+       DataSource, DataSourceKind,
+   };
+
+   // 4. 当前 crate 导入（按模块分组）
    use crate::{
        app::comps::DataTable,
-       driver::{DatabaseDriver, DriverError},
+       workspace::CommonWorkspace,
    };
    ```
 
@@ -1763,15 +2085,34 @@ pub fn close_window(&mut self, key: &str) {
 
 ### 测试
 
-- 在 `scripts/test/` 目录下提供测试数据脚本
+- 在 `docs/testdata/` 目录下提供测试数据脚本
 - 每个数据库至少 10 张表，每表≥1000 行数据
 - 覆盖常见数据类型和关系
 
 ---
 
----
-
 ## 版本历史
+
+**v5.0 (2025-12-20) - Workspace 架构重组**:
+
+- 🎯 **架构升级**: 重构为 Cargo Workspace 模式
+- 📦 **Crate 分离**:
+  - 新增 `sqler-core` crate（3145行）：核心库，包含 driver、cache、model
+  - 新增 `sqler-app` crate（6248行）：应用程序，包含 UI 层
+- 🔄 **模块迁移**:
+  - `src/driver/` → `crates/sqler-core/src/driver/`
+  - `src/cache/` → `crates/sqler-core/src/cache/`
+  - `src/model.rs` → `crates/sqler-core/src/lib.rs` (合并)
+  - `src/app/` → `crates/sqler-app/src/app/`
+  - `assets/` → `crates/sqler-app/assets/`
+- 📊 **代码统计**: 9,403 → 9,393 行 (-10行，代码优化)
+- 🏗️ **依赖管理**: workspace.dependencies 统一版本管理
+- 📝 **文档更新**: CODEMAP.md 完全重写为 Workspace 架构
+
+**模块拆分详情**:
+- sqler-core 导出接口: DatabaseDriver, DatabaseSession, AppCache, ArcCache 等
+- sqler-app 依赖 sqler-core，单向依赖无循环
+- 编译产物: 单个二进制 `sqler`（位于 sqler-app）
 
 **v4 (2025-12-16)**:
 
@@ -1791,55 +2132,27 @@ pub fn close_window(&mut self, key: &str) {
     - `table.rs`: 122 → 153 行 (+31 行) - 智能列宽计算
     - `mod.rs`: 79 → 92 行 (+13 行)
 - **create/** 模块增长: 1,092 → 1,149 行 (+57 行)
-    - `mod.rs`: 475 → 486 行 (+11 行)
-    - `redis.rs`: 121 → 174 行 (+53 行)
-    - `mysql.rs`: 80 → 74 行 (-6 行)
 - **driver/** 模块优化: 2,392 → 2,240 行 (-152 行，-6.4%)
-    - `mod.rs`: 314 → 288 行 (-26 行)
-    - `mysql.rs`: 447 → 405 行 (-42 行)
-    - `postgres.rs`: 513 → 473 行 (-40 行)
-    - `sqlite.rs`: 429 → 385 行 (-44 行)
-    - `redis.rs`: 277 → 320 行 (+43 行) - 支持集群模式
-    - `mongodb.rs`: 318 → 291 行 (-27 行)
-    - `sqlserver.rs`: 93 → 77 行 (-16 行)
-- **transfer/** 模块调整: 1,015 → 1,008 行 (-7 行)
-    - `import.rs`: 721 → 714 行 (-7 行)
 - **model.rs**: 668 → 724 行 (+56 行)
-- **app/mod.rs**: 393 → 398 行 (+5 行)
-- 完善代码统计，增加子模块详细分类
-- 更新驱动实现状态表格
 
 **v3 (2025-12-03)**:
 
 - 更新代码总行数: 8,262 → 8,699 (+437 行)
-- 更新文件总数: 29 → 31 个文件
 - `common.rs`: 1,318 → 1,655 (+337 行) - 最大增长
 - `mongodb.rs`: 501 → 285 (-216 行) - 代码优化重构
-- `create/mod.rs`: 411 → 475 (+64 行)
-- `workspace/mod.rs`: 271 → 330 (+59 行)
-- 驱动模块全面增长:
-  - `postgres.rs`: 448 → 513 (+65 行)
-  - `export.rs`: 202 → 251 (+49 行)
-  - `import.rs`: 676 → 721 (+45 行)
-  - `mysql.rs`: 412 → 447 (+35 行)
-  - `sqlite.rs`: 395 → 429 (+34 行)
 - 新增 codegen 和 update 模块占位符
-- 完善代码统计,增加子模块详细分类
 
 **v2 (2025-01-24)**:
 
 - 更新代码总行数: 7,752 → 8,262 (+510 行)
 - `common.rs`: 1,058 → 1,318 (+260 行)
-- TabContent 结构扩展 (新增 Query 和 Struct)
+- TabContent 结构扩展 (新增 Query 和 Schema)
 - 窗口管理改为 HashMap 方式
 - 页面大小调整为 500 行/页
 - 新增 SQL 关键字文档 (keywords.json, 762 行)
-- 新增窗口管理机制章节
-- 精确化所有模块行数统计
-- 更新驱动实现状态和行数
 
 **v1 (2025-01-17)**:
 
 - 初始版本，基于实际代码详细记录所有文件行数和实现细节
 
-**最后更新**: 2025-12-16 (基于代码库实际统计全面更新)
+**最后更新**: 2025-12-20 (Workspace 架构重组)

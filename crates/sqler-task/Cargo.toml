@@ -1,0 +1,11 @@
+[package]
+name = "sqler-task"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "sqler-task"
+path = "src/main.rs"
+
+[dependencies]
+sqler-core.workspace = true

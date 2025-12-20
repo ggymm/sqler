@@ -3,21 +3,15 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-// 核心模块导出
 pub mod cache;
 pub mod driver;
 
-// 重新导出 driver 和 cache 类型
 pub use driver::{
-    check_connection, create_connection, supp_kinds, DatabaseDriver, DatabaseSession, DriverError,
-    ExecReq, ExecResp, FilterCond, Operator, OrderCond, Paging, QueryReq, QueryResp, ValueCond,
+    DatabaseDriver, DatabaseSession, DriverError, ExecReq, ExecResp, FilterCond, Operator, OrderCond, Paging, QueryReq,
+    QueryResp, ValueCond, check_connection, create_connection, supp_kinds,
 };
 
 pub use cache::{AppCache, ArcCache, CacheError};
-
-// ============================================================================
-// Model Types (原 model.rs 内容)
-// ============================================================================
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TableInfo {

@@ -20,6 +20,7 @@ use crate::app::SqlerApp;
 mod app;
 mod comps;
 mod create;
+mod subtask;
 mod transfer;
 mod workspace;
 
