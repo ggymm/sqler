@@ -1,6 +1,10 @@
+mod dump;
+mod exec;
 mod export;
 mod import;
 
+pub use dump::DumpWindowBuilder;
+pub use exec::ExecWindowBuilder;
 pub use export::ExportWindowBuilder;
 pub use import::ImportWindowBuilder;
 

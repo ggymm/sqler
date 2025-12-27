@@ -25,16 +25,16 @@ pub struct ExportWindow {
 
 pub struct ExportWindowBuilder {
     cache: Option<ArcCache>,
-    source: Option<DataSource>,
     parent: Option<WeakEntity<SqlerApp>>,
+    source: Option<DataSource>,
 }
 
 impl ExportWindowBuilder {
     pub fn new() -> Self {
         Self {
             cache: None,
-            source: None,
             parent: None,
+            source: None,
         }
     }
 
@@ -46,19 +46,19 @@ impl ExportWindowBuilder {
         self
     }
 
-    pub fn source(
-        mut self,
-        source: DataSource,
-    ) -> Self {
-        self.source = Some(source);
-        self
-    }
-
     pub fn parent(
         mut self,
         parent: WeakEntity<SqlerApp>,
     ) -> Self {
         self.parent = Some(parent);
+        self
+    }
+
+    pub fn source(
+        mut self,
+        source: DataSource,
+    ) -> Self {
+        self.source = Some(source);
         self
     }
 

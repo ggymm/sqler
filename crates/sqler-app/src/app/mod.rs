@@ -13,23 +13,34 @@ use sqler_core::{AppCache, ArcCache, DataSource};
 use crate::{
     comps::{AppIcon, comp_id},
     create::CreateWindowBuilder,
-    transfer::{ExportWindowBuilder, ImportWindowBuilder},
+    transfer::{DumpWindowBuilder, ExecWindowBuilder, ExportWindowBuilder, ImportWindowBuilder},
     workspace::{Workspace, render},
 };
 
 #[derive(Clone)]
 pub enum WindowKind {
-    Create(Option<DataSource>),
-    Import(DataSource),
+    Dump {
+        table: String,
+        schema: bool,
+        source: DataSource,
+    },
+    Exec {
+        table: String,
+        source: DataSource,
+    },
     Export(DataSource),
+    Import(DataSource),
+    Create(Option<DataSource>),
 }
 
 impl WindowKind {
     fn tag(&self) -> &'static str {
         match self {
-            WindowKind::Create(_) => "create",
-            WindowKind::Import(_) => "import",
+            WindowKind::Dump { .. } => "dump",
+            WindowKind::Exec { .. } => "exec",
             WindowKind::Export(_) => "export",
+            WindowKind::Import(_) => "import",
+            WindowKind::Create(_) => "create",
         }
     }
 }
@@ -195,10 +206,12 @@ impl SqlerApp {
         }
 
         let title = match kind {
+            WindowKind::Dump { .. } => "转储数据",
+            WindowKind::Exec { .. } => "执行脚本",
+            WindowKind::Export(_) => "数据导出",
+            WindowKind::Import(_) => "数据导入",
             WindowKind::Create(Some(_)) => "编辑数据源",
             WindowKind::Create(None) => "新建数据源",
-            WindowKind::Import(_) => "数据导入",
-            WindowKind::Export(_) => "数据导出",
         };
         let bounds = Bounds {
             size: size(px(1280.), px(720.)),
@@ -213,25 +226,42 @@ impl SqlerApp {
         let parent = cx.weak_entity();
         let result = cx.open_window(options, move |window, cx| {
             let view: AnyView = match kind {
-                WindowKind::Create(source) => {
-                    let builder = CreateWindowBuilder::new()
+                WindowKind::Dump { table, schema, source } => {
+                    let builder = DumpWindowBuilder::new()
                         .cache(cache.clone())
+                        .table(table)
+                        .schema(schema)
                         .source(source)
                         .parent(parent.clone());
                     cx.new(|cx| builder.build(window, cx)).into()
                 }
-                WindowKind::Import(source) => {
-                    let builder = ImportWindowBuilder::new()
+                WindowKind::Exec { table, source } => {
+                    let builder = ExecWindowBuilder::new()
                         .cache(cache.clone())
-                        .source(source)
-                        .parent(parent.clone());
+                        .parent(parent.clone())
+                        .table(table)
+                        .source(source);
                     cx.new(|cx| builder.build(window, cx)).into()
                 }
                 WindowKind::Export(source) => {
                     let builder = ExportWindowBuilder::new()
                         .cache(cache.clone())
-                        .source(source)
-                        .parent(parent.clone());
+                        .parent(parent.clone())
+                        .source(source);
+                    cx.new(|cx| builder.build(window, cx)).into()
+                }
+                WindowKind::Import(source) => {
+                    let builder = ImportWindowBuilder::new()
+                        .cache(cache.clone())
+                        .parent(parent.clone())
+                        .source(source);
+                    cx.new(|cx| builder.build(window, cx)).into()
+                }
+                WindowKind::Create(source) => {
+                    let builder = CreateWindowBuilder::new()
+                        .cache(cache.clone())
+                        .parent(parent.clone())
+                        .source(source);
                     cx.new(|cx| builder.build(window, cx)).into()
                 }
             };

@@ -165,16 +165,16 @@ pub struct ImportWindow {
 
 pub struct ImportWindowBuilder {
     cache: Option<ArcCache>,
-    source: Option<DataSource>,
     parent: Option<WeakEntity<SqlerApp>>,
+    source: Option<DataSource>,
 }
 
 impl ImportWindowBuilder {
     pub fn new() -> Self {
         Self {
             cache: None,
-            source: None,
             parent: None,
+            source: None,
         }
     }
 
@@ -186,19 +186,19 @@ impl ImportWindowBuilder {
         self
     }
 
-    pub fn source(
-        mut self,
-        source: DataSource,
-    ) -> Self {
-        self.source = Some(source);
-        self
-    }
-
     pub fn parent(
         mut self,
         parent: WeakEntity<SqlerApp>,
     ) -> Self {
         self.parent = Some(parent);
+        self
+    }
+
+    pub fn source(
+        mut self,
+        source: DataSource,
+    ) -> Self {
+        self.source = Some(source);
         self
     }
 

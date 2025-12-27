@@ -80,8 +80,36 @@ impl CommonWorkspace {
             TableOp::Create | TableOp::Import | TableOp::Export => {
                 // TODO: 暂不实现
             }
-            TableOp::Exec | TableOp::Dump | TableOp::DumpData | TableOp::DumpSchema => {
-                // TODO: 暂不实现
+            TableOp::DumpData | TableOp::DumpSchema => {
+                let Some(parent) = self.parent.upgrade() else {
+                    return;
+                };
+                let source = self.source.clone();
+                let _ = parent.update(cx, |app, cx| {
+                    app.create_window(
+                        WindowKind::Dump {
+                            table: a.table.clone(),
+                            schema: matches!(a.op, TableOp::DumpSchema),
+                            source,
+                        },
+                        cx,
+                    );
+                });
+            }
+            TableOp::Exec => {
+                let Some(parent) = self.parent.upgrade() else {
+                    return;
+                };
+                let source = self.source.clone();
+                let _ = parent.update(cx, |app, cx| {
+                    app.create_window(
+                        WindowKind::Exec {
+                            table: a.table.clone(),
+                            source,
+                        },
+                        cx,
+                    );
+                });
             }
         }
     }
@@ -892,6 +920,7 @@ impl CommonWorkspace {
                 let Some(state) = tab.form_items.get(i) else {
                     return panel;
                 };
+                let input = Input::new(state).px_2().py_1().disabled(true);
                 panel.child(
                     div()
                         .flex()
@@ -900,7 +929,7 @@ impl CommonWorkspace {
                         .gap_1()
                         .text_sm()
                         .child(div().font_semibold().child(name.clone()))
-                        .child(div().child(Input::new(state).disabled(true))),
+                        .child(div().child(input)),
                 )
             }
         });
@@ -1069,7 +1098,6 @@ impl CommonWorkspace {
             }));
 
         // 筛选字段
-
         h_resizable(comp_id(["table-content", &tab_id]))
             .with_state(&tab.detail_panel_state)
             .child(
@@ -1609,12 +1637,13 @@ impl Render for CommonWorkspace {
                             .outline()
                             .on_click(cx.listener({
                                 |view: &mut Self, _, _, cx| {
-                                    if let Some(parent) = view.parent.upgrade() {
-                                        let source = view.source.clone();
-                                        let _ = parent.update(cx, |app, cx| {
-                                            app.create_window(WindowKind::Import(source), cx);
-                                        });
-                                    }
+                                    let Some(parent) = view.parent.upgrade() else {
+                                        return;
+                                    };
+                                    let source = view.source.clone();
+                                    let _ = parent.update(cx, |app, cx| {
+                                        app.create_window(WindowKind::Import(source), cx);
+                                    });
                                 }
                             })),
                     )
@@ -1625,12 +1654,13 @@ impl Render for CommonWorkspace {
                             .outline()
                             .on_click(cx.listener({
                                 |view: &mut Self, _, _, cx| {
-                                    if let Some(parent) = view.parent.upgrade() {
-                                        let source = view.source.clone();
-                                        let _ = parent.update(cx, |app, cx| {
-                                            app.create_window(WindowKind::Export(source), cx);
-                                        });
-                                    }
+                                    let Some(parent) = view.parent.upgrade() else {
+                                        return;
+                                    };
+                                    let source = view.source.clone();
+                                    let _ = parent.update(cx, |app, cx| {
+                                        app.create_window(WindowKind::Export(source), cx);
+                                    });
                                 }
                             })),
                     )
@@ -1685,7 +1715,6 @@ enum TableOp {
     Export, // 转储 SQL 文件
 
     Exec,       // 运行 SQL 文件
-    Dump,       // 转储 SQL 文件
     DumpData,   // 结构 + 数据
     DumpSchema, // 仅 结构
 }
