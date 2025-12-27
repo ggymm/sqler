@@ -16,10 +16,8 @@ CODEMAP.md 文件是将代码地图
 
 ```rust
 
-// 1. 标准库导入
 use std::sync::Arc;
 
-// 2. 外部 crate 导入（按字母顺序）
 use gpui::{prelude::*, *};
 use gpui_component::{
     button::{Button, ButtonVariants},
@@ -34,7 +32,6 @@ use gpui_component::{
 };
 use uuid::Uuid;
 
-// 3. 当前 crate 导入（按模块分组）
 use crate::{
     app::comps::{
         comp_id, icon_close, icon_export, icon_import,

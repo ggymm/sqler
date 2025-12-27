@@ -20,7 +20,6 @@ use crate::app::SqlerApp;
 mod app;
 mod comps;
 mod create;
-mod subtask;
 mod transfer;
 mod workspace;
 
@@ -70,7 +69,7 @@ fn init_runtime(_cx: &mut App) {
     let (non_blocking, _guard) = non_blocking(log_rolling);
 
     tracing_subscriber::registry()
-        .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(log_level)))
+        .with(EnvFilter::new(log_level))
         .with(layer().with_writer(stdout))
         .with(layer().with_writer(non_blocking).with_ansi(false))
         .init();
@@ -79,7 +78,7 @@ fn init_runtime(_cx: &mut App) {
 
 fn main() {
     let app = Application::new().with_assets(FsAssets);
-    app.run(|cx: &mut App| {
+    app.run(|cx| {
         init(cx);
         init_runtime(cx);
 
@@ -101,7 +100,7 @@ fn main() {
         let window_bounds = Bounds::centered(None, window_size, cx);
         cx.open_window(
             WindowOptions {
-                kind: WindowKind::Floating,
+                kind: WindowKind::Normal,
                 window_bounds: Some(WindowBounds::Windowed(window_bounds)),
                 titlebar: Some(TitlebarOptions {
                     title: None,

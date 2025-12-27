@@ -1009,8 +1009,8 @@ pub struct CreateWindow {
 
 pub struct CreateWindowBuilder {
     cache: Option<ArcCache>,
-    source: Option<DataSource>,
     parent: Option<WeakEntity<SqlerApp>>,
+    source: Option<DataSource>,
 }
 
 pub enum DataSourceStatus {
@@ -2053,7 +2053,7 @@ codegen-units = 1
 
 1. **导入顺序**:
    ```
-   // 1. 标准库导入
+   
    use std::sync::Arc;
 
    // 2. 外部 crate 导入（按字母顺序）

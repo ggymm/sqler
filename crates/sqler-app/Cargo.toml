@@ -3,10 +3,6 @@ name = "sqler-app"
 version.workspace = true
 edition.workspace = true
 
-[[bin]]
-name = "sqler"
-path = "src/main.rs"
-
 [dependencies]
 sqler-core.workspace = true
 
