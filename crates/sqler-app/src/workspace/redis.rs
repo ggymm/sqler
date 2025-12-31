@@ -821,7 +821,6 @@ impl Render for RedisWorkspace {
                                 .label("执行查询")
                                 .outline()
                                 .on_click(cx.listener({
-                                    // rustfmt::skip
                                     |view, _, window, cx| {
                                         view.exec_cmds(window, cx);
                                     }

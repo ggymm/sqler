@@ -20,8 +20,8 @@ use crate::{
 #[derive(Clone)]
 pub enum WindowKind {
     Dump {
+        data: bool,
         table: String,
-        schema: bool,
         source: DataSource,
     },
     Exec {
@@ -184,13 +184,6 @@ impl SqlerApp {
         cx.notify();
     }
 
-    pub fn close_window(
-        &mut self,
-        tag: &str,
-    ) {
-        self.windows.remove(tag);
-    }
-
     pub fn create_window(
         &mut self,
         kind: WindowKind,
@@ -223,47 +216,51 @@ impl SqlerApp {
             ..Default::default()
         };
         let cache = self.cache.clone();
-        let parent = cx.weak_entity();
         let result = cx.open_window(options, move |window, cx| {
             let view: AnyView = match kind {
-                WindowKind::Dump { table, schema, source } => {
-                    let builder = DumpWindowBuilder::new()
-                        .cache(cache.clone())
-                        .table(table)
-                        .schema(schema)
-                        .source(source)
-                        .parent(parent.clone());
-                    cx.new(|cx| builder.build(window, cx)).into()
-                }
-                WindowKind::Exec { table, source } => {
-                    let builder = ExecWindowBuilder::new()
-                        .cache(cache.clone())
-                        .parent(parent.clone())
-                        .table(table)
-                        .source(source);
-                    cx.new(|cx| builder.build(window, cx)).into()
-                }
-                WindowKind::Export(source) => {
-                    let builder = ExportWindowBuilder::new()
-                        .cache(cache.clone())
-                        .parent(parent.clone())
-                        .source(source);
-                    cx.new(|cx| builder.build(window, cx)).into()
-                }
-                WindowKind::Import(source) => {
-                    let builder = ImportWindowBuilder::new()
-                        .cache(cache.clone())
-                        .parent(parent.clone())
-                        .source(source);
-                    cx.new(|cx| builder.build(window, cx)).into()
-                }
-                WindowKind::Create(source) => {
-                    let builder = CreateWindowBuilder::new()
-                        .cache(cache.clone())
-                        .parent(parent.clone())
-                        .source(source);
-                    cx.new(|cx| builder.build(window, cx)).into()
-                }
+                WindowKind::Dump { data, table, source } => cx
+                    .new(|cx| {
+                        // 构建 Dump 窗口
+                        DumpWindowBuilder::new()
+                            .data(data)
+                            .table(table)
+                            .source(source)
+                            .build(window, cx)
+                    })
+                    .into(),
+                WindowKind::Exec { table, source } => cx
+                    .new(|cx| {
+                        // 构建 Exec 窗口
+                        ExecWindowBuilder::new().table(table).source(source).build(window, cx)
+                    })
+                    .into(),
+                WindowKind::Export(source) => cx
+                    .new(|cx| {
+                        // 构建 Export 窗口
+                        ExportWindowBuilder::new()
+                            .cache(cache.clone())
+                            .source(source)
+                            .build(window, cx)
+                    })
+                    .into(),
+                WindowKind::Import(source) => cx
+                    .new(|cx| {
+                        // 构建 Import 窗口
+                        ImportWindowBuilder::new()
+                            .cache(cache.clone())
+                            .source(source)
+                            .build(window, cx)
+                    })
+                    .into(),
+                WindowKind::Create(source) => cx
+                    .new(|cx| {
+                        // 构建 Create 窗口
+                        CreateWindowBuilder::new()
+                            .cache(cache.clone())
+                            .source(source)
+                            .build(window, cx)
+                    })
+                    .into(),
             };
             cx.new(|cx| Root::new(view, window, cx))
         });
@@ -360,7 +357,6 @@ impl Render for SqlerApp {
             .label("新建数据源")
             .outline()
             .on_click(cx.listener({
-                // rustfmt::skip
                 |this, _, _, cx| {
                     this.create_window(WindowKind::Create(None), cx);
                 }
@@ -373,7 +369,6 @@ impl Render for SqlerApp {
             })
             .outline()
             .on_click(cx.listener({
-                // rustfmt::skip
                 |this, _, window, cx| {
                     this.toggle_theme(window, cx);
                 }

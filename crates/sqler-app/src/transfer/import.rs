@@ -12,10 +12,7 @@ use gpui_component::{
 
 use sqler_core::{ArcCache, DataSource, DatabaseSession, DriverError, create_connection};
 
-use crate::{
-    SqlerApp,
-    comps::{AppIcon, DivExt},
-};
+use crate::comps::{AppIcon, DivExt};
 
 use super::TransferKind;
 
@@ -145,7 +142,6 @@ enum TableOption {
 
 pub struct ImportWindow {
     cache: ArcCache,
-    parent: WeakEntity<SqlerApp>,
 
     source: DataSource,
     session: Option<Box<dyn DatabaseSession>>,
@@ -165,7 +161,6 @@ pub struct ImportWindow {
 
 pub struct ImportWindowBuilder {
     cache: Option<ArcCache>,
-    parent: Option<WeakEntity<SqlerApp>>,
     source: Option<DataSource>,
 }
 
@@ -173,7 +168,6 @@ impl ImportWindowBuilder {
     pub fn new() -> Self {
         Self {
             cache: None,
-            parent: None,
             source: None,
         }
     }
@@ -183,14 +177,6 @@ impl ImportWindowBuilder {
         cache: ArcCache,
     ) -> Self {
         self.cache = Some(cache);
-        self
-    }
-
-    pub fn parent(
-        mut self,
-        parent: WeakEntity<SqlerApp>,
-    ) -> Self {
-        self.parent = Some(parent);
         self
     }
 
@@ -209,23 +195,12 @@ impl ImportWindowBuilder {
     ) -> ImportWindow {
         let cache = self.cache.unwrap();
         let source = self.source.unwrap();
-        let parent = self.parent.unwrap();
-
-        let parent_for_release = parent.clone();
-        let _ = cx.on_release(move |_, app| {
-            if let Some(parent) = parent_for_release.upgrade() {
-                let _ = parent.update(app, |app, _| {
-                    app.close_window("import");
-                });
-            }
-        });
 
         let file_kinds: Vec<SharedString> = TransferKind::all().iter().map(|f| f.label().into()).collect();
         let import_modes: Vec<SharedString> = ImportMode::all().iter().map(|m| m.label().into()).collect();
 
         ImportWindow {
             cache,
-            parent,
 
             source,
             session: None,
@@ -356,7 +331,6 @@ impl ImportWindow {
                     .label("选择文件")
                     .outline()
                     .on_click(cx.listener({
-                        // rustfmt::skip
                         |this: &mut ImportWindow, _, window, cx| {
                             this.choose_files(window, cx);
                         }
@@ -425,7 +399,6 @@ impl ImportWindow {
                         .label("刷新表")
                         .outline()
                         .on_click(cx.listener({
-                            // rustfmt::skip
                             |view: &mut Self, _, window, cx| {
                                 view.reload_tables(window, cx);
                             }
@@ -655,13 +628,8 @@ impl Render for ImportWindow {
                             .label("取消")
                             .outline()
                             .on_click(cx.listener({
-                                // rustfmt::skip
-                                |this: &mut ImportWindow, _, window, cx| {
-                                    if let Some(parent) = this.parent.upgrade() {
-                                        let _ = parent.update(cx, |app, _| {
-                                            app.close_window("import");
-                                        });
-                                    }
+                                |_: &mut ImportWindow, _, window, _| {
+                                    // rustfmt::skip
                                     window.remove_window();
                                 }
                             })),
@@ -672,7 +640,6 @@ impl Render for ImportWindow {
                             .label("上一步")
                             .outline()
                             .on_click(cx.listener({
-                                // rustfmt::skip
                                 |this: &mut ImportWindow, _, _, cx| {
                                     if let Some(prev) = this.step.prev() {
                                         this.step = prev;
@@ -686,7 +653,6 @@ impl Render for ImportWindow {
                             .label("下一步")
                             .outline()
                             .on_click(cx.listener({
-                                // rustfmt::skip
                                 |this: &mut ImportWindow, _, _, cx| {
                                     if let Some(next) = this.step.next() {
                                         this.step = next;
@@ -700,7 +666,6 @@ impl Render for ImportWindow {
                             .label("开始导入")
                             .outline()
                             .on_click(cx.listener({
-                                // rustfmt::skip
                                 |_this: &mut ImportWindow, _, _, _cx| {
                                     // 导入逻辑将在后续实现
                                 }

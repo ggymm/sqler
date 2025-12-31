@@ -88,8 +88,8 @@ impl CommonWorkspace {
                 let _ = parent.update(cx, |app, cx| {
                     app.create_window(
                         WindowKind::Dump {
+                            data: matches!(a.op, TableOp::DumpData),
                             table: a.table.clone(),
-                            schema: matches!(a.op, TableOp::DumpSchema),
                             source,
                         },
                         cx,
@@ -1600,7 +1600,6 @@ impl Render for CommonWorkspace {
                             .label("刷新表")
                             .outline()
                             .on_click(cx.listener({
-                                // rustfmt::skip
                                 |view: &mut Self, _, _, cx| {
                                     view.reload_tables(cx);
                                 }
@@ -1612,7 +1611,6 @@ impl Render for CommonWorkspace {
                             .label("新建表")
                             .outline()
                             .on_click(cx.listener({
-                                // rustfmt::skip
                                 |view: &mut Self, _, window, cx| {
                                     view.create_query_tab(window, cx);
                                 }
@@ -1624,7 +1622,6 @@ impl Render for CommonWorkspace {
                             .label("新建查询")
                             .outline()
                             .on_click(cx.listener({
-                                // rustfmt::skip
                                 |view: &mut Self, _, window, cx| {
                                     view.create_query_tab(window, cx);
                                 }

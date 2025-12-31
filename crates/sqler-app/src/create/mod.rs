@@ -8,7 +8,7 @@ use gpui_component::{
 
 use sqler_core::{ArcCache, DataSource, DataSourceKind, DataSourceOptions, check_connection};
 
-use crate::{app::SqlerApp, comps::DivExt};
+use crate::comps::DivExt;
 
 mod mongodb;
 mod mysql;
@@ -27,7 +27,6 @@ pub enum DataSourceStatus {
 
 pub struct CreateWindow {
     cache: ArcCache,
-    parent: WeakEntity<SqlerApp>,
 
     name: Entity<InputState>,
     kind: Option<DataSourceKind>,
@@ -45,7 +44,6 @@ pub struct CreateWindow {
 
 pub struct CreateWindowBuilder {
     cache: Option<ArcCache>,
-    parent: Option<WeakEntity<SqlerApp>>,
     source: Option<DataSource>,
 }
 
@@ -53,7 +51,6 @@ impl CreateWindowBuilder {
     pub fn new() -> Self {
         Self {
             cache: None,
-            parent: None,
             source: None,
         }
     }
@@ -63,14 +60,6 @@ impl CreateWindowBuilder {
         cache: ArcCache,
     ) -> Self {
         self.cache = Some(cache);
-        self
-    }
-
-    pub fn parent(
-        mut self,
-        parent: WeakEntity<SqlerApp>,
-    ) -> Self {
-        self.parent = Some(parent);
         self
     }
 
@@ -88,16 +77,6 @@ impl CreateWindowBuilder {
         cx: &mut Context<CreateWindow>,
     ) -> CreateWindow {
         let cache = self.cache.unwrap();
-        let parent = self.parent.unwrap();
-
-        let parent_for_release = parent.clone();
-        let _ = cx.on_release(move |_, app| {
-            if let Some(parent) = parent_for_release.upgrade() {
-                let _ = parent.update(app, |app, _| {
-                    app.close_window("create");
-                });
-            }
-        });
 
         let kind;
         let name;
@@ -130,7 +109,6 @@ impl CreateWindowBuilder {
 
         CreateWindow {
             cache,
-            parent,
 
             name: cx.new(|cx| InputState::new(window, cx).default_value(&name)),
             kind,
@@ -152,13 +130,8 @@ impl CreateWindow {
     fn cancel(
         &self,
         window: &mut Window,
-        cx: &mut Context<Self>,
+        _cx: &mut Context<Self>,
     ) {
-        if let Some(parent) = self.parent.upgrade() {
-            let _ = parent.update(cx, |app, _| {
-                app.close_window("create");
-            });
-        }
         window.remove_window();
     }
 
@@ -266,12 +239,6 @@ impl CreateWindow {
             }
             cache.sources_update()
         };
-
-        if let Some(parent) = self.parent.upgrade() {
-            let _ = parent.update(cx, |_app, cx| {
-                cx.notify();
-            });
-        }
 
         match result {
             Ok(()) => {
@@ -410,7 +377,6 @@ impl Render for CreateWindow {
                             .label("测试连接")
                             .outline()
                             .on_click(cx.listener({
-                                // rustfmt::skip
                                 |this: &mut CreateWindow, _, window, cx| {
                                     this.check_conn(window, cx);
                                 }
@@ -427,7 +393,6 @@ impl Render for CreateWindow {
                                     .label("上一步")
                                     .outline()
                                     .on_click(cx.listener({
-                                        // rustfmt::skip
                                         |this: &mut CreateWindow, _, _, cx| {
                                             if this.kind.take().is_some() {
                                                 cx.notify();
@@ -440,7 +405,6 @@ impl Render for CreateWindow {
                                     .label("取消")
                                     .outline()
                                     .on_click(cx.listener({
-                                        // rustfmt::skip
                                         |this: &mut CreateWindow, _, window, cx| {
                                             this.cancel(window, cx);
                                         }
@@ -451,7 +415,6 @@ impl Render for CreateWindow {
                                     .label("保存")
                                     .outline()
                                     .on_click(cx.listener({
-                                        // rustfmt::skip
                                         |this: &mut CreateWindow, _, window, cx| {
                                             this.create_conn(window, cx);
                                         }

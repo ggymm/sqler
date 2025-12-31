@@ -1,15 +1,17 @@
-use std::collections::HashMap;
-use std::fs::{self, File};
-use std::io::{BufWriter, Write};
-use std::path::Path;
-use std::process;
-use std::time::Instant;
+use std::{
+    collections::HashMap,
+    fs::{self, File},
+    io::{BufWriter, Write},
+    path::Path,
+    process,
+    time::Instant,
+};
 
 use chrono::Utc;
 
 use sqler_core::{ColumnInfo, DatabaseSession, QueryReq, QueryResp};
 
-use crate::{DumpConfig, MessageKind, ProgressMessage, print_completed, print_progress};
+use crate::DumpConfig;
 
 /// 导出表为 SQL 文件任务
 pub fn run(
@@ -18,13 +20,13 @@ pub fn run(
 ) {
     tracing::info!("开始导出任务");
     tracing::debug!(
-        "导出配置: table={}, file={}, filter={:?}, batch={}, insert_batch={}, include_schema={}",
+        "导出配置: table={}, file={}, filter={:?}, batch={}, insert_batch={}, only_schema={}",
         config.table,
         config.file,
         config.filter,
         config.batch,
         config.insert_batch,
-        config.include_schema
+        config.only_schema
     );
 
     // 1. 查询表的列信息
@@ -45,22 +47,7 @@ pub fn run(
     let column_names: Vec<String> = columns.iter().map(|c| c.name.clone()).collect();
     tracing::info!("表结构分析完成，共 {} 列", column_names.len());
 
-    // 2. 查询总行数
-    tracing::info!("统计总行数");
-    let total_rows = query_total_rows(session, config);
-    tracing::info!("总行数: {}", total_rows);
-
-    if total_rows == 0 {
-        tracing::warn!("表为空，跳过导出");
-        print_completed(serde_json::json!({
-            "status": "success",
-            "message": "表为空",
-            "total_rows": 0
-        }));
-        return;
-    }
-
-    // 3. 创建输出文件（确保父目录存在）
+    // 2. 创建输出文件（确保父目录存在）
     tracing::info!("准备输出文件: {}", config.file);
     if let Some(parent) = Path::new(&config.file).parent() {
         if let Err(e) = fs::create_dir_all(parent) {
@@ -81,18 +68,40 @@ pub fn run(
     };
     let mut writer = BufWriter::new(file);
 
-    // 4. 写入文件头和表结构（可选）
-    if config.include_schema {
-        tracing::info!("写入文件头和表结构");
-        if let Err(e) = write_file_header(&mut writer, config, &columns) {
-            tracing::error!("写入文件头失败: {}", e);
-            process::exit(1);
-        }
-    } else {
-        tracing::info!("跳过表结构，仅导出数据");
+    // 3. 写入文件头和表结构
+    tracing::info!("写入文件头和表结构");
+    if let Err(e) = write_file_header(&mut writer, config, &columns) {
+        tracing::error!("写入文件头失败: {}", e);
+        process::exit(1);
     }
 
-    // 5. 分页导出数据
+    // 4. 如果仅导出结构，完成并返回
+    if config.only_schema {
+        tracing::info!("仅导出结构模式，跳过数据导出");
+        if let Err(e) = writer.flush() {
+            tracing::error!("刷新文件缓冲失败: {}", e);
+            process::exit(1);
+        }
+        tracing::info!("导出完成（仅结构）");
+        return;
+    }
+
+    // 5. 查询总行数
+    tracing::info!("统计总行数");
+    let total_rows = query_total_rows(session, config);
+    tracing::info!("总行数: {}", total_rows);
+
+    if total_rows == 0 {
+        tracing::warn!("表为空，跳过数据导出");
+        if let Err(e) = writer.flush() {
+            tracing::error!("刷新文件缓冲失败: {}", e);
+            process::exit(1);
+        }
+        tracing::info!("导出完成（仅结构）");
+        return;
+    }
+
+    // 6. 分页导出数据
     tracing::info!("开始分页导出数据，batch={}", config.batch);
     let batch_size = config.batch;
     let start_time = Instant::now();
@@ -147,17 +156,15 @@ pub fn run(
             0.0
         };
 
-        print_progress(ProgressMessage {
-            kind: MessageKind::Progress,
-            data: serde_json::json!({
-                "exported_rows": exported_rows,
-                "total_rows": total_rows,
-                "percentage": format!("{:.1}", percentage),
-                "speed": format!("{:.0}", speed),
-                "elapsed_seconds": format!("{:.1}", elapsed),
-                "estimated_seconds": format!("{:.0}", estimated_seconds),
-            }),
-        });
+        tracing::info!(
+            "导出进度: {}/{} ({:.1}%), 速度: {:.0} 行/秒, 已用时: {:.1}s, 预计剩余: {:.0}s",
+            exported_rows,
+            total_rows,
+            percentage,
+            speed,
+            elapsed,
+            estimated_seconds
+        );
 
         page += 1;
 
@@ -168,14 +175,14 @@ pub fn run(
         }
     }
 
-    // 6. 刷新缓冲区
+    // 7. 刷新缓冲区
     tracing::debug!("刷新文件缓冲区");
     if let Err(e) = writer.flush() {
         tracing::error!("刷新文件缓冲失败: {}", e);
         process::exit(1);
     }
 
-    // 7. 输出完成消息
+    // 8. 输出完成消息
     let elapsed = start_time.elapsed().as_secs_f64();
     tracing::info!(
         "导出完成，共 {} 行，耗时 {:.1} 秒，速度 {:.0} 行/秒",
@@ -183,13 +190,6 @@ pub fn run(
         elapsed,
         exported_rows as f64 / elapsed
     );
-    print_completed(serde_json::json!({
-        "status": "success",
-        "exported_rows": exported_rows,
-        "total_rows": total_rows,
-        "output_file": config.file,
-        "elapsed_seconds": format!("{:.1}", elapsed),
-    }));
 }
 
 /// 查询总行数

@@ -8,13 +8,12 @@ use gpui_component::{
 
 use sqler_core::{ArcCache, DataSource};
 
-use crate::{app::SqlerApp, comps::DivExt};
+use crate::comps::DivExt;
 
 use super::TransferKind;
 
 pub struct ExportWindow {
     cache: ArcCache,
-    parent: WeakEntity<SqlerApp>,
 
     source: DataSource,
 
@@ -25,7 +24,6 @@ pub struct ExportWindow {
 
 pub struct ExportWindowBuilder {
     cache: Option<ArcCache>,
-    parent: Option<WeakEntity<SqlerApp>>,
     source: Option<DataSource>,
 }
 
@@ -33,7 +31,6 @@ impl ExportWindowBuilder {
     pub fn new() -> Self {
         Self {
             cache: None,
-            parent: None,
             source: None,
         }
     }
@@ -43,14 +40,6 @@ impl ExportWindowBuilder {
         cache: ArcCache,
     ) -> Self {
         self.cache = Some(cache);
-        self
-    }
-
-    pub fn parent(
-        mut self,
-        parent: WeakEntity<SqlerApp>,
-    ) -> Self {
-        self.parent = Some(parent);
         self
     }
 
@@ -69,19 +58,8 @@ impl ExportWindowBuilder {
     ) -> ExportWindow {
         let cache = self.cache.unwrap();
         let source = self.source.unwrap();
-        let parent = self.parent.unwrap();
-
-        let parent_for_release = parent.clone();
-        let _ = cx.on_release(move |_, app| {
-            if let Some(parent) = parent_for_release.upgrade() {
-                let _ = parent.update(app, |app, _| {
-                    app.close_window("export");
-                });
-            }
-        });
 
         ExportWindow {
-            parent,
             cache,
             source,
 
@@ -233,13 +211,8 @@ impl Render for ExportWindow {
                             .label("取消")
                             .outline()
                             .on_click(cx.listener({
-                                // rustfmt::skip
-                                |this: &mut ExportWindow, _, window, cx| {
-                                    if let Some(parent) = this.parent.upgrade() {
-                                        let _ = parent.update(cx, |app, _| {
-                                            app.close_window("export");
-                                        });
-                                    }
+                                |_: &mut ExportWindow, _, window, _| {
+                                    // rustfmt::skip
                                     window.remove_window()
                                 }
                             })),

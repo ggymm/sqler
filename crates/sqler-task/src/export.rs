@@ -2,7 +2,7 @@ use std::path::Path;
 
 use sqler_core::DatabaseSession;
 
-use crate::{ExportConfig, print_completed};
+use crate::ExportConfig;
 
 /// 复杂导出任务（DB -> CSV/JSON）
 pub fn run(
@@ -18,9 +18,4 @@ pub fn run(
     // 3. 写入输出文件
     // 4. 保存检查点
     // 5. 输出完成消息
-
-    print_completed(serde_json::json!({
-        "status": "not_implemented",
-        "message": "export 功能预留给 Phase 2 实现"
-    }));
 }

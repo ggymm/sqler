@@ -8,10 +8,9 @@ use aes_gcm::{
     Aes256Gcm,
     aead::{Aead, KeyInit},
 };
-use dirs::home_dir;
 use thiserror::Error;
 
-use crate::{DataSource, SavedQuery, TableInfo};
+use crate::{DataSource, SavedQuery, TableInfo, cache_queries, cache_tables, sources_db};
 
 pub type ArcCache = Arc<RwLock<AppCache>>;
 
@@ -21,12 +20,6 @@ const ENCRYPTION_KEY: [u8; 32] = [
 ];
 
 const NONCE: [u8; 12] = [0xa1, 0xb2, 0xc3, 0xd4, 0xe5, 0xf6, 0x07, 0x18, 0x29, 0x3a, 0x4b, 0x5c];
-
-const ROOT_DIR: &str = ".sqler";
-const CACHE_DIR: &str = "cache";
-const SOURCES_FILE: &str = "sources.db";
-const TABLES_FILE: &str = "tables.json";
-const QUERIES_FILE: &str = "queries.json";
 
 #[derive(Error, Debug)]
 pub enum CacheError {
@@ -41,28 +34,16 @@ pub enum CacheError {
 
     #[error("Decryption error: {0}")]
     Decryption(String),
-
-    #[error("Cache directory not found")]
-    DirectoryNotFound,
 }
 
 pub struct AppCache {
     sources: Vec<DataSource>,
     sources_path: PathBuf,
-    sources_cache: PathBuf,
 }
 
 impl AppCache {
     pub fn init() -> Result<ArcCache, CacheError> {
-        let root_dir = home_dir()
-            .map(|home| home.join(ROOT_DIR))
-            .ok_or(CacheError::DirectoryNotFound)?;
-
-        let sources_path = root_dir.join(SOURCES_FILE);
-        let sources_cache = root_dir.join(CACHE_DIR);
-        if !sources_cache.exists() {
-            fs::create_dir_all(&sources_cache)?;
-        }
+        let sources_path = sources_db();
 
         let sources = if sources_path.exists() {
             let encrypted = fs::read(&sources_path)?;
@@ -72,11 +53,7 @@ impl AppCache {
             vec![]
         };
 
-        Ok(Arc::new(RwLock::new(Self {
-            sources,
-            sources_path,
-            sources_cache,
-        })))
+        Ok(Arc::new(RwLock::new(Self { sources, sources_path })))
     }
 
     pub fn sources(&self) -> &[DataSource] {
@@ -98,7 +75,7 @@ impl AppCache {
         &self,
         uuid: &str,
     ) -> Result<Vec<TableInfo>, CacheError> {
-        let path = self.sources_cache.join(uuid).join(TABLES_FILE);
+        let path = cache_tables(uuid);
         if !path.exists() {
             return Ok(vec![]);
         }
@@ -113,12 +90,7 @@ impl AppCache {
         uuid: &str,
         tables: &[TableInfo],
     ) -> Result<(), CacheError> {
-        let dir = self.sources_cache.join(uuid);
-        if !dir.exists() {
-            fs::create_dir_all(&dir)?;
-        }
-
-        let path = dir.join(TABLES_FILE);
+        let path = cache_tables(uuid);
         let json = serde_json::to_vec(tables)?;
         fs::write(&path, json)?;
         Ok(())
@@ -128,7 +100,7 @@ impl AppCache {
         &self,
         uuid: &str,
     ) -> Result<Vec<SavedQuery>, CacheError> {
-        let path = self.sources_cache.join(uuid).join(QUERIES_FILE);
+        let path = cache_queries(uuid);
         if !path.exists() {
             return Ok(vec![]);
         }
@@ -143,12 +115,7 @@ impl AppCache {
         uuid: &str,
         queries: &[SavedQuery],
     ) -> Result<(), CacheError> {
-        let dir = self.sources_cache.join(uuid);
-        if !dir.exists() {
-            fs::create_dir_all(&dir)?;
-        }
-
-        let path = dir.join(QUERIES_FILE);
+        let path = cache_queries(uuid);
         let json = serde_json::to_vec(queries)?;
         fs::write(&path, json)?;
         Ok(())

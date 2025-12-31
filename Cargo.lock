@@ -912,6 +912,7 @@ dependencies = [
  "iana-time-zone",
  "js-sys",
  "num-traits",
+ "serde",
  "wasm-bindgen",
  "windows-link 0.2.1",
 ]
@@ -6214,6 +6215,7 @@ dependencies = [
 name = "sqler-app"
 version = "1.0.0"
 dependencies = [
+ "chrono",
  "dirs 6.0.0",
  "gpui",
  "gpui-component",

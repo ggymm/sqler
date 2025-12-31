@@ -1,12 +1,5 @@
-use std::{
-    borrow::Cow,
-    fs::{self, create_dir_all},
-    io::stdout,
-    mem::forget,
-    path::PathBuf,
-};
+use std::{borrow::Cow, fs, io::stdout, mem::forget, path::PathBuf};
 
-use dirs::home_dir;
 use gpui::*;
 use gpui_component::{Root, Theme, init, scroll::ScrollbarShow};
 use tracing_appender::{
@@ -14,6 +7,8 @@ use tracing_appender::{
     rolling::{RollingFileAppender, Rotation},
 };
 use tracing_subscriber::{EnvFilter, fmt::layer, layer::SubscriberExt, util::SubscriberInitExt};
+
+use sqler_core::logs_dir;
 
 use crate::app::SqlerApp;
 
@@ -52,12 +47,7 @@ impl AssetSource for FsAssets {
 }
 
 fn init_runtime(_cx: &mut App) {
-    let log_dir = home_dir()
-        .map(|home| home.join(".sqler").join("logs"))
-        .expect("Failed to find log dir");
-    if !log_dir.exists() {
-        create_dir_all(&log_dir).expect("Failed to create log dir");
-    }
+    let log_dir = logs_dir();
 
     let log_level = if cfg!(debug_assertions) { "debug" } else { "info" };
     let log_rolling = RollingFileAppender::builder()

@@ -1,21 +1,13 @@
 use gpui::{prelude::*, *};
 
-use sqler_core::{ArcCache, DataSource};
-
-use crate::app::SqlerApp;
+use sqler_core::DataSource;
 
 pub struct ExecWindow {
-    cache: ArcCache,
-    parent: WeakEntity<SqlerApp>,
-
     table: String,
     source: DataSource,
 }
 
 pub struct ExecWindowBuilder {
-    cache: Option<ArcCache>,
-    parent: Option<WeakEntity<SqlerApp>>,
-
     table: Option<String>,
     source: Option<DataSource>,
 }
@@ -23,28 +15,9 @@ pub struct ExecWindowBuilder {
 impl ExecWindowBuilder {
     pub fn new() -> Self {
         Self {
-            cache: None,
-            parent: None,
-
             table: None,
             source: None,
         }
-    }
-
-    pub fn cache(
-        mut self,
-        cache: ArcCache,
-    ) -> Self {
-        self.cache = Some(cache);
-        self
-    }
-
-    pub fn parent(
-        mut self,
-        parent: WeakEntity<SqlerApp>,
-    ) -> Self {
-        self.parent = Some(parent);
-        self
     }
 
     pub fn table(
@@ -66,29 +39,12 @@ impl ExecWindowBuilder {
     pub fn build(
         self,
         _window: &mut Window,
-        cx: &mut Context<ExecWindow>,
+        _cx: &mut Context<ExecWindow>,
     ) -> ExecWindow {
-        let cache = self.cache.unwrap();
-        let parent = self.parent.unwrap();
-
         let table = self.table.unwrap();
         let source = self.source.unwrap();
 
-        let parent_for_release = parent.clone();
-        let _ = cx.on_release(move |_, app| {
-            if let Some(parent) = parent_for_release.upgrade() {
-                let _ = parent.update(app, |app, _| {
-                    app.close_window("exec");
-                });
-            }
-        });
-
-        ExecWindow {
-            cache,
-            parent,
-            table,
-            source,
-        }
+        ExecWindow { table, source }
     }
 }
 

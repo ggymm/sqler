@@ -17,6 +17,7 @@ gpui = { version = "0.2.2" }
 gpui-component = { version = "0.5.0", features = ["tree-sitter-languages"] }
 
 aes-gcm = "0.10"
+chrono = { version = "0.4", features = ["serde"] }
 dirs = "6"
 indexmap = "2"
 lsp-types = "0.97.0"

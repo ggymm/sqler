@@ -2,7 +2,7 @@ use std::path::Path;
 
 use sqler_core::DatabaseSession;
 
-use crate::{ExecConfig, print_completed};
+use crate::ExecConfig;
 
 /// 执行 SQL 文件任务
 pub fn run(
@@ -19,9 +19,4 @@ pub fn run(
     // 3. 逐条执行并记录进度
     // 4. 保存检查点
     // 5. 输出完成消息
-
-    print_completed(serde_json::json!({
-        "status": "not_implemented",
-        "message": "exec 功能尚未实现"
-    }));
 }

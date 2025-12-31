@@ -30,7 +30,7 @@ fn dump_single_table() {
             "batch": 1000,
             "insert_batch": 1000,
             "timeout_seconds": 3600,
-            "include_schema": true
+            "only_schema": false
         }
     });
 

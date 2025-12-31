@@ -1,11 +1,13 @@
-use std::env;
-use std::error::Error;
-use std::fs;
-use std::io::stdout;
-use std::path::{Path, PathBuf};
-use std::process::exit;
+use std::{
+    env,
+    error::Error,
+    fs,
+    io::stdout,
+    path::{Path, PathBuf},
+    process::exit,
+};
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use tracing_appender::{non_blocking, rolling::never};
 use tracing_subscriber::{EnvFilter, fmt::layer, layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -48,8 +50,8 @@ pub struct DumpConfig {
     pub insert_batch: usize,
     #[serde(default = "default_timeout_seconds")]
     pub timeout_seconds: u64,
-    #[serde(default = "default_include_schema")]
-    pub include_schema: bool,
+    #[serde(default)]
+    pub only_schema: bool,
 }
 
 fn default_batch_size() -> usize {
@@ -62,10 +64,6 @@ fn default_insert_batch_size() -> usize {
 
 fn default_timeout_seconds() -> u64 {
     3600
-}
-
-fn default_include_schema() -> bool {
-    true
 }
 
 /// 导入配置（预留）
@@ -99,23 +97,6 @@ pub struct TaskConfig {
     pub export: Option<ExportConfig>,
 }
 
-/// 进度输出消息（写入 stdout 的 JSON Lines）
-#[derive(Debug, Serialize)]
-pub struct ProgressMessage {
-    kind: MessageKind,
-    data: serde_json::Value,
-}
-
-/// 消息类型
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum MessageKind {
-    Progress,
-    Status,
-    Error,
-    Completed,
-}
-
 /// 初始化任务日志系统
 fn init_task_logging(task_dir: &Path) -> non_blocking::WorkerGuard {
     let log_file = never(task_dir, "task.log");
@@ -123,11 +104,24 @@ fn init_task_logging(task_dir: &Path) -> non_blocking::WorkerGuard {
 
     tracing_subscriber::registry()
         .with(EnvFilter::new("info"))
-        .with(layer().with_writer(stdout))
+        .with(layer().with_writer(stdout).with_ansi(false))
         .with(layer().with_writer(non_blocking).with_ansi(false))
         .init();
 
     guard
+}
+
+/// 从加密缓存读取数据源配置
+fn read_data_source(id: &str) -> Result<DataSource, Box<dyn Error>> {
+    let cache = AppCache::init()?;
+    let cache_guard = cache.read().unwrap();
+    let sources = cache_guard.sources();
+
+    sources
+        .iter()
+        .find(|s| s.id == id)
+        .cloned()
+        .ok_or_else(|| format!("数据源不存在: {}", id).into())
 }
 
 fn main() {
@@ -143,7 +137,6 @@ fn main() {
     let task_dir = match task_dir {
         Some(dir) => dir,
         None => {
-            print_error("fatal", "缺少 --task-dir 参数");
             eprintln!("用法: sqler-task --task-dir <DIR>");
             exit(1);
         }
@@ -158,7 +151,7 @@ fn main() {
     let config_content = match fs::read_to_string(&config_path) {
         Ok(content) => content,
         Err(e) => {
-            print_error("fatal", &format!("无法读取配置文件: {}", e));
+            tracing::error!("无法读取配置文件: {}", e);
             exit(1);
         }
     };
@@ -167,7 +160,7 @@ fn main() {
     let config: TaskConfig = match serde_json::from_str(&config_content) {
         Ok(cfg) => cfg,
         Err(e) => {
-            print_error("fatal", &format!("配置文件格式错误: {}", e));
+            tracing::error!("配置文件格式错误: {}", e);
             exit(1);
         }
     };
@@ -175,10 +168,10 @@ fn main() {
 
     // 5. 从加密缓存读取数据源
     tracing::info!("加载数据源: {}", config.source_id);
-    let datasource = match load_data_source(&config.source_id) {
+    let datasource = match read_data_source(&config.source_id) {
         Ok(ds) => ds,
         Err(e) => {
-            print_error("fatal", &format!("无法加载数据源: {}", e));
+            tracing::error!("无法加载数据源: {}", e);
             exit(1);
         }
     };
@@ -188,7 +181,7 @@ fn main() {
     let mut session = match create_connection(&datasource.options) {
         Ok(s) => s,
         Err(e) => {
-            print_error("fatal", &format!("数据库连接失败: {}", e));
+            tracing::error!("数据库连接失败: {}", e);
             exit(1);
         }
     };
@@ -205,51 +198,12 @@ fn main() {
             exec::run(&mut session, exec_config, &task_dir);
         }
         Operation::Import => {
-            print_error("fatal", "Import 功能尚未实现");
+            tracing::error!("Import 功能尚未实现");
             exit(1);
         }
         Operation::Export => {
-            print_error("fatal", "Export 功能尚未实现");
+            tracing::error!("Export 功能尚未实现");
             exit(1);
         }
-    }
-}
-
-/// 从加密缓存读取数据源配置
-fn load_data_source(id: &str) -> Result<DataSource, Box<dyn Error>> {
-    let cache = AppCache::init()?;
-    let cache_guard = cache.read().unwrap();
-    let sources = cache_guard.sources();
-
-    sources
-        .iter()
-        .find(|s| s.id == id)
-        .cloned()
-        .ok_or_else(|| format!("数据源不存在: {}", id).into())
-}
-
-pub fn print_error(
-    severity: &str,
-    message: &str,
-) {
-    print_progress(ProgressMessage {
-        kind: MessageKind::Error,
-        data: serde_json::json!({
-            "severity": severity,
-            "message": message,
-        }),
-    });
-}
-
-pub fn print_completed(data: serde_json::Value) {
-    print_progress(ProgressMessage {
-        kind: MessageKind::Completed,
-        data,
-    });
-}
-
-pub fn print_progress(msg: ProgressMessage) {
-    if let Ok(json) = serde_json::to_string(&msg) {
-        println!("{}", json);
     }
 }
