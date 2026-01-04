@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     fs::{self, File},
-    io::{BufWriter, Write},
+    io::{BufWriter, Result, Write},
     path::Path,
     process,
     time::Instant,
@@ -9,7 +9,7 @@ use std::{
 
 use chrono::Utc;
 
-use sqler_core::{ColumnInfo, DatabaseSession, QueryReq, QueryResp};
+use sqler_core::{ColumnInfo, DatabaseSession, Paging, QueryReq, QueryResp};
 
 use crate::DumpConfig;
 
@@ -20,10 +20,9 @@ pub fn run(
 ) {
     tracing::info!("开始导出任务");
     tracing::debug!(
-        "导出配置: table={}, file={}, filter={:?}, batch={}, insert_batch={}, only_schema={}",
+        "导出配置: table={}, file={}, batch={}, insert_batch={}, only_schema={}",
         config.table,
         config.file,
-        config.filter,
         config.batch,
         config.insert_batch,
         config.only_schema
@@ -32,20 +31,21 @@ pub fn run(
     // 1. 查询表的列信息
     tracing::info!("分析表结构: {}", config.table);
     let columns = match session.columns(&config.table) {
-        Ok(cols) => cols,
+        Ok(cols) => {
+            if cols.is_empty() {
+                tracing::error!("表 {} 不存在或没有列", config.table);
+                process::exit(1);
+            } else {
+                cols
+            }
+        }
         Err(e) => {
             tracing::error!("获取表结构失败: {}", e);
             process::exit(1);
         }
     };
 
-    if columns.is_empty() {
-        tracing::error!("表 {} 不存在或没有列", config.table);
-        process::exit(1);
-    }
-
-    let column_names: Vec<String> = columns.iter().map(|c| c.name.clone()).collect();
-    tracing::info!("表结构分析完成，共 {} 列", column_names.len());
+    tracing::info!("表结构分析完成，共 {} 列", columns.len());
 
     // 2. 创建输出文件（确保父目录存在）
     tracing::info!("准备输出文件: {}", config.file);
@@ -68,10 +68,10 @@ pub fn run(
     };
     let mut writer = BufWriter::new(file);
 
-    // 3. 写入文件头和表结构
-    tracing::info!("写入文件头和表结构");
-    if let Err(e) = write_file_header(&mut writer, config, &columns) {
-        tracing::error!("写入文件头失败: {}", e);
+    // 3. 写入表结构
+    tracing::info!("写入表结构");
+    if let Err(e) = write_schema(&mut writer, config, &columns) {
+        tracing::error!("写入表结构失败: {}", e);
         process::exit(1);
     }
 
@@ -88,10 +88,25 @@ pub fn run(
 
     // 5. 查询总行数
     tracing::info!("统计总行数");
-    let total_rows = query_total_rows(session, config);
-    tracing::info!("总行数: {}", total_rows);
+    let count = {
+        match session.query(QueryReq::Builder {
+            table: config.table.clone(),
+            columns: vec!["COUNT(*) as total".to_string()],
+            paging: None,
+            orders: vec![],
+            filters: vec![],
+        }) {
+            Ok(QueryResp::Rows { rows, .. }) => rows
+                .first()
+                .and_then(|row| row.get("total"))
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(0),
+            _ => 0,
+        }
+    };
+    tracing::info!("总行数: {}", count);
 
-    if total_rows == 0 {
+    if count == 0 {
         tracing::warn!("表为空，跳过数据导出");
         if let Err(e) = writer.flush() {
             tracing::error!("刷新文件缓冲失败: {}", e);
@@ -105,16 +120,18 @@ pub fn run(
     tracing::info!("开始分页导出数据，batch={}", config.batch);
     let batch_size = config.batch;
     let start_time = Instant::now();
-    let mut exported_rows = 0u64;
     let mut page = 0;
+    let mut completed = 0u64;
 
     loop {
-        // 查询一页数据
-        let query_sql = build_query_sql(config, &column_names, page, batch_size);
-        tracing::debug!("查询第 {} 页数据，offset={}", page, page * batch_size);
-        let resp = match session.query(QueryReq::Sql {
-            sql: query_sql,
-            args: vec![],
+        tracing::debug!("查询第 {} 页数据", page);
+
+        let resp = match session.query(QueryReq::Builder {
+            table: config.table.clone(),
+            columns: vec![], // 查询所有列
+            paging: Some(Paging::new(page, batch_size)),
+            orders: vec![],
+            filters: vec![],
         }) {
             Ok(r) => r,
             Err(e) => {
@@ -123,8 +140,8 @@ pub fn run(
             }
         };
 
-        let rows = match resp {
-            QueryResp::Rows { rows, .. } => rows,
+        let (cols, rows) = match resp {
+            QueryResp::Rows { cols, rows } => (cols, rows),
             _ => {
                 tracing::error!("查询响应格式错误");
                 process::exit(1);
@@ -139,39 +156,44 @@ pub fn run(
         tracing::debug!("第 {} 页返回 {} 行", page, rows.len());
 
         // 生成 INSERT 语句
-        if let Err(e) = write_insert_statements(&mut writer, &config.table, &column_names, &rows, config.insert_batch) {
+        if let Err(e) = write_insert(&mut writer, &config.table, &cols, &rows, config.insert_batch) {
             tracing::error!("写入 INSERT 语句失败: {}", e);
             process::exit(1);
         }
 
-        exported_rows += rows.len() as u64;
+        page = page.saturating_add(1);
+        completed = completed.saturating_add(rows.len() as u64);
 
         // 报告进度
-        let percentage = (exported_rows as f64 / total_rows as f64) * 100.0;
         let elapsed = start_time.elapsed().as_secs_f64();
-        let speed = exported_rows as f64 / elapsed;
-        let estimated_seconds = if speed > 0.0 {
-            (total_rows as f64 - exported_rows as f64) / speed
-        } else {
-            0.0
-        };
+        let speed = completed as f64 / elapsed;
 
         tracing::info!(
-            "导出进度: {}/{} ({:.1}%), 速度: {:.0} 行/秒, 已用时: {:.1}s, 预计剩余: {:.0}s",
-            exported_rows,
-            total_rows,
-            percentage,
+            "导出进度: {}/{} ({:.1}%), 速度: {:.0} 行/秒, 已用时: {:.0}s, 预计剩余: {:.0}s",
+            completed,
+            count,
+            (completed as f64 / count as f64) * 100.0,
             speed,
             elapsed,
-            estimated_seconds
+            if speed > 0.0 {
+                (count as f64 - completed as f64) / speed
+            } else {
+                0.0
+            }
         );
-
-        page += 1;
-
-        // 如果已经导出完所有数据
-        if exported_rows >= total_rows {
-            tracing::info!("所有数据已导出，共 {} 行", exported_rows);
+        if completed >= count {
+            tracing::info!("所有数据已导出，共 {} 行", completed);
             break;
+        }
+
+        // 检查缓冲区大小，超过 10MB 就刷新
+        let buffer = writer.buffer().len();
+        if buffer >= 10 * 1024 * 1024 {
+            tracing::debug!("刷新缓冲区（当前 {:.2} MB）", buffer as f64 / 1024.0 / 1024.0);
+            if let Err(e) = writer.flush() {
+                tracing::error!("刷新文件缓冲失败: {}", e);
+                process::exit(1);
+            }
         }
     }
 
@@ -185,74 +207,21 @@ pub fn run(
     // 8. 输出完成消息
     let elapsed = start_time.elapsed().as_secs_f64();
     tracing::info!(
-        "导出完成，共 {} 行，耗时 {:.1} 秒，速度 {:.0} 行/秒",
-        exported_rows,
+        "导出完成，共 {} 行，耗时 {:.0} 秒，速度 {:.0} 行/秒",
+        completed,
         elapsed,
-        exported_rows as f64 / elapsed
+        completed as f64 / elapsed
     );
 }
 
-/// 查询总行数
-fn query_total_rows(
-    session: &mut Box<dyn DatabaseSession>,
-    config: &DumpConfig,
-) -> u64 {
-    let count_sql = if let Some(filter) = &config.filter {
-        format!("SELECT COUNT(*) as total FROM {} WHERE {}", config.table, filter)
-    } else {
-        format!("SELECT COUNT(*) as total FROM {}", config.table)
-    };
-
-    match session.query(QueryReq::Sql {
-        sql: count_sql,
-        args: vec![],
-    }) {
-        Ok(QueryResp::Rows { rows, .. }) => {
-            if let Some(row) = rows.first() {
-                if let Some(total_str) = row.get("total") {
-                    return total_str.parse().unwrap_or(0);
-                }
-            }
-            0
-        }
-        _ => 0,
-    }
-}
-
-/// 构建查询 SQL
-fn build_query_sql(
-    config: &DumpConfig,
-    columns: &[String],
-    page: usize,
-    page_size: usize,
-) -> String {
-    let cols = columns.join(", ");
-    let offset = page * page_size;
-
-    if let Some(filter) = &config.filter {
-        format!(
-            "SELECT {} FROM {} WHERE {} LIMIT {} OFFSET {}",
-            cols, config.table, filter, page_size, offset
-        )
-    } else {
-        format!(
-            "SELECT {} FROM {} LIMIT {} OFFSET {}",
-            cols, config.table, page_size, offset
-        )
-    }
-}
-
-/// 写入文件头和表结构
-fn write_file_header(
+/// 写入表结构
+fn write_schema(
     writer: &mut BufWriter<File>,
     config: &DumpConfig,
     columns: &[ColumnInfo],
-) -> std::io::Result<()> {
+) -> Result<()> {
     writeln!(writer, "-- Dump of table: {}", config.table)?;
     writeln!(writer, "-- Generated at: {}", Utc::now().to_rfc3339())?;
-    if let Some(filter) = &config.filter {
-        writeln!(writer, "-- Filter: {}", filter)?;
-    }
     writeln!(writer)?;
 
     // 生成 CREATE TABLE 语句
@@ -319,14 +288,14 @@ fn write_file_header(
     Ok(())
 }
 
-/// 写入 INSERT 语句（按 insert_batch_size 分批）
-fn write_insert_statements(
+/// 写入插入语句
+fn write_insert(
     writer: &mut BufWriter<File>,
     table: &str,
     columns: &[String],
     rows: &[HashMap<String, String>],
     insert_batch_size: usize,
-) -> std::io::Result<()> {
+) -> Result<()> {
     if rows.is_empty() {
         return Ok(());
     }
@@ -340,7 +309,22 @@ fn write_insert_statements(
         for (i, row) in chunk.iter().enumerate() {
             let values: Vec<String> = columns
                 .iter()
-                .map(|col| format_sql_value(row.get(col).map(|s| s.as_str())))
+                .map(|col| {
+                    match row.get(col).map(|s| s.as_str()) {
+                        None => "NULL".to_string(),
+                        Some(s) if s.is_empty() => "''".to_string(),
+                        Some(s) if s.eq_ignore_ascii_case("null") => "NULL".to_string(),
+                        Some(s) => {
+                            // 尝试解析为数字
+                            if s.parse::<f64>().is_ok() {
+                                s.to_string()
+                            } else {
+                                // 字符串需要转义单引号
+                                format!("'{}'", s.replace('\'', "''"))
+                            }
+                        }
+                    }
+                })
                 .collect();
 
             if i == chunk.len() - 1 {
@@ -354,22 +338,4 @@ fn write_insert_statements(
     }
 
     Ok(())
-}
-
-/// 格式化 SQL 值
-fn format_sql_value(value: Option<&str>) -> String {
-    match value {
-        None => "NULL".to_string(),
-        Some(s) if s.is_empty() => "''".to_string(),
-        Some(s) if s.eq_ignore_ascii_case("null") => "NULL".to_string(),
-        Some(s) => {
-            // 尝试解析为数字
-            if s.parse::<f64>().is_ok() {
-                s.to_string()
-            } else {
-                // 字符串需要转义单引号
-                format!("'{}'", s.replace('\'', "''"))
-            }
-        }
-    }
 }

@@ -43,7 +43,6 @@ pub struct ExecConfig {
 pub struct DumpConfig {
     pub file: String,
     pub table: String,
-    pub filter: Option<String>,
     #[serde(default = "default_batch_size")]
     pub batch: usize,
     #[serde(default = "default_insert_batch_size")]

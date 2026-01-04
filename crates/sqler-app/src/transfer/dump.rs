@@ -369,7 +369,12 @@ impl Render for DumpWindow {
                                 ),
                             ),
                     )
-                    .child(Input::new(&self.output).h_full()),
+                    .child(
+                        Input::new(&self.output)
+                            .h_full()
+                            .text_sm()
+                            .font_family(theme.mono_font_family.clone()),
+                    ),
             )
             .child(
                 div()

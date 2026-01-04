@@ -1,7 +1,6 @@
+use std::{fs, path::PathBuf, process::Command};
+
 use serde_json::json;
-use std::fs;
-use std::path::PathBuf;
-use std::process::Command;
 
 const SOURCE_ID: &str = "8dd456c4-bf37-46b1-bdf2-38f544a74463";
 
