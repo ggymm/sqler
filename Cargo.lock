@@ -5812,6 +5812,7 @@ dependencies = [
  "gpui-component",
  "indexmap",
  "lsp-types",
+ "rust-embed",
  "serde",
  "serde_json",
  "sqler-core",

@@ -1,7 +1,8 @@
-use std::{borrow::Cow, fs, io::stdout, mem::forget, path::PathBuf};
+use std::{borrow::Cow, io::stdout, mem::forget};
 
 use gpui::*;
 use gpui_component::{Root, Theme, init, scroll::ScrollbarShow};
+use rust_embed::RustEmbed;
 use tracing_appender::{
     non_blocking,
     rolling::{RollingFileAppender, Rotation},
@@ -18,6 +19,9 @@ mod create;
 mod transfer;
 mod workspace;
 
+#[derive(RustEmbed)]
+#[folder = "assets"]
+#[include = "icons/**/*.svg"]
 struct FsAssets;
 
 impl AssetSource for FsAssets {
@@ -28,21 +32,16 @@ impl AssetSource for FsAssets {
         if path.is_empty() {
             return Ok(None);
         }
-
-        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        let full = manifest_dir.join("assets").join(path);
-
-        match fs::read(full) {
-            Ok(data) => Ok(Some(Cow::Owned(data))),
-            Err(_) => Ok(None),
-        }
+        Ok(Self::get(path).map(|f| f.data))
     }
 
     fn list(
         &self,
-        _path: &str,
+        path: &str,
     ) -> Result<Vec<SharedString>> {
-        Ok(vec![])
+        Ok(Self::iter()
+            .filter_map(|p| p.starts_with(path).then(|| p.into()))
+            .collect())
     }
 }
 
