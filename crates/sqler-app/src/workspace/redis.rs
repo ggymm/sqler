@@ -13,10 +13,7 @@ use serde_json::Value;
 
 use sqler_core::{DataSource, DatabaseSession, DriverError, QueryReq, QueryResp, create_connection};
 
-use crate::{
-    SqlerApp,
-    comps::{AppIcon, DivExt, comp_id},
-};
+use crate::comps::{AppIcon, DivExt, comp_id};
 
 const PAGE_SIZE: usize = 500;
 
@@ -85,8 +82,7 @@ fn build_tree(keys: &HashMap<String, KeyInfo>) -> Vec<TreeItem> {
 }
 
 pub struct RedisWorkspace {
-    pub parent: WeakEntity<SqlerApp>,
-
+    // pub parent: WeakEntity<SqlerApp>,
     pub source: DataSource,
     pub session: Option<Box<dyn DatabaseSession>>,
 

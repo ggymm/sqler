@@ -299,10 +299,7 @@ fn write_insert(
         return Ok(());
     }
 
-    let kind_map: HashMap<&str, &str> = cols
-        .iter()
-        .map(|c| (c.name.as_str(), c.kind.as_str()))
-        .collect();
+    let kind_map: HashMap<&str, &str> = cols.iter().map(|c| (c.name.as_str(), c.kind.as_str())).collect();
     let columns: Vec<&str> = cols.iter().map(|c| c.name.as_str()).collect();
 
     // 按 insert_batch_size 分批写入

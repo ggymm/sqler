@@ -186,8 +186,6 @@ impl Workspace {
             }
             DataSourceKind::Redis => Workspace::Redis {
                 view: cx.new(|_| redis::RedisWorkspace {
-                    parent,
-
                     source,
                     session: None,
 

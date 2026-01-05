@@ -155,12 +155,7 @@ impl ColumnKind {
 
     pub fn from_str(type_str: &str) -> Self {
         // 提取基础类型（去掉参数）
-        let base = type_str
-            .split('(')
-            .next()
-            .unwrap_or(type_str)
-            .trim()
-            .to_uppercase();
+        let base = type_str.split('(').next().unwrap_or(type_str).trim().to_uppercase();
 
         match base.as_str() {
             "TINYINT" => Self::TinyInt,

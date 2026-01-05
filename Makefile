@@ -27,7 +27,8 @@ else
 endif
 
 CARGO ?= cargo
-PACKAGE_CRATE ?= sqler-app
+PACKAGE_MAIN ?= sqler-app
+PACKAGE_TASK ?= sqler-task
 
 # 根据当前平台生成 target triple
 ifeq ($(HOST_OS),linux)
@@ -114,9 +115,24 @@ package:
 	fi
 ifeq ($(HOST_OS),windows)
 	@$(call setup_windows_fxc) \
-	$(CARGO) build --locked --release --target $(TARGET) --package $(PACKAGE_CRATE)
+	printf "==> 构建主应用: $(PACKAGE_MAIN)\n"; \
+	$(CARGO) build --locked --release --target $(TARGET) --package $(PACKAGE_MAIN); \
+	printf "==> 构建任务执行器: $(PACKAGE_TASK)\n"; \
+	$(CARGO) build --locked --release --target $(TARGET) --package $(PACKAGE_TASK); \
+	if command -v upx >/dev/null 2>&1; then \
+		printf "==> 使用 UPX 压缩二进制文件\n"; \
+		upx --best --lzma target/$(TARGET)/release/sqler.exe 2>/dev/null || true; \
+		upx --best --lzma target/$(TARGET)/release/sqler-task.exe 2>/dev/null || true; \
+		printf "==> UPX 压缩完成\n"; \
+	else \
+		printf "警告: 未找到 UPX，跳过压缩步骤\n"; \
+		printf "提示: 可通过 'scoop install upx' 或 'choco install upx' 安装 UPX\n"; \
+	fi
 else
-	@$(CARGO) build --locked --release --target $(TARGET) --package $(PACKAGE_CRATE)
+	@printf "==> 构建主应用: $(PACKAGE_MAIN)\n"
+	@$(CARGO) build --locked --release --target $(TARGET) --package $(PACKAGE_MAIN)
+	@printf "==> 构建任务执行器: $(PACKAGE_TASK)\n"
+	@$(CARGO) build --locked --release --target $(TARGET) --package $(PACKAGE_TASK)
 endif
 
 ensure-cargo-bloat:

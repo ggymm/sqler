@@ -1,4 +1,4 @@
-# Sqler 代码地图 v5.0 (Workspace 架构)
+# Sqler 代码地图 v6.0 (Workspace 架构)
 
 ## 项目概览
 
@@ -7,8 +7,8 @@
 - **名称**: `sqler`
 - **目标**: 桌面化多标签数据库管理器，支持多类型数据库的连接、浏览、查询和管理
 - **版本**: v1.0.0
-- **代码总行数**: 9,393 行 (21 个 .rs 文件)
-- **架构模式**: Cargo Workspace (2 crates)
+- **代码总行数**: 10,601 行 (43 个 .rs 文件)
+- **架构模式**: Cargo Workspace (3 crates)
 
 ### 技术栈
 
@@ -26,31 +26,42 @@
 sqler/
   Cargo.toml              # Workspace 根配置
   crates/
-    sqler-core/           # 核心库 crate (3145 行)
+    sqler-core/           # 核心库 crate (3,145 行)
       Cargo.toml
       src/
         lib.rs            # 数据模型定义 (734 行)
-        driver/           # 数据库驱动 (2240 行)
+        driver/           # 数据库驱动 (2,240 行)
         cache/            # 缓存系统 (171 行)
-    sqler-app/            # 应用程序 crate (6248 行)
+        paths.rs          # 路径管理工具
+    sqler-app/            # 应用程序 crate (6,248 行)
       Cargo.toml
       src/
-        main.rs           # 应用入口 (124 行)
+        main.rs           # 应用入口 (114 行)
         app/              # 应用层 (391 行)
         comps/            # 公共组件 (308 行)
-        create/           # 数据源创建 (1148 行)
-        workspace/        # 工作区 (3273 行)
-        transfer/         # 数据传输 (1003 行)
-        subtask/          # 预留模块 (1 行)
+        create/           # 数据源创建 (1,148 行)
+        workspace/        # 工作区 (3,292 行)
+        transfer/         # 数据传输 (1,003 行)
       assets/             # 静态资源
         icons/
+    sqler-task/           # 任务执行器 crate (~1,400 行)
+      Cargo.toml
+      src/
+        main.rs           # 任务进程入口 (209 行)
+        dump.rs           # 表转储为 SQL
+        exec.rs           # 执行 SQL 文件
+        import.rs         # 数据导入（预留）
+        export.rs         # 数据导出（预留）
 ```
 
 **依赖关系**:
 
 - `sqler-app` **依赖** `sqler-core`
-- `sqler-core` **零依赖** `sqler-app`（单向依赖，消除循环）
-- 编译产物: 单个二进制 `sqler`（位于 sqler-app）
+- `sqler-task` **依赖** `sqler-core`
+- `sqler-core` **零依赖** 其他 crate（单向依赖，消除循环）
+- 编译产物:
+  - 主应用程序: `sqler`（位于 sqler-app）
+  - 任务执行器: `sqler-task`（独立进程）
 
 **Workspace 优势**:
 
@@ -59,10 +70,11 @@ sqler/
 3. **依赖管理**: workspace.dependencies 统一版本管理
 4. **代码复用**: sqler-core 可被其他 crate 复用（如 CLI 工具、Web 服务）
 5. **构建优化**: 核心库变更时 UI 层无需重新编译
+6. **进程隔离**: sqler-task 独立进程执行耗时任务，避免阻塞 UI
 
 ---
 
-## sqler-core crate（核心库，3145 行）
+## sqler-core crate（核心库，2,953 行）
 
 **路径**: `crates/sqler-core/`
 
@@ -463,17 +475,19 @@ pub fn escape_backtick(s: &str) -> String
 
 #### 2.2 驱动实现状态
 
-| 驱动             | 文件             | 行数  | 查询              | 写操作       | tables()           | columns()            | 状态      |
-|----------------|----------------|-----|-----------------|-----------|--------------------|----------------------|---------|
-| **MySQL**      | `mysql.rs`     | 405 | ✅ SQL + Builder | ✅ exec 方法 | ✅ SHOW TABLES      | ✅ SHOW COLUMNS FROM  | 全功能     |
-| **PostgreSQL** | `postgres.rs`  | 473 | ✅ SQL + Builder | ✅ exec 方法 | ✅ pg_tables        | ✅ information_schema | 全功能     |
-| **SQLite**     | `sqlite.rs`    | 385 | ✅ SQL + Builder | ✅ exec 方法 | ✅ sqlite_master    | ✅ PRAGMA table_info  | 全功能     |
-| **MongoDB**    | `mongodb.rs`   | 291 | ✅ Document查询    | ✅ exec 方法 | ✅ list_collections | ❌ 返回错误               | 文档型     |
-| **Redis**      | `redis.rs`     | 320 | ✅ Command执行     | ✅ exec 方法 | ❌ 返回错误             | ❌ 返回错误               | 键值型     |
-| **SQL Server** | `sqlserver.rs` | 77  | ❌ 占位实现          | ❌ 占位实现    | ❌ 占位实现             | ❌ 占位实现               | **未实现** |
-| **Oracle**     | `oracle.rs`    | 1   | -               | -         | -                  | -                    | **仅注释** |
+| 驱动             | 文件             | 行数  | 查询              | 写操作       | tables()        | columns()            | 状态      |
+|----------------|----------------|-----|-----------------|-----------|-----------------|----------------------|---------|
+| **MySQL**      | `mysql.rs`     | 405 | ✅ SQL + Builder | ✅ exec 方法 | ✅ SHOW TABLES   | ✅ SHOW COLUMNS FROM  | 全功能     |
+| **PostgreSQL** | `postgres.rs`  | 473 | ✅ SQL + Builder | ✅ exec 方法 | ✅ pg_tables     | ✅ information_schema | 全功能     |
+| **SQLite**     | `sqlite.rs`    | 385 | ✅ SQL + Builder | ✅ exec 方法 | ✅ sqlite_master | ✅ PRAGMA table_info  | 全功能     |
+| **Redis**      | `redis.rs`     | 320 | ✅ Command执行     | ✅ exec 方法 | ❌ 返回错误          | ❌ 返回错误               | 键值型     |
+| **MongoDB**    | `mongodb.rs`   | 59  | ❌ 占位实现          | ❌ 占位实现    | ❌ 占位实现          | ❌ 占位实现               | **未实现** |
+| **Oracle**     | `oracle.rs`    | 59  | ❌ 占位实现          | ❌ 占位实现    | ❌ 占位实现          | ❌ 占位实现               | **未实现** |
+| **SQL Server** | `sqlserver.rs` | 59  | ❌ 占位实现          | ❌ 占位实现    | ❌ 占位实现          | ❌ 占位实现               | **未实现** |
 
-**注**: 所有写操作（INSERT/UPDATE/DELETE）统一通过 `exec()` 方法处理
+**注**:
+- 所有写操作（INSERT/UPDATE/DELETE）统一通过 `exec()` 方法处理
+- MongoDB、Oracle、SQL Server 已统一为标准化未实现状态（59 行一致结构）
 
 #### 2.3 MySQL 驱动（mysql.rs，405 行）
 
@@ -592,26 +606,18 @@ fn columns(&mut self, table: &str) -> Result<Vec<ColumnInfo>, DriverError> {
 - 使用 SQLite 特有的 `PRAGMA table_info()` 命令
 - 双引号转义防止注入
 
-#### 2.6 MongoDB 驱动（mongodb.rs，291 行）
+#### 2.6 MongoDB 驱动（mongodb.rs，59 行）
 
-**实现**: 基于 `mongodb` crate
+**状态**: 标准化占位实现
 
-**核心功能**:
+**实现方式**:
+- 所有 trait 方法返回统一错误：`DriverError::Other("MongoDB 驱动暂未实现".into())`
+- 与 Oracle、SQL Server 保持相同的代码结构（59 行）
 
-1. **连接管理**: 支持 connection string 或 host 列表
-2. **文档型 CRUD**: find/insert_one/update_many/delete_many
-3. **响应转换**: BSON → JSON
-4. **集合名支持**: 数据库前缀 (`db.collection`)
-
-**columns() 实现**:
-
-```
-fn columns(&mut self, _table: &str) -> Result<Vec<ColumnInfo>, DriverError> {
-    Err(DriverError::Other("MongoDB 作为文档数据库不支持固定列结构查询".into()))
-}
-```
-
-**特点**: 文档型数据库无固定列结构，返回明确的错误信息
+**TODO**: 需要完整实现连接和查询逻辑
+- 连接管理（connection string 或 host 列表）
+- 文档型 CRUD（find/insert_one/update_many/delete_many）
+- 响应转换（BSON → JSON）
 
 #### 2.7 Redis 驱动（redis.rs，320 行）
 
@@ -634,27 +640,27 @@ fn columns(&mut self, _table: &str) -> Result<Vec<ColumnInfo>, DriverError> {
 
 **特点**: 键值型数据库无表和列概念，返回明确的错误信息
 
-#### 2.8 SQL Server 驱动（sqlserver.rs，77 行）
+#### 2.8 SQL Server 驱动（sqlserver.rs，59 行）
 
-**状态**: 占位实现
+**状态**: 标准化占位实现
 
-所有方法注释标记 `/// SQL Server 驱动占位实现。`
-
-所有操作返回"暂未实现"错误。
+**实现方式**:
+- 所有 trait 方法返回统一错误：`DriverError::Other("SQL Server 驱动暂未实现".into())`
+- 与 MongoDB、Oracle 保持相同的代码结构（59 行）
 
 **TODO**: 需要完整实现连接和查询逻辑
 
-#### 2.9 Oracle 驱动（oracle.rs，1 行）
+#### 2.9 Oracle 驱动（oracle.rs，59 行）
 
-**状态**: 仅包含注释
+**状态**: 标准化占位实现
 
-```
-// Oracle 驱动相关类型定义已移至 crates/sqler-core/src/lib.rs
-```
+**实现方式**:
+- 所有 trait 方法返回统一错误：`DriverError::Other("Oracle 驱动暂未实现".into())`
+- 与 MongoDB、SQL Server 保持相同的代码结构（59 行）
 
 配置结构（OracleOptions、OracleAddress）已在 lib.rs 中定义。
 
-**TODO**: 需要完整实现驱动
+**TODO**: 需要完整实现连接和查询逻辑
 
 ---
 
@@ -683,12 +689,35 @@ pub type ArcCache = Arc<RwLock<AppCache>>;
 ```
 ~/.sqler/
   sources.db          # 加密的数据源列表
-  logs/               # 日志文件
+  logs/               # 主应用日志目录
+    sqler.log         # 主应用日志（每日轮转）
   cache/
     {uuid}/
-      tables.json   # 表信息缓存
-      queries.json  # 保存的查询
+      tables.json     # 表信息缓存
+      queries.json    # 保存的查询
+  tasks/              # 任务工作目录
+    {task_id}/        # 每个任务的独立目录
+      config.json     # 任务配置文件
+      task.log        # 任务执行日志（never 模式，不轮转）
 ```
+
+**目录说明**:
+- `sources.db`: 加密存储的数据源配置（AES-256-GCM）
+- `logs/`: 主应用日志目录
+  - `sqler.log`: 主应用日志，记录 UI 操作和错误（每日轮转）
+- `cache/{uuid}/`: 按数据源 UUID 分类的缓存目录
+  - `tables.json`: 表信息缓存（明文 JSON）
+  - `queries.json`: 保存的查询语句（明文 JSON）
+- `tasks/`: 任务工作目录，每个任务占用独立子目录
+  - `{task_id}/`: 任务独立目录（如 `dump-{uuid}`、`exec-{uuid}`）
+    - `config.json`: 任务配置文件，包含任务类型、数据源 ID、参数等
+    - `task.log`: 任务执行日志，记录该任务的详细执行过程（不轮转）
+
+**任务通信机制**:
+1. 主应用创建任务目录：`~/.sqler/tasks/{task_id}/`
+2. 主应用生成配置文件：`{task_id}/config.json`
+3. 主应用启动子进程：`sqler-task --task-dir ~/.sqler/tasks/{task_id}`
+4. sqler-task 读取配置并执行，日志输出到 `{task_id}/task.log`
 
 **加密算法**: AES-256-GCM (仅加密 sources.db)
 
@@ -1559,17 +1588,257 @@ pub struct ExportWindow {
 
 ---
 
-### 7. subtask/ - 预留模块（1 行）
+## sqler-task crate（任务执行器，~1,400 行）
 
-**路径**: `crates/sqler-app/src/subtask/mod.rs`
+**路径**: `crates/sqler-task/`
 
-**状态**: 空模块，仅包含两个空行
+**职责**: 独立进程执行耗时任务（避免阻塞 UI）
 
-**用途**: 为未来的子任务系统预留模块位置
+**依赖**:
+- sqler-core (workspace)
+- serde, serde_json
+- tracing, tracing-appender, tracing-subscriber
+
+**导出接口**: 独立二进制程序，通过 JSON 配置文件通信
 
 ---
 
-### 8. assets/ - 静态资源
+### 核心模块
+
+**模块结构**:
+
+```
+src/
+├── main.rs    # 任务进程入口（209 行）
+├── dump.rs    # 表转储为 SQL
+├── exec.rs    # 执行 SQL 文件
+├── import.rs  # 数据导入（预留）
+└── export.rs  # 数据导出（预留）
+```
+
+---
+
+### 1. main.rs - 任务进程入口（209 行）
+
+**路径**: `crates/sqler-task/src/main.rs`
+
+**职责**: 解析命令行参数，路由到对应任务模块
+
+**核心逻辑**:
+
+```
+fn main() {
+    // 1. 从命令行获取配置文件路径
+    let config_path = std::env::args().nth(1).expect("需要配置文件路径");
+
+    // 2. 读取并解析 JSON 配置
+    let config: TaskConfig = serde_json::from_str(&content)?;
+
+    // 3. 路由到对应任务模块
+    match config.task_type {
+        TaskType::Dump => dump::execute(config),
+        TaskType::Exec => exec::execute(config),
+        TaskType::Import => import::execute(config),
+        TaskType::Export => export::execute(config),
+    }
+}
+```
+
+**配置文件格式**:
+
+```json
+{
+  "task_type": "dump",
+  "uuid": "datasource-uuid",
+  "table": "table_name",
+  "output": "/path/to/output.sql",
+  "create_table": true,
+  "batch_size": 1000
+}
+```
+
+**日志系统**:
+- 输出到 `~/.sqler/logs/task.log`
+- 每日轮转
+- 日志级别: debug (开发模式) / info (发布模式)
+
+---
+
+### 2. dump.rs - 表转储为 SQL
+
+**路径**: `crates/sqler-task/src/dump.rs`
+
+**职责**: 将数据库表导出为 SQL 脚本文件
+
+**核心结构**:
+
+```
+pub struct DumpConfig {
+    pub uuid: String,           // 数据源 UUID
+    pub table: String,          // 表名
+    pub output: PathBuf,        // 输出文件路径
+    pub create_table: bool,     // 是否包含建表语句
+    pub batch_size: usize,      // 批量插入大小（默认 1000）
+}
+```
+
+**执行流程**:
+
+1. **准备阶段**:
+   - 从 `~/.sqler/sources.db` 加载数据源配置
+   - 创建数据库连接（调用 `create_connection()`）
+   - 查询表结构（调用 `session.columns(table)`）
+
+2. **写入建表语句**（可选）:
+   - 生成 `DROP TABLE IF EXISTS` 语句
+   - 生成 `CREATE TABLE` 语句（根据列类型）
+
+3. **数据导出**:
+   - 使用 Builder 模式查询（避免 SQL 注入）
+   - 分页查询（每页 500 行）
+   - 批量生成 INSERT 语句（每 batch_size 条一个 INSERT）
+   - 流式写入文件（避免内存溢出）
+
+4. **内存监控**:
+   - 缓冲区超过 10MB 自动刷新到磁盘
+   - 每处理 500 行输出进度日志
+
+**关键优化**:
+
+- **Builder 模式**：使用 `QueryReq::Builder` 而非 SQL 拼接，避免注入风险
+- **流式处理**：边查询边写入，不在内存中累积全部数据
+- **内存监控**：缓冲区大小监控，防止 OOM
+- **批量插入**：多行合并为单个 INSERT 语句，减少文件大小
+
+**示例输出**:
+
+```sql
+DROP TABLE IF EXISTS `users`;
+
+CREATE TABLE `users` (
+  `id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `name` VARCHAR(100) NOT NULL,
+  `email` VARCHAR(255) NOT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO `users` (`id`, `name`, `email`, `created_at`) VALUES
+(1, 'Alice', 'alice@example.com', '2024-01-01 10:00:00'),
+(2, 'Bob', 'bob@example.com', '2024-01-02 11:30:00'),
+(3, 'Charlie', 'charlie@example.com', '2024-01-03 14:15:00');
+```
+
+---
+
+### 3. exec.rs - 执行 SQL 文件
+
+**路径**: `crates/sqler-task/src/exec.rs`
+
+**职责**: 执行 SQL 脚本文件（支持大文件流式处理）
+
+**核心结构**:
+
+```
+pub struct ExecConfig {
+    pub uuid: String,           // 数据源 UUID
+    pub file: PathBuf,          // SQL 文件路径
+}
+```
+
+**执行流程**:
+
+1. **准备阶段**:
+   - 从 `~/.sqler/sources.db` 加载数据源配置
+   - 创建数据库连接
+   - 打开 SQL 文件
+
+2. **流式读取**:
+   - 每次读取 100MB 数据块（避免大文件内存溢出）
+   - 使用滑动窗口模式处理跨块 SQL 语句
+
+3. **SQL 解析**:
+   - 按 `;` 分隔 SQL 语句
+   - 跳过注释和空语句
+   - 处理跨行 SQL 语句
+
+4. **执行 SQL**:
+   - 调用 `session.exec(ExecReq::Sql { sql })`
+   - 统计执行成功/失败数量
+   - 记录错误日志
+
+**滑动窗口机制**:
+
+```
+let mut window = String::new();  // 保存跨块的不完整 SQL
+
+loop {
+    let chunk = read_chunk(100MB);
+    window.push_str(&chunk);
+
+    // 查找最后一个完整的 SQL 语句（以 ; 结尾）
+    if let Some(pos) = window.rfind(';') {
+        let complete = &window[..=pos];  // 完整的 SQL
+        let incomplete = &window[pos+1..];  // 不完整的 SQL
+
+        // 执行完整的 SQL
+        execute_batch(complete);
+
+        // 保留不完整的 SQL 到下一轮
+        window = incomplete.to_string();
+    }
+}
+```
+
+**关键优化**:
+
+- **流式处理**：大文件分块读取，防止内存溢出
+- **滑动窗口**：处理跨块的 SQL 语句
+- **错误隔离**：单条 SQL 失败不影响后续执行
+- **实时日志**：输出执行进度和错误信息
+
+---
+
+### 4. import.rs / export.rs - 数据传输（预留）
+
+**状态**: 预留模块，待实现
+
+**规划功能**:
+
+- **import.rs**: CSV/JSON 数据导入
+- **export.rs**: 数据导出为 CSV/JSON 格式
+
+---
+
+### 设计特点
+
+1. **独立进程隔离**:
+   - 避免耗时任务阻塞 UI 线程
+   - 崩溃不影响主应用程序
+   - 支持并发执行多个任务
+
+2. **JSON 配置通信**:
+   - 主应用生成配置文件
+   - 子进程读取配置并执行
+   - 通过日志文件输出结果
+
+3. **流式处理**:
+   - 支持超大文件（GB 级别）
+   - 内存占用可控（~100MB）
+   - 实时输出进度
+
+4. **内存监控**:
+   - 缓冲区大小监控
+   - 超过阈值自动刷新
+   - 防止 OOM
+
+5. **错误处理**:
+   - 详细的错误日志
+   - 失败重试机制（规划中）
+   - 错误隔离（单条失败不影响整体）
+
+---
+
+### 7. assets/ - 静态资源
 
 **路径**: `crates/sqler-app/assets/`
 
@@ -1843,20 +2112,23 @@ pub struct ExportWindow {
 
 ### Workspace 总览
 
-| 分类             | 文件数 | 代码行数      | 占比    |
-|----------------|-----|-----------|-------|
-| **sqler-core** | 10  | 3,145     | 33.5% |
-| **sqler-app**  | 21  | 6,248     | 66.5% |
-| **总计**         | 31  | **9,393** | 100%  |
+| 分类             | 文件数 | 代码行数       | 占比    |
+|----------------|-----|------------|-------|
+| **sqler-core** | 10  | 2,953      | 27.4% |
+| **sqler-app**  | 21  | 6,248      | 57.9% |
+| **sqler-task** | 5   | ~1,400     | 13.0% |
+| **总计**         | 36  | **10,601** | 100%  |
 
-### sqler-core crate 统计（3145 行）
+**注**: sqler-task 代码行数为估算值
+
+### sqler-core crate 统计（2,953 行）
 
 | 模块          | 文件数 | 代码行数  | 占比    |
 |-------------|-----|-------|-------|
-| lib.rs      | 1   | 734   | 23.3% |
-| driver/     | 8   | 2,240 | 71.2% |
-| cache/      | 1   | 171   | 5.4%  |
-| **总计**      | 10  | 3,145 | 100%  |
+| driver/     | 8   | 2,048 | 69.3% |
+| lib.rs      | 1   | 734   | 24.9% |
+| cache/      | 1   | 171   | 5.8%  |
+| **总计**      | 10  | 2,953 | 100%  |
 
 **driver/ 模块细分**:
 
@@ -1866,11 +2138,13 @@ pub struct ExportWindow {
 | mysql.rs     | 405   | 全功能  |
 | sqlite.rs    | 385   | 全功能  |
 | redis.rs     | 320   | 全功能  |
-| mongodb.rs   | 291   | 全功能  |
 | mod.rs       | 288   | 接口定义 |
-| sqlserver.rs | 77    | 占位实现 |
-| oracle.rs    | 1     | 仅注释  |
-| **总计**       | 2,240 |      |
+| mongodb.rs   | 59    | 未实现  |
+| sqlserver.rs | 59    | 未实现  |
+| oracle.rs    | 59    | 未实现  |
+| **总计**       | 2,048 |      |
+
+**注**: MongoDB、Oracle、SQL Server 已统一为标准化未实现状态（59 行一致结构）
 
 ### sqler-app crate 统计（6248 行）
 
@@ -1927,232 +2201,19 @@ pub struct ExportWindow {
 | icon.rs     | 63  | 图标组件     |
 | **总计**      | 308 |          |
 
----
+### sqler-task crate 统计（~1,400 行）
 
-## 项目配置
+| 模块        | 文件数 | 代码行数   | 说明        |
+|-----------|-----|--------|-----------|
+| main.rs   | 1   | 209    | 任务进程入口    |
+| dump.rs   | 1   | ~400   | 表转储为 SQL  |
+| exec.rs   | 1   | ~300   | 执行 SQL 文件 |
+| import.rs | 1   | ~250   | 数据导入（预留）  |
+| export.rs | 1   | ~250   | 数据导出（预留）  |
+| **总计**    | 5   | ~1,400 |           |
 
-### Workspace 配置（根 Cargo.toml）
-
-```
-[workspace]
-members = [
-    "crates/sqler-core",
-    "crates/sqler-app",
-]
-resolver = "2"
-
-[workspace.package]
-version = "1.0.0"
-edition = "2024"
-
-[workspace.dependencies]
-sqler-core = { path = "crates/sqler-core" }
-
-gpui = { version = "0.2.2" }
-gpui-component = { version = "0.5.0", features = ["tree-sitter-languages"] }
-
-dirs = "6"
-uuid = "1"
-aes-gcm = "0.10"
-indexmap = "2"
-lsp-types = "0.97.0"
-thiserror = "2"
-
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-
-tracing = "0.1"
-tracing-appender = "0.2"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-
-mongodb = { version = "3", features = ["sync"] }
-mysql = { version = "26" }
-postgres = { version = "0.19" }
-redis = { version = "1.0.1", features = ["cluster"] }
-rusqlite = { version = "0.37", features = ["bundled"] }
-```
-
-### sqler-core 配置
-
-```
-[package]
-name = "sqler-core"
-version.workspace = true
-edition.workspace = true
-
-[lib]
-name = "sqler_core"
-path = "src/lib.rs"
-
-[dependencies]
-dirs.workspace = true
-uuid.workspace = true
-aes-gcm.workspace = true
-thiserror.workspace = true
-
-serde.workspace = true
-serde_json.workspace = true
-
-tracing.workspace = true
-
-mongodb.workspace = true
-mysql.workspace = true
-postgres.workspace = true
-redis.workspace = true
-rusqlite.workspace = true
-```
-
-### sqler-app 配置
-
-```
-[package]
-name = "sqler-app"
-version.workspace = true
-edition.workspace = true
-
-[[bin]]
-name = "sqler"
-path = "src/main.rs"
-
-[dependencies]
-sqler-core.workspace = true
-
-gpui.workspace = true
-gpui-component.workspace = true
-
-dirs.workspace = true
-uuid.workspace = true
-indexmap.workspace = true
-lsp-types.workspace = true
-
-serde.workspace = true
-serde_json.workspace = true
-
-tracing.workspace = true
-tracing-appender.workspace = true
-tracing-subscriber.workspace = true
-```
-
-### 发布配置
-
-```
-[profile.release]
-lto = "thin"
-strip = true
-debug = false
-panic = 'abort'
-opt-level = 3
-codegen-units = 1
-```
+**注**: dump.rs、exec.rs、import.rs、export.rs 的行数为估算值
 
 ---
 
-## 贡献指南
-
-### 代码规范
-
-1. **导入顺序**:
-   ```
-   
-   use std::sync::Arc;
-
-   // 2. 外部 crate 导入（按字母顺序）
-   use gpui::{prelude::*, *};
-   use serde::{Deserialize, Serialize};
-
-   // 3. Workspace crate 导入
-   use sqler_core::{
-       DatabaseDriver, DriverError,
-       DataSource, DataSourceKind,
-   };
-
-   // 4. 当前 crate 导入（按模块分组）
-   use crate::{
-       app::comps::DataTable,
-       workspace::CommonWorkspace,
-   };
-   ```
-
-2. **数据源排序**: 所有涉及 `DataSourceKind` 的 match 语句必须遵循标准顺序：
-   MySQL → SQLite → Postgres → Oracle → SQLServer → Redis → MongoDB
-
-3. **错误处理**: 优先使用 `Result<T, DriverError>`，避免 panic
-
-4. **命名约定**:
-    - 结构体：大驼峰 (PascalCase)
-    - 函数/变量：蛇形 (snake_case)
-    - 常量：全大写蛇形 (UPPER_SNAKE_CASE)
-
-### 测试
-
-- 在 `docs/testdata/` 目录下提供测试数据脚本
-- 每个数据库至少 10 张表，每表≥1000 行数据
-- 覆盖常见数据类型和关系
-
----
-
-## 版本历史
-
-**v5.0 (2025-12-20) - Workspace 架构重组**:
-
-- 🎯 **架构升级**: 重构为 Cargo Workspace 模式
-- 📦 **Crate 分离**:
-  - 新增 `sqler-core` crate（3145行）：核心库，包含 driver、cache、model
-  - 新增 `sqler-app` crate（6248行）：应用程序，包含 UI 层
-- 🔄 **模块迁移**:
-  - `src/driver/` → `crates/sqler-core/src/driver/`
-  - `src/cache/` → `crates/sqler-core/src/cache/`
-  - `src/model.rs` → `crates/sqler-core/src/lib.rs` (合并)
-  - `src/app/` → `crates/sqler-app/src/app/`
-  - `assets/` → `crates/sqler-app/assets/`
-- 📊 **代码统计**: 9,403 → 9,393 行 (-10行，代码优化)
-- 🏗️ **依赖管理**: workspace.dependencies 统一版本管理
-- 📝 **文档更新**: CODEMAP.md 完全重写为 Workspace 架构
-
-**模块拆分详情**:
-- sqler-core 导出接口: DatabaseDriver, DatabaseSession, AppCache, ArcCache 等
-- sqler-app 依赖 sqler-core，单向依赖无循环
-- 编译产物: 单个二进制 `sqler`（位于 sqler-app）
-
-**v4 (2025-12-16)**:
-
-- 更新代码总行数: 8,699 → 9,403 (+704 行，+8.1%)
-- 更新文件总数: 31 → 32 个文件 (+1)
-- **workspace/redis.rs**: 371 → 905 行 (+534 行，+144%) - 最大增长
-    - 新增 BrowseContent (键浏览器)
-    - 新增 CommandContent (命令执行)
-    - 新增 OverviewContent (概览)
-    - 基于 `:` 分隔符的键树构建
-- **workspace/common.rs**: 1,655 → 1,763 行 (+108 行，+6.5%)
-    - 新增 QueryContent (SQL 查询标签)
-    - 新增 SchemaContent (表结构标签)
-    - 增强 TableContent (表数据标签)
-- **comps/** 模块扩展: 201 → 308 行 (+107 行)
-    - 新增 `icon.rs` (63 行) - AppIcon 枚举
-    - `table.rs`: 122 → 153 行 (+31 行) - 智能列宽计算
-    - `mod.rs`: 79 → 92 行 (+13 行)
-- **create/** 模块增长: 1,092 → 1,149 行 (+57 行)
-- **driver/** 模块优化: 2,392 → 2,240 行 (-152 行，-6.4%)
-- **model.rs**: 668 → 724 行 (+56 行)
-
-**v3 (2025-12-03)**:
-
-- 更新代码总行数: 8,262 → 8,699 (+437 行)
-- `common.rs`: 1,318 → 1,655 (+337 行) - 最大增长
-- `mongodb.rs`: 501 → 285 (-216 行) - 代码优化重构
-- 新增 codegen 和 update 模块占位符
-
-**v2 (2025-01-24)**:
-
-- 更新代码总行数: 7,752 → 8,262 (+510 行)
-- `common.rs`: 1,058 → 1,318 (+260 行)
-- TabContent 结构扩展 (新增 Query 和 Schema)
-- 窗口管理改为 HashMap 方式
-- 页面大小调整为 500 行/页
-- 新增 SQL 关键字文档 (keywords.json, 762 行)
-
-**v1 (2025-01-17)**:
-
-- 初始版本，基于实际代码详细记录所有文件行数和实现细节
-
-**最后更新**: 2025-12-20 (Workspace 架构重组)
+**最后更新**: 2026-01-05
