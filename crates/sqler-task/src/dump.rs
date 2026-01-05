@@ -9,7 +9,7 @@ use std::{
 
 use chrono::Utc;
 
-use sqler_core::{ColumnInfo, DatabaseSession, Paging, QueryReq, QueryResp};
+use sqler_core::{ColumnInfo, ColumnKind, DatabaseSession, Paging, QueryReq, QueryResp};
 
 use crate::DumpConfig;
 
@@ -30,7 +30,7 @@ pub fn run(
 
     // 1. 查询表的列信息
     tracing::info!("分析表结构: {}", config.table);
-    let columns = match session.columns(&config.table) {
+    let cols = match session.columns(&config.table) {
         Ok(cols) => {
             if cols.is_empty() {
                 tracing::error!("表 {} 不存在或没有列", config.table);
@@ -45,7 +45,7 @@ pub fn run(
         }
     };
 
-    tracing::info!("表结构分析完成，共 {} 列", columns.len());
+    tracing::info!("表结构分析完成，共 {} 列", cols.len());
 
     // 2. 创建输出文件（确保父目录存在）
     tracing::info!("准备输出文件: {}", config.file);
@@ -70,7 +70,7 @@ pub fn run(
 
     // 3. 写入表结构
     tracing::info!("写入表结构");
-    if let Err(e) = write_schema(&mut writer, config, &columns) {
+    if let Err(e) = write_schema(&mut writer, config, &cols) {
         tracing::error!("写入表结构失败: {}", e);
         process::exit(1);
     }
@@ -140,7 +140,7 @@ pub fn run(
             }
         };
 
-        let (cols, rows) = match resp {
+        let (_, rows) = match resp {
             QueryResp::Rows { cols, rows } => (cols, rows),
             _ => {
                 tracing::error!("查询响应格式错误");
@@ -226,8 +226,7 @@ fn write_schema(
 
     // 生成 CREATE TABLE 语句
     writeln!(writer, "-- Table structure for {}", config.table)?;
-    writeln!(writer, "DROP TABLE IF EXISTS `{}`;", config.table)?;
-    writeln!(writer, "CREATE TABLE `{}` (", config.table)?;
+    writeln!(writer, "CREATE TABLE IF NOT EXISTS `{}` (", config.table)?;
 
     for (i, col) in columns.iter().enumerate() {
         let mut line = format!("  `{}` {}", col.name, col.kind);
@@ -292,35 +291,40 @@ fn write_schema(
 fn write_insert(
     writer: &mut BufWriter<File>,
     table: &str,
-    columns: &[String],
+    cols: &[ColumnInfo],
     rows: &[HashMap<String, String>],
-    insert_batch_size: usize,
+    batch_size: usize,
 ) -> Result<()> {
     if rows.is_empty() {
         return Ok(());
     }
 
-    let cols = columns.join(", ");
+    let kind_map: HashMap<&str, &str> = cols
+        .iter()
+        .map(|c| (c.name.as_str(), c.kind.as_str()))
+        .collect();
+    let columns: Vec<&str> = cols.iter().map(|c| c.name.as_str()).collect();
 
     // 按 insert_batch_size 分批写入
-    for chunk in rows.chunks(insert_batch_size) {
-        writeln!(writer, "INSERT INTO {} ({}) VALUES", table, cols)?;
+    for chunk in rows.chunks(batch_size) {
+        writeln!(writer, "INSERT INTO {} ({}) VALUES", table, columns.join(", "))?;
 
         for (i, row) in chunk.iter().enumerate() {
             let values: Vec<String> = columns
                 .iter()
                 .map(|col| {
-                    match row.get(col).map(|s| s.as_str()) {
+                    let kind = kind_map.get(col).copied().unwrap_or("");
+
+                    match row.get(*col).map(|s| s.as_str()) {
                         None => "NULL".to_string(),
                         Some(s) if s.is_empty() => "''".to_string(),
                         Some(s) if s.eq_ignore_ascii_case("null") => "NULL".to_string(),
                         Some(s) => {
-                            // 尝试解析为数字
-                            if s.parse::<f64>().is_ok() {
-                                s.to_string()
-                            } else {
-                                // 字符串需要转义单引号
+                            // 根据类型判断是否需要引号
+                            if ColumnKind::from_str(kind).needs_quotes() {
                                 format!("'{}'", s.replace('\'', "''"))
+                            } else {
+                                s.to_string()
                             }
                         }
                     }

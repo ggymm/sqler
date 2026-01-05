@@ -115,31 +115,6 @@ impl DumpWindowBuilder {
 }
 
 impl DumpWindow {
-    fn choose_file(
-        &mut self,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let dir = document_dir()
-            .or_else(|| home_dir())
-            .unwrap_or_else(|| PathBuf::from("."));
-        let name = format!("{}.sql", self.table);
-        let future = cx.prompt_for_new_path(&dir, Some(name.as_str()));
-
-        let file = self.file.clone();
-        cx.spawn_in(window, async move |_, cx| {
-            if let Ok(Ok(Some(path))) = future.await {
-                let p = path.display().to_string();
-                let _ = cx.update(|window, cx| {
-                    file.update(cx, |state, cx| {
-                        state.set_value(&p, window, cx);
-                    });
-                });
-            }
-        })
-        .detach();
-    }
-
     fn start_dump(
         &mut self,
         window: &mut Window,
@@ -306,6 +281,31 @@ impl DumpWindow {
         })
         .detach();
     }
+
+    fn choose_file(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let dir = document_dir()
+            .or_else(|| home_dir())
+            .unwrap_or_else(|| PathBuf::from("."));
+        let name = format!("{}.sql", self.table);
+        let future = cx.prompt_for_new_path(&dir, Some(name.as_str()));
+
+        let file = self.file.clone();
+        cx.spawn_in(window, async move |_, cx| {
+            if let Ok(Ok(Some(path))) = future.await {
+                let p = path.display().to_string();
+                let _ = cx.update(|window, cx| {
+                    file.update(cx, |state, cx| {
+                        state.set_value(&p, window, cx);
+                    });
+                });
+            }
+        })
+        .detach();
+    }
 }
 
 impl Render for DumpWindow {
@@ -329,7 +329,7 @@ impl Render for DumpWindow {
                     .bg(theme.secondary)
                     .border_b_1()
                     .border_color(theme.border)
-                    .child(div().text_xl().font_semibold().child("表数据转储")),
+                    .child(div().text_xl().font_semibold().child("转储 SQL 文件")),
             )
             .child(
                 div()
@@ -355,7 +355,7 @@ impl Render for DumpWindow {
                                 "否"
                             })))
                             .child(
-                                field().label("输出路径").child(
+                                field().label("目标文件").child(
                                     div()
                                         .flex()
                                         .flex_row()
@@ -372,7 +372,7 @@ impl Render for DumpWindow {
                     .child(
                         Input::new(&self.output)
                             .h_full()
-                            .text_sm()
+                            .text_xs()
                             .font_family(theme.mono_font_family.clone()),
                     ),
             )

@@ -17,7 +17,6 @@ serde_json.workspace = true
 
 tracing.workspace = true
 
-mongodb.workspace = true
 mysql.workspace = true
 postgres.workspace = true
 redis.workspace = true

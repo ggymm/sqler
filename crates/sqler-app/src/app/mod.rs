@@ -24,10 +24,7 @@ pub enum WindowKind {
         table: String,
         source: DataSource,
     },
-    Exec {
-        table: String,
-        source: DataSource,
-    },
+    Exec(DataSource),
     Export(DataSource),
     Import(DataSource),
     Create(Option<DataSource>),
@@ -37,7 +34,7 @@ impl WindowKind {
     fn tag(&self) -> &'static str {
         match self {
             WindowKind::Dump { .. } => "dump",
-            WindowKind::Exec { .. } => "exec",
+            WindowKind::Exec(_) => "exec",
             WindowKind::Export(_) => "export",
             WindowKind::Import(_) => "import",
             WindowKind::Create(_) => "create",
@@ -228,10 +225,10 @@ impl SqlerApp {
                             .build(window, cx)
                     })
                     .into(),
-                WindowKind::Exec { table, source } => cx
+                WindowKind::Exec(source) => cx
                     .new(|cx| {
                         // 构建 Exec 窗口
-                        ExecWindowBuilder::new().table(table).source(source).build(window, cx)
+                        ExecWindowBuilder::new().source(source).build(window, cx)
                     })
                     .into(),
                 WindowKind::Export(source) => cx

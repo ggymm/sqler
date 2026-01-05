@@ -194,7 +194,7 @@ fn main() {
         }
         Operation::Exec => {
             let exec_config = config.exec.as_ref().expect("Exec 配置缺失");
-            exec::run(&mut session, exec_config, &task_dir);
+            exec::run(&mut session, exec_config);
         }
         Operation::Import => {
             tracing::error!("Import 功能尚未实现");

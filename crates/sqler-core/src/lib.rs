@@ -119,7 +119,7 @@ pub enum ColumnKind {
 }
 
 impl ColumnKind {
-    pub fn label(&self) -> &'static str {
+    pub fn name(&self) -> &'static str {
         match self {
             ColumnKind::TinyInt => "TINYINT",
             ColumnKind::SmallInt => "SMALLINT",
@@ -151,6 +151,65 @@ impl ColumnKind {
             ColumnKind::ZSet => "ZSET",
             ColumnKind::Unknown => "UNKNOWN",
         }
+    }
+
+    pub fn from_str(type_str: &str) -> Self {
+        // 提取基础类型（去掉参数）
+        let base = type_str
+            .split('(')
+            .next()
+            .unwrap_or(type_str)
+            .trim()
+            .to_uppercase();
+
+        match base.as_str() {
+            "TINYINT" => Self::TinyInt,
+            "SMALLINT" => Self::SmallInt,
+            "INT" | "INTEGER" | "MEDIUMINT" => Self::Int,
+            "BIGINT" => Self::BigInt,
+            "FLOAT" => Self::Float,
+            "DOUBLE" | "REAL" | "DOUBLE PRECISION" => Self::Double,
+            "DECIMAL" | "NUMERIC" => Self::Decimal,
+            "CHAR" | "CHARACTER" => Self::Char,
+            "VARCHAR" | "CHARACTER VARYING" => Self::VarChar,
+            "TEXT" | "TINYTEXT" | "MEDIUMTEXT" | "LONGTEXT" | "CLOB" => Self::Text,
+            "BINARY" => Self::Binary,
+            "VARBINARY" => Self::VarBinary,
+            "BLOB" | "TINYBLOB" | "MEDIUMBLOB" | "LONGBLOB" | "BYTEA" => Self::Blob,
+            "DATE" => Self::Date,
+            "TIME" => Self::Time,
+            "DATETIME" => Self::DateTime,
+            "TIMESTAMP" | "TIMESTAMPTZ" => Self::Timestamp,
+            "BOOLEAN" | "BOOL" => Self::Boolean,
+            "JSON" | "JSONB" => Self::Json,
+            "UUID" => Self::Uuid,
+            "ENUM" => Self::Enum,
+            "SET" => Self::Set,
+            _ => Self::Unknown,
+        }
+    }
+
+    pub fn needs_quotes(&self) -> bool {
+        matches!(
+            self,
+            Self::Char
+                | Self::VarChar
+                | Self::Text
+                | Self::Binary
+                | Self::VarBinary
+                | Self::Blob
+                | Self::Date
+                | Self::Time
+                | Self::DateTime
+                | Self::Timestamp
+                | Self::Uuid
+                | Self::Enum
+                | Self::Set
+                | Self::Json
+                | Self::Document
+                | Self::String
+                | Self::Unknown
+        )
     }
 }
 

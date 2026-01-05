@@ -102,13 +102,7 @@ impl CommonWorkspace {
                 };
                 let source = self.source.clone();
                 let _ = parent.update(cx, |app, cx| {
-                    app.create_window(
-                        WindowKind::Exec {
-                            table: a.table.clone(),
-                            source,
-                        },
-                        cx,
-                    );
+                    app.create_window(WindowKind::Exec(source), cx);
                 });
             }
         }

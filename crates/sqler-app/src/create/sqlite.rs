@@ -47,8 +47,8 @@ impl SQLiteCreate {
 
         let filepath = self.filepath.clone();
         cx.spawn_in(window, async move |_, cx| {
-            if let Ok(Ok(Some(mut paths))) = path.await {
-                if let Some(path) = paths.pop() {
+            if let Ok(Ok(Some(paths))) = path.await {
+                if let Some(path) = paths.first() {
                     let p = path.display().to_string();
                     let _ = cx.update(|window, cx| {
                         filepath.update(cx, |this, cx| {
